@@ -58,6 +58,7 @@ class McscanRequest:
     optimize_figsize: bool = False
     rewrite_layout_links: bool = False
     trim_cross_chromosome_blocks: bool = False
+    console_log: bool = False
 
     @property
     def species(self) -> list[GenomeInputSpec]:

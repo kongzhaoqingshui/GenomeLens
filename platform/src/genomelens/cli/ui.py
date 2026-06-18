@@ -7,12 +7,15 @@ import argparse
 import os
 import re
 import sys
+import time
 import unicodedata
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, TextIO
 
 from genomelens.analysis.methods.registry import list_methods
+from genomelens.analysis.request_models import AnalysisRequest
+from genomelens.app.events.signal_bus import Event, SignalBus
 from genomelens.core.summary_models import CheckReport, PairwiseJobSummary, RunSummary
 
 # endregion
@@ -35,6 +38,34 @@ class CliPalette:
 
 
 PALETTE = CliPalette()
+STATE_LABELS = {
+    "PENDING": "等待开始",
+    "VALIDATING_INPUTS": "校验输入",
+    "PREPROCESSING_ANNOTATIONS": "预处理",
+    "PREPARING_WORKSPACE": "准备工作区",
+    "CHECKING_TOOLCHAIN": "检查工具链",
+    "WRITING_MANIFEST": "写入清单",
+    "RUNNING_ENGINE": "运行引擎",
+    "PARSING_ENGINE_SUMMARY": "解析摘要",
+    "FINALIZING": "整理结果",
+    "SUCCEEDED": "已完成",
+    "FAILED": "运行失败",
+    "CANCELLED": "已取消",
+}
+STATE_PROGRESS = {
+    "PENDING": 0.0,
+    "VALIDATING_INPUTS": 0.08,
+    "PREPROCESSING_ANNOTATIONS": 0.18,
+    "PREPARING_WORKSPACE": 0.28,
+    "CHECKING_TOOLCHAIN": 0.42,
+    "WRITING_MANIFEST": 0.56,
+    "RUNNING_ENGINE": 0.78,
+    "PARSING_ENGINE_SUMMARY": 0.9,
+    "FINALIZING": 0.96,
+    "SUCCEEDED": 1.0,
+    "FAILED": 1.0,
+    "CANCELLED": 1.0,
+}
 
 
 # region 内部格式操作函数
@@ -95,6 +126,171 @@ def _boxed(lines: list[str], *, enabled: bool, min_width: int = 0) -> list[str]:
         body.append(f"{bar} {line}{padding} {bar}")
 
     return [top, *body, bottom]
+
+
+# endregion
+
+
+# region 进度渲染
+def _duration_text(seconds: float) -> str:
+    """把秒数转成 m:ss 文本"""
+
+    total = max(0, int(seconds))
+    minutes, seconds = divmod(total, 60)
+    return f"{minutes}:{seconds:02d}"
+
+
+def _progress_bar(progress: float, *, enabled: bool, width: int = 24) -> str:
+    """渲染单行进度条"""
+
+    clamped = max(0.0, min(progress, 1.0))
+    filled = min(width, max(0, int(round(clamped * width))))
+    return _paint("━" * filled, PALETTE.magenta, enabled=enabled) + _paint(
+        "━" * (width - filled),
+        PALETTE.gray,
+        enabled=enabled,
+    )
+
+
+def _pair_count(request: AnalysisRequest) -> int:
+    """根据请求估算总 pairwise 数量"""
+
+    species_count = len(request.input.species)
+    if species_count < 2:
+        return 1
+
+    if request.method_config.get("target_gene_ids"):
+        return max(1, species_count - 1)
+
+    return max(1, species_count * (species_count - 1) // 2)
+
+
+def _default_pair_label(request: AnalysisRequest) -> str:
+    """为单 pair 或初始状态提供默认标签"""
+
+    species = request.input.species
+    if len(species) >= 2:
+        return f"{species[0].name} vs {species[1].name}"
+    if species:
+        return species[0].name
+    return ""
+
+
+class CliProgressReporter:
+    """CLI 进度条/状态行渲染器"""
+
+    def __init__(
+        self,
+        request: AnalysisRequest,
+        *,
+        color: bool | None = None,
+        stream: TextIO | None = None,
+    ) -> None:
+        self._request = request
+        self._stream = stream or sys.stderr
+        self._enabled = _supports_color(self._stream) if color is None else color
+        self._interactive = bool(getattr(self._stream, "isatty", lambda: False)())
+        self._started_at = time.perf_counter()
+        self._total_pairs = _pair_count(request)
+        self._completed_pairs = 0
+        self._active_pair_index = 1
+        self._active_pair_label = _default_pair_label(request)
+        self._state = "PENDING"
+        self._last_line = ""
+        self._last_width = 0
+
+    def attach(self, signal_bus: SignalBus) -> None:
+        """订阅 SignalBus 事件"""
+
+        signal_bus.subscribe(self.handle)
+
+    def handle(self, event: Event) -> None:
+        """消费状态与 pair 事件并刷新输出"""
+
+        if event.name == "state":
+            state = str(event.payload.get("state") or "")
+            if state:
+                if self._total_pairs > 1 and state == "SUCCEEDED" and self._completed_pairs < self._total_pairs:
+                    return
+                self._state = state
+                self._render()
+            return
+
+        if event.name == "pair_started":
+            self._active_pair_index = int(event.payload.get("index") or self._active_pair_index)
+            query = str(event.payload.get("query") or "")
+            subject = str(event.payload.get("subject") or "")
+            self._active_pair_label = f"{query} vs {subject}" if query and subject else self._active_pair_label
+            self._render()
+            return
+
+        if event.name == "pair_finished":
+            self._active_pair_index = int(event.payload.get("index") or self._active_pair_index)
+            self._completed_pairs = max(self._completed_pairs, self._active_pair_index)
+            status = str(event.payload.get("status") or "")
+            if status == "FAILED":
+                self._state = "FAILED"
+            self._render()
+
+    def finish(self) -> None:
+        """结束渲染，确保交互式终端换行"""
+
+        if self._interactive and self._last_line:
+            self._stream.write("\n")
+            self._stream.flush()
+            self._last_line = ""
+            self._last_width = 0
+
+    def _overall_progress(self) -> float:
+        if self._total_pairs <= 1:
+            return STATE_PROGRESS.get(self._state, 0.0)
+
+        if self._state in {"PENDING", "VALIDATING_INPUTS", "PREPARING_WORKSPACE"}:
+            return min(0.12, STATE_PROGRESS.get(self._state, 0.0) * 0.4)
+
+        if self._state in {"SUCCEEDED", "FAILED", "CANCELLED"} and self._completed_pairs >= self._total_pairs:
+            return 1.0
+
+        if self._completed_pairs >= self._total_pairs:
+            return max(0.92, STATE_PROGRESS.get(self._state, 0.96))
+
+        pair_phase = STATE_PROGRESS.get(self._state, 0.0)
+        active_completed = max(self._completed_pairs, self._active_pair_index - 1)
+        return min(0.9, 0.12 + ((active_completed + pair_phase) / self._total_pairs) * 0.78)
+
+    def _line_text(self) -> str:
+        progress = self._overall_progress()
+        percent = f"{int(round(progress * 100)):>3}%"
+        elapsed = _duration_text(time.perf_counter() - self._started_at)
+        state_label = STATE_LABELS.get(self._state, self._state)
+        pair_text = ""
+
+        if self._total_pairs > 1:
+            pair_text = f"{self._completed_pairs}/{self._total_pairs} {self._active_pair_label}".strip()
+        elif self._active_pair_label:
+            pair_text = self._active_pair_label
+
+        line = f"{state_label:<10} {_progress_bar(progress, enabled=self._enabled)} {percent} {elapsed}"
+        if pair_text:
+            line = f"{line}  {pair_text}"
+        return line
+
+    def _render(self) -> None:
+        line = self._line_text()
+        if line == self._last_line:
+            return
+
+        if self._interactive:
+            width = max(self._last_width, _visible_width(line))
+            padded = line + " " * max(0, width - _visible_width(line))
+            self._stream.write("\r" + padded)
+            self._stream.flush()
+            self._last_width = width
+        else:
+            self._stream.write(line + "\n")
+            self._stream.flush()
+
+        self._last_line = line
 
 
 # endregion
@@ -498,6 +694,15 @@ def render_analysis_summary(summary: RunSummary | dict[str, object], *, color: b
                 f"{_paint(run_summary_path, PALETTE.gray, enabled=enabled)}",
             ]
         )  # noqa: E501
+
+    run_log_path = ""
+    if isinstance(logs, dict):
+        run_log_path = str(logs.get("run_log") or "")
+
+    if run_log_path:
+        lines.append(
+            f"{_paint('运行日志', PALETTE.gray, enabled=enabled)} {_paint(run_log_path, PALETTE.gray, enabled=enabled)}"
+        )
 
     lines.append("")
 

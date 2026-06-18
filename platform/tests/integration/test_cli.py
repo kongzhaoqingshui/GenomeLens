@@ -280,6 +280,7 @@ def test_analyze_mcscan_log_level_overrides_verbose(tmp_path: Path, monkeypatch)
     def fake_provider_run(_self, request, _signal_bus):
         captured["log_level"] = request.options.log_level
         captured["verbose"] = request.options.verbose
+        captured["console_log"] = request.options.console_log
         return RunSummary(
             status="SUCCEEDED",
             schema_version=2,
@@ -315,6 +316,7 @@ def test_analyze_mcscan_log_level_overrides_verbose(tmp_path: Path, monkeypatch)
     assert code == 0
     assert captured["log_level"] == "ERROR"
     assert captured["verbose"] is True
+    assert captured["console_log"] is True
 
 
 def test_analyze_mcscan_uses_configured_log_level(tmp_path: Path, monkeypatch) -> None:
@@ -340,6 +342,7 @@ def test_analyze_mcscan_uses_configured_log_level(tmp_path: Path, monkeypatch) -
 
     def fake_provider_run(_self, request, _signal_bus):
         captured["log_level"] = request.options.log_level
+        captured["console_log"] = request.options.console_log
         return RunSummary(
             status="SUCCEEDED",
             schema_version=2,
@@ -362,6 +365,118 @@ def test_analyze_mcscan_uses_configured_log_level(tmp_path: Path, monkeypatch) -
 
     assert code == 0
     assert captured["log_level"] == "WARNING"
+    assert captured["console_log"] is False
+
+
+def test_analyze_mcscan_default_cli_uses_progress_reporter(tmp_path: Path, monkeypatch, capsys) -> None:
+    root = Path(__file__).resolve().parents[3]
+    sample = root / "references" / "samples" / "shell" / "bed_cds_minimal"
+    input_dir = tmp_path / "input-progress"
+    _copy_species_files(input_dir, sample, ["query.bed", "query.cds", "subject.bed", "subject.cds"])
+    outdir = tmp_path / "out-progress"
+
+    def fake_provider_run(_self, _request, signal_bus):
+        signal_bus.emit("state", state="VALIDATING_INPUTS")
+        signal_bus.emit("state", state="PREPARING_WORKSPACE")
+        signal_bus.emit("state", state="RUNNING_ENGINE")
+        return RunSummary(
+            status="SUCCEEDED",
+            schema_version=2,
+            workflow="mcscan",
+            method="mcscan",
+            task={"workflow": "mcscan"},
+            species=[],
+            final_figures=[],
+            artifact_index=[],
+            logs={},
+            ui=UiBlock(
+                "SUCCEEDED", 1.0, [], str(outdir / "report" / "run_summary.json"), str(outdir / "logs" / "run.log")
+            ),
+            scoring=ScoringBlock(),
+        )
+
+    monkeypatch.setattr("genomelens.analysis.methods.mcscan_provider.McscanWorkflowProvider.run", fake_provider_run)
+
+    code = main(["analyze", "mcscan", "jcvi", str(input_dir), str(outdir), "--force"])
+    captured = capsys.readouterr()
+
+    assert code == 0
+    assert "%" in captured.err
+    assert "task_started" not in captured.err
+
+
+def test_analyze_run_json_suppresses_progress_reporter(tmp_path: Path, monkeypatch, capsys) -> None:
+    root = Path(__file__).resolve().parents[3]
+    sample = root / "references" / "samples" / "shell" / "bed_cds_minimal"
+    outdir = tmp_path / "out-json-run"
+    request_path = tmp_path / "request.json"
+    request_path.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "kind": "analysis_request",
+                "method": "mcscan",
+                "input": {
+                    "mode": "bed_cds",
+                    "species": [
+                        {
+                            "name": "query",
+                            "input_mode": "bed_cds",
+                            "bed": str(sample / "query.bed"),
+                            "cds": str(sample / "query.cds"),
+                        },
+                        {
+                            "name": "subject",
+                            "input_mode": "bed_cds",
+                            "bed": str(sample / "subject.bed"),
+                            "cds": str(sample / "subject.cds"),
+                        },
+                    ],
+                },
+                "output": {
+                    "directory": str(outdir),
+                    "force": True,
+                    "formats": ["png"],
+                },
+                "config": {},
+                "options": {
+                    "preset": "auto",
+                    "min_block_size": 1,
+                },
+                "method_config": {
+                    "workflow": "graphics_synteny",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    def fake_provider_run(_self, _request, signal_bus):
+        signal_bus.emit("state", state="RUNNING_ENGINE")
+        return RunSummary(
+            status="SUCCEEDED",
+            schema_version=2,
+            workflow="mcscan",
+            method="mcscan",
+            task={"workflow": "mcscan"},
+            species=[],
+            final_figures=[],
+            artifact_index=[],
+            logs={},
+            ui=UiBlock(
+                "SUCCEEDED", 1.0, [], str(outdir / "report" / "run_summary.json"), str(outdir / "logs" / "run.log")
+            ),
+            scoring=ScoringBlock(),
+        )
+
+    monkeypatch.setattr("genomelens.analysis.methods.mcscan_provider.McscanWorkflowProvider.run", fake_provider_run)
+
+    code = main(["analyze", "run", str(request_path), "--json"])
+    captured = capsys.readouterr()
+
+    assert code == 0
+    assert captured.err == ""
+    assert json.loads(captured.out)["status"] == "SUCCEEDED"
 
 
 def test_analyze_run_dispatches_request_json(tmp_path: Path, monkeypatch) -> None:

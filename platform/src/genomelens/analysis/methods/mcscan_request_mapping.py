@@ -179,5 +179,6 @@ def to_mcscan_request(request: AnalysisRequest) -> McscanRequest:
         formats=request.output.formats,
         log_level=str(options.log_level or "INFO").upper(),
         verbose=bool(options.verbose),
+        console_log=bool(options.console_log),
         **mapped,
     )

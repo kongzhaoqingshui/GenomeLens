@@ -146,6 +146,8 @@ def _prepare_workspace(
         layout.logs / "run.log",
         level=request.log_level,
         logger_name=logger_name_for_path(layout.logs / "run.log"),
+        console=request.console_log,
+        concise=not request.verbose,
     )
     logger.info("Starting GenomeLens %s workflow", pairing_strategy)
 
@@ -220,12 +222,22 @@ def _run_pairwise_jobs(
     pairwise_jobs: list[PairwiseJobSummary] = []
     final_figures: list[str] = []
     pairwise_root = layout.intermediate / "pairwise"
+    pair_total = len(pairs)
 
-    for query, subject in pairs:
+    for pair_index, (query, subject) in enumerate(pairs, start=1):
         name = pair_id(query.name, subject.name)
         pair_outdir = pairwise_root / name
 
         pair_request = _narrow_request(original_request, query, subject, pair_outdir)
+        signal_bus.emit(
+            "pair_started",
+            pair_id=name,
+            index=pair_index,
+            total=pair_total,
+            query=query.name,
+            subject=subject.name,
+            outdir=str(pair_outdir),
+        )
 
         try:
             with task_scope(
@@ -247,6 +259,17 @@ def _run_pairwise_jobs(
                     error={"type": exc.__class__.__name__, "message": str(exc)},
                     final_figures=[],
                 )
+            )
+            signal_bus.emit(
+                "pair_finished",
+                pair_id=name,
+                index=pair_index,
+                total=pair_total,
+                status="FAILED",
+                query=query.name,
+                subject=subject.name,
+                outdir=str(pair_outdir),
+                error=str(exc),
             )
             continue
 
@@ -278,6 +301,16 @@ def _run_pairwise_jobs(
                 subject_bed=str(md.get("subject_bed", "")),
                 final_figures=copied_figures,
             )
+        )
+        signal_bus.emit(
+            "pair_finished",
+            pair_id=name,
+            index=pair_index,
+            total=pair_total,
+            status=pair_summary.status,
+            query=query.name,
+            subject=subject.name,
+            outdir=str(pair_outdir),
         )
 
     return pairwise_jobs, final_figures
@@ -358,6 +391,7 @@ class PairwiseAggregatedMultiSpecies:
         logger = logging.getLogger(logger_name_for_path(layout.logs / "run.log"))
         pairwise_jobs, final_figures = _run_pairwise_jobs(set_state, request, provider, layout, signal_bus, logger)
 
+        set_state(WorkflowState.FINALIZING)
         with task_scope(logger, task_id=mcscan_request.task_id, step="optimize_layout"):
             edges = _build_edges_for_layout_optimizer(pairwise_jobs)
             layout_result = self._layout_optimizer.optimize(mcscan_request.species, edges)

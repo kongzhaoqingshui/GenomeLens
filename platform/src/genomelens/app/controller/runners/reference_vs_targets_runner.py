@@ -44,6 +44,8 @@ def _prepare_reference_workspace(
         layout.logs / "run.log",
         level=request.log_level,
         logger_name=logger_name_for_path(layout.logs / "run.log"),
+        console=request.console_log,
+        concise=not request.verbose,
     )
     logger.info("Starting GenomeLens reference-vs-targets workflow")
 
