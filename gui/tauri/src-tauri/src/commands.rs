@@ -577,10 +577,16 @@ fn map_log_line_to_state(line: &str) -> Option<(String, f64)> {
     let step = extract_step(line)?;
     let state = match step.as_str() {
         "prepare_inputs" => "VALIDATING_INPUTS",
+        "prepare_multi_species_workspace" => "PREPARING_WORKSPACE",
         "resolve_toolchain" | "probe_engine" => "CHECKING_TOOLCHAIN",
         "write_manifest" => "WRITING_MANIFEST",
-        "run_engine" => "RUNNING_ENGINE",
-        "archive_figures" | "write_summary" => "FINALIZING",
+        "run_engine" | "run_pairwise_job" => "RUNNING_ENGINE",
+        "copy_pairwise_figures" => "PARSING_ENGINE_SUMMARY",
+        "archive_figures"
+        | "write_summary"
+        | "optimize_layout"
+        | "build_global_karyotype"
+        | "write_multi_summary" => "FINALIZING",
         _ => return None,
     };
 
@@ -684,7 +690,7 @@ fn system_time_to_iso_like(time: SystemTime) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::drain_buffered_log_lines;
+    use super::{drain_buffered_log_lines, map_log_line_to_state};
 
     #[test]
     fn drains_complete_lines_without_flushing_partial_tail() {
@@ -702,5 +708,51 @@ mod tests {
 
         assert_eq!(lines, vec!["line-1", "line-2"]);
         assert!(partial.is_empty());
+    }
+
+    #[test]
+    fn maps_multi_species_steps_to_monotonic_workflow_states() {
+        let mappings = [
+            (
+                "task_started step=prepare_multi_species_workspace status=running",
+                "PREPARING_WORKSPACE",
+                0.28_f64,
+            ),
+            (
+                "task_started step=run_pairwise_job status=running",
+                "RUNNING_ENGINE",
+                0.78_f64,
+            ),
+            (
+                "task_finished step=copy_pairwise_figures status=ok",
+                "PARSING_ENGINE_SUMMARY",
+                0.90_f64,
+            ),
+            (
+                "task_started step=optimize_layout status=running",
+                "FINALIZING",
+                0.96_f64,
+            ),
+            (
+                "task_started step=build_global_karyotype status=running",
+                "FINALIZING",
+                0.96_f64,
+            ),
+            (
+                "task_finished step=write_multi_summary status=ok",
+                "FINALIZING",
+                0.96_f64,
+            ),
+        ];
+
+        let mut previous_progress = 0.0_f64;
+        for (line, expected_state, expected_progress) in mappings {
+            let (state, progress) =
+                map_log_line_to_state(line).expect("expected mapped workflow state");
+            assert_eq!(state, expected_state);
+            assert_eq!(progress, expected_progress);
+            assert!(progress >= previous_progress);
+            previous_progress = progress;
+        }
     }
 }
