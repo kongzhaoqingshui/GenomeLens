@@ -5,9 +5,13 @@ vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn((command: string) => {
     if (command === "get_template") {
       return Promise.resolve({
+        schema_version: 1,
         kind: "analysis_request",
         method: "mcscan",
-        input: { mode: "auto_directory" },
+        input: { mode: "auto_directory", directory: "" },
+        output: { directory: "", force: false, formats: ["png"] },
+        options: { preset: "auto", threads: null, min_block_size: null, log_level: "INFO" },
+        method_config: { workflow: "graphics_synteny", align_soft: "blast", dbtype: "nucl" },
       });
     }
     if (command === "get_analysis_schema") {
@@ -59,6 +63,8 @@ describe("App", () => {
 
     expect(window.location.hash).toBe("#/analysis/new");
     expect(screen.getByText(/任务创建向导入口/)).toBeInTheDocument();
-    expect(await screen.findByText("get_template('mcscan')")).toBeInTheDocument();
+    expect(await screen.findByText("MCSCAN 分析向导")).toBeInTheDocument();
+    expect(screen.getByText("validateAnalysisRequestDraft()")).toBeInTheDocument();
+    expect(screen.getByText("draftToAnalysisRequest()")).toBeInTheDocument();
   });
 });
