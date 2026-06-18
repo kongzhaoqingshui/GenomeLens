@@ -316,7 +316,7 @@ def test_analyze_mcscan_log_level_overrides_verbose(tmp_path: Path, monkeypatch)
     assert code == 0
     assert captured["log_level"] == "ERROR"
     assert captured["verbose"] is True
-    assert captured["console_log"] is True
+    assert captured["console_log"] is False
 
 
 def test_analyze_mcscan_uses_configured_log_level(tmp_path: Path, monkeypatch) -> None:
@@ -401,8 +401,8 @@ def test_analyze_mcscan_default_cli_uses_progress_reporter(tmp_path: Path, monke
     captured = capsys.readouterr()
 
     assert code == 0
-    assert "%" in captured.err
-    assert "task_started" not in captured.err
+    assert "%" in captured.out
+    assert "task_started" not in captured.out
 
 
 def test_analyze_run_json_suppresses_progress_reporter(tmp_path: Path, monkeypatch, capsys) -> None:

@@ -142,7 +142,7 @@ def _prepare_multi_species_workspace(
         level=request.log_level,
         logger_name=logger_name_for_path(layout.logs / "run.log"),
         console=request.console_log,
-        concise=not request.verbose,
+        concise=True,
     )
     logger.info("Starting GenomeLens multi-species workflow")
 
