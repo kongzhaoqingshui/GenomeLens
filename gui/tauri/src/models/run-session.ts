@@ -1,4 +1,5 @@
 import type { RunSummary } from "./run-summary";
+import { runSummaryToViewModel, type RunSummaryViewModel } from "./run-summary-view";
 
 export type WorkflowState =
   | "PENDING"
@@ -87,3 +88,81 @@ export const ANALYSIS_EVENT_NAMES: AnalysisEventName[] = [
   "analysis:finished",
   "analysis:error",
 ];
+
+export interface AnalysisRunState {
+  runId: string;
+  outdir: string;
+  requestPath: string;
+  status: WorkflowState;
+  progress: number;
+  startedAt?: string;
+  finished: boolean;
+  error?: AnalysisErrorEventPayload;
+  summary?: RunSummary;
+  summaryView?: RunSummaryViewModel;
+  logLines: string[];
+  lastLogLine?: string;
+}
+
+export function createAnalysisRunState(handle: RunHandle): AnalysisRunState {
+  return {
+    runId: handle.runId,
+    outdir: handle.outdir,
+    requestPath: handle.requestPath,
+    status: handle.status,
+    progress: 0,
+    startedAt: handle.startedAt,
+    finished: false,
+    logLines: [],
+  };
+}
+
+export function appendRunLogLines(
+  state: AnalysisRunState,
+  incomingLines: string[],
+  maxLines = 200,
+): AnalysisRunState {
+  const normalized = incomingLines.filter((line) => line.trim().length > 0);
+  if (normalized.length === 0) {
+    return state;
+  }
+
+  const nextLines = [...state.logLines, ...normalized];
+  const keptLines = nextLines.length > maxLines ? nextLines.slice(nextLines.length - maxLines) : nextLines;
+
+  return {
+    ...state,
+    logLines: keptLines,
+    lastLogLine: normalized[normalized.length - 1],
+  };
+}
+
+export function applyAnalysisEvent(state: AnalysisRunState, event: AnalysisEvent): AnalysisRunState {
+  switch (event.name) {
+    case "analysis:stdout":
+      return appendRunLogLines(state, [event.payload.line]);
+    case "analysis:state":
+      return {
+        ...state,
+        status: event.payload.state,
+        progress: event.payload.progress,
+      };
+    case "analysis:finished":
+      return {
+        ...state,
+        status: event.payload.status,
+        progress: 1,
+        finished: true,
+        summary: event.payload.summary,
+        summaryView:
+          event.payload.summary === undefined ? state.summaryView : runSummaryToViewModel(event.payload.summary),
+      };
+    case "analysis:error":
+      return {
+        ...state,
+        error: event.payload,
+      };
+    default:
+      return state;
+  }
+}
