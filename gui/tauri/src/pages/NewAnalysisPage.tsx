@@ -13,8 +13,12 @@ import type {
 } from "../models/analysis-request";
 import type { AnalysisRequestDraft, SpeciesInputDraft } from "../models/analysis-request-draft";
 import { draftToAnalysisRequest } from "../models/analysis-request-draft";
-import type { AnalysisEvent, RunHandle, WorkflowState } from "../models/run-session";
-import type { RunSummaryViewModel } from "../models/run-summary-view";
+import {
+  appendRunLogLines,
+  applyAnalysisEvent,
+  createAnalysisRunState,
+  type AnalysisRunState,
+} from "../models/run-session";
 import { validateAnalysisRequestDraft, type ValidationIssue } from "../models/validation";
 import type { AppRoute } from "../routes/routes";
 import { getAnalysisSchema, getTemplateDraft, type JsonObject } from "../services/analysis";
@@ -126,16 +130,6 @@ function toProgressPercent(value: number): number {
   return value <= 1 ? value * 100 : value;
 }
 
-function eventRunId(event: AnalysisEvent): string | undefined {
-  const payload = event.payload as unknown;
-  if (typeof payload !== "object" || payload === null) {
-    return undefined;
-  }
-  const fields = payload as Record<string, unknown>;
-  const value = fields.runId ?? fields.run_id;
-  return typeof value === "string" ? value : undefined;
-}
-
 function coerceDialogPath(value: string | string[] | null): string | null {
   if (Array.isArray(value)) {
     return value[0] ?? null;
@@ -149,12 +143,8 @@ export default function NewAnalysisPage({ route }: NewAnalysisPageProps) {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [runStatus, setRunStatus] = useState<RunPanelStatus>("idle");
-  const [workflowState, setWorkflowState] = useState<WorkflowState>("PENDING");
-  const [progress, setProgress] = useState(0);
-  const [runHandle, setRunHandle] = useState<RunHandle | null>(null);
+  const [runState, setRunState] = useState<AnalysisRunState | null>(null);
   const [runError, setRunError] = useState<string | null>(null);
-  const [logLines, setLogLines] = useState<string[]>([]);
-  const [summaryView, setSummaryView] = useState<RunSummaryViewModel | null>(null);
   const [pendingRequestJson, setPendingRequestJson] = useState("");
 
   useEffect(() => {
@@ -189,6 +179,7 @@ export default function NewAnalysisPage({ route }: NewAnalysisPageProps) {
   const requestJson = useMemo(() => (draft ? stringifyJson(draftToAnalysisRequest(draft)) : ""), [draft]);
   const schemaJson = useMemo(() => (schema ? stringifyJson(schema) : ""), [schema]);
   const targetGeneText = draft?.mcscan.targetGeneIds.join("\n") ?? "";
+  const activeRunId = runState?.runId;
 
   useEffect(() => {
     let active = true;
@@ -199,25 +190,20 @@ export default function NewAnalysisPage({ route }: NewAnalysisPageProps) {
         return;
       }
 
-      const incomingRunId = eventRunId(event);
-      if (incomingRunId && runHandle?.runId && incomingRunId !== runHandle.runId) {
+      if (activeRunId && event.payload.runId !== activeRunId) {
         return;
       }
 
+      setRunState((current) => (current ? applyAnalysisEvent(current, event) : current));
+
       if (event.name === "analysis:stdout") {
-        setRunStatus((current) => (current === "idle" || current === "confirming" || current === "starting" ? "running" : current));
-        setLogLines((current) => [...current, event.payload.line].slice(-80));
+        setRunStatus((current) =>
+          current === "idle" || current === "confirming" || current === "starting" ? "running" : current,
+        );
       } else if (event.name === "analysis:state") {
         setRunStatus((current) => (current === "finished" || current === "error" ? current : "running"));
-        setWorkflowState(event.payload.state);
-        setProgress(toProgressPercent(event.payload.progress));
       } else if (event.name === "analysis:finished") {
         setRunStatus(event.payload.status === "SUCCEEDED" ? "finished" : "error");
-        setWorkflowState(event.payload.status);
-        setProgress(100);
-        if (event.payload.summary) {
-          setSummaryView(null);
-        }
       } else {
         setRunStatus("error");
         setRunError(event.payload.message);
@@ -234,19 +220,21 @@ export default function NewAnalysisPage({ route }: NewAnalysisPageProps) {
       active = false;
       stopListening?.();
     };
-  }, [runHandle?.runId]);
+  }, [activeRunId]);
 
   useEffect(() => {
-    if (!runHandle || runStatus !== "finished") {
+    if (!runState || !runState.finished || runState.summaryView !== undefined) {
       return;
     }
 
-    void readSummaryView({ outdir: runHandle.outdir })
-      .then(setSummaryView)
+    void readSummaryView({ outdir: runState.outdir })
+      .then((nextSummaryView) => {
+        setRunState((current) => (current ? { ...current, summaryView: nextSummaryView } : current));
+      })
       .catch((error: unknown) => {
         setRunError(error instanceof Error ? error.message : String(error));
       });
-  }, [runHandle, runStatus]);
+  }, [runState]);
 
   function patchDraft(patch: Partial<AnalysisRequestDraft>) {
     setDraft((current) => (current ? { ...current, ...patch } : current));
@@ -338,18 +326,13 @@ export default function NewAnalysisPage({ route }: NewAnalysisPageProps) {
 
     setRunStatus("starting");
     setRunError(null);
-    setRunHandle(null);
-    setSummaryView(null);
-    setWorkflowState("PENDING");
-    setProgress(0);
-    setLogLines([]);
+    setRunState(null);
 
     try {
       await mkdir(draft.outputDirectory, { recursive: true });
       await writeTextFile(requestPath, `${json}\n`);
       const handle = await runAnalysis({ requestPath, outdir: draft.outputDirectory });
-      setRunHandle(handle);
-      setWorkflowState(handle.status);
+      setRunState(createAnalysisRunState(handle));
       setRunStatus("running");
       setPendingRequestJson("");
     } catch (error: unknown) {
@@ -359,38 +342,44 @@ export default function NewAnalysisPage({ route }: NewAnalysisPageProps) {
   }
 
   async function handleReadSummary() {
-    if (!draft && !runHandle) {
+    if (!draft && !runState) {
       return;
     }
-    const outdir = runHandle?.outdir ?? draft?.outputDirectory ?? "";
+    const outdir = runState?.outdir ?? draft?.outputDirectory ?? "";
     if (!outdir) {
       return;
     }
     try {
-      setSummaryView(await readSummaryView({ outdir }));
+      const nextSummaryView = await readSummaryView({ outdir });
+      setRunState((current) => (current ? { ...current, summaryView: nextSummaryView } : current));
     } catch (error: unknown) {
       setRunError(error instanceof Error ? error.message : String(error));
     }
   }
 
   async function handleReadLog() {
-    if (!draft && !runHandle) {
+    if (!draft && !runState) {
       return;
     }
-    const outdir = runHandle?.outdir ?? draft?.outputDirectory ?? "";
+    const outdir = runState?.outdir ?? draft?.outputDirectory ?? "";
     if (!outdir) {
       return;
     }
     try {
       const snapshot = await readRunLog({ outdir, tailLines: 80 });
-      setLogLines(snapshot.lines);
+      setRunState((current) => {
+        if (!current) {
+          return current;
+        }
+        return appendRunLogLines({ ...current, logLines: [], lastLogLine: undefined }, snapshot.lines);
+      });
     } catch (error: unknown) {
       setRunError(error instanceof Error ? error.message : String(error));
     }
   }
 
   async function handleOpenOutput() {
-    const outdir = runHandle?.outdir ?? draft?.outputDirectory ?? "";
+    const outdir = runState?.outdir ?? draft?.outputDirectory ?? "";
     if (outdir) {
       await openPath({ path: outdir });
     }
@@ -426,6 +415,10 @@ export default function NewAnalysisPage({ route }: NewAnalysisPageProps) {
   const outputIssue = issueFor(validation.issues, "output.directory");
   const threadsIssue = issueFor(validation.issues, "options.threads");
   const minBlockIssue = issueFor(validation.issues, "options.min_block_size");
+  const workflowState = runState?.status ?? "PENDING";
+  const progress = toProgressPercent(runState?.progress ?? 0);
+  const logLines = runState?.logLines ?? [];
+  const summaryView = runState?.summaryView ?? null;
 
   return (
     <div className="grid w-full gap-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(23rem,0.85fr)]">
@@ -874,10 +867,10 @@ export default function NewAnalysisPage({ route }: NewAnalysisPageProps) {
             <div className="h-2 overflow-hidden rounded-full bg-ice-100 dark:bg-ice-900/40">
               <div className="h-full rounded-full bg-ice-500 transition-all" style={{ width: `${Math.max(0, Math.min(progress, 100))}%` }} />
             </div>
-            {runHandle ? (
+            {runState ? (
               <div className="grid gap-1 font-mono text-xs text-text-tertiary">
-                <span>runId: {runHandle.runId}</span>
-                <span>outdir: {runHandle.outdir}</span>
+                <span>runId: {runState.runId}</span>
+                <span>outdir: {runState.outdir}</span>
               </div>
             ) : null}
             {runError ? <p className="text-sm font-medium text-rose-600 dark:text-rose-300">{runError}</p> : null}
