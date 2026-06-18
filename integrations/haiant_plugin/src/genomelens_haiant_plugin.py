@@ -15,13 +15,13 @@ from __future__ import annotations
 import json
 import logging
 import os
-import shutil
 import subprocess
 import sys
 from pathlib import Path
 
 
 LOGGER_NAME = "genomelens_haiant_plugin"
+SUPPORTED_WORKFLOWS = {"graphics_synteny"}
 
 
 class PluginError(Exception):
@@ -100,9 +100,7 @@ def _formats(value: object) -> list[str]:
     return [item for item in items if item] or ["png"]
 
 
-def _species_from_params(
-    params: dict[str, object], base: Path, mode: str
-) -> list[dict[str, object]]:
+def _species_from_params(params: dict[str, object], base: Path, mode: str) -> list[dict[str, object]]:
     species_payload = params.get("species")
     if not isinstance(species_payload, list) or not species_payload:
         raise PluginError("species must contain at least two entries")
@@ -116,12 +114,8 @@ def _species_from_params(
                 {
                     "name": name,
                     "input_mode": "bed_cds",
-                    "bed": resolve_param_path(
-                        base, item.get("bed"), required=True, must_exist=True
-                    ),
-                    "cds": resolve_param_path(
-                        base, item.get("cds"), required=True, must_exist=True
-                    ),
+                    "bed": resolve_param_path(base, item.get("bed"), required=True, must_exist=True),
+                    "cds": resolve_param_path(base, item.get("cds"), required=True, must_exist=True),
                 }
             )
         elif mode == "gff_genome":
@@ -129,12 +123,8 @@ def _species_from_params(
                 {
                     "name": name,
                     "input_mode": "gff_genome",
-                    "gff": resolve_param_path(
-                        base, item.get("gff"), required=True, must_exist=True
-                    ),
-                    "genome": resolve_param_path(
-                        base, item.get("genome"), required=True, must_exist=True
-                    ),
+                    "gff": resolve_param_path(base, item.get("gff"), required=True, must_exist=True),
+                    "genome": resolve_param_path(base, item.get("genome"), required=True, must_exist=True),
                 }
             )
         else:
@@ -148,53 +138,42 @@ def _optional_path(base: Path, value: object) -> str:
     return resolve_param_path(base, value, must_exist=bool(value))
 
 
-def _prepare_input_directory(
-    params: dict[str, object], base: Path, output_dir: Path
-) -> Path:
-    """把平台显式物种清单拷贝到临时输入目录，供 `analyze mcscan` 自动发现。"""
+def _workflow(params: dict[str, object]) -> str:
+    """返回插件允许暴露的 GenomeLens workflow"""
 
-    mode = str(params.get("input_mode") or "bed_cds")
-    input_dir = output_dir / ".genomelens_plugin_input"
-    input_dir.mkdir(parents=True, exist_ok=True)
-
-    for species in _species_from_params(params, base, mode):
-        name = str(species["name"])
-        if mode == "bed_cds":
-            bed_src = Path(str(species["bed"]))
-            cds_src = Path(str(species["cds"]))
-            ext = bed_src.suffix
-            shutil.copy2(bed_src, input_dir / f"{name}{ext}")
-            cds_ext = cds_src.suffix
-            shutil.copy2(cds_src, input_dir / f"{name}{cds_ext}")
-        else:
-            gff_src = Path(str(species["gff"]))
-            genome_src = Path(str(species["genome"]))
-            shutil.copy2(gff_src, input_dir / f"{name}{gff_src.suffix}")
-            shutil.copy2(genome_src, input_dir / f"{name}{genome_src.suffix}")
-
-    return input_dir
+    workflow = str(params.get("workflow") or "graphics_synteny").strip()
+    if workflow not in SUPPORTED_WORKFLOWS:
+        allowed = ", ".join(sorted(SUPPORTED_WORKFLOWS))
+        raise PluginError(f"Unsupported HAIant workflow: {workflow}. Supported workflow: {allowed}")
+    return workflow
 
 
-def _append_if_truthy(argv: list[str], flag: str, value: object) -> None:
-    """当值非空时追加 CLI 参数"""
+def _reference_index(params: dict[str, object], species: list[dict[str, object]]) -> int:
+    """解析参考物种索引"""
 
-    if value is None:
-        return
+    value = params.get("reference")
+    if value is None or str(value).strip() == "":
+        return 0
     text = str(value).strip()
-    if text:
-        argv.extend([flag, text])
+    if text.isdigit():
+        index = int(text) - 1
+    else:
+        names = [str(item.get("name") or "") for item in species]
+        if text not in names:
+            raise PluginError(f"Reference species not found: {text}")
+        index = names.index(text)
+    if not 0 <= index < len(species):
+        raise PluginError(f"Reference index out of range: {value}")
+    return index
 
 
 def write_runtime_request(params: dict[str, object], base: Path) -> Path:
-    """写入 GenomeLens analysis request(JSON 请求)，并返回请求文件路径。
-
-    当前 CLI 已移除 `analyze run`，本函数仅保留为轨迹文件；实际运行时通过
-    `analyze mcscan` 目录发现模式调用。
-    """
+    """写入 GenomeLens analysis request(JSON 请求)，并返回请求文件路径"""
 
     mode = str(params.get("input_mode") or "bed_cds")
     output_dir = Path(resolve_param_path(base, params.get("output_dir") or "output"))
     output_dir.mkdir(parents=True, exist_ok=True)
+    species = _species_from_params(params, base, mode)
     request = {
         "schema_version": 1,
         "kind": "analysis_request",
@@ -202,7 +181,8 @@ def write_runtime_request(params: dict[str, object], base: Path) -> Path:
         "input": {
             "mode": mode,
             "directory": "",
-            "species": _species_from_params(params, base, mode),
+            "species": species,
+            "reference_index": _reference_index(params, species),
         },
         "output": {
             "directory": str(output_dir),
@@ -217,21 +197,19 @@ def write_runtime_request(params: dict[str, object], base: Path) -> Path:
             "preset": str(params.get("preset") or "auto"),
             "threads": int(params.get("threads") or 4),
             "min_block_size": int(params.get("min_block_size") or 5),
-            "workflow": str(params.get("workflow") or "graphics_synteny"),
+        },
+        "method_config": {
+            "workflow": _workflow(params),
             "jcvi_engine": _optional_path(base, params.get("jcvi_engine")),
             "blastn": _optional_path(base, params.get("blastn")),
             "makeblastdb": _optional_path(base, params.get("makeblastdb")),
             "jcvi_layout": _optional_path(base, params.get("jcvi_layout")),
             "jcvi_seqids": _optional_path(base, params.get("jcvi_seqids")),
-            "allow_simplified_fallback": parse_bool(
-                params.get("allow_simplified_fallback", False)
-            ),
+            "allow_simplified_fallback": parse_bool(params.get("allow_simplified_fallback", False)),
         },
     }
     target = output_dir / "genomelens_request.json"
-    target.write_text(
-        json.dumps(request, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
-    )
+    target.write_text(json.dumps(request, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     return target
 
 
@@ -269,8 +247,8 @@ def close_adapter_logging() -> None:
 def _build_runtime_command(params_path: str | Path) -> list[str]:
     """把 `params.json` 转换为 GenomeLens runtime argv(运行时参数向量)。
 
-    当前 CLI 仅保留 `analyze mcscan`，因此先把平台显式物种清单拷贝到临时输入
-    目录，再按目录发现模式调用 `analyze mcscan`。
+    插件只依赖公开 `analyze run <request.json>` 入口；具体分析逻辑由 GenomeLens
+    runtime 根据稳定 AnalysisRequest 协议调度。
     """
 
     params, base = load_params(params_path)
@@ -282,44 +260,8 @@ def _build_runtime_command(params_path: str | Path) -> list[str]:
 
     output_dir = Path(resolve_param_path(base, params.get("output_dir") or "output"))
     output_dir.mkdir(parents=True, exist_ok=True)
-    input_dir = _prepare_input_directory(params, base, output_dir)
-
-    # 保留请求文件作为运行轨迹，实际 CLI 不再读取它
-    write_runtime_request(params, base)
-
-    argv = [
-        str(runtime),
-        "analyze",
-        "mcscan",
-        str(input_dir),
-        str(output_dir),
-        "--force",
-    ]
-
-    _append_if_truthy(argv, "--config", _optional_path(base, params.get("config")))
-    _append_if_truthy(
-        argv, "--jcvi-config", _optional_path(base, params.get("jcvi_config"))
-    )
-    _append_if_truthy(argv, "--threads", params.get("threads"))
-    _append_if_truthy(argv, "--min-block-size", params.get("min_block_size"))
-    _append_if_truthy(argv, "--jcvi-workflow", params.get("workflow"))
-    _append_if_truthy(argv, "--formats", ",".join(_formats(params.get("formats"))))
-    _append_if_truthy(
-        argv, "--jcvi-engine", _optional_path(base, params.get("jcvi_engine"))
-    )
-    _append_if_truthy(argv, "--blastn", _optional_path(base, params.get("blastn")))
-    _append_if_truthy(
-        argv, "--makeblastdb", _optional_path(base, params.get("makeblastdb"))
-    )
-    _append_if_truthy(
-        argv, "--jcvi-layout", _optional_path(base, params.get("jcvi_layout"))
-    )
-    _append_if_truthy(
-        argv, "--jcvi-seqids", _optional_path(base, params.get("jcvi_seqids"))
-    )
-
-    if parse_bool(params.get("allow_simplified_fallback", False)):
-        argv.append("--allow-simplified-fallback")
+    request_path = write_runtime_request(params, base)
+    argv = [str(runtime), "analyze", "run", str(request_path)]
 
     logger.info("Dispatching GenomeLens runtime: %s", argv)
     return argv

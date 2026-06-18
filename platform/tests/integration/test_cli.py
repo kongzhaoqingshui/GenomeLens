@@ -180,6 +180,82 @@ def test_analyze_mcscan_jcvi_reuses_existing_execution_path(tmp_path: Path, monk
     assert captured["output"] == str(outdir.resolve())
 
 
+def test_analyze_run_dispatches_request_json(tmp_path: Path, monkeypatch) -> None:
+    root = Path(__file__).resolve().parents[3]
+    sample = root / "references" / "samples" / "shell" / "bed_cds_minimal"
+    outdir = tmp_path / "out-run"
+    request_path = tmp_path / "request.json"
+    request_path.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "kind": "analysis_request",
+                "method": "mcscan",
+                "input": {
+                    "mode": "bed_cds",
+                    "species": [
+                        {
+                            "name": "query",
+                            "input_mode": "bed_cds",
+                            "bed": str(sample / "query.bed"),
+                            "cds": str(sample / "query.cds"),
+                        },
+                        {
+                            "name": "subject",
+                            "input_mode": "bed_cds",
+                            "bed": str(sample / "subject.bed"),
+                            "cds": str(sample / "subject.cds"),
+                        },
+                    ],
+                },
+                "output": {
+                    "directory": str(outdir),
+                    "force": True,
+                    "formats": ["png"],
+                },
+                "config": {},
+                "options": {
+                    "preset": "auto",
+                    "min_block_size": 1,
+                },
+                "method_config": {
+                    "workflow": "graphics_synteny",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    captured = {}
+
+    def fake_provider_run(_self, request, _signal_bus):
+        captured["method"] = request.method
+        captured["output"] = request.output.directory
+        return RunSummary(
+            status="SUCCEEDED",
+            schema_version=2,
+            workflow="mcscan",
+            method="mcscan",
+            task={"workflow": "mcscan"},
+            species=[],
+            final_figures=[],
+            artifact_index=[],
+            logs={},
+            ui=UiBlock(
+                "SUCCEEDED", 1.0, [], str(outdir / "report" / "run_summary.json"), str(outdir / "logs" / "run.log")
+            ),
+            scoring=ScoringBlock(),
+        )
+
+    monkeypatch.setattr("genomelens.analysis.methods.mcscan_provider.McscanWorkflowProvider.run", fake_provider_run)
+
+    code = main(["analyze", "run", str(request_path)])
+
+    assert code == 0
+    assert captured["method"] == "mcscan"
+    assert captured["output"] == str(outdir)
+    assert (outdir / "inputs" / "analysis_request.json").is_file()
+
+
 def test_analyze_mcscan_requires_backend(capsys) -> None:
     code = main(["analyze", "mcscan", "input", "output"])
 

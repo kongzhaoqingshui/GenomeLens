@@ -5,10 +5,12 @@ import shutil
 from pathlib import Path
 
 from genomelens_haiant_plugin import (
+    PluginError,
     build_runtime_command,
     close_adapter_logging,
     parse_bool,
     setup_adapter_logging,
+    write_runtime_request,
 )
 
 
@@ -54,13 +56,39 @@ def test_build_runtime_command_resolves_relative_paths(
     params = tmp_path / "params.json"
     params.write_text(json.dumps(params_payload, ensure_ascii=False), encoding="utf-8")
     argv = build_runtime_command(params)
-    assert argv[:3] == [str(runtime), "analyze", "mcscan"]
-    input_dir = Path(argv[3])
-    output_dir = Path(argv[4])
-    assert input_dir.is_dir()
+    assert argv[:3] == [str(runtime), "analyze", "run"]
+    request_path = Path(argv[3])
+    output_dir = Path(params_payload["output_dir"])
     assert output_dir.is_dir()
-    # 插件会把物种文件拷贝到临时输入目录供 analyze mcscan 自动发现
-    copied_beds = list(input_dir.glob("*.bed"))
-    assert len(copied_beds) == 2
+    assert request_path == output_dir / "genomelens_request.json"
+    request = json.loads(request_path.read_text(encoding="utf-8"))
+    assert request["method"] == "mcscan"
+    assert request["options"]["threads"] == 2
+    assert request["options"]["min_block_size"] == 1
+    assert request["method_config"]["workflow"] == "graphics_synteny"
+    assert request["method_config"]["allow_simplified_fallback"] is False
+    assert not (output_dir / ".genomelens_plugin_input").exists()
     assert logging.getLogger("genomelens_haiant_plugin").handlers == []
     os.environ.pop("GENOMELENS_PLUGIN_RUNTIME", None)
+
+
+def test_write_runtime_request_rejects_non_plugin_workflows(tmp_path: Path) -> None:
+    sample = tmp_path / "sample.bed"
+    sample.write_text("chr1\t1\t10\tgene1\n", encoding="utf-8")
+    cds = tmp_path / "sample.cds"
+    cds.write_text(">gene1\nATG\n", encoding="utf-8")
+    params = {
+        "species": [
+            {"name": "query", "bed": str(sample), "cds": str(cds)},
+            {"name": "subject", "bed": str(sample), "cds": str(cds)},
+        ],
+        "output_dir": str(tmp_path / "output"),
+        "workflow": "catalog_ortholog",
+    }
+
+    try:
+        write_runtime_request(params, tmp_path)
+    except PluginError as exc:
+        assert "Unsupported HAIant workflow" in str(exc)
+    else:
+        raise AssertionError("PluginError was not raised")

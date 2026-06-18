@@ -7,9 +7,9 @@ GenomeLens.exe --help
 GenomeLens.exe --version
 GenomeLens.exe check [-j] [-c <path>] [--jcvi-config <path>] [--install-missing]
 GenomeLens.exe config init --workspace <path> [--config-path <path>] [--jcvi-config-path <path>] [--force]
-GenomeLens.exe analyze mcscan <input-dir> <outdir> [jcvi-config.json] [options] [-j]
 GenomeLens.exe analyze run <request.json> [-j]
-GenomeLens.exe analyze template mcscan
+GenomeLens.exe analyze mcscan <input-dir> <outdir> [jcvi-config.json] [options] [-j]
+GenomeLens.exe analyze template [mcscan]
 GenomeLens.exe analyze schema
 GenomeLens.exe help [command...]
 GenomeLens.exe workbench
@@ -45,7 +45,7 @@ GenomeLens.exe analyze mcscan input output --force -j
 
 ## 外部 JSON 请求
 
-`analyze run` 读取一个稳定的 `AnalysisRequest` JSON 文件，并复用与 `analyze mcscan` 相同的 dispatcher、方法校验和执行路径。
+`analyze run` 读取一个稳定的 `AnalysisRequest` JSON 文件，并复用与 `analyze mcscan` 相同的 dispatcher、方法校验和执行路径。`request.json` 字段与一次成功运行后写入的 `output\inputs\analysis_request.json` 快照一致。
 
 输出 mcscan 请求示例：
 

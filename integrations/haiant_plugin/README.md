@@ -4,21 +4,27 @@
 
 ## 当前范围
 
-当前插件参数面向 2 到 n 个物种的 GenomeLens 分析：
+当前插件参数面向 2 到 n 个物种的 GenomeLens 一站式 JCVI 出图流程：
 
 - BED+CDS 输入。
 - GFF+FASTA 输入。
 - `species[]` 物种列表（至少两个物种）。
-- `graphics_synteny`、`graphics_dotplot`、`graphics_karyotype`、`mcscan_pairwise` 和 `catalog_ortholog` workflow(工作流)。
+- 固定通过 `graphics_synteny` workflow(工作流) 输出 dotplot(点图) 与 synteny figure(共线性图)。
 - `allow_simplified_fallback` 字段保留，但正式流程不启用简化算法。
 
-完整目标中的插件表单美化、参数自动推荐、全局总图调参与机器学习评分尚未接入。
+完整目标中的插件表单美化、参数自动推荐、单独子任务入口、全局总图调参与机器学习评分尚未接入。
 
 ## 入口
 
 ```powershell
 GenomeLens.exe
 GenomeLens.exe params.json
+```
+
+带 `params.json` 运行时，插件会先写出稳定的 `genomelens_request.json`，再调用：
+
+```powershell
+GenomeLens-runtime.exe analyze run output/genomelens_request.json
 ```
 
 打包插件期望运行时位于：
