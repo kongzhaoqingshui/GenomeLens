@@ -55,20 +55,38 @@ export interface OpenPathInput extends Record<string, unknown> {
 }
 
 export interface AnalysisStdoutEventPayload {
+  runId: string;
+  outdir: string;
+  requestPath: string;
+  startedAt?: string;
   line: string;
 }
 
 export interface AnalysisStateEventPayload {
+  runId: string;
+  outdir: string;
+  requestPath: string;
+  startedAt?: string;
   state: WorkflowState;
   progress: number;
 }
 
 export interface AnalysisFinishedEventPayload {
+  runId: string;
+  outdir: string;
+  requestPath: string;
+  startedAt?: string;
+  finishedAt?: string;
   status: "SUCCEEDED" | "FAILED" | "CANCELLED";
   summary?: RunSummary;
 }
 
 export interface AnalysisErrorEventPayload {
+  runId: string;
+  outdir: string;
+  requestPath: string;
+  startedAt?: string;
+  finishedAt?: string;
   message: string;
   code?: string;
   details?: Record<string, unknown>;
@@ -96,6 +114,7 @@ export interface AnalysisRunState {
   status: WorkflowState;
   progress: number;
   startedAt?: string;
+  finishedAt?: string;
   finished: boolean;
   error?: AnalysisErrorEventPayload;
   summary?: RunSummary;
@@ -152,6 +171,7 @@ export function applyAnalysisEvent(state: AnalysisRunState, event: AnalysisEvent
         ...state,
         status: event.payload.status,
         progress: 1,
+        finishedAt: event.payload.finishedAt,
         finished: true,
         summary: event.payload.summary,
         summaryView:
@@ -160,6 +180,7 @@ export function applyAnalysisEvent(state: AnalysisRunState, event: AnalysisEvent
     case "analysis:error":
       return {
         ...state,
+        finishedAt: event.payload.finishedAt ?? state.finishedAt,
         error: event.payload,
       };
     default:

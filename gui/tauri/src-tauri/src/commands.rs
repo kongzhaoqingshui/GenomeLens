@@ -69,27 +69,57 @@ pub struct OpenPathInput {
 }
 
 #[derive(Debug, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct AnalysisStdoutEventPayload {
+    run_id: String,
+    outdir: String,
+    request_path: String,
+    started_at: String,
     line: String,
 }
 
 #[derive(Debug, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct AnalysisStateEventPayload {
+    run_id: String,
+    outdir: String,
+    request_path: String,
+    started_at: String,
     state: String,
     progress: f64,
 }
 
 #[derive(Debug, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct AnalysisFinishedEventPayload {
+    run_id: String,
+    outdir: String,
+    request_path: String,
+    started_at: String,
+    finished_at: String,
     status: String,
     summary: Option<Value>,
 }
 
 #[derive(Debug, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct AnalysisErrorEventPayload {
+    run_id: String,
+    outdir: String,
+    request_path: String,
+    started_at: String,
+    finished_at: Option<String>,
     message: String,
     code: Option<String>,
     details: Option<Value>,
+}
+
+#[derive(Debug, Clone)]
+struct RunEventContext {
+    run_id: String,
+    outdir: String,
+    request_path: String,
+    started_at: String,
 }
 
 #[tauri::command]
@@ -117,7 +147,9 @@ pub fn check_environment() -> Result<Value, String> {
 
 #[tauri::command]
 pub fn read_summary(input: ReadSummaryInput) -> Result<Value, String> {
-    let summary_path = Path::new(&input.outdir).join("report").join("run_summary.json");
+    let summary_path = Path::new(&input.outdir)
+        .join("report")
+        .join("run_summary.json");
     read_json_file(&summary_path)
 }
 
@@ -219,6 +251,11 @@ pub fn run_analysis(app: AppHandle, input: RunAnalysisInput) -> Result<RunHandle
             let _ = app.emit(
                 "analysis:error",
                 AnalysisErrorEventPayload {
+                    run_id: run_id.clone(),
+                    outdir: outdir.clone(),
+                    request_path: request_path.clone(),
+                    started_at: started_at.clone(),
+                    finished_at: None,
                     message: message.clone(),
                     code: Some("spawn_failed".to_string()),
                     details: None,
@@ -228,12 +265,17 @@ pub fn run_analysis(app: AppHandle, input: RunAnalysisInput) -> Result<RunHandle
         })?;
 
     let app_handle = app.clone();
-    let thread_run_id = run_id.clone();
-    let thread_outdir = outdir.clone();
-    let thread_started_at = started_at.clone();
+    let thread_context = RunEventContext {
+        run_id: run_id.clone(),
+        outdir: outdir.clone(),
+        request_path: request_path.clone(),
+        started_at: started_at.clone(),
+    };
 
     thread::spawn(move || {
-        let run_log_path = Path::new(&thread_outdir).join("logs").join("run.log");
+        let run_log_path = Path::new(&thread_context.outdir)
+            .join("logs")
+            .join("run.log");
         let mut offset = 0_u64;
         let mut partial = String::new();
         let mut last_state: Option<String> = None;
@@ -242,6 +284,7 @@ pub fn run_analysis(app: AppHandle, input: RunAnalysisInput) -> Result<RunHandle
             emit_new_log_lines(
                 &app_handle,
                 &run_log_path,
+                &thread_context,
                 &mut offset,
                 &mut partial,
                 &mut last_state,
@@ -251,15 +294,22 @@ pub fn run_analysis(app: AppHandle, input: RunAnalysisInput) -> Result<RunHandle
                 Ok(Some(status)) => break status,
                 Ok(None) => thread::sleep(Duration::from_millis(200)),
                 Err(error) => {
+                    let finished_at = system_time_to_iso_like(SystemTime::now());
                     let _ = app_handle.emit(
                         "analysis:error",
                         AnalysisErrorEventPayload {
-                            message: format!("run {} wait error: {}", thread_run_id, error),
+                            run_id: thread_context.run_id.clone(),
+                            outdir: thread_context.outdir.clone(),
+                            request_path: thread_context.request_path.clone(),
+                            started_at: thread_context.started_at.clone(),
+                            finished_at: Some(finished_at),
+                            message: format!("run {} wait error: {}", thread_context.run_id, error),
                             code: Some("wait_failed".to_string()),
                             details: Some(serde_json::json!({
-                                "runId": thread_run_id,
-                                "outdir": thread_outdir,
-                                "startedAt": thread_started_at,
+                                "runId": thread_context.run_id,
+                                "outdir": thread_context.outdir,
+                                "requestPath": thread_context.request_path,
+                                "startedAt": thread_context.started_at,
                             })),
                         },
                     );
@@ -271,13 +321,17 @@ pub fn run_analysis(app: AppHandle, input: RunAnalysisInput) -> Result<RunHandle
         emit_new_log_lines(
             &app_handle,
             &run_log_path,
+            &thread_context,
             &mut offset,
             &mut partial,
             &mut last_state,
         );
 
-        let summary_path = Path::new(&thread_outdir).join("report").join("run_summary.json");
+        let summary_path = Path::new(&thread_context.outdir)
+            .join("report")
+            .join("run_summary.json");
         let summary = read_json_file(&summary_path).ok();
+        let finished_at = system_time_to_iso_like(SystemTime::now());
         let finished_status = if exit_status.success() {
             "SUCCEEDED".to_string()
         } else {
@@ -293,9 +347,14 @@ pub fn run_analysis(app: AppHandle, input: RunAnalysisInput) -> Result<RunHandle
             let _ = app_handle.emit(
                 "analysis:error",
                 AnalysisErrorEventPayload {
+                    run_id: thread_context.run_id.clone(),
+                    outdir: thread_context.outdir.clone(),
+                    request_path: thread_context.request_path.clone(),
+                    started_at: thread_context.started_at.clone(),
+                    finished_at: Some(finished_at.clone()),
                     message: format!(
                         "run {} exited with status {}",
-                        thread_run_id,
+                        thread_context.run_id,
                         exit_status
                             .code()
                             .map(|code| code.to_string())
@@ -303,10 +362,12 @@ pub fn run_analysis(app: AppHandle, input: RunAnalysisInput) -> Result<RunHandle
                     ),
                     code: Some("non_zero_exit".to_string()),
                     details: Some(serde_json::json!({
-                        "runId": thread_run_id,
-                        "outdir": thread_outdir,
+                        "runId": thread_context.run_id,
+                        "outdir": thread_context.outdir,
+                        "requestPath": thread_context.request_path,
                         "exitCode": exit_status.code(),
-                        "startedAt": thread_started_at,
+                        "startedAt": thread_context.started_at,
+                        "finishedAt": finished_at,
                     })),
                 },
             );
@@ -315,6 +376,11 @@ pub fn run_analysis(app: AppHandle, input: RunAnalysisInput) -> Result<RunHandle
         let _ = app_handle.emit(
             "analysis:finished",
             AnalysisFinishedEventPayload {
+                run_id: thread_context.run_id,
+                outdir: thread_context.outdir,
+                request_path: thread_context.request_path,
+                started_at: thread_context.started_at,
+                finished_at,
                 status: finished_status,
                 summary,
             },
@@ -333,6 +399,7 @@ pub fn run_analysis(app: AppHandle, input: RunAnalysisInput) -> Result<RunHandle
 fn emit_new_log_lines(
     app: &AppHandle,
     run_log_path: &Path,
+    context: &RunEventContext,
     offset: &mut u64,
     partial: &mut String,
     last_state: &mut Option<String>,
@@ -387,6 +454,10 @@ fn emit_new_log_lines(
         let _ = app.emit(
             "analysis:stdout",
             AnalysisStdoutEventPayload {
+                run_id: context.run_id.clone(),
+                outdir: context.outdir.clone(),
+                request_path: context.request_path.clone(),
+                started_at: context.started_at.clone(),
                 line: line.clone(),
             },
         );
@@ -396,7 +467,14 @@ fn emit_new_log_lines(
                 *last_state = Some(state.clone());
                 let _ = app.emit(
                     "analysis:state",
-                    AnalysisStateEventPayload { state, progress },
+                    AnalysisStateEventPayload {
+                        run_id: context.run_id.clone(),
+                        outdir: context.outdir.clone(),
+                        request_path: context.request_path.clone(),
+                        started_at: context.started_at.clone(),
+                        state,
+                        progress,
+                    },
                 );
             }
         }
@@ -492,8 +570,8 @@ fn run_json_command(program: &str, args: &[&str]) -> Result<Value, String> {
 }
 
 fn read_json_file(path: &Path) -> Result<Value, String> {
-    let bytes =
-        std::fs::read(path).map_err(|error| format!("read json file {}: {error}", path.display()))?;
+    let bytes = std::fs::read(path)
+        .map_err(|error| format!("read json file {}: {error}", path.display()))?;
     serde_json::from_slice(&bytes)
         .map_err(|error| format!("parse json file {}: {error}", path.display()))
 }

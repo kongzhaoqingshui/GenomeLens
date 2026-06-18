@@ -17,11 +17,23 @@ describe("run-session helpers", () => {
     const initial = createAnalysisRunState(makeHandle());
     const first = applyAnalysisEvent(initial, {
       name: "analysis:stdout",
-      payload: { line: "line-1" },
+      payload: {
+        runId: "run-1",
+        outdir: "runs/demo",
+        requestPath: "requests/demo.json",
+        startedAt: "unix-1.000",
+        line: "line-1",
+      },
     });
     const second = applyAnalysisEvent(first, {
       name: "analysis:stdout",
-      payload: { line: "line-2" },
+      payload: {
+        runId: "run-1",
+        outdir: "runs/demo",
+        requestPath: "requests/demo.json",
+        startedAt: "unix-1.000",
+        line: "line-2",
+      },
     });
 
     expect(second.logLines).toEqual(["line-1", "line-2"]);
@@ -32,7 +44,14 @@ describe("run-session helpers", () => {
     const initial = createAnalysisRunState(makeHandle());
     const next = applyAnalysisEvent(initial, {
       name: "analysis:state",
-      payload: { state: "RUNNING_ENGINE", progress: 0.78 },
+      payload: {
+        runId: "run-1",
+        outdir: "runs/demo",
+        requestPath: "requests/demo.json",
+        startedAt: "unix-1.000",
+        state: "RUNNING_ENGINE",
+        progress: 0.78,
+      },
     });
 
     expect(next.status).toBe("RUNNING_ENGINE");
@@ -44,6 +63,11 @@ describe("run-session helpers", () => {
     const next = applyAnalysisEvent(initial, {
       name: "analysis:finished",
       payload: {
+        runId: "run-1",
+        outdir: "runs/demo",
+        requestPath: "requests/demo.json",
+        startedAt: "unix-1.000",
+        finishedAt: "unix-2.000",
         status: "SUCCEEDED",
         summary: {
           status: "SUCCEEDED",
@@ -84,6 +108,7 @@ describe("run-session helpers", () => {
     });
 
     expect(next.finished).toBe(true);
+    expect(next.finishedAt).toBe("unix-2.000");
     expect(next.status).toBe("SUCCEEDED");
     expect(next.summaryView?.figureAssets).toHaveLength(1);
     expect(next.summaryView?.runSummaryPath).toBe("/tmp/run_summary.json");
