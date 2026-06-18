@@ -64,5 +64,11 @@ integrations/haiant_plugin/.venv/
 # 本地运行
 .work/
 
+# GUI 本地依赖与构建产物
+gui/tauri/node_modules/
+gui/tauri/dist/
+gui/tauri/src-tauri/target/
+gui/tauri/src-tauri/target/**
+
 # IDE 配置（含 JetBrains 会话状态、模块配置、检查配置等）
 .idea/
