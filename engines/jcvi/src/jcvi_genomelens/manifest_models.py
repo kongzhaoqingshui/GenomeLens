@@ -100,3 +100,5 @@ class EngineRunManifest:
     meta: dict[str, object] = field(default_factory=dict)
     tracks: list[EngineTrack] = field(default_factory=list)
     edges: list[EngineEdge] = field(default_factory=list)
+    blocks: Path | None = None
+    bed: Path | None = None

@@ -200,6 +200,7 @@ def build_multi_run_summary(
     reference_name: str | None = None,
     native_multi_species: bool = False,
     native_layout: dict[str, object] | None = None,
+    multi_species_local_figures: list[str] | None = None,
 ) -> RunSummary:
     """为 multi-species 或 reference-vs-targets 构造顶层 RunSummary"""
 
@@ -228,6 +229,7 @@ def build_multi_run_summary(
         pairing_strategy=pairing_strategy,
         pairwise_jobs=pairwise_jobs,
         global_figures=global_figures or [],
+        multi_species_local_figures=multi_species_local_figures or [],
         reference_name=reference_name,
         native_multi_species=native_multi_species,
         native_layout=native_layout,

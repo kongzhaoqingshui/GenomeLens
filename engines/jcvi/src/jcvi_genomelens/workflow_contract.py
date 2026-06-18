@@ -10,6 +10,7 @@ from __future__ import annotations
 
 
 GLOBAL_KARYOTYPE_WORKFLOW = "graphics_karyotype_global"
+MULTI_LOCAL_SYNTENY_WORKFLOW = "local_synteny_multi"
 
 SUPPORTED_WORKFLOWS = (
     "mcscan_pairwise",
@@ -19,6 +20,7 @@ SUPPORTED_WORKFLOWS = (
     "catalog_ortholog",
     "local_synteny",
     GLOBAL_KARYOTYPE_WORKFLOW,
+    MULTI_LOCAL_SYNTENY_WORKFLOW,
 )
 
 WORKFLOW_ALIASES = {
@@ -26,6 +28,7 @@ WORKFLOW_ALIASES = {
     "karyotype": "graphics_karyotype",
     "karyotype_global": GLOBAL_KARYOTYPE_WORKFLOW,
     "local": "local_synteny",
+    "local_multi": MULTI_LOCAL_SYNTENY_WORKFLOW,
 }
 
 

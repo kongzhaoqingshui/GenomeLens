@@ -202,6 +202,53 @@ class JcviEngineAdapter:
             },
         }
 
+    def build_multi_local_synteny_manifest(
+        self,
+        *,
+        tracks: list[dict[str, str]],
+        blocks: str | Path,
+        bed: str | Path,
+        formats: list[str],
+        target_gene_ids: list[str],
+        label_targets: bool,
+        glyphstyle: str,
+        glyphcolor: str,
+        shadestyle: str,
+        figsize: str,
+        dpi: int,
+        task: dict[str, object] | None = None,
+        species: list[dict[str, object]] | None = None,
+    ) -> dict[str, object]:
+        """构建多物种局部共线性总图 manifest(引擎清单)"""
+
+        return {
+            "schema_version": 2,
+            "workflow": "local_synteny_multi",
+            "task": task or {"workflow": "local_synteny_multi", "task_type": "multi_species_local_synteny"},
+            "species": species or [],
+            "tracks": [{"name": str(track["name"]), "bed": absolute_path(track["bed"])} for track in tracks],
+            "blocks": absolute_path(blocks),
+            "bed": absolute_path(bed),
+            "toolchain": {},
+            "options": {
+                "formats": formats,
+                "target_gene_ids": list(target_gene_ids),
+                "label_targets": label_targets,
+                "glyphstyle": glyphstyle,
+                "glyphcolor": glyphcolor,
+                "shadestyle": shadestyle,
+                "figsize": figsize,
+                "dpi": dpi,
+            },
+            "expected_outputs": ["multi_species_local_figures"],
+            "meta": {
+                "source": "genomelens-shell",
+                "shell_version": __version__,
+                "platform_protocol": "task_manifest_v2",
+                "species_model": "multi_species_local_tracks",
+            },
+        }
+
     def write_manifest(self, manifest: dict[str, object], path: str | Path) -> Path:
         """用 UTF-8 编码写出 manifest JSON(清单 JSON)"""
 

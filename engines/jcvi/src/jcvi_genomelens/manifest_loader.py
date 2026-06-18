@@ -14,7 +14,11 @@ from jcvi_genomelens.manifest_models import (
     ToolchainSpec,
     WorkflowOptions,
 )
-from jcvi_genomelens.workflow_contract import GLOBAL_KARYOTYPE_WORKFLOW, normalize_workflow
+from jcvi_genomelens.workflow_contract import (
+    GLOBAL_KARYOTYPE_WORKFLOW,
+    MULTI_LOCAL_SYNTENY_WORKFLOW,
+    normalize_workflow,
+)
 
 # endregion
 
@@ -149,6 +153,14 @@ def _load_edge(data: object, label: str, track_count: int) -> EngineEdge:
     return EngineEdge(i=i, j=j, simple=simple)
 
 
+def _load_precomputed_path(data: object, label: str) -> Path:
+    path = _path(data, required=True)
+    assert path is not None
+    if not path.is_file():
+        raise ManifestError(f"{label} does not exist: {path}")
+    return path
+
+
 def load_manifest(path: str | Path) -> EngineRunManifest:
     """从磁盘加载并校验 manifest(清单)"""
 
@@ -172,6 +184,8 @@ def load_manifest(path: str | Path) -> EngineRunManifest:
     subject: GenomeSpec | None = None
     tracks: list[EngineTrack] = []
     edges: list[EngineEdge] = []
+    blocks: Path | None = None
+    bed: Path | None = None
     if workflow == GLOBAL_KARYOTYPE_WORKFLOW:
         track_data = raw.get("tracks")
         if not isinstance(track_data, list) or len(track_data) < 2:
@@ -182,6 +196,13 @@ def load_manifest(path: str | Path) -> EngineRunManifest:
         if not isinstance(edge_data, list) or not edge_data:
             raise ManifestError("graphics_karyotype_global requires at least one edge")
         edges = [_load_edge(item, f"edges[{index}]", len(tracks)) for index, item in enumerate(edge_data)]
+    elif workflow == MULTI_LOCAL_SYNTENY_WORKFLOW:
+        track_data = raw.get("tracks")
+        if not isinstance(track_data, list) or len(track_data) < 2:
+            raise ManifestError("local_synteny_multi requires at least two tracks")
+        tracks = [_load_track(item, f"tracks[{index}]") for index, item in enumerate(track_data)]
+        blocks = _load_precomputed_path(raw.get("blocks"), "blocks")
+        bed = _load_precomputed_path(raw.get("bed"), "bed")
     else:
         query = _load_genome(raw.get("query"), "query")
         subject = _load_genome(raw.get("subject"), "subject")
@@ -229,4 +250,6 @@ def load_manifest(path: str | Path) -> EngineRunManifest:
         meta=_require_object(raw.get("meta") or {}, "meta"),
         tracks=tracks,
         edges=edges,
+        blocks=blocks,
+        bed=bed,
     )

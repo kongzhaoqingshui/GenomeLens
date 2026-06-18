@@ -57,6 +57,7 @@ class McscanSummaryExtension:
     pairwise_jobs: list[PairwiseJobSummary] | None = None
     pairwise_job_count: int | None = None
     global_figures: list[str] | None = None
+    multi_species_local_figures: list[str] | None = None
     reference_name: str | None = None
 
     # 原生多物种标记；当前 MCscan 只走 pairwise 聚合，因此默认 False
@@ -135,6 +136,8 @@ class McscanSummaryExtension:
             data["pairwise_job_count"] = len(self.pairwise_jobs)
         if self.global_figures is not None:
             data["global_figures"] = list(self.global_figures)
+        if self.multi_species_local_figures is not None:
+            data["multi_species_local_figures"] = list(self.multi_species_local_figures)
         if self.reference_name is not None:
             data["reference_name"] = self.reference_name
 
@@ -202,6 +205,7 @@ class McscanSummaryExtension:
             pairing_strategy=str(data["pairing_strategy"]) if "pairing_strategy" in data else None,
             pairwise_jobs=pairwise_jobs,
             global_figures=_str_list(data.get("global_figures")),
+            multi_species_local_figures=_str_list(data.get("multi_species_local_figures")),
             reference_name=str(data["reference_name"]) if "reference_name" in data else None,
             native_multi_species=bool(data.get("native_multi_species", False)),
             native_edges=_dict_list(data.get("native_edges")),
