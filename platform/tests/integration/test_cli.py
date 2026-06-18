@@ -69,6 +69,15 @@ def test_cli_help_for_mcscan_jcvi_page(capsys) -> None:
     assert "--jcvi-engine JCVI_ENGINE" not in output
 
 
+def test_cli_help_for_mcscan_jcvi_subtask(capsys) -> None:
+    assert main(["help", "analyze", "mcscan", "jcvi", "graphics_dotplot"]) == 0
+    output = capsys.readouterr().out
+
+    assert "genomelens analyze mcscan jcvi graphics_dotplot" in output
+    assert "input_dir output_dir" in output
+    assert "共享参数页:" in output
+
+
 def test_cli_help_for_analyze_run(capsys) -> None:
     assert main(["help", "analyze", "run"]) == 0
     output = capsys.readouterr().out
@@ -178,6 +187,86 @@ def test_analyze_mcscan_jcvi_reuses_existing_execution_path(tmp_path: Path, monk
     assert code == 0
     assert captured["method"] == "mcscan"
     assert captured["output"] == str(outdir.resolve())
+
+
+def test_analyze_mcscan_jcvi_subtask_sets_workflow(tmp_path: Path, monkeypatch) -> None:
+    root = Path(__file__).resolve().parents[3]
+    sample = root / "references" / "samples" / "shell" / "bed_cds_minimal"
+    input_dir = tmp_path / "input"
+    _copy_species_files(input_dir, sample, ["query.bed", "query.cds", "subject.bed", "subject.cds"])
+    outdir = tmp_path / "out"
+    captured = {}
+
+    def fake_provider_run(_self, request, _signal_bus):
+        captured["workflow"] = request.method_config["workflow"]
+        return RunSummary(
+            status="SUCCEEDED",
+            schema_version=2,
+            workflow="mcscan",
+            method="mcscan",
+            task={"workflow": "mcscan"},
+            species=[],
+            final_figures=[],
+            artifact_index=[],
+            logs={},
+            ui=UiBlock(
+                "SUCCEEDED", 1.0, [], str(outdir / "report" / "run_summary.json"), str(outdir / "logs" / "run.log")
+            ),
+            scoring=ScoringBlock(),
+        )
+
+    monkeypatch.setattr("genomelens.analysis.methods.mcscan_provider.McscanWorkflowProvider.run", fake_provider_run)
+
+    code = main(["analyze", "mcscan", "jcvi", "graphics_dotplot", str(input_dir), str(outdir), "--force"])
+
+    assert code == 0
+    assert captured["workflow"] == "graphics_dotplot"
+
+
+def test_analyze_mcscan_jcvi_subtask_overrides_workflow_flag(tmp_path: Path, monkeypatch) -> None:
+    root = Path(__file__).resolve().parents[3]
+    sample = root / "references" / "samples" / "shell" / "bed_cds_minimal"
+    input_dir = tmp_path / "input"
+    _copy_species_files(input_dir, sample, ["query.bed", "query.cds", "subject.bed", "subject.cds"])
+    outdir = tmp_path / "out"
+    captured = {}
+
+    def fake_provider_run(_self, request, _signal_bus):
+        captured["workflow"] = request.method_config["workflow"]
+        return RunSummary(
+            status="SUCCEEDED",
+            schema_version=2,
+            workflow="mcscan",
+            method="mcscan",
+            task={"workflow": "mcscan"},
+            species=[],
+            final_figures=[],
+            artifact_index=[],
+            logs={},
+            ui=UiBlock(
+                "SUCCEEDED", 1.0, [], str(outdir / "report" / "run_summary.json"), str(outdir / "logs" / "run.log")
+            ),
+            scoring=ScoringBlock(),
+        )
+
+    monkeypatch.setattr("genomelens.analysis.methods.mcscan_provider.McscanWorkflowProvider.run", fake_provider_run)
+
+    code = main(
+        [
+            "analyze",
+            "mcscan",
+            "jcvi",
+            "graphics_dotplot",
+            str(input_dir),
+            str(outdir),
+            "--jcvi-workflow",
+            "graphics_synteny",
+            "--force",
+        ]
+    )
+
+    assert code == 0
+    assert captured["workflow"] == "graphics_dotplot"
 
 
 def test_analyze_mcscan_log_level_overrides_verbose(tmp_path: Path, monkeypatch) -> None:

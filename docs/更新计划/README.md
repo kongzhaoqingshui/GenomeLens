@@ -13,8 +13,9 @@
 | v0.9.0 | 体验与输入优化 | 已发布 | CLI 分页帮助、`analyze mcscan jcvi` 子命令、局部共线性目标基因高亮、自动目录输入混用模式、文档刷新 |
 | v0.9.1 | 可观测性 | 已发布 | 结构化 `run.log`、CLI `--verbose` / `--log-level`、失败上下文 |
 | v0.9.2 | 外部配置与插件化 | 已发布 | `analyze run <request.json>`、`analyze template/schema`、智然体插件接入 |
-| v0.9.x | JCVI 增强 | 后续迭代 | 在 v1.0 前补齐：JCVI 子任务 CLI、多物种局部共线性图、出图自动优化 |
-| v1.0.0 | 首个稳定版 | 功能齐备后 | 核心链路 + 上述能力稳定可用 |
+| v0.9.3 | JCVI 子任务 CLI | 已发布 | `analyze mcscan jcvi <subtask>` 直接调用 JCVI 子命令 workflow |
+| v0.9.4 | 多物种局部共线性 + 出图自动优化 | 已发布 | 多物种局部共线性图、plot 自动优化 |
+| v0.9.x | JCVI 增强 | 后续迭代 | 在 v1.0 前补齐剩余 JCVI 相关能力 |
 | v1.1.0 | GUI | 后续迭代 | Tauri 桌面 GUI 初版 |
 | v1.2.0 / mac 分支 | 跨平台 | 后续迭代 | macOS 端与 mac GUI 预览版本 |
 
