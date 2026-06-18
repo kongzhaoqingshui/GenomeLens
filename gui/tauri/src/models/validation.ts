@@ -1,4 +1,6 @@
 import type { AnalysisRequest, SpeciesInput } from "./analysis-request";
+import type { AnalysisRequestDraft } from "./analysis-request-draft";
+import { draftToAnalysisRequest } from "./analysis-request-draft";
 
 export type ValidationSeverity = "error" | "warning";
 
@@ -148,5 +150,9 @@ export function validateAnalysisRequest(request: AnalysisRequest): ValidationRes
     ok: issues.every((item) => item.severity !== "error"),
     issues,
   };
+}
+
+export function validateAnalysisRequestDraft(draft: AnalysisRequestDraft): ValidationResult {
+  return validateAnalysisRequest(draftToAnalysisRequest(draft));
 }
 
