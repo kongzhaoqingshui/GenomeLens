@@ -245,7 +245,7 @@ def load_manifest(path: str | Path) -> EngineRunManifest:
             rewrite_layout_links=_bool(options_raw.get("rewrite_layout_links", False)),
             trim_cross_chromosome_blocks=_bool(options_raw.get("trim_cross_chromosome_blocks", False)),
         ),
-        schema_version=int(raw.get("schema_version") or 1),
+        schema_version=_int(raw.get("schema_version"), 1),
         # task/species/meta 保持宽松对象结构，供 shell summary 直接回写。
         task=_optional_object(raw.get("task"), "task"),
         species=_optional_object_list(raw.get("species"), "species"),
