@@ -143,7 +143,7 @@ def test_cli_progress_reporter_aligns_primary_field_in_noninteractive_mode() -> 
     lines = [line for line in stream.getvalue().splitlines() if line]
 
     assert len(lines) >= 2
-    assert lines[0].index("=") == lines[1].index("=")
+    assert lines[0].index("━") == lines[1].index("━")
 
 
 def test_cli_progress_reporter_uses_gray_detail_text_when_colored() -> None:

@@ -364,15 +364,15 @@ def _render_progress_bar(progress: float, *, theme: ProgressTheme, enabled: bool
     if filled <= 0:
         filled_text = ""
     elif filled == 1:
-        filled_text = _paint("=", theme.bar_accent_color, enabled=enabled)
+        filled_text = _paint("━", theme.bar_accent_color, enabled=enabled)
     else:
-        filled_text = _paint("=" * (filled - 1), theme.bar_color, enabled=enabled) + _paint(
-            "=",
+        filled_text = _paint("━" * (filled - 1), theme.bar_color, enabled=enabled) + _paint(
+            "━",
             theme.bar_accent_color,
             enabled=enabled,
         )
 
-    return filled_text + _paint("-" * empty, theme.empty_color, enabled=enabled)
+    return filled_text + _paint("─" * empty, theme.empty_color, enabled=enabled)
 
 
 class SignalBusProgressReporter:
