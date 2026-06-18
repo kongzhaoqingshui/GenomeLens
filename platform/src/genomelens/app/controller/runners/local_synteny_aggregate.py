@@ -255,10 +255,13 @@ def build_multi_species_local_synteny(
         manifest_path = local_dir / "local_synteny_multi_manifest.json"
         adapter.write_manifest(manifest, manifest_path)
         result = adapter.run_manifest(manifest_path, local_dir)
-        figures = cast(
-            list[Any],
-            result.artifacts.get("multi_species_local_figures") or result.artifacts.get("figures") or [],
-        )
-        return copy_pairwise_figures("multi_species_local", [str(item) for item in figures], layout.figures)
+        figures = [
+            str(item)
+            for item in cast(
+                list[Any],
+                result.artifacts.get("multi_species_local_figures") or result.artifacts.get("figures") or [],
+            )
+        ]
+        return copy_pairwise_figures("multi_species_local", figures, layout.figures)
     except Exception:  # noqa: BLE001 - 多物种局部总图是增量产物，失败不影响 pairwise 结果
         return []

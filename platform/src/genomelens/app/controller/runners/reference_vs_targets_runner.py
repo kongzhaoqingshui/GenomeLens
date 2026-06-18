@@ -173,7 +173,7 @@ def _run_reference_vs_targets_mcscan(
             multi_species_local_figures=multi_species_local_figures,
         )
 
-        write_run_summary(layout, run_summary)
+    write_run_summary(layout, run_summary)
     set_state(WorkflowState.SUCCEEDED if run_summary.status == "SUCCEEDED" else WorkflowState.FAILED)
 
     return run_summary
