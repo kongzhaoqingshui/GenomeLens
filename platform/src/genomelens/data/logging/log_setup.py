@@ -16,19 +16,19 @@ RUN_LOGGER_PREFIX = f"{LOGGER_NAME}.run"
 
 
 class ConciseConsoleFilter(logging.Filter):
-    """控制台只输出简短/重要句段，长日志只写入文件"""
+    """控制台默认静默，只输出初始启动信息与警告/错误"""
 
-    # 普通 INFO 消息超过该长度时不在控制台输出（仍写入文件）
-    _max_info_text_len: int = 240
+    # 仅允许以该前缀开头的 INFO/DEBUG 消息输出到控制台
+    _allowed_info_prefix: str = "Starting GenomeLens"
 
     def filter(self, record: logging.LogRecord) -> bool:
         # WARNING/ERROR/CRITICAL 始终输出到控制台，方便用户及时看到问题
         if record.levelno >= logging.WARNING:
             return True
 
+        # 其余级别只保留初始启动句段，避免 task_started/task_finished 等大段日志刷屏
         message = record.getMessage()
-        # INFO/DEBUG 只输出简短消息，避免 task_started/task_finished 的大段 JSON 刷屏
-        return len(message) <= self._max_info_text_len
+        return message.startswith(self._allowed_info_prefix)
 
 
 def normalize_log_level(level: str) -> str:

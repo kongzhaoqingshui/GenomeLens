@@ -83,7 +83,7 @@ def test_task_scope_writes_structured_fields(tmp_path: Path) -> None:
     assert '"species_count": 2' in text
 
 
-def test_concise_console_filter_suppresses_long_info_but_keeps_warnings() -> None:
+def test_concise_console_filter_only_allows_initial_info_and_warnings() -> None:
     stream = io.StringIO()
     handler = logging.StreamHandler(stream)
     handler.addFilter(ConciseConsoleFilter())
@@ -95,11 +95,13 @@ def test_concise_console_filter_suppresses_long_info_but_keeps_warnings() -> Non
     logger.addHandler(handler)
 
     logger.info("short")
+    logger.info("Starting GenomeLens workflow")
     logger.info("x" * 300)
     logger.warning("warn")
 
     output = stream.getvalue()
-    assert "short" in output
+    assert "short" not in output
+    assert "Starting GenomeLens workflow" in output
     assert "x" * 300 not in output
     assert "warn" in output
 
