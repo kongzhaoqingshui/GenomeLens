@@ -132,3 +132,28 @@ def test_prepare_synteny_plot_inputs_applies_independent_switches(tmp_path: Path
     assert inputs.figsize == "8x7"
     assert inputs.artifacts["trimmed_cross_chromosome_block_rows"] == 1
     assert inputs.artifacts["rewritten_layout_edges"] == 2
+
+
+def test_prepare_synteny_plot_inputs_falls_back_when_trimmed_blocks_are_empty(tmp_path: Path) -> None:
+    bed = tmp_path / "all.bed"
+    bed.write_text(
+        "chr1\t0\t10\tq1\t0\t+\nchr2\t10\t20\ts1\t0\t+\n",
+        encoding="utf-8",
+    )
+    blocks = tmp_path / "blocks.txt"
+    blocks.write_text("q1\ts1\n", encoding="utf-8")
+    layout = tmp_path / "layout.csv"
+    layout.write_text("0.5, 0.8, 0, center, top, red, 1, A\n", encoding="utf-8")
+
+    inputs = prepare_synteny_plot_inputs(
+        blocks=blocks,
+        bed=bed,
+        layout=layout,
+        root=tmp_path,
+        stem="plot",
+        options=WorkflowOptions(trim_cross_chromosome_blocks=True),
+    )
+
+    assert inputs.blocks == blocks
+    assert inputs.artifacts["trimmed_cross_chromosome_block_rows"] == 1
+    assert inputs.artifacts["trimmed_blocks_fallback"] == "original_blocks"

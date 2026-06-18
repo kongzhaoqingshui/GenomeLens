@@ -1,4 +1,4 @@
-"""Optional synteny plot input optimization helpers"""
+"""synteny(共线性图) 输入优化辅助函数"""
 
 # region import
 from __future__ import annotations
@@ -18,7 +18,7 @@ EMPTY_BLOCK_VALUES = {"", "."}
 
 @dataclass(frozen=True)
 class SyntenyPlotInputs:
-    """Resolved JCVI synteny plotting inputs after optional optimization"""
+    """SyntenyPlotInputs(synteny 出图输入)：可选优化后的 JCVI 入参"""
 
     blocks: Path
     bed: Path
@@ -35,7 +35,7 @@ class _LayoutEdge:
     samearc: str = ""
 
 
-# region blocks trimming
+# region blocks 裁切相关函数
 def _split_block_highlight(value: str) -> str:
     if "*" not in value:
         return value
@@ -60,8 +60,18 @@ def _normal_chromosome(value: str) -> str:
     return re.sub(r"[^a-z0-9]+", "", value.lower())
 
 
+def _count_block_rows(blocks_path: Path) -> int:
+    count = 0
+    with blocks_path.open("r", encoding="utf-8") as handle:
+        for raw_line in handle:
+            line = raw_line.strip()
+            if line and not line.startswith("#"):
+                count += 1
+    return count
+
+
 def trim_cross_chromosome_blocks(blocks_path: Path, bed_path: Path, output_path: Path) -> tuple[Path, int]:
-    """Write a blocks file without rows linking genes from different chromosomes"""
+    """写出移除跨染色体基因行后的 blocks，并返回被裁掉的行数"""
 
     gene_chromosomes = _read_gene_chromosomes(bed_path)
     kept: list[str] = []
@@ -96,7 +106,7 @@ def trim_cross_chromosome_blocks(blocks_path: Path, bed_path: Path, output_path:
 # endregion
 
 
-# region layout rewriting
+# region layout 重写相关函数
 def _parse_layout_edge(line: str) -> _LayoutEdge | None:
     parts = [part.strip() for part in line.split(",")]
     if len(parts) < 3 or parts[0] != "e":
@@ -116,7 +126,7 @@ def _format_layout_edge(edge: _LayoutEdge) -> str:
 
 
 def rewrite_layout_links(layout_path: Path, output_path: Path) -> tuple[Path, int]:
-    """Rewrite same-source layout edges into track-to-track chains"""
+    """把同一源轨道发散出去的 layout 连线重写成链式连接"""
 
     passthrough: list[str] = []
     grouped: dict[int, list[_LayoutEdge]] = {}
@@ -170,15 +180,15 @@ def _dedupe_edges(edges: list[_LayoutEdge]) -> list[_LayoutEdge]:
 # endregion
 
 
-# region figure sizing
+# region 图件尺寸推导
 def _jcvi_figsize_dimension(value: float) -> int:
-    """Round up to the integer figsize format expected by vendored JCVI"""
+    """把尺寸向上取整到 vendored JCVI 能接受的整数 figsize"""
 
     return max(1, math.ceil(value))
 
 
 def suggest_figsize(blocks_path: Path, layout_path: Path) -> str:
-    """Suggest a stable JCVI figsize from track count and visible block rows"""
+    """根据轨道数和可见 block 行数推导稳定的 JCVI figsize"""
 
     track_count = 0
     for raw_line in layout_path.read_text(encoding="utf-8").splitlines():
@@ -186,12 +196,7 @@ def suggest_figsize(blocks_path: Path, layout_path: Path) -> str:
         if line and not line.startswith("#") and not line.startswith("e"):
             track_count += 1
 
-    block_rows = 0
-    with blocks_path.open("r", encoding="utf-8") as handle:
-        for raw_line in handle:
-            line = raw_line.strip()
-            if line and not line.startswith("#"):
-                block_rows += 1
+    block_rows = _count_block_rows(blocks_path)
 
     width = _jcvi_figsize_dimension(min(18.0, max(8.0, 6.0 + block_rows * 0.08)))
     height = _jcvi_figsize_dimension(min(12.0, max(4.0, 2.4 + max(track_count, 2) * 1.25)))
@@ -201,7 +206,7 @@ def suggest_figsize(blocks_path: Path, layout_path: Path) -> str:
 # endregion
 
 
-# region public orchestration
+# region 对外编排函数
 def prepare_synteny_plot_inputs(
     *,
     blocks: Path,
@@ -211,7 +216,7 @@ def prepare_synteny_plot_inputs(
     stem: str,
     options: WorkflowOptions,
 ) -> SyntenyPlotInputs:
-    """Prepare optional optimized inputs for a JCVI graphics.synteny call"""
+    """为一次 JCVI `graphics.synteny` 调用准备可选优化后的输入"""
 
     root.mkdir(parents=True, exist_ok=True)
     active_blocks = blocks
@@ -219,13 +224,18 @@ def prepare_synteny_plot_inputs(
     artifacts: dict[str, object] = {}
 
     if options.trim_cross_chromosome_blocks:
-        active_blocks, trimmed = trim_cross_chromosome_blocks(
+        trimmed_blocks, trimmed = trim_cross_chromosome_blocks(
             active_blocks,
             bed,
             root / f"{stem}.trimmed.blocks",
         )
-        artifacts["trimmed_blocks"] = str(active_blocks)
+        artifacts["trimmed_blocks"] = str(trimmed_blocks)
         artifacts["trimmed_cross_chromosome_block_rows"] = trimmed
+        if _count_block_rows(trimmed_blocks) == 0:
+            # 更保守的策略：裁切结果为空时回退到原始 blocks，避免把空输入继续传给 JCVI
+            artifacts["trimmed_blocks_fallback"] = "original_blocks"
+        else:
+            active_blocks = trimmed_blocks
 
     if options.rewrite_layout_links:
         active_layout, rewritten = rewrite_layout_links(
@@ -250,7 +260,7 @@ def prepare_synteny_plot_inputs(
 
 
 def copy_plot_inputs(inputs: SyntenyPlotInputs, *, blocks: Path, layout: Path) -> SyntenyPlotInputs:
-    """Copy prepared inputs to stable artifact names"""
+    """把准备好的优化输入复制到稳定的产物文件名"""
 
     artifacts = dict(inputs.artifacts)
     final_blocks = inputs.blocks
