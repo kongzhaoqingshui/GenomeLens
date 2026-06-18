@@ -163,6 +163,10 @@ class JcviEngineAdapter:
         blastn_path: str,
         makeblastdb_path: str,
         formats: list[str],
+        figsize: str = "",
+        dpi: int = 300,
+        optimize_figsize: bool = False,
+        rewrite_layout_links: bool = False,
         log_level: str = "INFO",
         task: dict[str, object] | None = None,
         species: list[dict[str, object]] | None = None,
@@ -193,7 +197,11 @@ class JcviEngineAdapter:
             },
             "options": {
                 "formats": formats,
+                "figsize": figsize,
+                "dpi": dpi,
                 "log_level": log_level,
+                "optimize_figsize": optimize_figsize,
+                "rewrite_layout_links": rewrite_layout_links,
             },
             "expected_outputs": ["global_karyotype_figures"],
             "meta": {
@@ -219,6 +227,8 @@ class JcviEngineAdapter:
         shadestyle: str,
         figsize: str,
         dpi: int,
+        optimize_figsize: bool,
+        rewrite_layout_links: bool,
         task: dict[str, object] | None = None,
         species: list[dict[str, object]] | None = None,
     ) -> dict[str, object]:
@@ -242,6 +252,8 @@ class JcviEngineAdapter:
                 "shadestyle": shadestyle,
                 "figsize": figsize,
                 "dpi": dpi,
+                "optimize_figsize": optimize_figsize,
+                "rewrite_layout_links": rewrite_layout_links,
             },
             "expected_outputs": ["multi_species_local_figures"],
             "meta": {

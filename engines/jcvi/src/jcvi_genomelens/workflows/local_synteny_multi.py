@@ -10,6 +10,7 @@ from jcvi_genomelens.manifest_models import EngineRunManifest
 from jcvi_genomelens.runtime.command_runner import CommandAudit, run_python_step
 from jcvi_genomelens.workflows.common import _assert_ok
 from jcvi_genomelens.workflows.local_synteny import _figure_options
+from jcvi_genomelens.workflows.plot_optimization import copy_plot_inputs, prepare_synteny_plot_inputs
 
 # endregion
 
@@ -46,14 +47,33 @@ def run(manifest: EngineRunManifest, outdir: str | Path) -> tuple[list[CommandAu
     root = Path(outdir).expanduser().resolve(strict=False)
     root.mkdir(parents=True, exist_ok=True)
 
-    layout = (
-        manifest.options.layout
-        if manifest.options.layout
-        else _write_multi_local_layout(root / "local_multi.layout", manifest)
-    )
+    if manifest.options.layout is None:
+        layout = _write_multi_local_layout(root / "local_multi.layout", manifest)
+        plot_inputs = copy_plot_inputs(
+            prepare_synteny_plot_inputs(
+                blocks=manifest.blocks,
+                bed=manifest.bed,
+                layout=layout,
+                root=root,
+                stem="local_multi",
+                options=manifest.options,
+            ),
+            blocks=manifest.blocks,
+            layout=layout,
+        )
+    else:
+        plot_inputs = prepare_synteny_plot_inputs(
+            blocks=manifest.blocks,
+            bed=manifest.bed,
+            layout=manifest.options.layout,
+            root=root,
+            stem="local_multi",
+            options=manifest.options,
+        )
+
     formats = manifest.options.formats or ["png"]
     plot_options = {
-        "figsize": manifest.options.figsize,
+        "figsize": plot_inputs.figsize,
         "dpi": manifest.options.dpi,
         "glyphstyle": manifest.options.glyphstyle,
         "glyphcolor": manifest.options.glyphcolor,
@@ -70,9 +90,9 @@ def run(manifest: EngineRunManifest, outdir: str | Path) -> tuple[list[CommandAu
             "jcvi.graphics.synteny",
             jcvi_graphics_synteny,
             [
-                str(manifest.blocks),
-                str(manifest.bed),
-                str(layout),
+                str(plot_inputs.blocks),
+                str(plot_inputs.bed),
+                str(plot_inputs.layout),
                 *_figure_options(plot_options, fmt),
                 "--outputprefix",
                 str(output_prefix),
@@ -86,14 +106,17 @@ def run(manifest: EngineRunManifest, outdir: str | Path) -> tuple[list[CommandAu
             raise RuntimeError(f"JCVI multi-species local synteny figure was not created: {figure}")
         figures.append(str(figure))
 
-    return commands, {
+    artifacts = {
         "figures": figures,
         "multi_species_local_figures": figures,
-        "multi_species_local_blocks": str(manifest.blocks),
-        "multi_species_local_bed": str(manifest.bed),
-        "multi_species_local_layout": str(layout),
+        "multi_species_local_blocks": str(plot_inputs.blocks),
+        "multi_species_local_bed": str(plot_inputs.bed),
+        "multi_species_local_layout": str(plot_inputs.layout),
         "track_count": len(manifest.tracks),
         "target_count": len(manifest.options.target_gene_ids),
         "simplified_fallback": False,
         "backend": "jcvi.graphics.synteny",
     }
+    artifacts.update(plot_inputs.artifacts)
+    artifacts.setdefault("rewritten_layout_edges", 0)
+    return commands, artifacts
