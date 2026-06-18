@@ -1,6 +1,10 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+vi.mock("@tauri-apps/api/event", () => ({
+  listen: vi.fn().mockResolvedValue(vi.fn()),
+}));
+
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn((command: string) => {
     if (command === "get_template") {
@@ -20,12 +24,56 @@ vi.mock("@tauri-apps/api/core", () => ({
         properties: { kind: { const: "analysis_request" } },
       });
     }
+    if (command === "run_analysis") {
+      return Promise.resolve({
+        runId: "run-test",
+        requestPath: "request.json",
+        outdir: "out",
+        status: "PENDING",
+      });
+    }
+    if (command === "read_summary") {
+      return Promise.resolve({
+        status: "SUCCEEDED",
+        schema_version: 1,
+        workflow: "graphics_synteny",
+        method: "mcscan",
+        task: {},
+        species: [],
+        final_figures: [],
+        artifact_index: [],
+        logs: {},
+        ui: { state: "SUCCEEDED", progress: 100, primary_figures: [], summary_path: "", log_path: "" },
+        scoring: { status: "", scores: [], ranking: [], message: "" },
+      });
+    }
+    if (command === "read_run_log") {
+      return Promise.resolve({
+        outdir: "out",
+        logPath: "out/logs/run.log",
+        text: "",
+        lines: [],
+        truncated: false,
+      });
+    }
+    if (command === "open_path") {
+      return Promise.resolve();
+    }
 
     return Promise.resolve({
       platform: { ok: true, command: "genomelens --version", version: "GenomeLens Shell 0.0.0" },
       engine: { ok: false, command: "jcvi-genomelens probe", version: "", error: "not found" },
     });
   }),
+}));
+
+vi.mock("@tauri-apps/plugin-dialog", () => ({
+  open: vi.fn().mockResolvedValue(null),
+}));
+
+vi.mock("@tauri-apps/plugin-fs", () => ({
+  mkdir: vi.fn().mockResolvedValue(undefined),
+  writeTextFile: vi.fn().mockResolvedValue(undefined),
 }));
 
 import App from "./App";

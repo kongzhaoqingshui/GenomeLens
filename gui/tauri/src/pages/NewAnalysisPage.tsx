@@ -1,3 +1,5 @@
+import { open } from "@tauri-apps/plugin-dialog";
+import { mkdir, writeTextFile } from "@tauri-apps/plugin-fs";
 import { useEffect, useMemo, useState } from "react";
 
 import type {
@@ -11,9 +13,12 @@ import type {
 } from "../models/analysis-request";
 import type { AnalysisRequestDraft, SpeciesInputDraft } from "../models/analysis-request-draft";
 import { draftToAnalysisRequest } from "../models/analysis-request-draft";
+import type { AnalysisEvent, RunHandle, WorkflowState } from "../models/run-session";
+import type { RunSummaryViewModel } from "../models/run-summary-view";
 import { validateAnalysisRequestDraft, type ValidationIssue } from "../models/validation";
 import type { AppRoute } from "../routes/routes";
 import { getAnalysisSchema, getTemplateDraft, type JsonObject } from "../services/analysis";
+import { listenToAnalysisEvents, openPath, readRunLog, readSummaryView, runAnalysis } from "../services/workbench";
 
 interface NewAnalysisPageProps {
   route: AppRoute;
@@ -24,6 +29,8 @@ const FIELD_CLASS =
 const LABEL_CLASS = "text-xs font-semibold uppercase tracking-[0.14em] text-text-tertiary";
 const CHECKBOX_CLASS = "h-4 w-4 rounded border-border text-ice-500 focus:ring-ice-500";
 const FIELD_GROUP_CLASS = "rounded-xl border border-border bg-surface/75 p-4 shadow-card";
+const SECONDARY_BUTTON_CLASS =
+  "rounded-lg border border-border bg-surface-raised/80 px-3 py-2 text-xs font-semibold text-text-secondary transition hover:border-ice-200 hover:bg-ice-50 hover:text-ice-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ice-500 dark:hover:border-ice-800 dark:hover:bg-ice-900/30 dark:hover:text-ice-200";
 
 const WORKFLOW_OPTIONS = [
   "mcscan_pairwise",
@@ -35,6 +42,7 @@ const WORKFLOW_OPTIONS = [
 ];
 const LOG_LEVELS: LogLevel[] = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"];
 const FORMAT_OPTIONS: OutputFormat[] = ["png", "pdf", "svg"];
+type RunPanelStatus = "idle" | "confirming" | "starting" | "running" | "finished" | "error";
 type McscanNumberField = "cscore" | "dist" | "iter" | "up" | "down" | "dpi";
 const MCSCAN_NUMBER_FIELDS: Array<{
   key: McscanNumberField;
@@ -102,11 +110,45 @@ function stringifyJson(value: unknown): string {
   return JSON.stringify(value, null, 2);
 }
 
+function joinPath(directory: string, filename: string): string {
+  const separator = directory.includes("\\") ? "\\" : "/";
+  return `${directory.replace(/[\\/]+$/, "")}${separator}${filename}`;
+}
+
+function timestampForFilename(): string {
+  return new Date().toISOString().replace(/[:.]/g, "-");
+}
+
+function eventRunId(event: AnalysisEvent): string | undefined {
+  const payload = event.payload as unknown;
+  if (typeof payload !== "object" || payload === null) {
+    return undefined;
+  }
+  const fields = payload as Record<string, unknown>;
+  const value = fields.runId ?? fields.run_id;
+  return typeof value === "string" ? value : undefined;
+}
+
+function coerceDialogPath(value: string | string[] | null): string | null {
+  if (Array.isArray(value)) {
+    return value[0] ?? null;
+  }
+  return value;
+}
+
 export default function NewAnalysisPage({ route }: NewAnalysisPageProps) {
   const [draft, setDraft] = useState<AnalysisRequestDraft | null>(null);
   const [schema, setSchema] = useState<JsonObject | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [runStatus, setRunStatus] = useState<RunPanelStatus>("idle");
+  const [workflowState, setWorkflowState] = useState<WorkflowState>("PENDING");
+  const [progress, setProgress] = useState(0);
+  const [runHandle, setRunHandle] = useState<RunHandle | null>(null);
+  const [runError, setRunError] = useState<string | null>(null);
+  const [logLines, setLogLines] = useState<string[]>([]);
+  const [summaryView, setSummaryView] = useState<RunSummaryViewModel | null>(null);
+  const [pendingRequestJson, setPendingRequestJson] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -140,6 +182,64 @@ export default function NewAnalysisPage({ route }: NewAnalysisPageProps) {
   const requestJson = useMemo(() => (draft ? stringifyJson(draftToAnalysisRequest(draft)) : ""), [draft]);
   const schemaJson = useMemo(() => (schema ? stringifyJson(schema) : ""), [schema]);
   const targetGeneText = draft?.mcscan.targetGeneIds.join("\n") ?? "";
+
+  useEffect(() => {
+    let active = true;
+    let stopListening: (() => void) | null = null;
+
+    void listenToAnalysisEvents((event) => {
+      if (!active) {
+        return;
+      }
+
+      const incomingRunId = eventRunId(event);
+      if (incomingRunId && runHandle?.runId && incomingRunId !== runHandle.runId) {
+        return;
+      }
+
+      if (event.name === "analysis:stdout") {
+        setRunStatus((current) => (current === "idle" || current === "confirming" || current === "starting" ? "running" : current));
+        setLogLines((current) => [...current, event.payload.line].slice(-80));
+      } else if (event.name === "analysis:state") {
+        setRunStatus((current) => (current === "finished" || current === "error" ? current : "running"));
+        setWorkflowState(event.payload.state);
+        setProgress(event.payload.progress);
+      } else if (event.name === "analysis:finished") {
+        setRunStatus(event.payload.status === "SUCCEEDED" ? "finished" : "error");
+        setWorkflowState(event.payload.status);
+        setProgress(100);
+        if (event.payload.summary) {
+          setSummaryView(null);
+        }
+      } else {
+        setRunStatus("error");
+        setRunError(event.payload.message);
+      }
+    }).then((unlisten) => {
+      if (active) {
+        stopListening = unlisten;
+      } else {
+        unlisten();
+      }
+    });
+
+    return () => {
+      active = false;
+      stopListening?.();
+    };
+  }, [runHandle?.runId]);
+
+  useEffect(() => {
+    if (!runHandle || runStatus !== "finished") {
+      return;
+    }
+
+    void readSummaryView({ outdir: runHandle.outdir })
+      .then(setSummaryView)
+      .catch((error: unknown) => {
+        setRunError(error instanceof Error ? error.message : String(error));
+      });
+  }, [runHandle, runStatus]);
 
   function patchDraft(patch: Partial<AnalysisRequestDraft>) {
     setDraft((current) => (current ? { ...current, ...patch } : current));
@@ -189,6 +289,104 @@ export default function NewAnalysisPage({ route }: NewAnalysisPageProps) {
         : [...current.formats, format];
       return { ...current, formats };
     });
+  }
+
+  async function pickDirectory(onSelect: (path: string) => void) {
+    const selected = coerceDialogPath(await open({ directory: true, multiple: false }));
+    if (selected) {
+      onSelect(selected);
+    }
+  }
+
+  async function pickFile(onSelect: (path: string) => void) {
+    const selected = coerceDialogPath(await open({ directory: false, multiple: false }));
+    if (selected) {
+      onSelect(selected);
+    }
+  }
+
+  async function handlePrepareRun() {
+    if (!draft || !validation) {
+      return;
+    }
+    if (!validation.ok) {
+      setRunStatus("error");
+      setRunError("请先处理校验结果中的错误，再启动分析。");
+      return;
+    }
+
+    setRunError(null);
+    setPendingRequestJson(requestJson);
+    setRunStatus("confirming");
+  }
+
+  async function handleConfirmRun() {
+    if (!draft) {
+      return;
+    }
+
+    const request = draftToAnalysisRequest(draft);
+    const json = stringifyJson(request);
+    const requestPath = joinPath(draft.outputDirectory, `genomelens-request-${timestampForFilename()}.json`);
+
+    setRunStatus("starting");
+    setRunError(null);
+    setRunHandle(null);
+    setSummaryView(null);
+    setWorkflowState("PENDING");
+    setProgress(0);
+    setLogLines([]);
+
+    try {
+      await mkdir(draft.outputDirectory, { recursive: true });
+      await writeTextFile(requestPath, `${json}\n`);
+      const handle = await runAnalysis({ requestPath, outdir: draft.outputDirectory });
+      setRunHandle(handle);
+      setWorkflowState(handle.status);
+      setRunStatus("running");
+      setPendingRequestJson("");
+    } catch (error: unknown) {
+      setRunStatus("error");
+      setRunError(error instanceof Error ? error.message : String(error));
+    }
+  }
+
+  async function handleReadSummary() {
+    if (!draft && !runHandle) {
+      return;
+    }
+    const outdir = runHandle?.outdir ?? draft?.outputDirectory ?? "";
+    if (!outdir) {
+      return;
+    }
+    try {
+      setSummaryView(await readSummaryView({ outdir }));
+    } catch (error: unknown) {
+      setRunError(error instanceof Error ? error.message : String(error));
+    }
+  }
+
+  async function handleReadLog() {
+    if (!draft && !runHandle) {
+      return;
+    }
+    const outdir = runHandle?.outdir ?? draft?.outputDirectory ?? "";
+    if (!outdir) {
+      return;
+    }
+    try {
+      const snapshot = await readRunLog({ outdir, tailLines: 80 });
+      setLogLines(snapshot.lines);
+    } catch (error: unknown) {
+      setRunError(error instanceof Error ? error.message : String(error));
+    }
+  }
+
+  async function handleOpenOutput() {
+    const outdir = runHandle?.outdir ?? draft?.outputDirectory ?? "";
+    if (outdir) {
+      await openPath({ path: outdir });
+    }
   }
 
   if (loading) {
@@ -268,16 +466,21 @@ export default function NewAnalysisPage({ route }: NewAnalysisPageProps) {
           </div>
 
           {draft.inputMode === "auto_directory" ? (
-            <label className="mt-5 block">
+            <div className="mt-5">
               <span className={LABEL_CLASS}>输入目录</span>
-              <input
-                className={FIELD_CLASS}
-                value={draft.directory}
-                onChange={(event) => patchDraft({ directory: event.target.value })}
-                placeholder="选择或输入包含 MCSCAN 输入文件的目录"
-              />
+              <div className="mt-2 flex gap-2">
+                <input
+                  className="w-full rounded-lg border border-border bg-bg px-3 py-2 text-sm text-text-primary shadow-sm outline-none transition focus:border-ice-400 focus:ring-2 focus:ring-ice-200 dark:focus:ring-ice-900/60"
+                  value={draft.directory}
+                  onChange={(event) => patchDraft({ directory: event.target.value })}
+                  placeholder="选择包含 MCSCAN 输入文件的目录"
+                />
+                <button type="button" className={SECONDARY_BUTTON_CLASS} onClick={() => pickDirectory((path) => patchDraft({ directory: path }))}>
+                  选择
+                </button>
+              </div>
               <IssueText issue={directoryIssue} />
-            </label>
+            </div>
           ) : (
             <div className="mt-5 grid gap-4">
               <div className="flex items-center justify-between gap-3">
@@ -333,20 +536,30 @@ export default function NewAnalysisPage({ route }: NewAnalysisPageProps) {
                       <>
                         <label>
                           <span className={LABEL_CLASS}>BED</span>
-                          <input
-                            className={FIELD_CLASS}
-                            value={species.bed}
-                            onChange={(event) => updateSpecies(index, { bed: event.target.value })}
-                          />
+                          <div className="mt-2 flex gap-2">
+                            <input
+                              className="w-full rounded-lg border border-border bg-bg px-3 py-2 text-sm text-text-primary shadow-sm outline-none transition focus:border-ice-400 focus:ring-2 focus:ring-ice-200 dark:focus:ring-ice-900/60"
+                              value={species.bed}
+                              onChange={(event) => updateSpecies(index, { bed: event.target.value })}
+                            />
+                            <button type="button" className={SECONDARY_BUTTON_CLASS} onClick={() => pickFile((path) => updateSpecies(index, { bed: path }))}>
+                              选择
+                            </button>
+                          </div>
                           <IssueText issue={issueFor(validation.issues, `input.species[${index}].bed`)} />
                         </label>
                         <label>
                           <span className={LABEL_CLASS}>CDS</span>
-                          <input
-                            className={FIELD_CLASS}
-                            value={species.cds}
-                            onChange={(event) => updateSpecies(index, { cds: event.target.value })}
-                          />
+                          <div className="mt-2 flex gap-2">
+                            <input
+                              className="w-full rounded-lg border border-border bg-bg px-3 py-2 text-sm text-text-primary shadow-sm outline-none transition focus:border-ice-400 focus:ring-2 focus:ring-ice-200 dark:focus:ring-ice-900/60"
+                              value={species.cds}
+                              onChange={(event) => updateSpecies(index, { cds: event.target.value })}
+                            />
+                            <button type="button" className={SECONDARY_BUTTON_CLASS} onClick={() => pickFile((path) => updateSpecies(index, { cds: path }))}>
+                              选择
+                            </button>
+                          </div>
                           <IssueText issue={issueFor(validation.issues, `input.species[${index}].cds`)} />
                         </label>
                       </>
@@ -354,20 +567,30 @@ export default function NewAnalysisPage({ route }: NewAnalysisPageProps) {
                       <>
                         <label>
                           <span className={LABEL_CLASS}>GFF</span>
-                          <input
-                            className={FIELD_CLASS}
-                            value={species.gff}
-                            onChange={(event) => updateSpecies(index, { gff: event.target.value })}
-                          />
+                          <div className="mt-2 flex gap-2">
+                            <input
+                              className="w-full rounded-lg border border-border bg-bg px-3 py-2 text-sm text-text-primary shadow-sm outline-none transition focus:border-ice-400 focus:ring-2 focus:ring-ice-200 dark:focus:ring-ice-900/60"
+                              value={species.gff}
+                              onChange={(event) => updateSpecies(index, { gff: event.target.value })}
+                            />
+                            <button type="button" className={SECONDARY_BUTTON_CLASS} onClick={() => pickFile((path) => updateSpecies(index, { gff: path }))}>
+                              选择
+                            </button>
+                          </div>
                           <IssueText issue={issueFor(validation.issues, `input.species[${index}].gff`)} />
                         </label>
                         <label>
                           <span className={LABEL_CLASS}>Genome FASTA</span>
-                          <input
-                            className={FIELD_CLASS}
-                            value={species.genome}
-                            onChange={(event) => updateSpecies(index, { genome: event.target.value })}
-                          />
+                          <div className="mt-2 flex gap-2">
+                            <input
+                              className="w-full rounded-lg border border-border bg-bg px-3 py-2 text-sm text-text-primary shadow-sm outline-none transition focus:border-ice-400 focus:ring-2 focus:ring-ice-200 dark:focus:ring-ice-900/60"
+                              value={species.genome}
+                              onChange={(event) => updateSpecies(index, { genome: event.target.value })}
+                            />
+                            <button type="button" className={SECONDARY_BUTTON_CLASS} onClick={() => pickFile((path) => updateSpecies(index, { genome: path }))}>
+                              选择
+                            </button>
+                          </div>
                           <IssueText issue={issueFor(validation.issues, `input.species[${index}].genome`)} />
                         </label>
                       </>
@@ -384,11 +607,16 @@ export default function NewAnalysisPage({ route }: NewAnalysisPageProps) {
           <div className="mt-4 grid gap-4 md:grid-cols-2">
             <label>
               <span className={LABEL_CLASS}>输出目录</span>
-              <input
-                className={FIELD_CLASS}
-                value={draft.outputDirectory}
-                onChange={(event) => patchDraft({ outputDirectory: event.target.value })}
-              />
+              <div className="mt-2 flex gap-2">
+                <input
+                  className="w-full rounded-lg border border-border bg-bg px-3 py-2 text-sm text-text-primary shadow-sm outline-none transition focus:border-ice-400 focus:ring-2 focus:ring-ice-200 dark:focus:ring-ice-900/60"
+                  value={draft.outputDirectory}
+                  onChange={(event) => patchDraft({ outputDirectory: event.target.value })}
+                />
+                <button type="button" className={SECONDARY_BUTTON_CLASS} onClick={() => pickDirectory((path) => patchDraft({ outputDirectory: path }))}>
+                  选择
+                </button>
+              </div>
               <IssueText issue={outputIssue} />
             </label>
             <label>
@@ -607,6 +835,113 @@ export default function NewAnalysisPage({ route }: NewAnalysisPageProps) {
       </section>
 
       <aside className="grid content-start gap-5">
+        <section className={FIELD_GROUP_CLASS}>
+          <SectionTitle title="运行面板" subtitle="runAnalysis() + listenToAnalysisEvents()" />
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              className="rounded-lg bg-ice-500 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-ice-500/20 transition hover:bg-ice-400 disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={runStatus === "starting" || runStatus === "running"}
+              onClick={handlePrepareRun}
+            >
+              Run
+            </button>
+            <button type="button" className={SECONDARY_BUTTON_CLASS} onClick={handleReadSummary}>
+              读取 summary
+            </button>
+            <button type="button" className={SECONDARY_BUTTON_CLASS} onClick={handleReadLog}>
+              读取日志
+            </button>
+            <button type="button" className={SECONDARY_BUTTON_CLASS} onClick={handleOpenOutput}>
+              打开输出目录
+            </button>
+          </div>
+
+          <div className="mt-4 grid gap-3 rounded-xl border border-border bg-bg p-4">
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-xs font-semibold uppercase tracking-[0.14em] text-text-tertiary">当前状态</span>
+              <span className="rounded-full bg-ice-100 px-3 py-1 text-xs font-semibold text-ice-700 dark:bg-ice-900/40 dark:text-ice-200">
+                {runStatus} / {workflowState}
+              </span>
+            </div>
+            <div className="h-2 overflow-hidden rounded-full bg-ice-100 dark:bg-ice-900/40">
+              <div className="h-full rounded-full bg-ice-500 transition-all" style={{ width: `${Math.max(0, Math.min(progress, 100))}%` }} />
+            </div>
+            {runHandle ? (
+              <div className="grid gap-1 font-mono text-xs text-text-tertiary">
+                <span>runId: {runHandle.runId}</span>
+                <span>outdir: {runHandle.outdir}</span>
+              </div>
+            ) : null}
+            {runError ? <p className="text-sm font-medium text-rose-600 dark:text-rose-300">{runError}</p> : null}
+          </div>
+
+          {runStatus === "confirming" ? (
+            <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-900/40 dark:bg-amber-950/20">
+              <h3 className="text-sm font-semibold text-text-primary">确认 AnalysisRequest JSON</h3>
+              <pre className="mt-3 max-h-64 overflow-auto rounded-lg border border-border bg-bg p-3 font-mono text-xs leading-6 text-text-secondary">
+                {pendingRequestJson}
+              </pre>
+              <div className="mt-3 flex gap-2">
+                <button type="button" className="rounded-lg bg-ice-500 px-3 py-2 text-xs font-semibold text-white" onClick={handleConfirmRun}>
+                  确认运行
+                </button>
+                <button type="button" className={SECONDARY_BUTTON_CLASS} onClick={() => setRunStatus("idle")}>
+                  取消
+                </button>
+              </div>
+            </div>
+          ) : null}
+
+          <div className="mt-4">
+            <h3 className="text-sm font-semibold text-text-primary">最近日志</h3>
+            <pre className="mt-3 max-h-56 overflow-auto rounded-xl border border-border bg-bg p-4 font-mono text-xs leading-6 text-text-secondary">
+              {logLines.length > 0 ? logLines.join("\n") : "等待 analysis:stdout 或 read_run_log()"}
+            </pre>
+          </div>
+        </section>
+
+        <section className={FIELD_GROUP_CLASS}>
+          <SectionTitle title="结果轻展示" subtitle="read_summary() -> RunSummaryViewModel" />
+          {summaryView ? (
+            <div className="mt-4 grid gap-4">
+              <div className="grid gap-2 rounded-xl border border-border bg-bg p-4 text-sm text-text-secondary">
+                <div className="flex justify-between gap-3">
+                  <span>status</span>
+                  <span className="font-semibold text-text-primary">{summaryView.status}</span>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <span>workflow</span>
+                  <span className="font-semibold text-text-primary">{summaryView.workflow}</span>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <span>progress</span>
+                  <span className="font-semibold text-text-primary">{summaryView.progress}%</span>
+                </div>
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-text-primary">主要图件</h3>
+                <div className="mt-3 grid gap-2">
+                  {summaryView.figureAssets.length > 0 ? (
+                    summaryView.figureAssets.slice(0, 8).map((asset) => (
+                      <div key={asset.path} className="rounded-lg border border-border bg-bg p-3">
+                        <p className="text-sm font-semibold text-text-primary">{asset.name}</p>
+                        <p className="mt-1 break-all font-mono text-xs text-text-tertiary">{asset.path}</p>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="rounded-lg border border-border bg-bg p-3 text-sm text-text-secondary">summary 暂无图件索引。</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <p className="mt-4 rounded-lg border border-border bg-bg p-3 text-sm text-text-secondary">
+              运行结束后会自动读取 summary，也可以手动点击“读取 summary”。
+            </p>
+          )}
+        </section>
+
         <section className={FIELD_GROUP_CLASS}>
           <SectionTitle title="校验结果" subtitle="validateAnalysisRequestDraft()" />
           {validation.issues.length === 0 ? (
