@@ -570,7 +570,7 @@ class CliProgressReporter(SignalBusProgressReporter):
         stream: TextIO | None = None,
         theme: ProgressTheme | None = None,
     ) -> None:
-        super().__init__(McscanProgressAdapter(request), color=color, stream=stream, theme=theme)
+        super().__init__(McscanProgressAdapter(request), color=color, stream=stream or sys.stdout, theme=theme)
 
 
 def render_workbench_banner(*, color: bool | None = None) -> str:
