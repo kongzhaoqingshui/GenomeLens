@@ -55,4 +55,3 @@ def rewrite_jcvi_subtask_argv(argv: list[str]) -> list[str]:
 
     rewritten = [*argv[:3], *argv[4:], "--jcvi-subtask", workflow]
     return rewritten
-
