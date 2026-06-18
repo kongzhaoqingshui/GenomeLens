@@ -225,5 +225,5 @@ git push origin --delete gui/feature/xxx
 
 - `docs/开发手册/协作开发方案.md`
 - `docs/开发手册/开发规范.md`
-- `docs/开发手册/gui先行开发计划.md`
-- `docs/开发手册/GUI视觉与交互风格指南.md`
+- `./开发计划.md`
+- `./视觉与交互风格指南.md`
