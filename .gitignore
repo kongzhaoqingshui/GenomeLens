@@ -9,6 +9,9 @@ __pycache__/
 # Codex 本地专属配置与技能
 .codex/
 
+# Claude Code 本地个人设置（项目级 settings.json 仍可提交）
+.claude/settings.local.json
+
 # 覆盖率报告
 .coverage
 htmlcov/
@@ -31,6 +34,7 @@ app/*/
 docs/施工计划/**
 docs/历史/
 docs/开发手册/新增/
+docs/更新计划/计划更新.md
 docs/更新计划/计划更新的内容.md
 
 # 已下载的工具链归档
