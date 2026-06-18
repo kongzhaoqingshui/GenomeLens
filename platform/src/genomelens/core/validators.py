@@ -49,8 +49,11 @@ def validate_request(request: McscanRequest) -> None:
         raise InputValidationError("--threads must be >= 1")
     if request.min_block_size < 1:
         raise InputValidationError("--min-block-size must be >= 1")
-    if normalize_workflow(request.jcvi_workflow) not in SUPPORTED_WORKFLOWS:
+    workflow = normalize_workflow(request.jcvi_workflow)
+    if workflow not in SUPPORTED_WORKFLOWS:
         raise InputValidationError(f"unsupported JCVI workflow: {request.jcvi_workflow}")
+    if workflow == "local_synteny" and not request.target_gene_ids:
+        raise InputValidationError("local_synteny workflow requires --target-genes")
     if request.allow_simplified_fallback:
         raise InputValidationError("allow_simplified_fallback is not implemented for production JCVI workflows")
     for optional_path, label in [(request.jcvi_layout, "layout"), (request.jcvi_seqids, "seqids")]:

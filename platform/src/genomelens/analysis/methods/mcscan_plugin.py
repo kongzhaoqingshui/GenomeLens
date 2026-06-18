@@ -136,6 +136,7 @@ class McscanPlugin(MethodPlugin):
             help="保留诊断开关；正式流程会拒绝简化降级",
         )
         diag_group.add_argument("--jcvi-workflow", default="", help="JCVI workflow(工作流) 名称")
+        diag_group.add_argument("--jcvi-subtask", default="", help=argparse.SUPPRESS)
         diag_group.add_argument("--jcvi-layout", default="", help="JCVI layout(布局) 文件")
         diag_group.add_argument("--jcvi-seqids", default="", help="JCVI seqids(序列编号) 文件")
 
