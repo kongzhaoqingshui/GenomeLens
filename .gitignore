@@ -63,6 +63,7 @@ integrations/haiant_plugin/.venv/
 
 # 本地运行
 .work/
+gui/demo-data/runs/
 
 # GUI 本地依赖与构建产物
 gui/tauri/node_modules/
