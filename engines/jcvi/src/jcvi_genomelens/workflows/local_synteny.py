@@ -7,6 +7,7 @@
 # region import
 from __future__ import annotations
 
+import re
 import shutil
 from pathlib import Path
 from typing import Any, cast
@@ -19,6 +20,35 @@ from jcvi_genomelens.workflows.plot_optimization import prepare_synteny_plot_inp
 # endregion
 
 TARGET_BLOCK_HIGHLIGHT = "r"
+_TRACK_LABEL_WRAP_THRESHOLD = 12
+_TRACK_LABEL_ABBREVIATION_LIMIT = 18
+
+
+def _display_track_label(label: str) -> str:
+    """把默认轨道标签压缩成更适合图内显示的短文本"""
+
+    normalized = re.sub(r"[_]+", " ", label.strip())
+    normalized = re.sub(r"[- ]+(scaffold|chromosome)$", "", normalized, flags=re.IGNORECASE)
+    parts = [part for part in re.split(r"[\s-]+", normalized) if part]
+    if len(parts) >= 2:
+        abbreviated = f"{parts[0][0]}. {parts[1]}"
+        if (
+            len(" ".join(parts[:2])) > _TRACK_LABEL_WRAP_THRESHOLD
+            and len(abbreviated) <= _TRACK_LABEL_ABBREVIATION_LIMIT
+        ):
+            return abbreviated
+    if len(normalized) <= _TRACK_LABEL_ABBREVIATION_LIMIT:
+        return normalized
+    return normalized[: _TRACK_LABEL_ABBREVIATION_LIMIT - 3] + "..."
+
+
+def _layout_label_fields(label: str, default_va: str) -> tuple[str, str, str, int]:
+    """为默认 layout 选择标签锚点、显示文本和字号"""
+
+    display_label = _display_track_label(label)
+    if len(display_label) > _TRACK_LABEL_WRAP_THRESHOLD:
+        return "leftalign", "center", display_label, 9
+    return "center", default_va, display_label, 10
 
 
 def _read_bed_order(bed_path: Path) -> tuple[list[str], dict[str, int]]:
@@ -151,15 +181,26 @@ def _write_local_layout(
 ) -> Path:
     """写出以参考物种为中心的局部共线性双轨 layout"""
 
+    query_ha, query_va, query_display, query_fontsize = _layout_label_fields(query_label, "top")
+    subject_ha, subject_va, subject_display, subject_fontsize = _layout_label_fields(subject_label, "bottom")
     path.write_text(
         "\n".join(
             [
                 "# x, y, rotation, ha, va, color, ratio, label",
-                "0.50, 0.65, 0, center, top, #2f6f73, 1, {query}",
-                "0.50, 0.35, 0, center, bottom, #b85c38, 1, {subject}",
+                "0.50, 0.65, 0, {query_ha}, {query_va}, #2f6f73, 1, {query}, {query_fontsize}",
+                "0.50, 0.35, 0, {subject_ha}, {subject_va}, #b85c38, 1, {subject}, {subject_fontsize}",
                 "e, 0, 1, #c8c8c8",
             ]
-        ).format(query=query_label, subject=subject_label)
+        ).format(
+            query_ha=query_ha,
+            query_va=query_va,
+            query=query_display,
+            query_fontsize=query_fontsize,
+            subject_ha=subject_ha,
+            subject_va=subject_va,
+            subject=subject_display,
+            subject_fontsize=subject_fontsize,
+        )
         + "\n",
         encoding="utf-8",
     )

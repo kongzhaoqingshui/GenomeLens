@@ -9,7 +9,7 @@ from jcvi.graphics.synteny import main as jcvi_graphics_synteny
 from jcvi_genomelens.manifest_models import EngineRunManifest
 from jcvi_genomelens.runtime.command_runner import CommandAudit, run_python_step
 from jcvi_genomelens.workflows.common import _assert_ok
-from jcvi_genomelens.workflows.local_synteny import _figure_options
+from jcvi_genomelens.workflows.local_synteny import _figure_options, _layout_label_fields
 from jcvi_genomelens.workflows.plot_optimization import copy_plot_inputs, prepare_synteny_plot_inputs
 
 # endregion
@@ -27,8 +27,9 @@ def _write_multi_local_layout(path: Path, manifest: EngineRunManifest) -> Path:
     for index, track in enumerate(manifest.tracks):
         y = (top + bottom) / 2 if count == 1 else top - (top - bottom) * index / (count - 1)
         color = _TRACK_COLORS[index % len(_TRACK_COLORS)]
-        va = "top" if index == 0 else "bottom"
-        lines.append(f"0.50, {y:.4f}, 0, center, {va}, {color}, 1, {track.name}")
+        default_va = "top" if index == 0 else "bottom"
+        ha, va, display_label, fontsize = _layout_label_fields(track.name, default_va)
+        lines.append(f"0.50, {y:.4f}, 0, {ha}, {va}, {color}, 1, {display_label}, {fontsize}")
 
     for index in range(1, count):
         # 多物种局部图以参考物种为中心，连接参考轨道与每个目标轨道。
