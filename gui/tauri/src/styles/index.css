@@ -3,16 +3,51 @@
 @tailwind utilities;
 
 :root {
+  --color-bg: 255 255 255;
+  --color-surface: 248 250 252;
+  --color-surface-raised: 255 255 255;
+  --color-border: 226 232 240;
+  --color-text-primary: 15 23 42;
+  --color-text-secondary: 100 116 139;
+  --color-text-tertiary: 148 163 184;
   color-scheme: light;
   font-family: "Inter", "PingFang SC", "Microsoft YaHei", sans-serif;
   background: #ffffff;
 }
 
+html.dark {
+  --color-bg: 11 18 32;
+  --color-surface: 17 24 39;
+  --color-surface-raised: 30 41 59;
+  --color-border: 30 41 59;
+  --color-text-primary: 248 250 252;
+  --color-text-secondary: 148 163 184;
+  --color-text-tertiary: 100 116 139;
+  color-scheme: dark;
+  background: #0b1220;
+}
+
+html {
+  background: rgb(var(--color-bg));
+}
+
 body {
   margin: 0;
-  min-width: 1024px;
+  min-width: 960px;
+  background: rgb(var(--color-bg));
 }
 
 button {
   font: inherit;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
 }
