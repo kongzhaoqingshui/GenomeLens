@@ -10,6 +10,7 @@ import sys
 from genomelens._version import __version__
 from genomelens.app.errors.error_reporter import exit_code_for, format_user_error
 from genomelens.cli.commands import analyze, check, clean, config
+from genomelens.cli.jcvi_subtasks import rewrite_jcvi_subtask_argv
 from genomelens.cli.mcscan_help import render_mcscan_help
 from genomelens.cli.ui import (
     StyledArgumentParser,
@@ -151,6 +152,7 @@ def main(argv: list[str] | None = None) -> int:
             print(mcscan_help, end="")
             return 0
 
+    argv = rewrite_jcvi_subtask_argv(argv)
     parser = build_parser()
     try:
         args = parser.parse_args(argv)

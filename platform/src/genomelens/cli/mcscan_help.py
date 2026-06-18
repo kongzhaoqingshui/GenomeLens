@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from genomelens.cli.jcvi_subtasks import JCVI_SUBTASK_BY_NAME, JCVI_SUBTASKS, JcviSubtask
 from genomelens.cli.ui import PALETTE, _paint, _supports_color
 
 
@@ -146,10 +147,22 @@ def _render_index(*, jcvi: bool = False, enabled: bool) -> str:
     lines.extend(
         [
             "",
+            _paint("子任务:", PALETTE.bold + PALETTE.blue, enabled=enabled),
+        ]
+    )
+    for subtask in JCVI_SUBTASKS:
+        name = _paint(f"{subtask.name:<18}", PALETTE.cyan, enabled=enabled)
+        title_text = _paint(subtask.title, PALETTE.yellow, enabled=enabled)
+        summary = _paint(subtask.summary, PALETTE.gray, enabled=enabled)
+        lines.append(f"  {name} {title_text} - {summary}")
+    lines.extend(
+        [
+            "",
             _paint("查看:", PALETTE.bold + PALETTE.blue, enabled=enabled),
             f"  {_paint(page_prefix, PALETTE.cyan, enabled=enabled)} io",
             f"  {_paint(page_prefix, PALETTE.cyan, enabled=enabled)} local",
             f"  {_paint(page_prefix, PALETTE.cyan, enabled=enabled)} diagnostics",
+            f"  {_paint(page_prefix, PALETTE.cyan, enabled=enabled)} graphics_dotplot",
             "",
         ]
     )
@@ -179,6 +192,29 @@ def _render_page(page: McscanHelpPage, *, enabled: bool) -> str:
     return "\n".join(lines)
 
 
+def _render_subtask(subtask: JcviSubtask, *, enabled: bool) -> str:
+    command = f"genomelens analyze mcscan jcvi {subtask.name}"
+    prefix = "help analyze mcscan jcvi"
+    lines = [
+        f"{_paint(command, PALETTE.bold + PALETTE.blue, enabled=enabled)} - "
+        f"{_paint(subtask.title, PALETTE.yellow, enabled=enabled)}",
+        "",
+        _paint(subtask.summary, PALETTE.gray, enabled=enabled),
+        "",
+        _paint("用法:", PALETTE.bold + PALETTE.blue, enabled=enabled),
+        f"  {_paint(command, PALETTE.cyan, enabled=enabled)} input_dir output_dir [jcvi_config_positional] [选项]",
+        "",
+        _paint("示例:", PALETTE.bold + PALETTE.blue, enabled=enabled),
+        f"  {_paint(command, PALETTE.cyan, enabled=enabled)} <input_dir> <output_dir> --force",
+        "",
+        _paint("共享参数页:", PALETTE.bold + PALETTE.blue, enabled=enabled),
+        f"  {_paint(prefix, PALETTE.cyan, enabled=enabled)} "
+        + _paint(" | ".join(item.key for item in _PAGES), PALETTE.gray, enabled=enabled),
+        "",
+    ]
+    return "\n".join(lines)
+
+
 def render_mcscan_help(path: list[str], *, color: bool | None = None) -> str | None:
     """Return custom mcscan help for `help analyze mcscan ...` paths."""
 
@@ -194,9 +230,14 @@ def render_mcscan_help(path: list[str], *, color: bool | None = None) -> str | N
     if not rest:
         return _render_index(jcvi=jcvi, enabled=enabled)
 
+    if jcvi and rest[0] in JCVI_SUBTASK_BY_NAME:
+        return _render_subtask(JCVI_SUBTASK_BY_NAME[rest[0]], enabled=enabled)
+
     page = _PAGE_BY_KEY.get(rest[0])
     if page is None:
-        valid = ", ".join(["jcvi", *[f"jcvi {item.key}" for item in _PAGES]])
+        valid = ", ".join(
+            ["jcvi", *[f"jcvi {item.key}" for item in _PAGES], *[f"jcvi {item.name}" for item in JCVI_SUBTASKS]]
+        )
         return (
             f"{_paint('未知 mcscan help 页:', PALETTE.red, enabled=enabled)} {' '.join(path)}\n"
             f"{_paint('可用页:', PALETTE.bold + PALETTE.blue, enabled=enabled)} {valid}\n"

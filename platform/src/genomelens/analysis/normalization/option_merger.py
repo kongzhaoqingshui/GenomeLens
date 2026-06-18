@@ -52,6 +52,10 @@ def _log_level(args: argparse.Namespace, config: ConfigModel | None) -> str:
 
 
 def _workflow(args: argparse.Namespace, config: ConfigModel | None) -> str:
+    subtask = str(getattr(args, "jcvi_subtask", "") or "").strip()
+    if subtask:
+        return subtask
+
     if str(args.jcvi_workflow).strip():
         return str(args.jcvi_workflow)
 
