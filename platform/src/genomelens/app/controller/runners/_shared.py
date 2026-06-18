@@ -9,9 +9,9 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from genomelens.analysis.methods.mcscan_summary import McscanSummaryExtension
 from genomelens.app.controller.state_machine import WorkflowState
 from genomelens.app.errors import messages
+from genomelens.core.mcscan_summary import McscanSummaryExtension
 from genomelens.core.models import ArtifactRecord, GenomeInputSpec, PreparedGenomeInputSpec
 from genomelens.core.preprocessing.annotation_preprocessor import preprocess_one, write_preprocessing_summary
 from genomelens.core.summary_models import RunSummary, ScoringBlock, UiBlock

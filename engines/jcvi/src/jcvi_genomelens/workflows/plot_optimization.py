@@ -36,7 +36,7 @@ class _LayoutEdge:
 
 
 # region blocks 裁切相关函数
-def _split_block_highlight(value: str) -> str:
+def _strip_highlight_prefix(value: str) -> str:
     if "*" not in value:
         return value
     return value.split("*", 1)[1]
@@ -124,13 +124,13 @@ def _can_render_trimmed_blocks(blocks_path: Path, bed_path: Path, layout_path: P
 
             block_rows += 1
             for index, atom in enumerate(atoms):
-                gene_id = _split_block_highlight(atom)
+                gene_id = _strip_highlight_prefix(atom)
                 if gene_id not in EMPTY_BLOCK_VALUES and gene_id in gene_ids:
                     columns_with_genes[index] = True
 
             for source, target in edge_pairs:
-                source_gene = _split_block_highlight(atoms[source])
-                target_gene = _split_block_highlight(atoms[target])
+                source_gene = _strip_highlight_prefix(atoms[source])
+                target_gene = _strip_highlight_prefix(atoms[target])
                 if (
                     source_gene not in EMPTY_BLOCK_VALUES
                     and target_gene not in EMPTY_BLOCK_VALUES
@@ -157,7 +157,7 @@ def trim_cross_chromosome_blocks(blocks_path: Path, bed_path: Path, output_path:
                 continue
 
             genes = [
-                _split_block_highlight(part.strip())
+                _strip_highlight_prefix(part.strip())
                 for part in line.split("\t")
                 if part.strip() not in EMPTY_BLOCK_VALUES
             ]

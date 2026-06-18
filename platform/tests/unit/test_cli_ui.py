@@ -1,7 +1,7 @@
 import argparse
 import io
 
-from genomelens.analysis.request_models import (
+from genomelens.analysis.requests.models import (
     AnalysisInput,
     AnalysisOutput,
     AnalysisRequest,

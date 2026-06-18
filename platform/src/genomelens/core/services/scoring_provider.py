@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from typing import Protocol, runtime_checkable
 
-from genomelens.analysis.request_models import AnalysisRequest
+from genomelens.analysis.requests.models import AnalysisRequest
 from genomelens.core.summary_models import RunSummary, ScoringBlock
 
 # endregion

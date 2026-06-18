@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from genomelens.analysis.request_models import AnalysisSpeciesInput
+from genomelens.analysis.requests.models import AnalysisSpeciesInput
 from genomelens.app.errors import messages
 from genomelens.app.errors.exceptions import InputValidationError
 

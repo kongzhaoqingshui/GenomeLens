@@ -7,9 +7,9 @@ import json
 from pathlib import Path
 
 from genomelens.analysis.methods.registry import get_method
-from genomelens.analysis.request_loader import write_analysis_request
-from genomelens.analysis.request_models import AnalysisRequest
-from genomelens.analysis.request_normalizer import normalize_analysis_request
+from genomelens.analysis.requests.loader import write_analysis_request
+from genomelens.analysis.requests.models import AnalysisRequest
+from genomelens.analysis.requests.normalizer import normalize_analysis_request
 from genomelens.app.controller.orchestrator import WorkflowOrchestrator
 from genomelens.app.errors import messages
 from genomelens.app.errors.exceptions import InputValidationError

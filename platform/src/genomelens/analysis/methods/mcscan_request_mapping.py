@@ -6,7 +6,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from genomelens.analysis.request_models import (
+from genomelens.analysis.requests.models import (
     AnalysisRequest,
     AnalysisSpeciesInput,
     McscanMethodConfig,
@@ -150,7 +150,7 @@ def _map_method_config_to_request(
 def to_mcscan_request(request: AnalysisRequest) -> McscanRequest:
     """把 AnalysisRequest(分析请求) 转为现有 McscanRequest(共线性请求)"""
 
-    from genomelens.analysis.request_normalizer import read_request_config
+    from genomelens.analysis.requests.normalizer import read_request_config
 
     config = read_request_config(request)
     species = [_species_to_genome_input(item) for item in request.input.species]

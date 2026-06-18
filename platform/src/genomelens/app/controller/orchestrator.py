@@ -6,7 +6,7 @@ from __future__ import annotations
 import warnings
 from dataclasses import replace
 
-from genomelens.analysis.request_models import AnalysisRequest
+from genomelens.analysis.requests.models import AnalysisRequest
 from genomelens.app.controller.state_machine import WorkflowState
 from genomelens.app.controller.strategies.pairwise_aggregated import PairwiseAggregatedMultiSpecies
 from genomelens.app.controller.workflow_provider import WorkflowProvider

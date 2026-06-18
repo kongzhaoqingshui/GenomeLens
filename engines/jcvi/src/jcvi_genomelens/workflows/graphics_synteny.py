@@ -8,16 +8,12 @@ from pathlib import Path
 from jcvi.graphics.synteny import main as jcvi_graphics_synteny
 from jcvi_genomelens.manifest_models import EngineRunManifest
 from jcvi_genomelens.runtime.command_runner import CommandAudit, run_python_step
+from jcvi_genomelens.workflows.common import _assert_ok
 from jcvi_genomelens.workflows.graphics_dotplot import draw_dotplots
 from jcvi_genomelens.workflows.mcscan_pairwise import run as run_pairwise
 from jcvi_genomelens.workflows.plot_optimization import prepare_synteny_plot_inputs
 
 # endregion
-
-
-def _assert_ok(command: CommandAudit) -> None:
-    if command.returncode != 0:
-        raise RuntimeError(command.stderr or command.stdout or f"{command.name} failed")
 
 
 def _figure_options(manifest: EngineRunManifest, fmt: str, figsize: str) -> list[str]:

@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 from genomelens.analysis.methods.mcscan_request_mapping import to_mcscan_request
-from genomelens.analysis.request_models import AnalysisRequest
+from genomelens.analysis.requests.models import AnalysisRequest
 from genomelens.app.controller.state_machine import WorkflowState
 from genomelens.app.controller.workflow_provider import WorkflowProvider
 from genomelens.app.events.signal_bus import SignalBus

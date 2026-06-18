@@ -8,7 +8,7 @@ from genomelens.analysis.methods.mcscan_request_mapping import (
     _map_method_config_to_request,
     to_mcscan_request,
 )
-from genomelens.analysis.request_models import (
+from genomelens.analysis.requests.models import (
     AnalysisInput,
     AnalysisOptions,
     AnalysisOutput,

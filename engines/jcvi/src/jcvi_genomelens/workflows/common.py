@@ -5,7 +5,16 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from jcvi_genomelens.runtime.command_runner import CommandAudit
+
 # endregion
+
+
+def _assert_ok(command: CommandAudit) -> None:
+    """校验 command 执行成功，失败时抛出 RuntimeError"""
+
+    if command.returncode != 0:
+        raise RuntimeError(command.stderr or command.stdout or f"{command.name} failed")
 
 
 def read_bed_names(path: Path) -> list[str]:

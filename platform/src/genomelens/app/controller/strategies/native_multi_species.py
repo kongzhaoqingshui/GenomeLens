@@ -7,7 +7,7 @@
 # region import
 from __future__ import annotations
 
-from genomelens.analysis.request_models import AnalysisRequest
+from genomelens.analysis.requests.models import AnalysisRequest
 from genomelens.app.controller.workflow_provider import WorkflowProvider
 from genomelens.app.events.signal_bus import SignalBus
 from genomelens.core.summary_models import RunSummary

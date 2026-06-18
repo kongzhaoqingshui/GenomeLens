@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Any, Protocol, TextIO, cast
 
 from genomelens.analysis.methods.registry import list_methods
-from genomelens.analysis.request_models import AnalysisRequest
+from genomelens.analysis.requests.models import AnalysisRequest
 from genomelens.app.events.signal_bus import Event, SignalBus
 from genomelens.core.summary_models import CheckReport, PairwiseJobSummary, RunSummary
 

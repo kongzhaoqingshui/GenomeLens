@@ -13,16 +13,12 @@ from typing import Any, cast
 
 from jcvi_genomelens.manifest_models import EngineRunManifest
 from jcvi_genomelens.runtime.command_runner import CommandAudit, run_python_step
+from jcvi_genomelens.workflows.common import _assert_ok
 from jcvi_genomelens.workflows.plot_optimization import prepare_synteny_plot_inputs
 
 # endregion
 
 TARGET_BLOCK_HIGHLIGHT = "r"
-
-
-def _assert_ok(command: CommandAudit) -> None:
-    if command.returncode != 0:
-        raise RuntimeError(command.stderr or command.stdout or f"{command.name} failed")
 
 
 def _read_bed_order(bed_path: Path) -> tuple[list[str], dict[str, int]]:
