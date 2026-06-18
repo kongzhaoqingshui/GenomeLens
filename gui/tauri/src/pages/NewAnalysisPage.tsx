@@ -119,6 +119,13 @@ function timestampForFilename(): string {
   return new Date().toISOString().replace(/[:.]/g, "-");
 }
 
+function toProgressPercent(value: number): number {
+  if (!Number.isFinite(value)) {
+    return 0;
+  }
+  return value <= 1 ? value * 100 : value;
+}
+
 function eventRunId(event: AnalysisEvent): string | undefined {
   const payload = event.payload as unknown;
   if (typeof payload !== "object" || payload === null) {
@@ -203,7 +210,7 @@ export default function NewAnalysisPage({ route }: NewAnalysisPageProps) {
       } else if (event.name === "analysis:state") {
         setRunStatus((current) => (current === "finished" || current === "error" ? current : "running"));
         setWorkflowState(event.payload.state);
-        setProgress(event.payload.progress);
+        setProgress(toProgressPercent(event.payload.progress));
       } else if (event.name === "analysis:finished") {
         setRunStatus(event.payload.status === "SUCCEEDED" ? "finished" : "error");
         setWorkflowState(event.payload.status);
@@ -916,7 +923,7 @@ export default function NewAnalysisPage({ route }: NewAnalysisPageProps) {
                 </div>
                 <div className="flex justify-between gap-3">
                   <span>progress</span>
-                  <span className="font-semibold text-text-primary">{summaryView.progress}%</span>
+                  <span className="font-semibold text-text-primary">{toProgressPercent(summaryView.progress)}%</span>
                 </div>
               </div>
               <div>
