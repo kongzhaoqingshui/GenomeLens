@@ -58,6 +58,9 @@ class WorkflowOptions:
     shadestyle: str = ""
     figsize: str = ""
     dpi: int = 300
+    optimize_figsize: bool = False
+    rewrite_layout_links: bool = False
+    trim_cross_chromosome_blocks: bool = False
 
 
 @dataclass(frozen=True)

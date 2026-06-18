@@ -17,6 +17,7 @@ from genomelens.analysis.normalization.option_merger import (
     _iter,
     _label_targets,
     _min_block_size,
+    _plot_flag,
     _split_targets,
     _style_arg,
     _target_gene_ids,
@@ -80,6 +81,9 @@ def _build_mcscan_method_config(args: argparse.Namespace, config: ConfigModel | 
         shadestyle=_style_arg(args, config, "shadestyle"),
         figsize=_style_arg(args, config, "figsize"),
         dpi=_dpi(args, config),
+        optimize_figsize=_plot_flag(args, config, "optimize_figsize"),
+        rewrite_layout_links=_plot_flag(args, config, "rewrite_layout_links"),
+        trim_cross_chromosome_blocks=_plot_flag(args, config, "trim_cross_chromosome_blocks"),
     )
 
 

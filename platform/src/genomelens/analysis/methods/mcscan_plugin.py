@@ -125,6 +125,17 @@ class McscanPlugin(MethodPlugin):
         style_group.add_argument("--shadestyle", choices=["curve", "line"], default="", help="连线样式：curve / line")
         style_group.add_argument("--figsize", default="", help="画布尺寸，例如 10x5")
         style_group.add_argument("--dpi", type=int, default=None, help="图片分辨率，默认 300")
+        style_group.add_argument("--optimize-figsize", action="store_true", help="自动推导 synteny 图件尺寸")
+        style_group.add_argument(
+            "--rewrite-layout-links",
+            action="store_true",
+            help="将跨轨道 layout 连线改写为邻接轨道链",
+        )
+        style_group.add_argument(
+            "--trim-cross-chromosome-blocks",
+            action="store_true",
+            help="切除 blocks 中跨染色体的基因行",
+        )
 
         # endregion
 
