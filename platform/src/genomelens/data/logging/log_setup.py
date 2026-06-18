@@ -15,6 +15,22 @@ LOGGER_NAME = "genomelens"
 RUN_LOGGER_PREFIX = f"{LOGGER_NAME}.run"
 
 
+class ConciseConsoleFilter(logging.Filter):
+    """控制台只输出简短/重要句段，长日志只写入文件"""
+
+    # 普通 INFO 消息超过该长度时不在控制台输出（仍写入文件）
+    _max_info_text_len: int = 240
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        # WARNING/ERROR/CRITICAL 始终输出到控制台，方便用户及时看到问题
+        if record.levelno >= logging.WARNING:
+            return True
+
+        message = record.getMessage()
+        # INFO/DEBUG 只输出简短消息，避免 task_started/task_finished 的大段 JSON 刷屏
+        return len(message) <= self._max_info_text_len
+
+
 def normalize_log_level(level: str) -> str:
     """把日志级别规范化为 logging 支持的名称"""
 
@@ -63,6 +79,7 @@ def setup_logging(
     formatter = logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s")
     stream = logging.StreamHandler(sys.stderr)
     stream.setFormatter(formatter)
+    stream.addFilter(ConciseConsoleFilter())
     logger.addHandler(stream)
     if log_file is not None:
         path = Path(log_file)

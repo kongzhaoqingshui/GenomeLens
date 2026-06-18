@@ -135,12 +135,12 @@ def render_workbench_banner(*, color: bool | None = None) -> str:
 
     # 工作台支持的常用命令示例
     commands = [
-        ("analyze mcscan jcvi <输入> <输出>", "自动发现物种并运行共线性分析"),
+        ("analyze mcscan jcvi <in> <out>", "自动发现物种并运行共线性分析"),
         ("analyze run <request.json>", "运行外部 AnalysisRequest"),
         ("analyze template mcscan", "输出 JSON 请求示例"),
         ("check", "检查环境与工具链"),
         ("config init --workspace .work", "初始化配置文件"),
-        ("help <命令>", "查看指定命令参数"),
+        ("help <cmd>", "查看指定命令参数"),
         ("clear", "清屏"),
         ("exit", "退出"),
     ]

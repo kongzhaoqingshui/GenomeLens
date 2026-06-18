@@ -1,8 +1,15 @@
+import io
 import logging
 import shutil
 from pathlib import Path
 
-from genomelens.data.logging.log_setup import close_logging, logger_name_for_path, normalize_log_level, setup_logging
+from genomelens.data.logging.log_setup import (
+    ConciseConsoleFilter,
+    close_logging,
+    logger_name_for_path,
+    normalize_log_level,
+    setup_logging,
+)
 from genomelens.data.logging.task_log import task_scope
 
 
@@ -74,3 +81,37 @@ def test_task_scope_writes_structured_fields(tmp_path: Path) -> None:
     assert "task_finished task_id=query__subject step=prepare_inputs status=SUCCEEDED" in text
     assert "elapsed_ms=" in text
     assert '"species_count": 2' in text
+
+
+def test_concise_console_filter_suppresses_long_info_but_keeps_warnings() -> None:
+    stream = io.StringIO()
+    handler = logging.StreamHandler(stream)
+    handler.addFilter(ConciseConsoleFilter())
+    handler.setLevel(logging.DEBUG)
+
+    logger = logging.getLogger("test_concise_filter")
+    logger.setLevel(logging.DEBUG)
+    logger.handlers = []
+    logger.addHandler(handler)
+
+    logger.info("short")
+    logger.info("x" * 300)
+    logger.warning("warn")
+
+    output = stream.getvalue()
+    assert "short" in output
+    assert "x" * 300 not in output
+    assert "warn" in output
+
+
+def test_setup_logging_console_handler_uses_concise_filter(tmp_path: Path) -> None:
+    log_path = tmp_path / "logs" / "run.log"
+    logger = setup_logging(log_path)
+
+    stream_handlers = [
+        h for h in logger.handlers if isinstance(h, logging.StreamHandler) and not isinstance(h, logging.FileHandler)
+    ]
+    assert stream_handlers
+    assert any(isinstance(f, ConciseConsoleFilter) for h in stream_handlers for f in h.filters)
+
+    close_logging()
