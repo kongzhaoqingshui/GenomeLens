@@ -70,6 +70,78 @@ def _count_block_rows(blocks_path: Path) -> int:
     return count
 
 
+def _read_bed_gene_ids(bed_path: Path) -> set[str]:
+    gene_ids: set[str] = set()
+    with bed_path.open("r", encoding="utf-8") as handle:
+        for raw_line in handle:
+            line = raw_line.strip()
+            if not line or line.startswith("#"):
+                continue
+            parts = line.split("\t")
+            if len(parts) < 4:
+                continue
+            gene_ids.add(parts[3].strip())
+    return gene_ids
+
+
+def _read_layout_shape(layout_path: Path) -> tuple[int, list[_LayoutEdge]]:
+    track_count = 0
+    edges: list[_LayoutEdge] = []
+    for raw_line in layout_path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if line.startswith("e"):
+            edge = _parse_layout_edge(line)
+            if edge is not None:
+                edges.append(edge)
+            continue
+        track_count += 1
+    return track_count, edges
+
+
+def _can_render_trimmed_blocks(blocks_path: Path, bed_path: Path, layout_path: Path) -> bool:
+    gene_ids = _read_bed_gene_ids(bed_path)
+    track_count, edges = _read_layout_shape(layout_path)
+    if track_count == 0:
+        return False
+
+    columns_with_genes = [False] * track_count
+    edge_pairs = {(edge.source, edge.target): False for edge in edges}
+    block_rows = 0
+
+    with blocks_path.open("r", encoding="utf-8") as handle:
+        for raw_line in handle:
+            line = raw_line.strip()
+            if not line or line.startswith("#"):
+                continue
+
+            atoms = [part.strip() or "." for part in line.split("\t")]
+            if len(atoms) < track_count:
+                atoms.extend(["."] * (track_count - len(atoms)))
+            elif len(atoms) > track_count:
+                atoms = atoms[:track_count]
+
+            block_rows += 1
+            for index, atom in enumerate(atoms):
+                gene_id = _split_block_highlight(atom)
+                if gene_id not in EMPTY_BLOCK_VALUES and gene_id in gene_ids:
+                    columns_with_genes[index] = True
+
+            for source, target in edge_pairs:
+                source_gene = _split_block_highlight(atoms[source])
+                target_gene = _split_block_highlight(atoms[target])
+                if (
+                    source_gene not in EMPTY_BLOCK_VALUES
+                    and target_gene not in EMPTY_BLOCK_VALUES
+                    and source_gene in gene_ids
+                    and target_gene in gene_ids
+                ):
+                    edge_pairs[(source, target)] = True
+
+    return block_rows > 0 and all(columns_with_genes) and all(edge_pairs.values())
+
+
 def trim_cross_chromosome_blocks(blocks_path: Path, bed_path: Path, output_path: Path) -> tuple[Path, int]:
     """写出移除跨染色体基因行后的 blocks，并返回被裁掉的行数"""
 
@@ -231,8 +303,8 @@ def prepare_synteny_plot_inputs(
         )
         artifacts["trimmed_blocks"] = str(trimmed_blocks)
         artifacts["trimmed_cross_chromosome_block_rows"] = trimmed
-        if _count_block_rows(trimmed_blocks) == 0:
-            # 更保守的策略：裁切结果为空时回退到原始 blocks，避免把空输入继续传给 JCVI
+        if not _can_render_trimmed_blocks(trimmed_blocks, bed, layout):
+            # 更保守的策略：裁切结果对 JCVI 不再可渲染时，回退到原始 blocks
             artifacts["trimmed_blocks_fallback"] = "original_blocks"
         else:
             active_blocks = trimmed_blocks
