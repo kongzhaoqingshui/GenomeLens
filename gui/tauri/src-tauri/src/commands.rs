@@ -312,6 +312,7 @@ pub fn run_analysis(app: AppHandle, input: RunAnalysisInput) -> Result<RunHandle
                 &app_handle,
                 &run_log_path,
                 &thread_context,
+                false,
                 &mut offset,
                 &mut partial,
                 &mut last_state,
@@ -321,6 +322,17 @@ pub fn run_analysis(app: AppHandle, input: RunAnalysisInput) -> Result<RunHandle
                 Ok(Some(status)) => break status,
                 Ok(None) => thread::sleep(Duration::from_millis(200)),
                 Err(error) => {
+                    emit_new_log_lines(
+                        &app_handle,
+                        &run_log_path,
+                        &thread_context,
+                        true,
+                        &mut offset,
+                        &mut partial,
+                        &mut last_state,
+                    );
+
+                    let summary = read_json_file(Path::new(&thread_context.summary_path)).ok();
                     let finished_at = system_time_to_iso_like(SystemTime::now());
                     let _ = app_handle.emit(
                         "analysis:error",
@@ -329,7 +341,7 @@ pub fn run_analysis(app: AppHandle, input: RunAnalysisInput) -> Result<RunHandle
                             outdir: thread_context.outdir.clone(),
                             request_path: thread_context.request_path.clone(),
                             started_at: thread_context.started_at.clone(),
-                            finished_at: Some(finished_at),
+                            finished_at: Some(finished_at.clone()),
                             exit_code: None,
                             log_path: thread_context.log_path.clone(),
                             summary_path: thread_context.summary_path.clone(),
@@ -343,6 +355,27 @@ pub fn run_analysis(app: AppHandle, input: RunAnalysisInput) -> Result<RunHandle
                             })),
                         },
                     );
+
+                    let _ = app_handle.emit(
+                        "analysis:finished",
+                        AnalysisFinishedEventPayload {
+                            run_id: thread_context.run_id.clone(),
+                            outdir: thread_context.outdir.clone(),
+                            request_path: thread_context.request_path.clone(),
+                            started_at: thread_context.started_at.clone(),
+                            finished_at,
+                            exit_code: None,
+                            log_path: thread_context.log_path.clone(),
+                            summary_path: thread_context.summary_path.clone(),
+                            status: summary
+                                .as_ref()
+                                .and_then(|value| value.get("status"))
+                                .and_then(|value| value.as_str())
+                                .unwrap_or("FAILED")
+                                .to_string(),
+                            summary,
+                        },
+                    );
                     return;
                 }
             }
@@ -352,6 +385,7 @@ pub fn run_analysis(app: AppHandle, input: RunAnalysisInput) -> Result<RunHandle
             &app_handle,
             &run_log_path,
             &thread_context,
+            true,
             &mut offset,
             &mut partial,
             &mut last_state,
@@ -437,57 +471,48 @@ fn emit_new_log_lines(
     app: &AppHandle,
     run_log_path: &Path,
     context: &RunEventContext,
+    flush_partial: bool,
     offset: &mut u64,
     partial: &mut String,
     last_state: &mut Option<String>,
 ) {
-    if !run_log_path.is_file() {
+    if !run_log_path.is_file() && (!flush_partial || partial.is_empty()) {
         return;
     }
 
-    let file = match File::open(run_log_path) {
-        Ok(file) => file,
-        Err(_) => return,
-    };
+    if run_log_path.is_file() {
+        let file = match File::open(run_log_path) {
+            Ok(file) => file,
+            Err(_) => return,
+        };
 
-    let metadata_len = match file.metadata() {
-        Ok(metadata) => metadata.len(),
-        Err(_) => return,
-    };
+        let metadata_len = match file.metadata() {
+            Ok(metadata) => metadata.len(),
+            Err(_) => return,
+        };
 
-    if metadata_len < *offset {
-        *offset = 0;
-        partial.clear();
-    }
-
-    if metadata_len == *offset {
-        return;
-    }
-
-    let mut reader = BufReader::new(file);
-    if reader.seek(SeekFrom::Start(*offset)).is_err() {
-        return;
-    }
-
-    let mut chunk = String::new();
-    if reader.read_to_string(&mut chunk).is_err() {
-        return;
-    }
-
-    *offset = metadata_len;
-    partial.push_str(&chunk);
-
-    while let Some(newline_index) = partial.find('\n') {
-        let mut line = partial[..newline_index].to_string();
-        if line.ends_with('\r') {
-            line.pop();
-        }
-        partial.drain(..=newline_index);
-
-        if line.trim().is_empty() {
-            continue;
+        if metadata_len < *offset {
+            *offset = 0;
+            partial.clear();
         }
 
+        if metadata_len > *offset {
+            let mut reader = BufReader::new(file);
+            if reader.seek(SeekFrom::Start(*offset)).is_err() {
+                return;
+            }
+
+            let mut chunk = String::new();
+            if reader.read_to_string(&mut chunk).is_err() {
+                return;
+            }
+
+            *offset = metadata_len;
+            partial.push_str(&chunk);
+        }
+    }
+
+    for line in drain_buffered_log_lines(partial, flush_partial) {
         let _ = app.emit(
             "analysis:stdout",
             AnalysisStdoutEventPayload {
@@ -516,6 +541,36 @@ fn emit_new_log_lines(
             }
         }
     }
+}
+
+fn drain_buffered_log_lines(partial: &mut String, flush_partial: bool) -> Vec<String> {
+    let mut lines = Vec::new();
+
+    while let Some(newline_index) = partial.find('\n') {
+        let mut line = partial[..newline_index].to_string();
+        if line.ends_with('\r') {
+            line.pop();
+        }
+        partial.drain(..=newline_index);
+
+        if line.trim().is_empty() {
+            continue;
+        }
+
+        lines.push(line);
+    }
+
+    if flush_partial && !partial.trim().is_empty() {
+        let mut line = std::mem::take(partial);
+        if line.ends_with('\r') {
+            line.pop();
+        }
+        if !line.trim().is_empty() {
+            lines.push(line);
+        }
+    }
+
+    lines
 }
 
 fn map_log_line_to_state(line: &str) -> Option<(String, f64)> {
@@ -624,5 +679,28 @@ fn system_time_to_iso_like(time: SystemTime) -> String {
     match time.duration_since(UNIX_EPOCH) {
         Ok(duration) => format!("unix-{}.{}", duration.as_secs(), duration.subsec_millis()),
         Err(_) => "unix-0.000".to_string(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::drain_buffered_log_lines;
+
+    #[test]
+    fn drains_complete_lines_without_flushing_partial_tail() {
+        let mut partial = String::from("line-1\nline-2");
+        let lines = drain_buffered_log_lines(&mut partial, false);
+
+        assert_eq!(lines, vec!["line-1"]);
+        assert_eq!(partial, "line-2");
+    }
+
+    #[test]
+    fn flushes_unterminated_tail_line_when_requested() {
+        let mut partial = String::from("line-1\nline-2");
+        let lines = drain_buffered_log_lines(&mut partial, true);
+
+        assert_eq!(lines, vec!["line-1", "line-2"]);
+        assert!(partial.is_empty());
     }
 }
