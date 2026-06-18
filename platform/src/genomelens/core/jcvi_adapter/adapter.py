@@ -117,6 +117,9 @@ class JcviEngineAdapter:
             "dpi": request.dpi,
             "log_level": request.log_level,
             "verbose": request.verbose,
+            "optimize_figsize": request.optimize_figsize,
+            "rewrite_layout_links": request.rewrite_layout_links,
+            "trim_cross_chromosome_blocks": request.trim_cross_chromosome_blocks,
         }
         return {
             "schema_version": 2,

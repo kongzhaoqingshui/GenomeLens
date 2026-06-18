@@ -70,6 +70,9 @@ class LocalSyntenyDefaults:
     shadestyle: str = ""
     figsize: str = ""
     dpi: int = 300
+    optimize_figsize: bool = False
+    rewrite_layout_links: bool = False
+    trim_cross_chromosome_blocks: bool = False
 
 
 @dataclass
@@ -138,6 +141,9 @@ class ConfigModel:
                 "shadestyle": self.local_synteny.shadestyle,
                 "figsize": self.local_synteny.figsize,
                 "dpi": self.local_synteny.dpi,
+                "optimize_figsize": self.local_synteny.optimize_figsize,
+                "rewrite_layout_links": self.local_synteny.rewrite_layout_links,
+                "trim_cross_chromosome_blocks": self.local_synteny.trim_cross_chromosome_blocks,
             },
         }
 
@@ -198,6 +204,9 @@ class ConfigModel:
             shadestyle=_str(local_raw.get("shadestyle")),
             figsize=_str(local_raw.get("figsize")),
             dpi=_int(local_raw.get("dpi"), default=300),
+            optimize_figsize=_bool(local_raw.get("optimize_figsize"), default=False),
+            rewrite_layout_links=_bool(local_raw.get("rewrite_layout_links"), default=False),
+            trim_cross_chromosome_blocks=_bool(local_raw.get("trim_cross_chromosome_blocks"), default=False),
         )
 
         return cls(

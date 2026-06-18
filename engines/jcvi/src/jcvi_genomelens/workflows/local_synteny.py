@@ -12,6 +12,7 @@ from pathlib import Path
 
 from jcvi_genomelens.manifest_models import EngineRunManifest
 from jcvi_genomelens.runtime.command_runner import CommandAudit, run_python_step
+from jcvi_genomelens.workflows.plot_optimization import prepare_synteny_plot_inputs
 
 # endregion
 
@@ -168,12 +169,13 @@ def _write_local_layout(
     return path
 
 
-def _figure_options(opts: dict[str, object], fmt: str) -> list[str]:
+def _figure_options(opts: dict[str, object], fmt: str, figsize: str = "") -> list[str]:
     """把 manifest 中的图件参数转成 JCVI `graphics.synteny` 命令行参数"""
 
     args: list[str] = []
-    if opts.get("figsize"):
-        args.extend(["--figsize", str(opts["figsize"])])
+    effective_figsize = figsize or str(opts.get("figsize") or "")
+    if effective_figsize:
+        args.extend(["--figsize", effective_figsize])
     if opts.get("dpi"):
         args.extend(["--dpi", str(opts["dpi"])])
     args.extend(["--format", fmt, "--notex"])
@@ -255,6 +257,14 @@ def run(manifest: EngineRunManifest, outdir: str | Path) -> tuple[list[CommandAu
         local_blocks.write_text("\n".join(lines) + ("\n" if lines else ""), encoding="utf-8")
         shutil.copy2(merged_bed, local_bed)
         _write_local_layout(local_layout, manifest.query.name, manifest.subject.name)
+        plot_inputs = prepare_synteny_plot_inputs(
+            blocks=local_blocks,
+            bed=local_bed,
+            layout=local_layout,
+            root=local_dir,
+            stem=f"{key}.local.optimized",
+            options=manifest.options,
+        )
 
         for fmt in formats:
             output_prefix = local_dir / f"{key}.local"
@@ -262,10 +272,10 @@ def run(manifest: EngineRunManifest, outdir: str | Path) -> tuple[list[CommandAu
                 "jcvi.graphics.synteny",
                 jcvi_graphics_synteny,
                 [
-                    str(local_blocks),
-                    str(local_bed),
-                    str(local_layout),
-                    *_figure_options(plot_options, fmt),
+                    str(plot_inputs.blocks),
+                    str(plot_inputs.bed),
+                    str(plot_inputs.layout),
+                    *_figure_options(plot_options, fmt, plot_inputs.figsize),
                     "--outputprefix",
                     str(output_prefix),
                 ],
@@ -284,6 +294,7 @@ def run(manifest: EngineRunManifest, outdir: str | Path) -> tuple[list[CommandAu
                 "blocks": str(local_blocks),
                 "bed": str(local_bed),
                 "layout": str(local_layout),
+                "plot_optimization": plot_inputs.artifacts,
                 "figures": [str(local_dir / f"{key}.local.{fmt}") for fmt in formats],
             }
         )

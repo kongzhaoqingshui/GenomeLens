@@ -60,6 +60,9 @@ class WorkflowOptions:
     dpi: int = 300
     log_level: str = "INFO"
     verbose: bool = False
+    optimize_figsize: bool = False
+    rewrite_layout_links: bool = False
+    trim_cross_chromosome_blocks: bool = False
 
 
 @dataclass(frozen=True)

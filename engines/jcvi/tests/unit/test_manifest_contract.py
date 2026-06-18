@@ -52,6 +52,9 @@ def test_manifest_loader(tmp_path: Path) -> None:
                     "shadestyle": "curve",
                     "figsize": "10x5",
                     "dpi": 300,
+                    "optimize_figsize": True,
+                    "rewrite_layout_links": True,
+                    "trim_cross_chromosome_blocks": True,
                 },
                 "expected_outputs": ["blast_table", "figures"],
             }
@@ -75,5 +78,8 @@ def test_manifest_loader(tmp_path: Path) -> None:
     assert loaded.options.glyphstyle == "arrow"
     assert loaded.options.figsize == "10x5"
     assert loaded.options.dpi == 300
+    assert loaded.options.optimize_figsize is True
+    assert loaded.options.rewrite_layout_links is True
+    assert loaded.options.trim_cross_chromosome_blocks is True
     assert loaded.toolchain.lastal is None
     assert loaded.toolchain.lastdb is None

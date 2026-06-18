@@ -241,6 +241,9 @@ def load_manifest(path: str | Path) -> EngineRunManifest:
             dpi=_int(options_raw.get("dpi"), 300),
             log_level=_string(options_raw.get("log_level"), "INFO"),
             verbose=_bool(options_raw.get("verbose", False)),
+            optimize_figsize=_bool(options_raw.get("optimize_figsize", False)),
+            rewrite_layout_links=_bool(options_raw.get("rewrite_layout_links", False)),
+            trim_cross_chromosome_blocks=_bool(options_raw.get("trim_cross_chromosome_blocks", False)),
         ),
         schema_version=int(raw.get("schema_version") or 1),
         # task/species/meta 保持宽松对象结构，供 shell summary 直接回写。

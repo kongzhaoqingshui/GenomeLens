@@ -158,6 +158,14 @@ def _label_targets(args: argparse.Namespace, config: ConfigModel | None) -> bool
     return False
 
 
+def _plot_flag(args: argparse.Namespace, config: ConfigModel | None, name: str) -> bool:
+    if bool(getattr(args, name, False)):
+        return True
+    if config:
+        return bool(getattr(config.local_synteny, name, False))
+    return False
+
+
 def _style_arg(args: argparse.Namespace, config: ConfigModel | None, name: str) -> str:
     value = str(getattr(args, name, "") or "").strip()
     if value:
