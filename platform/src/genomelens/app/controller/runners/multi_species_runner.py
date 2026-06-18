@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import shutil
 from collections.abc import Callable
 from dataclasses import replace
@@ -24,8 +25,9 @@ from genomelens.core.jcvi_adapter.adapter import JcviEngineAdapter
 from genomelens.core.jcvi_adapter.adapter_models import McscanRequest
 from genomelens.core.summary_models import PairwiseJobSummary, RunSummary
 from genomelens.core.validators import validate_request
-from genomelens.data.logging.log_setup import close_logging, setup_logging
-from genomelens.data.workspace.output_layout import OutputLayout, create_output_layout
+from genomelens.data.logging.log_setup import close_logging, logger_name_for_path, setup_logging
+from genomelens.data.logging.task_log import task_scope
+from genomelens.data.workspace.output_layout import OutputLayout, build_output_layout, create_output_layout
 from genomelens.toolchain.runtime.resource_locator import locate_engine
 
 # endregion
@@ -102,6 +104,7 @@ def _build_global_karyotype(
             blastn_path=request.blastn_path,
             makeblastdb_path=request.makeblastdb_path,
             formats=request.formats,
+            log_level=request.log_level,
             task={"workflow": "graphics_karyotype_global", "task_type": "global_synteny"},
             species=species_summary(request),
         )
@@ -130,18 +133,24 @@ def _prepare_multi_species_workspace(
 
     set_state(WorkflowState.PREPARING_WORKSPACE)
     layout = create_output_layout(request.outdir, force=request.force)
-    setup_logging(layout.logs / "run.log").info("Starting GenomeLens multi-species workflow")
+    logger = setup_logging(
+        layout.logs / "run.log",
+        level=request.log_level,
+        logger_name=logger_name_for_path(layout.logs / "run.log"),
+    )
+    logger.info("Starting GenomeLens multi-species workflow")
 
-    manifest = {
-        "schema_version": 2,
-        "workflow": "mcscan",
-        "task": request.task_spec.to_manifest_json(),
-        "species": species_summary(request),
-        "pairing_strategy": "all_vs_all_pairwise",
-        "pair_count": len(request.species) * (len(request.species) - 1) // 2,
-    }
-    layout.manifest.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    shutil.copy2(layout.manifest, layout.inputs / "input_manifest.json")
+    with task_scope(logger, task_id=request.task_id, step="prepare_multi_species_workspace"):
+        manifest = {
+            "schema_version": 2,
+            "workflow": "mcscan",
+            "task": request.task_spec.to_manifest_json(),
+            "species": species_summary(request),
+            "pairing_strategy": "all_vs_all_pairwise",
+            "pair_count": len(request.species) * (len(request.species) - 1) // 2,
+        }
+        layout.manifest.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        shutil.copy2(layout.manifest, layout.inputs / "input_manifest.json")
 
     return layout, manifest
 
@@ -156,6 +165,7 @@ def _run_multi_pairwise_jobs(
     pairwise_jobs: list[PairwiseJobSummary] = []
     final_figures: list[str] = []
     pairwise_root = layout.intermediate / "pairwise"
+    logger = logging.getLogger(logger_name_for_path(layout.logs / "run.log"))
 
     for query, subject in combinations(request.species, 2):
         name = pair_id(query.name, subject.name)
@@ -172,7 +182,13 @@ def _run_multi_pairwise_jobs(
         )
 
         try:
-            pair_summary = run_pairwise_mcscan(set_state, pair_request)
+            with task_scope(
+                logger,
+                task_id=name,
+                step="run_pairwise_job",
+                context={"pair_id": name, "outdir": str(pair_outdir)},
+            ):
+                pair_summary = run_pairwise_mcscan(set_state, pair_request)
         except Exception as exc:  # noqa: BLE001 - 多物种汇总需要记录单个 pairwise 子任务失败原因
             pairwise_jobs.append(
                 PairwiseJobSummary(
@@ -188,9 +204,10 @@ def _run_multi_pairwise_jobs(
             )
             continue
 
-        # 每对图件复制到顶层 results/figures，同时保留原 pairwise 目录中的完整结果
-        copied_figures = copy_pairwise_figures(name, list(pair_summary.final_figures), layout.figures)
-        final_figures.extend(copied_figures)
+        with task_scope(logger, task_id=name, step="copy_pairwise_figures", context={"pair_id": name}):
+            # 每对图件复制到顶层 results/figures，同时保留原 pairwise 目录中的完整结果
+            copied_figures = copy_pairwise_figures(name, list(pair_summary.final_figures), layout.figures)
+            final_figures.extend(copied_figures)
 
         pairwise_jobs.append(
             PairwiseJobSummary(
@@ -223,19 +240,22 @@ def _run_multi_species_mcscan(
     layout, _manifest = _prepare_multi_species_workspace(set_state, request)
     pairwise_jobs, final_figures = _run_multi_pairwise_jobs(set_state, request, layout)
 
-    global_figures = _build_global_karyotype(request, pairwise_jobs, layout)
-    final_figures.extend(global_figures)
+    logger = logging.getLogger(logger_name_for_path(layout.logs / "run.log"))
+    with task_scope(logger, task_id=request.task_id, step="build_global_karyotype"):
+        global_figures = _build_global_karyotype(request, pairwise_jobs, layout)
+        final_figures.extend(global_figures)
 
-    run_summary = build_multi_run_summary(
-        request,
-        layout,
-        pairwise_jobs,
-        final_figures,
-        pairing_strategy="all_vs_all_pairwise",
-        global_figures=global_figures,
-    )
+    with task_scope(logger, task_id=request.task_id, step="write_multi_summary"):
+        run_summary = build_multi_run_summary(
+            request,
+            layout,
+            pairwise_jobs,
+            final_figures,
+            pairing_strategy="all_vs_all_pairwise",
+            global_figures=global_figures,
+        )
 
-    write_run_summary(layout, run_summary)
+        write_run_summary(layout, run_summary)
     set_state(WorkflowState.SUCCEEDED if run_summary.status == "SUCCEEDED" else WorkflowState.FAILED)
 
     return run_summary
@@ -247,7 +267,9 @@ def run_multi_species_mcscan(
 ) -> RunSummary:
     """Run multi-species MCscan and release task log handles."""
 
+    log_path = build_output_layout(request.outdir).logs / "run.log"
+    logger_name = logger_name_for_path(log_path)
     try:
         return _run_multi_species_mcscan(set_state, request)
     finally:
-        close_logging()
+        close_logging(logger_name)

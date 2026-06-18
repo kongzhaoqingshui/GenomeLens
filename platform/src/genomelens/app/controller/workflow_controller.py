@@ -88,6 +88,8 @@ def _mcscan_request_to_analysis(request: McscanRequest) -> AnalysisRequest:
             preset="auto",
             threads=request.threads,
             min_block_size=request.min_block_size,
+            log_level=request.log_level,
+            verbose=request.verbose,
         ),
         method_config=method_config.to_json(),
     )

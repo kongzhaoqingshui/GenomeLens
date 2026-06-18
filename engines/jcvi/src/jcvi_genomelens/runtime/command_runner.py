@@ -5,10 +5,13 @@ from __future__ import annotations
 
 import contextlib
 import subprocess
+import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from io import StringIO
 from pathlib import Path
+
+from jcvi_genomelens.runtime.task_log import task_failed, task_finished, task_started
 
 # endregion
 
@@ -41,19 +44,41 @@ def run_command(argv: list[str], *, cwd: str | Path | None = None, timeout: int 
     """运行外部命令并捕获输出"""
 
     # 所有 engine 外部进程都走同一审计结构，便于失败时统一写进 summary。
-    completed = subprocess.run(
-        argv,
-        cwd=str(cwd) if cwd else None,
-        timeout=timeout,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-        capture_output=True,
-        shell=False,
-        check=False,
+    step = Path(argv[0]).name
+    context = {"argv": argv, "cwd": str(cwd) if cwd else ""}
+    started = time.perf_counter()
+    task_started(task_id="engine", step=step, context=context)
+    try:
+        completed = subprocess.run(
+            argv,
+            cwd=str(cwd) if cwd else None,
+            timeout=timeout,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            capture_output=True,
+            shell=False,
+            check=False,
+        )
+    except Exception as exc:
+        elapsed_ms = int((time.perf_counter() - started) * 1000)
+        task_failed(task_id="engine", step=step, elapsed_ms=elapsed_ms, error=exc, context=context)
+        raise
+
+    elapsed_ms = int((time.perf_counter() - started) * 1000)
+    task_finished(
+        task_id="engine",
+        step=step,
+        elapsed_ms=elapsed_ms,
+        status="SUCCEEDED" if completed.returncode == 0 else "FAILED",
+        context={
+            **context,
+            "returncode": completed.returncode,
+            "stderr": completed.stderr[-1000:],
+        },
     )
     return CommandAudit(
-        name=Path(argv[0]).name,
+        name=step,
         argv=argv,
         returncode=completed.returncode,
         cwd=str(cwd) if cwd else "",
@@ -75,6 +100,9 @@ def run_python_step(
     stdout = StringIO()
     stderr = StringIO()
     returncode = 0
+    context = {"argv": [name, *args], "cwd": str(cwd) if cwd else ""}
+    started = time.perf_counter()
+    task_started(task_id="engine", step=name, context=context)
     try:
         if cwd is not None:
             import os
@@ -94,6 +122,18 @@ def run_python_step(
 
             # Python 进程内步骤会改 cwd，结束时一定恢复，避免污染后续工作流步骤。
             os.chdir(old_cwd)
+        elapsed_ms = int((time.perf_counter() - started) * 1000)
+        task_finished(
+            task_id="engine",
+            step=name,
+            elapsed_ms=elapsed_ms,
+            status="SUCCEEDED" if returncode == 0 else "FAILED",
+            context={
+                **context,
+                "returncode": returncode,
+                "stderr": stderr.getvalue()[-1000:],
+            },
+        )
     return CommandAudit(
         name=name,
         argv=[name, *args],

@@ -53,6 +53,8 @@ class McscanRequest:
     shadestyle: str = ""
     figsize: str = ""
     dpi: int = 300
+    log_level: str = "INFO"
+    verbose: bool = False
 
     @property
     def species(self) -> list[GenomeInputSpec]:

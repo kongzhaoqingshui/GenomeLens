@@ -115,6 +115,8 @@ class JcviEngineAdapter:
             "shadestyle": request.shadestyle,
             "figsize": request.figsize,
             "dpi": request.dpi,
+            "log_level": request.log_level,
+            "verbose": request.verbose,
         }
         return {
             "schema_version": 2,
@@ -158,6 +160,7 @@ class JcviEngineAdapter:
         blastn_path: str,
         makeblastdb_path: str,
         formats: list[str],
+        log_level: str = "INFO",
         task: dict[str, object] | None = None,
         species: list[dict[str, object]] | None = None,
     ) -> dict[str, object]:
@@ -187,6 +190,7 @@ class JcviEngineAdapter:
             },
             "options": {
                 "formats": formats,
+                "log_level": log_level,
             },
             "expected_outputs": ["global_karyotype_figures"],
             "meta": {

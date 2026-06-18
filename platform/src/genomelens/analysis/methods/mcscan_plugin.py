@@ -135,6 +135,13 @@ class McscanPlugin(MethodPlugin):
             action="store_true",
             help="保留诊断开关；正式流程会拒绝简化降级",
         )
+        diag_group.add_argument("--verbose", action="store_true", help="输出更详细的调试日志")
+        diag_group.add_argument(
+            "--log-level",
+            choices=["DEBUG", "INFO", "WARNING", "ERROR"],
+            default="",
+            help="run.log 日志级别",
+        )
         diag_group.add_argument("--jcvi-workflow", default="", help="JCVI workflow(工作流) 名称")
         diag_group.add_argument("--jcvi-layout", default="", help="JCVI layout(布局) 文件")
         diag_group.add_argument("--jcvi-seqids", default="", help="JCVI seqids(序列编号) 文件")

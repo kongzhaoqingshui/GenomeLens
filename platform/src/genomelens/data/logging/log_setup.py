@@ -3,6 +3,7 @@
 # region import
 from __future__ import annotations
 
+import hashlib
 import logging
 import sys
 from pathlib import Path
@@ -11,6 +12,24 @@ from pathlib import Path
 
 
 LOGGER_NAME = "genomelens"
+RUN_LOGGER_PREFIX = f"{LOGGER_NAME}.run"
+
+
+def normalize_log_level(level: str) -> str:
+    """把日志级别规范化为 logging 支持的名称"""
+
+    normalized = str(level or "INFO").upper()
+    if normalized not in {"DEBUG", "INFO", "WARNING", "ERROR"}:
+        return "INFO"
+    return normalized
+
+
+def logger_name_for_path(path: str | Path) -> str:
+    """为某个 run.log 生成稳定且互不干扰的 logger 名称"""
+
+    resolved = str(Path(path).expanduser().resolve(strict=False))
+    digest = hashlib.sha1(resolved.encode("utf-8")).hexdigest()[:12]
+    return f"{RUN_LOGGER_PREFIX}.{digest}"
 
 
 def _close_handlers(logger: logging.Logger) -> None:
@@ -22,17 +41,23 @@ def _close_handlers(logger: logging.Logger) -> None:
             handler.close()
 
 
-def close_logging() -> None:
-    """Flush and close GenomeLens logging handlers."""
+def close_logging(logger_name: str = LOGGER_NAME) -> None:
+    """Flush and close GenomeLens logging handlers"""
 
-    _close_handlers(logging.getLogger(LOGGER_NAME))
+    _close_handlers(logging.getLogger(logger_name))
 
 
-def setup_logging(log_file: str | Path | None = None, *, level: str = "INFO") -> logging.Logger:
+def setup_logging(
+    log_file: str | Path | None = None,
+    *,
+    level: str = "INFO",
+    logger_name: str = LOGGER_NAME,
+) -> logging.Logger:
     """配置 root logging(根日志)，可选写出 UTF-8 日志文件"""
 
-    logger = logging.getLogger(LOGGER_NAME)
-    logger.setLevel(getattr(logging, level.upper(), logging.INFO))
+    logger = logging.getLogger(logger_name)
+    logger.setLevel(getattr(logging, normalize_log_level(level), logging.INFO))
+    logger.propagate = False
     # 反复初始化时先清空旧 handler，避免同一条日志被重复输出。
     _close_handlers(logger)
     formatter = logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s")

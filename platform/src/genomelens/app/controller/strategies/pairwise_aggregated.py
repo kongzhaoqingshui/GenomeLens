@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import shutil
 from collections.abc import Callable
 from dataclasses import replace
@@ -31,8 +32,9 @@ from genomelens.core.jcvi_adapter.adapter import JcviEngineAdapter
 from genomelens.core.jcvi_adapter.adapter_models import McscanRequest
 from genomelens.core.services.layout_optimizer import LayoutOptimizer, NoOpLayoutOptimizer
 from genomelens.core.summary_models import PairwiseJobSummary, RunSummary
-from genomelens.data.logging.log_setup import close_logging, setup_logging
-from genomelens.data.workspace.output_layout import OutputLayout, create_output_layout
+from genomelens.data.logging.log_setup import close_logging, logger_name_for_path, setup_logging
+from genomelens.data.logging.task_log import task_scope
+from genomelens.data.workspace.output_layout import OutputLayout, build_output_layout, create_output_layout
 from genomelens.toolchain.runtime.resource_locator import locate_engine
 
 # endregion
@@ -107,6 +109,7 @@ def _build_global_karyotype(
             blastn_path=request.blastn_path,
             makeblastdb_path=request.makeblastdb_path,
             formats=request.formats,
+            log_level=request.log_level,
             task={"workflow": "graphics_karyotype_global", "task_type": "global_synteny"},
             species=species_summary(request),
         )
@@ -138,23 +141,34 @@ def _prepare_workspace(
 
     set_state(WorkflowState.PREPARING_WORKSPACE)
     layout = create_output_layout(request.outdir, force=request.force)
-    setup_logging(layout.logs / "run.log").info("Starting GenomeLens %s workflow", pairing_strategy)
+    logger = setup_logging(
+        layout.logs / "run.log",
+        level=request.log_level,
+        logger_name=logger_name_for_path(layout.logs / "run.log"),
+    )
+    logger.info("Starting GenomeLens %s workflow", pairing_strategy)
 
-    manifest: dict[str, object] = {
-        "schema_version": 2,
-        "workflow": "mcscan",
-        "task": request.task_spec.to_manifest_json(),
-        "species": species_summary(request),
-        "pairing_strategy": pairing_strategy,
-        "pair_count": pair_count,
-    }
-    if reference_name is not None:
-        manifest["reference_name"] = reference_name
-    if target_names is not None:
-        manifest["target_names"] = target_names
+    with task_scope(
+        logger,
+        task_id=request.task_id,
+        step="prepare_multi_species_workspace",
+        context={"pairing_strategy": pairing_strategy, "pair_count": pair_count, "outdir": str(layout.root)},
+    ):
+        manifest: dict[str, object] = {
+            "schema_version": 2,
+            "workflow": "mcscan",
+            "task": request.task_spec.to_manifest_json(),
+            "species": species_summary(request),
+            "pairing_strategy": pairing_strategy,
+            "pair_count": pair_count,
+        }
+        if reference_name is not None:
+            manifest["reference_name"] = reference_name
+        if target_names is not None:
+            manifest["target_names"] = target_names
 
-    layout.manifest.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    shutil.copy2(layout.manifest, layout.inputs / "input_manifest.json")
+        layout.manifest.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        shutil.copy2(layout.manifest, layout.inputs / "input_manifest.json")
 
     return layout, manifest
 
@@ -197,6 +211,7 @@ def _run_pairwise_jobs(
     provider: WorkflowProvider,
     layout: OutputLayout,
     signal_bus: SignalBus,
+    logger: logging.Logger,
 ) -> tuple[list[PairwiseJobSummary], list[str]]:
     """把多物种请求拆成 pairwise 子任务并逐个执行"""
 
@@ -212,7 +227,13 @@ def _run_pairwise_jobs(
         pair_request = _narrow_request(original_request, query, subject, pair_outdir)
 
         try:
-            pair_summary = provider.run(pair_request, signal_bus)
+            with task_scope(
+                logger,
+                task_id=f"{query.name}__{subject.name}",
+                step="run_pairwise_job",
+                context={"pair_id": name, "outdir": str(pair_outdir)},
+            ):
+                pair_summary = provider.run(pair_request, signal_bus)
         except Exception as exc:  # noqa: BLE001 - 汇总需要记录单个 pairwise 子任务失败原因
             pairwise_jobs.append(
                 PairwiseJobSummary(
@@ -228,10 +249,16 @@ def _run_pairwise_jobs(
             )
             continue
 
-        # 子任务产物路径现在存放在 RunSummary.method_data 中
-        md = pair_summary.method_data
-        copied_figures = copy_pairwise_figures(name, list(pair_summary.final_figures), layout.figures)
-        final_figures.extend(copied_figures)
+        with task_scope(
+            logger,
+            task_id=f"{query.name}__{subject.name}",
+            step="copy_pairwise_figures",
+            context={"pair_id": name, "figure_count": len(pair_summary.final_figures)},
+        ):
+            # 子任务产物路径现在存放在 RunSummary.method_data 中
+            md = pair_summary.method_data
+            copied_figures = copy_pairwise_figures(name, list(pair_summary.final_figures), layout.figures)
+            final_figures.extend(copied_figures)
 
         pairwise_jobs.append(
             PairwiseJobSummary(
@@ -291,10 +318,12 @@ class PairwiseAggregatedMultiSpecies:
     ) -> RunSummary:
         """Execute pairwise aggregation and release task log handles."""
 
+        log_path = build_output_layout(request.output.directory).logs / "run.log"
+        logger_name = logger_name_for_path(log_path)
         try:
             return self._execute(request, provider, signal_bus)
         finally:
-            close_logging()
+            close_logging(logger_name)
 
     def _execute(
         self,
@@ -325,26 +354,30 @@ class PairwiseAggregatedMultiSpecies:
             reference_name=reference_name,
             target_names=target_names,
         )
-        pairwise_jobs, final_figures = _run_pairwise_jobs(set_state, request, provider, layout, signal_bus)
+        logger = logging.getLogger(logger_name_for_path(layout.logs / "run.log"))
+        pairwise_jobs, final_figures = _run_pairwise_jobs(set_state, request, provider, layout, signal_bus, logger)
 
-        edges = _build_edges_for_layout_optimizer(pairwise_jobs)
-        layout_result = self._layout_optimizer.optimize(mcscan_request.species, edges)
+        with task_scope(logger, task_id=mcscan_request.task_id, step="optimize_layout"):
+            edges = _build_edges_for_layout_optimizer(pairwise_jobs)
+            layout_result = self._layout_optimizer.optimize(mcscan_request.species, edges)
 
-        global_figures = _build_global_karyotype(mcscan_request, pairwise_jobs, layout)
-        final_figures.extend(global_figures)
+        with task_scope(logger, task_id=mcscan_request.task_id, step="build_global_karyotype"):
+            global_figures = _build_global_karyotype(mcscan_request, pairwise_jobs, layout)
+            final_figures.extend(global_figures)
 
-        run_summary = build_multi_run_summary(
-            mcscan_request,
-            layout,
-            pairwise_jobs,
-            final_figures,
-            pairing_strategy=mode,
-            global_figures=global_figures,
-            reference_name=reference_name,
-            native_layout=layout_result,
-        )
+        with task_scope(logger, task_id=mcscan_request.task_id, step="write_multi_summary"):
+            run_summary = build_multi_run_summary(
+                mcscan_request,
+                layout,
+                pairwise_jobs,
+                final_figures,
+                pairing_strategy=mode,
+                global_figures=global_figures,
+                reference_name=reference_name,
+                native_layout=layout_result,
+            )
 
-        write_run_summary(layout, run_summary)
+            write_run_summary(layout, run_summary)
         set_state(WorkflowState.SUCCEEDED if run_summary.status == "SUCCEEDED" else WorkflowState.FAILED)
 
         return run_summary

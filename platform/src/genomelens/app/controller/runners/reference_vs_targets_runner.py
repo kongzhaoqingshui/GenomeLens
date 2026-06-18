@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import shutil
 from collections.abc import Callable
 from dataclasses import replace
@@ -20,8 +21,9 @@ from genomelens.app.controller.state_machine import WorkflowState
 from genomelens.core.jcvi_adapter.adapter_models import McscanRequest
 from genomelens.core.summary_models import PairwiseJobSummary, RunSummary
 from genomelens.core.validators import validate_request
-from genomelens.data.logging.log_setup import close_logging, setup_logging
-from genomelens.data.workspace.output_layout import OutputLayout, create_output_layout
+from genomelens.data.logging.log_setup import close_logging, logger_name_for_path, setup_logging
+from genomelens.data.logging.task_log import task_scope
+from genomelens.data.workspace.output_layout import OutputLayout, build_output_layout, create_output_layout
 
 # endregion
 
@@ -37,24 +39,30 @@ def _prepare_reference_workspace(
 
     set_state(WorkflowState.PREPARING_WORKSPACE)
     layout = create_output_layout(request.outdir, force=request.force)
-    setup_logging(layout.logs / "run.log").info("Starting GenomeLens reference-vs-targets workflow")
+    logger = setup_logging(
+        layout.logs / "run.log",
+        level=request.log_level,
+        logger_name=logger_name_for_path(layout.logs / "run.log"),
+    )
+    logger.info("Starting GenomeLens reference-vs-targets workflow")
 
     reference = request.query
     targets = [request.subject, *request.additional_species]
 
-    # 顶层 manifest 只描述编排关系；真实 pairwise manifest 会在子任务目录里分别写出
-    manifest = {
-        "schema_version": 2,
-        "workflow": "mcscan",
-        "task": request.task_spec.to_manifest_json(),
-        "species": species_summary(request),
-        "pairing_strategy": "reference_vs_targets",
-        "pair_count": len(targets),
-        "reference_name": reference.name,
-        "target_names": [t.name for t in targets],
-    }
-    layout.manifest.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    shutil.copy2(layout.manifest, layout.inputs / "input_manifest.json")
+    with task_scope(logger, task_id=request.task_id, step="prepare_reference_workspace"):
+        # 顶层 manifest 只描述编排关系；真实 pairwise manifest 会在子任务目录里分别写出
+        manifest = {
+            "schema_version": 2,
+            "workflow": "mcscan",
+            "task": request.task_spec.to_manifest_json(),
+            "species": species_summary(request),
+            "pairing_strategy": "reference_vs_targets",
+            "pair_count": len(targets),
+            "reference_name": reference.name,
+            "target_names": [t.name for t in targets],
+        }
+        layout.manifest.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        shutil.copy2(layout.manifest, layout.inputs / "input_manifest.json")
 
     return layout, manifest
 
@@ -72,6 +80,7 @@ def _run_reference_pairwise_jobs(
     pairwise_jobs: list[PairwiseJobSummary] = []
     final_figures: list[str] = []
     pairwise_root = layout.intermediate / "pairwise"
+    logger = logging.getLogger(logger_name_for_path(layout.logs / "run.log"))
 
     for target in targets:
         name = pair_id(reference.name, target.name)
@@ -88,7 +97,13 @@ def _run_reference_pairwise_jobs(
         )
 
         try:
-            pair_summary = run_pairwise_mcscan(set_state, pair_request)
+            with task_scope(
+                logger,
+                task_id=name,
+                step="run_pairwise_job",
+                context={"pair_id": name, "outdir": str(pair_outdir)},
+            ):
+                pair_summary = run_pairwise_mcscan(set_state, pair_request)
         except Exception as exc:  # noqa: BLE001 - 汇总需要记录单个 pair 失败原因
             pairwise_jobs.append(
                 PairwiseJobSummary(
@@ -104,9 +119,10 @@ def _run_reference_pairwise_jobs(
             )
             continue
 
-        # 顶层结果目录只保留归档图件，子任务目录继续保存完整 pairwise 中间结果
-        copied_figures = copy_pairwise_figures(name, list(pair_summary.final_figures), layout.figures)
-        final_figures.extend(copied_figures)
+        with task_scope(logger, task_id=name, step="copy_pairwise_figures", context={"pair_id": name}):
+            # 顶层结果目录只保留归档图件，子任务目录继续保存完整 pairwise 中间结果
+            copied_figures = copy_pairwise_figures(name, list(pair_summary.final_figures), layout.figures)
+            final_figures.extend(copied_figures)
 
         pairwise_jobs.append(
             PairwiseJobSummary(
@@ -140,16 +156,18 @@ def _run_reference_vs_targets_mcscan(
     pairwise_jobs, final_figures = _run_reference_pairwise_jobs(set_state, request, layout)
 
     reference = request.query
-    run_summary = build_multi_run_summary(
-        request,
-        layout,
-        pairwise_jobs,
-        final_figures,
-        pairing_strategy="reference_vs_targets",
-        reference_name=reference.name,
-    )
+    logger = logging.getLogger(logger_name_for_path(layout.logs / "run.log"))
+    with task_scope(logger, task_id=request.task_id, step="write_reference_summary"):
+        run_summary = build_multi_run_summary(
+            request,
+            layout,
+            pairwise_jobs,
+            final_figures,
+            pairing_strategy="reference_vs_targets",
+            reference_name=reference.name,
+        )
 
-    write_run_summary(layout, run_summary)
+        write_run_summary(layout, run_summary)
     set_state(WorkflowState.SUCCEEDED if run_summary.status == "SUCCEEDED" else WorkflowState.FAILED)
 
     return run_summary
@@ -161,7 +179,9 @@ def run_reference_vs_targets_mcscan(
 ) -> RunSummary:
     """Run reference-vs-targets MCscan and release task log handles."""
 
+    log_path = build_output_layout(request.outdir).logs / "run.log"
+    logger_name = logger_name_for_path(log_path)
     try:
         return _run_reference_vs_targets_mcscan(set_state, request)
     finally:
-        close_logging()
+        close_logging(logger_name)

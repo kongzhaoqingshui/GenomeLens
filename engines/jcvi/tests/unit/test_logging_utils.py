@@ -1,7 +1,9 @@
 import logging
 import shutil
+import sys
 from pathlib import Path
 
+from jcvi_genomelens.runtime.command_runner import run_command, run_python_step
 from jcvi_genomelens.runtime.logging_utils import close_engine_logging, setup_engine_logging
 
 
@@ -34,3 +36,36 @@ def test_close_engine_logging_releases_log_directory(tmp_path: Path) -> None:
     assert logger.handlers == []
     shutil.rmtree(log_dir)
     assert not log_dir.exists()
+
+
+def test_engine_run_command_writes_task_log(tmp_path: Path) -> None:
+    log_path = tmp_path / "logs" / "run.log"
+    setup_engine_logging(log_path)
+
+    result = run_command([sys.executable, "-c", "print('ok')"])
+
+    close_engine_logging()
+    text = log_path.read_text(encoding="utf-8")
+
+    assert result.returncode == 0
+    assert "task_started task_id=engine" in text
+    assert "task_finished task_id=engine" in text
+    assert "status=SUCCEEDED" in text
+    assert "returncode" in text
+
+
+def test_engine_python_step_logs_failed_returncode(tmp_path: Path) -> None:
+    log_path = tmp_path / "logs" / "run.log"
+    setup_engine_logging(log_path)
+
+    def fail(_args: list[str]) -> None:
+        raise RuntimeError("boom")
+
+    result = run_python_step("demo.step", fail, [])
+
+    close_engine_logging()
+    text = log_path.read_text(encoding="utf-8")
+
+    assert result.returncode == 1
+    assert "step=demo.step status=FAILED" in text
+    assert "RuntimeError: boom" in result.stderr

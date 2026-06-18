@@ -218,6 +218,8 @@ def load_manifest(path: str | Path) -> EngineRunManifest:
             shadestyle=_string(options_raw.get("shadestyle"), ""),
             figsize=_string(options_raw.get("figsize"), ""),
             dpi=_int(options_raw.get("dpi"), 300),
+            log_level=_string(options_raw.get("log_level"), "INFO"),
+            verbose=_bool(options_raw.get("verbose", False)),
         ),
         schema_version=int(raw.get("schema_version") or 1),
         # task/species/meta 保持宽松对象结构，供 shell summary 直接回写。

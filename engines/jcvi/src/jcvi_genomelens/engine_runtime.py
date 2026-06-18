@@ -6,8 +6,9 @@ from __future__ import annotations
 from pathlib import Path
 
 from jcvi_genomelens.manifest_loader import load_manifest
-from jcvi_genomelens.runtime.logging_utils import close_engine_logging, setup_engine_logging
+from jcvi_genomelens.runtime.logging_utils import close_engine_logging, set_engine_log_level, setup_engine_logging
 from jcvi_genomelens.runtime.summary_writer import write_summary
+from jcvi_genomelens.runtime.task_log import task_scope
 from jcvi_genomelens.workflow_dispatcher import dispatch
 
 # endregion
@@ -24,10 +25,13 @@ def run_manifest(manifest_path: str | Path, outdir: str | Path) -> Path:
     manifest = None
     try:
         # 先解析 manifest，再把 workflow 名称传播到日志和最终摘要。
-        manifest = load_manifest(manifest_path)
+        with task_scope(task_id="engine", step="load_manifest", context={"manifest": str(manifest_path)}):
+            manifest = load_manifest(manifest_path)
         workflow = manifest.workflow
+        set_engine_log_level(manifest.options.log_level)
         logger.info("Running workflow %s", manifest.workflow)
-        commands, artifacts = dispatch(manifest, root)
+        with task_scope(task_id="engine", step=f"dispatch_{manifest.workflow}", context={"outdir": str(root)}):
+            commands, artifacts = dispatch(manifest, root)
         return write_summary(
             root / "engine_run_summary.json",
             status="ok",

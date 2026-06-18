@@ -16,6 +16,7 @@ from genomelens.analysis.normalization.option_merger import (
     _formats,
     _iter,
     _label_targets,
+    _log_level,
     _min_block_size,
     _split_targets,
     _style_arg,
@@ -120,6 +121,8 @@ def mcscan_auto_request_from_cli(args: argparse.Namespace) -> AnalysisRequest:
             preset="auto",
             threads=_threads(args, config),
             min_block_size=_min_block_size(args, config),
+            log_level=_log_level(args, config),
+            verbose=bool(getattr(args, "verbose", False)),
         ),
         method_config=_build_mcscan_method_config(args, config).to_json(),
     )

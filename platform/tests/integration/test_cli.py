@@ -168,6 +168,101 @@ def test_analyze_mcscan_jcvi_reuses_existing_execution_path(tmp_path: Path, monk
     assert captured["output"] == str(outdir.resolve())
 
 
+def test_analyze_mcscan_log_level_overrides_verbose(tmp_path: Path, monkeypatch) -> None:
+    root = Path(__file__).resolve().parents[3]
+    sample = root / "references" / "samples" / "shell" / "bed_cds_minimal"
+    input_dir = tmp_path / "input"
+    _copy_species_files(input_dir, sample, ["query.bed", "query.cds", "subject.bed", "subject.cds"])
+    outdir = tmp_path / "out"
+    captured = {}
+
+    def fake_provider_run(_self, request, _signal_bus):
+        captured["log_level"] = request.options.log_level
+        captured["verbose"] = request.options.verbose
+        return RunSummary(
+            status="SUCCEEDED",
+            schema_version=2,
+            workflow="mcscan",
+            method="mcscan",
+            task={"workflow": "mcscan"},
+            species=[],
+            final_figures=[],
+            artifact_index=[],
+            logs={},
+            ui=UiBlock(
+                "SUCCEEDED", 1.0, [], str(outdir / "report" / "run_summary.json"), str(outdir / "logs" / "run.log")
+            ),
+            scoring=ScoringBlock(),
+        )
+
+    monkeypatch.setattr("genomelens.analysis.methods.mcscan_provider.McscanWorkflowProvider.run", fake_provider_run)
+
+    code = main(
+        [
+            "analyze",
+            "mcscan",
+            "jcvi",
+            str(input_dir),
+            str(outdir),
+            "--force",
+            "--verbose",
+            "--log-level",
+            "ERROR",
+        ]
+    )
+
+    assert code == 0
+    assert captured["log_level"] == "ERROR"
+    assert captured["verbose"] is True
+
+
+def test_analyze_mcscan_uses_configured_log_level(tmp_path: Path, monkeypatch) -> None:
+    root = Path(__file__).resolve().parents[3]
+    sample = root / "references" / "samples" / "shell" / "bed_cds_minimal"
+    input_dir = tmp_path / "input-config-log"
+    _copy_species_files(input_dir, sample, ["query.bed", "query.cds", "subject.bed", "subject.cds"])
+    outdir = tmp_path / "out-config-log"
+    config_path = tmp_path / "genomelens.config.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                "schema_version": 2,
+                "workspace_root": str(tmp_path / "work"),
+                "temp_root": str(tmp_path / "work" / "temp"),
+                "default_output_root": str(tmp_path / "work" / "results"),
+                "log_level": "WARNING",
+            }
+        ),
+        encoding="utf-8",
+    )
+    captured = {}
+
+    def fake_provider_run(_self, request, _signal_bus):
+        captured["log_level"] = request.options.log_level
+        return RunSummary(
+            status="SUCCEEDED",
+            schema_version=2,
+            workflow="mcscan",
+            method="mcscan",
+            task={"workflow": "mcscan"},
+            species=[],
+            final_figures=[],
+            artifact_index=[],
+            logs={},
+            ui=UiBlock(
+                "SUCCEEDED", 1.0, [], str(outdir / "report" / "run_summary.json"), str(outdir / "logs" / "run.log")
+            ),
+            scoring=ScoringBlock(),
+        )
+
+    monkeypatch.setattr("genomelens.analysis.methods.mcscan_provider.McscanWorkflowProvider.run", fake_provider_run)
+
+    code = main(["analyze", "mcscan", "jcvi", "--config", str(config_path), str(input_dir), str(outdir), "--force"])
+
+    assert code == 0
+    assert captured["log_level"] == "WARNING"
+
+
 def test_analyze_mcscan_requires_backend(capsys) -> None:
     code = main(["analyze", "mcscan", "input", "output"])
 
@@ -229,6 +324,13 @@ def test_analyze_mcscan_with_source_engine(tmp_path: Path) -> None:
     assert request_snapshot["kind"] == "analysis_request"
     assert request_snapshot["method"] == "mcscan"
     assert summary["analysis_request_path"] == str((outdir / "inputs" / "analysis_request.json").resolve())
+    run_log = (outdir / "logs" / "run.log").read_text(encoding="utf-8")
+    assert "task_started task_id=query__subject__graphics_synteny step=prepare_inputs" in run_log
+    assert "task_finished task_id=query__subject__graphics_synteny step=run_engine status=SUCCEEDED" in run_log
+    engine_log = (outdir / "intermediate" / "jcvi" / "run.log").read_text(encoding="utf-8")
+    assert "task_started task_id=engine step=load_manifest" in engine_log
+    assert "task_finished task_id=engine step=makeblastdb.exe status=SUCCEEDED" in engine_log
+    assert "task_finished task_id=engine step=jcvi.graphics.synteny status=SUCCEEDED" in engine_log
 
 
 def test_analyze_mcscan_with_three_species(tmp_path: Path) -> None:
@@ -271,6 +373,11 @@ def test_analyze_mcscan_with_three_species(tmp_path: Path) -> None:
     assert all(Path(path).is_file() for path in summary["global_figures"])
     assert any(Path(path).name.startswith("global.") for path in summary["global_figures"])
     assert any(path in summary["final_figures"] for path in summary["global_figures"])
+    run_log = (outdir / "logs" / "run.log").read_text(encoding="utf-8")
+    assert "step=prepare_multi_species_workspace status=STARTED" in run_log
+    assert "step=run_pairwise_job status=STARTED" in run_log
+    assert "step=build_global_karyotype status=SUCCEEDED" in run_log
+    assert (outdir / "intermediate" / "pairwise" / "query__subject" / "logs" / "run.log").is_file()
 
 
 def test_analyze_mcscan_discovers_bed_cds_directory(tmp_path: Path) -> None:
@@ -687,6 +794,9 @@ def test_analyze_mcscan_reference_vs_targets_three_species(tmp_path: Path) -> No
     pair_ids = {job["pair_id"] for job in summary["pairwise_jobs"]}
     assert pair_ids == {"query__subject", "query__third"}
     assert all(job["status"] == "SUCCEEDED" for job in summary["pairwise_jobs"])
+    run_log = (outdir / "logs" / "run.log").read_text(encoding="utf-8")
+    assert "step=prepare_multi_species_workspace status=STARTED" in run_log
+    assert "step=run_pairwise_job status=STARTED" in run_log
 
 
 def test_analyze_mcscan_config_defaults_exposed_in_init(tmp_path: Path) -> None:

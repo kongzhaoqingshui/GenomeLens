@@ -40,6 +40,17 @@ def _min_block_size(args: argparse.Namespace, config: ConfigModel | None) -> int
     return None
 
 
+def _log_level(args: argparse.Namespace, config: ConfigModel | None) -> str:
+    value = str(getattr(args, "log_level", "") or "").strip().upper()
+    if value:
+        return value
+    if bool(getattr(args, "verbose", False)):
+        return "DEBUG"
+    if config:
+        return str(config.runtime.log_level or "INFO").upper()
+    return "INFO"
+
+
 def _workflow(args: argparse.Namespace, config: ConfigModel | None) -> str:
     if str(args.jcvi_workflow).strip():
         return str(args.jcvi_workflow)

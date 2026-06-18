@@ -3,6 +3,7 @@
 # region import
 from __future__ import annotations
 
+import logging
 import shutil
 from collections.abc import Callable
 from dataclasses import replace
@@ -29,8 +30,9 @@ from genomelens.core.models import PreparedGenomeInputSpec
 from genomelens.core.summary_models import RunSummary
 from genomelens.core.validators import validate_request
 from genomelens.core.visualization.figure_archiver import archive_figures
-from genomelens.data.logging.log_setup import close_logging, setup_logging
-from genomelens.data.workspace.output_layout import OutputLayout, create_output_layout
+from genomelens.data.logging.log_setup import close_logging, logger_name_for_path, setup_logging
+from genomelens.data.logging.task_log import task_scope
+from genomelens.data.workspace.output_layout import OutputLayout, build_output_layout, create_output_layout
 from genomelens.toolchain.runtime.platform_names import (
     blastn_candidates,
     lastal_candidates,
@@ -50,7 +52,14 @@ from genomelens.toolchain.runtime.toolchain_installer import install_toolchain
 def _prepare_pairwise_inputs(
     set_state: Callable[[WorkflowState], None],
     request: McscanRequest,
-) -> tuple[OutputLayout, McscanRequest, PreparedGenomeInputSpec, PreparedGenomeInputSpec, list[dict[str, object]]]:
+) -> tuple[
+    OutputLayout,
+    logging.Logger,
+    McscanRequest,
+    PreparedGenomeInputSpec,
+    PreparedGenomeInputSpec,
+    list[dict[str, object]],
+]:
     """校验请求、准备工作区并预处理输入"""
 
     validate_request(request)
@@ -62,17 +71,27 @@ def _prepare_pairwise_inputs(
 
     set_state(WorkflowState.PREPARING_WORKSPACE)
     layout = create_output_layout(request.outdir, force=request.force)
-    logger = setup_logging(layout.logs / "run.log")
+    logger = setup_logging(
+        layout.logs / "run.log",
+        level=request.log_level,
+        logger_name=logger_name_for_path(layout.logs / "run.log"),
+    )
     logger.info("Starting GenomeLens workflow")
 
-    query, subject, preprocess_summaries = prepare_inputs(set_state, request, layout)
+    with task_scope(
+        logger,
+        task_id=request.task_id,
+        step="prepare_inputs",
+        context={"outdir": str(layout.root), "species_count": len(request.species)},
+    ):
+        query, subject, preprocess_summaries = prepare_inputs(set_state, request, layout)
 
     effective_request = request
     if request.target_gene_ids:
         # pairwise runner 是局部共线性的唯一入口，带目标基因时在这里切换到底层 local_synteny workflow
         effective_request = replace(request, jcvi_workflow="local_synteny")
 
-    return layout, effective_request, query, subject, preprocess_summaries
+    return layout, logger, effective_request, query, subject, preprocess_summaries
 
 
 def _resolve_pairwise_toolchain(
@@ -224,53 +243,72 @@ def _run_pairwise_mcscan(
     """运行一对物种的真实 JCVI 工作流并写出 `run_summary.json`"""
 
     set_state(WorkflowState.VALIDATING_INPUTS)
-    layout, effective_request, query, subject, preprocess_summaries = _prepare_pairwise_inputs(set_state, request)
+    layout, logger, effective_request, query, subject, preprocess_summaries = _prepare_pairwise_inputs(
+        set_state,
+        request,
+    )
 
     set_state(WorkflowState.CHECKING_TOOLCHAIN)
-    engine, blastn, makeblastdb, lastal_path, lastdb_path = _resolve_pairwise_toolchain(effective_request)
+    with task_scope(logger, task_id=effective_request.task_id, step="resolve_toolchain"):
+        engine, blastn, makeblastdb, lastal_path, lastdb_path = _resolve_pairwise_toolchain(effective_request)
 
     adapter = JcviEngineAdapter(engine.path)
-    probe = adapter.probe()
+    with task_scope(logger, task_id=effective_request.task_id, step="probe_engine", context={"engine": engine.path}):
+        probe = adapter.probe()
 
     set_state(WorkflowState.WRITING_MANIFEST)
-    manifest = adapter.build_manifest(
-        effective_request,
-        query=query,
-        subject=subject,
-        blastn_path=blastn.path,
-        makeblastdb_path=makeblastdb.path,
-        lastal_path=lastal_path,
-        lastdb_path=lastdb_path,
-    )
-    adapter.write_manifest(manifest, layout.manifest)
-    shutil.copy2(layout.manifest, layout.inputs / "input_manifest.json")
+    with task_scope(
+        logger,
+        task_id=effective_request.task_id,
+        step="write_manifest",
+        context={"manifest": str(layout.manifest)},
+    ):
+        manifest = adapter.build_manifest(
+            effective_request,
+            query=query,
+            subject=subject,
+            blastn_path=blastn.path,
+            makeblastdb_path=makeblastdb.path,
+            lastal_path=lastal_path,
+            lastdb_path=lastdb_path,
+        )
+        adapter.write_manifest(manifest, layout.manifest)
+        shutil.copy2(layout.manifest, layout.inputs / "input_manifest.json")
 
     set_state(WorkflowState.RUNNING_ENGINE)
-    engine_result = adapter.run_manifest(layout.manifest, layout.jcvi)
+    with task_scope(
+        logger,
+        task_id=effective_request.task_id,
+        step="run_engine",
+        context={"engine_outdir": str(layout.jcvi)},
+    ):
+        engine_result = adapter.run_manifest(layout.manifest, layout.jcvi)
 
     set_state(WorkflowState.FINALIZING)
-    figures = cast(list[Any], engine_result.artifacts.get("figures") or [])
+    with task_scope(logger, task_id=effective_request.task_id, step="archive_figures"):
+        figures = cast(list[Any], engine_result.artifacts.get("figures") or [])
 
-    # engine 内部图件先落在中间目录，再统一归档到 results/figures 供用户与 GUI 消费
-    final_figures = archive_figures([str(item) for item in figures], layout.figures)
-    status = "SUCCEEDED" if engine_result.status == "ok" else "FAILED"
+        # engine 内部图件先落在中间目录，再统一归档到 results/figures 供用户与 GUI 消费
+        final_figures = archive_figures([str(item) for item in figures], layout.figures)
+        status = "SUCCEEDED" if engine_result.status == "ok" else "FAILED"
 
-    run_summary = _build_pairwise_run_summary(
-        request,
-        effective_request,
-        layout,
-        engine_result,
-        manifest,
-        engine,
-        probe,
-        query,
-        subject,
-        preprocess_summaries,
-        final_figures,
-        status,
-    )
+    with task_scope(logger, task_id=effective_request.task_id, step="write_summary", context={"status": status}):
+        run_summary = _build_pairwise_run_summary(
+            request,
+            effective_request,
+            layout,
+            engine_result,
+            manifest,
+            engine,
+            probe,
+            query,
+            subject,
+            preprocess_summaries,
+            final_figures,
+            status,
+        )
 
-    write_run_summary(layout, run_summary)
+        write_run_summary(layout, run_summary)
     set_state(WorkflowState.SUCCEEDED if run_summary.status == "SUCCEEDED" else WorkflowState.FAILED)
 
     return run_summary
@@ -282,7 +320,9 @@ def run_pairwise_mcscan(
 ) -> RunSummary:
     """Run pairwise MCscan and release task log handles."""
 
+    log_path = build_output_layout(request.outdir).logs / "run.log"
+    logger_name = logger_name_for_path(log_path)
     try:
         return _run_pairwise_mcscan(set_state, request)
     finally:
-        close_logging()
+        close_logging(logger_name)
