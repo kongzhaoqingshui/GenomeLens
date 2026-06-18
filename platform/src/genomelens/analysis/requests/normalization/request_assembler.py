@@ -127,7 +127,7 @@ def mcscan_auto_request_from_cli(args: argparse.Namespace) -> AnalysisRequest:
             min_block_size=_min_block_size(args, config),
             log_level=_log_level(args, config),
             verbose=bool(getattr(args, "verbose", False)),
-            console_log=bool(getattr(args, "verbose", False)),
+            console_log=False,
         ),
         method_config=_build_mcscan_method_config(args, config).to_json(),
     )

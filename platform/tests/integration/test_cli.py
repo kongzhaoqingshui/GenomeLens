@@ -316,7 +316,7 @@ def test_analyze_mcscan_log_level_overrides_verbose(tmp_path: Path, monkeypatch)
     assert code == 0
     assert captured["log_level"] == "ERROR"
     assert captured["verbose"] is True
-    assert captured["console_log"] is True
+    assert captured["console_log"] is False
 
 
 def test_analyze_mcscan_uses_configured_log_level(tmp_path: Path, monkeypatch) -> None:
@@ -401,8 +401,8 @@ def test_analyze_mcscan_default_cli_uses_progress_reporter(tmp_path: Path, monke
     captured = capsys.readouterr()
 
     assert code == 0
-    assert "%" in captured.err
-    assert "task_started" not in captured.err
+    assert "%" in captured.out
+    assert "task_started" not in captured.out
 
 
 def test_analyze_run_json_suppresses_progress_reporter(tmp_path: Path, monkeypatch, capsys) -> None:
@@ -640,6 +640,8 @@ def test_analyze_mcscan_with_three_species(tmp_path: Path) -> None:
             "mcscan",
             "jcvi",
             *_auto_args(input_dir, outdir),
+            "--rewrite-layout-links",
+            "--optimize-figsize",
             "--min-block-size",
             "1",
             "--force",
@@ -665,6 +667,20 @@ def test_analyze_mcscan_with_three_species(tmp_path: Path) -> None:
     assert all(Path(path).is_file() for path in summary["global_figures"])
     assert any(Path(path).name.startswith("global.") for path in summary["global_figures"])
     assert any(path in summary["final_figures"] for path in summary["global_figures"])
+    global_manifest = json.loads(
+        (outdir / "intermediate" / "global_karyotype" / "global_manifest.json").read_text(encoding="utf-8")
+    )
+    assert global_manifest["options"]["rewrite_layout_links"] is True
+    assert global_manifest["options"]["optimize_figsize"] is True
+    global_summary = json.loads(
+        (outdir / "intermediate" / "global_karyotype" / "engine_run_summary.json").read_text(encoding="utf-8")
+    )
+    global_artifacts = global_summary["artifacts"]
+    assert global_artifacts["rewritten_layout_edges"] >= 0
+    assert global_artifacts["rewritten_track_order"]
+    assert global_artifacts["optimized_figsize"]
+    global_command = global_summary["commands"][-1]["argv"]
+    assert "--figsize" in global_command
     run_log = (outdir / "logs" / "run.log").read_text(encoding="utf-8")
     assert "step=prepare_multi_species_workspace status=STARTED" in run_log
     assert "step=run_pairwise_job status=STARTED" in run_log
@@ -1079,6 +1095,8 @@ def test_analyze_mcscan_reference_vs_targets_three_species(tmp_path: Path) -> No
             "query",
             "--target-genes",
             "qgene2",
+            "--rewrite-layout-links",
+            "--optimize-figsize",
             "--up",
             "1",
             "--down",
@@ -1101,6 +1119,29 @@ def test_analyze_mcscan_reference_vs_targets_three_species(tmp_path: Path) -> No
     assert all(Path(path).is_file() for path in summary["multi_species_local_figures"])
     assert any(Path(path).name.startswith("multi_species_local.") for path in summary["multi_species_local_figures"])
     assert any(path in summary["final_figures"] for path in summary["multi_species_local_figures"])
+    local_manifest = json.loads(
+        (outdir / "intermediate" / "multi_species_local_synteny" / "local_synteny_multi_manifest.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert local_manifest["options"]["rewrite_layout_links"] is True
+    assert local_manifest["options"]["optimize_figsize"] is True
+    local_layout = (outdir / "intermediate" / "multi_species_local_synteny" / "local_multi.layout").read_text(
+        encoding="utf-8"
+    )
+    assert "e, 0, 1, #c8c8c8" in local_layout
+    assert "e, 1, 2, #c8c8c8" in local_layout
+    assert "e, 0, 2, #c8c8c8" not in local_layout
+    local_summary = json.loads(
+        (outdir / "intermediate" / "multi_species_local_synteny" / "engine_run_summary.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    local_artifacts = local_summary["artifacts"]
+    assert local_artifacts["rewritten_layout_edges"] == 2
+    assert local_artifacts["optimized_figsize"]
+    local_command = local_summary["commands"][-1]["argv"]
+    assert "--figsize" in local_command
     run_log = (outdir / "logs" / "run.log").read_text(encoding="utf-8")
     assert "step=prepare_multi_species_workspace status=STARTED" in run_log
     assert "step=run_pairwise_job status=STARTED" in run_log

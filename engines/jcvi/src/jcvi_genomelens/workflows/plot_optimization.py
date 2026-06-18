@@ -275,6 +275,17 @@ def suggest_figsize(blocks_path: Path, layout_path: Path) -> str:
     return f"{width}x{height}"
 
 
+def suggest_karyotype_figsize(track_labels: list[str], edge_count: int) -> str:
+    """根据轨道标签长度和边数量推导 karyotype figsize"""
+
+    track_count = max(len(track_labels), 2)
+    longest_label = max((len(label) for label in track_labels), default=0)
+
+    width = _jcvi_figsize_dimension(min(22.0, max(10.0, 7.0 + edge_count * 0.5 + longest_label * 0.18)))
+    height = _jcvi_figsize_dimension(min(16.0, max(6.0, 2.8 + track_count * 1.8)))
+    return f"{width}x{height}"
+
+
 # endregion
 
 

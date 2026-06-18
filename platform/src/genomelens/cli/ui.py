@@ -39,18 +39,18 @@ class CliPalette:
 
 PALETTE = CliPalette()
 STATE_LABELS = {
-    "PENDING": "等待开始",
-    "VALIDATING_INPUTS": "校验输入",
-    "PREPROCESSING_ANNOTATIONS": "预处理",
-    "PREPARING_WORKSPACE": "准备工作区",
-    "CHECKING_TOOLCHAIN": "检查工具链",
-    "WRITING_MANIFEST": "写入清单",
-    "RUNNING_ENGINE": "运行引擎",
-    "PARSING_ENGINE_SUMMARY": "解析摘要",
-    "FINALIZING": "整理结果",
-    "SUCCEEDED": "已完成",
-    "FAILED": "运行失败",
-    "CANCELLED": "已取消",
+    "PENDING": "Waiting",
+    "VALIDATING_INPUTS": "Validating",
+    "PREPROCESSING_ANNOTATIONS": "Preprocess",
+    "PREPARING_WORKSPACE": "Preparing",
+    "CHECKING_TOOLCHAIN": "Toolchain",
+    "WRITING_MANIFEST": "Manifest",
+    "RUNNING_ENGINE": "Running",
+    "PARSING_ENGINE_SUMMARY": "Parsing",
+    "FINALIZING": "Finalizing",
+    "SUCCEEDED": "Completed",
+    "FAILED": "Failed",
+    "CANCELLED": "Cancelled",
 }
 STATE_PROGRESS = {
     "PENDING": 0.0,
@@ -133,20 +133,21 @@ def _boxed(lines: list[str], *, enabled: bool, min_width: int = 0) -> list[str]:
 
 # region 进度渲染
 def _duration_text(seconds: float) -> str:
-    """把秒数转成 m:ss 文本"""
+    """Render elapsed seconds as h:mm:ss."""
 
     total = max(0, int(seconds))
     minutes, seconds = divmod(total, 60)
-    return f"{minutes}:{seconds:02d}"
+    hours, minutes = divmod(minutes, 60)
+    return f"{hours}:{minutes:02d}:{seconds:02d}"
 
 
 def _progress_bar(progress: float, *, enabled: bool, width: int = 24) -> str:
-    """渲染单行进度条"""
+    """Render a compact single-line progress bar."""
 
     clamped = max(0.0, min(progress, 1.0))
     filled = min(width, max(0, int(round(clamped * width))))
-    return _paint("━" * filled, PALETTE.magenta, enabled=enabled) + _paint(
-        "━" * (width - filled),
+    return _paint("=" * filled, PALETTE.magenta, enabled=enabled) + _paint(
+        "-" * (width - filled),
         PALETTE.gray,
         enabled=enabled,
     )
@@ -187,7 +188,7 @@ class _LegacyCliProgressReporter:
         stream: TextIO | None = None,
     ) -> None:
         self._request = request
-        self._stream = stream or sys.stderr
+        self._stream = stream or sys.stdout
         self._enabled = _supports_color(self._stream) if color is None else color
         self._interactive = bool(getattr(self._stream, "isatty", lambda: False)())
         self._started_at = time.perf_counter()

@@ -104,6 +104,10 @@ def _build_global_karyotype(
             blastn_path=request.blastn_path,
             makeblastdb_path=request.makeblastdb_path,
             formats=request.formats,
+            figsize=request.figsize,
+            dpi=request.dpi,
+            optimize_figsize=request.optimize_figsize,
+            rewrite_layout_links=request.rewrite_layout_links,
             log_level=request.log_level,
             task={"workflow": "graphics_karyotype_global", "task_type": "global_synteny"},
             species=species_summary(request),
@@ -138,7 +142,7 @@ def _prepare_multi_species_workspace(
         level=request.log_level,
         logger_name=logger_name_for_path(layout.logs / "run.log"),
         console=request.console_log,
-        concise=not request.verbose,
+        concise=True,
     )
     logger.info("Starting GenomeLens multi-species workflow")
 
