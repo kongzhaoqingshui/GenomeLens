@@ -24,6 +24,7 @@ from genomelens.app.controller.runners._shared import (
     species_summary,
     write_run_summary,
 )
+from genomelens.app.controller.runners.local_synteny_aggregate import build_multi_species_local_synteny
 from genomelens.app.controller.state_machine import WorkflowState
 from genomelens.app.controller.workflow_provider import WorkflowProvider
 from genomelens.app.events.signal_bus import SignalBus
@@ -332,6 +333,10 @@ class PairwiseAggregatedMultiSpecies:
 
         global_figures = _build_global_karyotype(mcscan_request, pairwise_jobs, layout)
         final_figures.extend(global_figures)
+        multi_species_local_figures: list[str] = []
+        if mode == "reference_vs_targets":
+            multi_species_local_figures = build_multi_species_local_synteny(mcscan_request, pairwise_jobs, layout)
+            final_figures.extend(multi_species_local_figures)
 
         run_summary = build_multi_run_summary(
             mcscan_request,
@@ -342,6 +347,7 @@ class PairwiseAggregatedMultiSpecies:
             global_figures=global_figures,
             reference_name=reference_name,
             native_layout=layout_result,
+            multi_species_local_figures=multi_species_local_figures,
         )
 
         write_run_summary(layout, run_summary)
