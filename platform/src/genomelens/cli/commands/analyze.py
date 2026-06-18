@@ -70,7 +70,7 @@ def _dispatch_request(request: AnalysisRequest, *, json_output: bool) -> RunSumm
     signal_bus = SignalBus()
     reporter: CliProgressReporter | None = None
 
-    if not json_output and not request.options.console_log:
+    if not json_output:
         reporter = CliProgressReporter(request)
         reporter.attach(signal_bus)
 
