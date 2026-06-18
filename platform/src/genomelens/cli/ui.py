@@ -11,7 +11,7 @@ import time
 import unicodedata
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, TextIO, cast
+from typing import Any, Protocol, TextIO, cast
 
 from genomelens.analysis.methods.registry import list_methods
 from genomelens.analysis.request_models import AnalysisRequest
@@ -176,7 +176,7 @@ def _default_pair_label(request: AnalysisRequest) -> str:
     return ""
 
 
-class CliProgressReporter:
+class _LegacyCliProgressReporter:
     """CLI 进度条/状态行渲染器"""
 
     def __init__(
@@ -301,6 +301,277 @@ class CliProgressReporter:
 
 
 # region 工作台与提示相关函数
+@dataclass(frozen=True)
+class ProgressTheme:
+    """Visual theme for compact CLI progress lines"""
+
+    label_color: str = PALETTE.blue
+    meta_color: str = PALETTE.cyan
+    detail_color: str = PALETTE.gray
+    bar_color: str = PALETTE.blue
+    bar_accent_color: str = PALETTE.cyan
+    empty_color: str = PALETTE.gray
+    bar_width: int = 24
+    field_gap: int = 2
+
+
+@dataclass(frozen=True)
+class ProgressFrame:
+    """Generic progress snapshot rendered by the CLI"""
+
+    label: str
+    progress: float
+    summary: str = ""
+    detail: str = ""
+
+
+class ProgressAdapter(Protocol):
+    """Adapter that translates SignalBus events into reusable progress frames"""
+
+    label_width: int
+
+    def current_frame(self) -> ProgressFrame:
+        """Return the current progress frame"""
+        ...
+
+    def apply(self, event: Event) -> ProgressFrame | None:
+        """Update internal state from an event and return the next frame"""
+        ...
+
+
+def _pad_visible(text: str, width: int) -> str:
+    """Pad text by its visible width so progress columns stay aligned"""
+
+    return text + " " * max(0, width - _visible_width(text))
+
+
+def _progress_duration_text(seconds: float) -> str:
+    """Render elapsed seconds as h:mm:ss"""
+
+    total = max(0, int(seconds))
+    minutes, seconds = divmod(total, 60)
+    hours, minutes = divmod(minutes, 60)
+    return f"{hours}:{minutes:02d}:{seconds:02d}"
+
+
+def _render_progress_bar(progress: float, *, theme: ProgressTheme, enabled: bool) -> str:
+    """Render a two-tone progress bar using the existing GenomeLens palette"""
+
+    clamped = max(0.0, min(progress, 1.0))
+    filled = min(theme.bar_width, max(0, int(round(clamped * theme.bar_width))))
+    empty = theme.bar_width - filled
+
+    if filled <= 0:
+        filled_text = ""
+    elif filled == 1:
+        filled_text = _paint("=", theme.bar_accent_color, enabled=enabled)
+    else:
+        filled_text = _paint("=" * (filled - 1), theme.bar_color, enabled=enabled) + _paint(
+            "=",
+            theme.bar_accent_color,
+            enabled=enabled,
+        )
+
+    return filled_text + _paint("-" * empty, theme.empty_color, enabled=enabled)
+
+
+class SignalBusProgressReporter:
+    """Reusable SignalBus-backed progress renderer for CLI workflows"""
+
+    def __init__(
+        self,
+        adapter: ProgressAdapter,
+        *,
+        color: bool | None = None,
+        stream: TextIO | None = None,
+        theme: ProgressTheme | None = None,
+    ) -> None:
+        self._adapter = adapter
+        self._stream = stream or sys.stderr
+        self._theme = theme or ProgressTheme()
+        self._enabled = _supports_color(self._stream) if color is None else color
+        self._interactive = bool(getattr(self._stream, "isatty", lambda: False)())
+        self._started_at = time.perf_counter()
+        self._render_started = False
+        self._last_line = ""
+        self._last_width = 0
+
+    def attach(self, signal_bus: SignalBus) -> None:
+        """Subscribe to progress-related events on the shared SignalBus"""
+
+        signal_bus.subscribe(self.handle)
+
+    def handle(self, event: Event) -> None:
+        """Render the next frame when the adapter yields one"""
+
+        frame = self._adapter.apply(event)
+        if frame is not None:
+            self._render(frame)
+
+    def finish(self) -> None:
+        """Close the live progress line cleanly on interactive terminals"""
+
+        if self._interactive and self._last_line:
+            self._stream.write("\n")
+            self._stream.flush()
+            self._last_line = ""
+            self._last_width = 0
+
+    def _line_text(self, frame: ProgressFrame) -> str:
+        label = _paint(
+            _pad_visible(frame.label, self._adapter.label_width),
+            self._theme.label_color,
+            enabled=self._enabled,
+        )
+        bar = _render_progress_bar(frame.progress, theme=self._theme, enabled=self._enabled)
+        percent = _paint(
+            f"{int(round(frame.progress * 100)):>3}%",
+            self._theme.meta_color,
+            enabled=self._enabled,
+        )
+        elapsed = _paint(
+            _progress_duration_text(time.perf_counter() - self._started_at),
+            self._theme.label_color,
+            enabled=self._enabled,
+        )
+        segments = [label, " " * self._theme.field_gap, bar, " " * self._theme.field_gap, percent, " ", elapsed]
+
+        if frame.summary:
+            segments.extend(
+                [
+                    " " * self._theme.field_gap,
+                    _paint(frame.summary, self._theme.meta_color, enabled=self._enabled),
+                ]
+            )
+        if frame.detail:
+            segments.extend([" ", _paint(frame.detail, self._theme.detail_color, enabled=self._enabled)])
+
+        return "".join(segments)
+
+    def _render(self, frame: ProgressFrame) -> None:
+        line = self._line_text(frame)
+        if line == self._last_line:
+            return
+
+        if not self._render_started:
+            self._stream.write("\n")
+            self._render_started = True
+
+        if self._interactive:
+            width = max(self._last_width, _visible_width(line))
+            padded = line + " " * max(0, width - _visible_width(line))
+            self._stream.write("\r" + padded)
+            self._stream.flush()
+            self._last_width = width
+        else:
+            self._stream.write(line + "\n")
+            self._stream.flush()
+
+        self._last_line = line
+
+
+PROGRESS_STATE_LABELS = {
+    "PENDING": "Queued",
+    "VALIDATING_INPUTS": "Validating",
+    "PREPROCESSING_ANNOTATIONS": "Preprocessing",
+    "PREPARING_WORKSPACE": "Preparing",
+    "CHECKING_TOOLCHAIN": "Toolchain",
+    "WRITING_MANIFEST": "Manifest",
+    "RUNNING_ENGINE": "Running",
+    "PARSING_ENGINE_SUMMARY": "Parsing",
+    "FINALIZING": "Finalizing",
+    "SUCCEEDED": "Completed",
+    "FAILED": "Failed",
+    "CANCELLED": "Cancelled",
+}
+
+
+class McscanProgressAdapter:
+    """Translate current MCscan workflow events into reusable progress frames"""
+
+    def __init__(self, request: AnalysisRequest) -> None:
+        self._request = request
+        self._state = "PENDING"
+        self._total_pairs = _pair_count(request)
+        self._completed_pairs = 0
+        self._active_pair_index = 1
+        self._active_pair_label = _default_pair_label(request)
+        self.label_width = max(_visible_width(label) for label in PROGRESS_STATE_LABELS.values())
+
+    def current_frame(self) -> ProgressFrame:
+        summary = f"{self._completed_pairs}/{self._total_pairs}" if self._total_pairs > 1 else ""
+        detail = self._active_pair_label if self._active_pair_label else ""
+        return ProgressFrame(
+            label=PROGRESS_STATE_LABELS.get(self._state, self._state),
+            progress=self._overall_progress(),
+            summary=summary,
+            detail=detail,
+        )
+
+    def apply(self, event: Event) -> ProgressFrame | None:
+        if event.name == "state":
+            state = str(event.payload.get("state") or "")
+            if not state:
+                return None
+            if self._total_pairs > 1 and state == "SUCCEEDED" and self._completed_pairs < self._total_pairs:
+                return None
+            self._state = state
+            return self.current_frame()
+
+        if event.name == "pair_started":
+            raw_index = event.payload.get("index")
+            if raw_index is not None:
+                self._active_pair_index = int(cast(int, raw_index))
+            query = str(event.payload.get("query") or "")
+            subject = str(event.payload.get("subject") or "")
+            if query and subject:
+                self._active_pair_label = f"{query} vs {subject}"
+            return self.current_frame()
+
+        if event.name == "pair_finished":
+            raw_index = event.payload.get("index")
+            if raw_index is not None:
+                self._active_pair_index = int(cast(int, raw_index))
+            self._completed_pairs = max(self._completed_pairs, self._active_pair_index)
+            status = str(event.payload.get("status") or "")
+            if status == "FAILED":
+                self._state = "FAILED"
+            return self.current_frame()
+
+        return None
+
+    def _overall_progress(self) -> float:
+        if self._total_pairs <= 1:
+            return STATE_PROGRESS.get(self._state, 0.0)
+
+        if self._state in {"PENDING", "VALIDATING_INPUTS", "PREPARING_WORKSPACE"}:
+            return min(0.12, STATE_PROGRESS.get(self._state, 0.0) * 0.4)
+
+        if self._state in {"SUCCEEDED", "FAILED", "CANCELLED"} and self._completed_pairs >= self._total_pairs:
+            return 1.0
+
+        if self._completed_pairs >= self._total_pairs:
+            return max(0.92, STATE_PROGRESS.get(self._state, 0.96))
+
+        pair_phase = STATE_PROGRESS.get(self._state, 0.0)
+        active_completed = max(self._completed_pairs, self._active_pair_index - 1)
+        return min(0.9, 0.12 + ((active_completed + pair_phase) / self._total_pairs) * 0.78)
+
+
+class CliProgressReporter(SignalBusProgressReporter):
+    """Backward-compatible MCscan progress reporter built on the reusable renderer"""
+
+    def __init__(
+        self,
+        request: AnalysisRequest,
+        *,
+        color: bool | None = None,
+        stream: TextIO | None = None,
+        theme: ProgressTheme | None = None,
+    ) -> None:
+        super().__init__(McscanProgressAdapter(request), color=color, stream=stream, theme=theme)
+
+
 def render_workbench_banner(*, color: bool | None = None) -> str:
     """生成 workbench 入口字段，向 Claude CLI 风格靠拢"""
 
