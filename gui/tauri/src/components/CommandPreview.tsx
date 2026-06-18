@@ -1,20 +1,18 @@
 import { useEffect, useState } from "react";
 
-import type { JsonObject } from "../services/analysis";
-
 type CommandState =
   | { status: "loading"; data?: undefined; error?: undefined }
-  | { status: "ready"; data: JsonObject; error?: undefined }
+  | { status: "ready"; data: unknown; error?: undefined }
   | { status: "error"; data?: undefined; error: string };
 
-interface CommandPreviewProps {
+interface CommandPreviewProps<TData> {
   title: string;
   command: string;
   description: string;
-  load: () => Promise<JsonObject>;
+  load: () => Promise<TData>;
 }
 
-export function CommandPreview({ title, command, description, load }: CommandPreviewProps) {
+export function CommandPreview<TData>({ title, command, description, load }: CommandPreviewProps<TData>) {
   const [state, setState] = useState<CommandState>({ status: "loading" });
 
   useEffect(() => {
