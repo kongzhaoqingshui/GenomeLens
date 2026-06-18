@@ -3,6 +3,7 @@
 # region import
 from __future__ import annotations
 
+import math
 import re
 import shutil
 from dataclasses import dataclass, field
@@ -170,6 +171,12 @@ def _dedupe_edges(edges: list[_LayoutEdge]) -> list[_LayoutEdge]:
 
 
 # region figure sizing
+def _jcvi_figsize_dimension(value: float) -> int:
+    """Round up to the integer figsize format expected by vendored JCVI"""
+
+    return max(1, math.ceil(value))
+
+
 def suggest_figsize(blocks_path: Path, layout_path: Path) -> str:
     """Suggest a stable JCVI figsize from track count and visible block rows"""
 
@@ -186,9 +193,9 @@ def suggest_figsize(blocks_path: Path, layout_path: Path) -> str:
             if line and not line.startswith("#"):
                 block_rows += 1
 
-    width = min(18.0, max(8.0, 6.0 + block_rows * 0.08))
-    height = min(12.0, max(4.0, 2.4 + max(track_count, 2) * 1.25))
-    return f"{width:g}x{height:g}"
+    width = _jcvi_figsize_dimension(min(18.0, max(8.0, 6.0 + block_rows * 0.08)))
+    height = _jcvi_figsize_dimension(min(12.0, max(4.0, 2.4 + max(track_count, 2) * 1.25)))
+    return f"{width}x{height}"
 
 
 # endregion

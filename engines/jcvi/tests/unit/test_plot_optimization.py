@@ -73,7 +73,7 @@ def test_suggest_figsize_uses_tracks_and_block_rows(tmp_path: Path) -> None:
     blocks = tmp_path / "blocks.txt"
     blocks.write_text("\n".join(f"q{i}\ts{i}" for i in range(50)) + "\n", encoding="utf-8")
 
-    assert suggest_figsize(blocks, layout) == "10x6.15"
+    assert suggest_figsize(blocks, layout) == "10x7"
 
 
 def test_prepare_synteny_plot_inputs_defaults_to_original_files(tmp_path: Path) -> None:
@@ -129,6 +129,6 @@ def test_prepare_synteny_plot_inputs_applies_independent_switches(tmp_path: Path
 
     assert inputs.blocks.name == "plot.trimmed.blocks"
     assert inputs.layout.name == "plot.rewritten.layout"
-    assert inputs.figsize
+    assert inputs.figsize == "8x7"
     assert inputs.artifacts["trimmed_cross_chromosome_block_rows"] == 1
     assert inputs.artifacts["rewritten_layout_edges"] == 2
