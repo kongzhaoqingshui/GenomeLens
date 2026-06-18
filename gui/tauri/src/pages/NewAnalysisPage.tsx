@@ -351,7 +351,16 @@ export default function NewAnalysisPage({ route }: NewAnalysisPageProps) {
     }
     try {
       const nextSummaryView = await readSummaryView({ outdir });
-      setRunState((current) => (current ? { ...current, summaryView: nextSummaryView } : current));
+      setRunState((current) =>
+        current
+          ? {
+              ...current,
+              summaryView: nextSummaryView,
+              summaryPath: current.summaryPath || nextSummaryView.runSummaryPath,
+              logPath: current.logPath || nextSummaryView.runLogPath,
+            }
+          : current,
+      );
     } catch (error: unknown) {
       setRunError(error instanceof Error ? error.message : String(error));
     }
@@ -371,7 +380,15 @@ export default function NewAnalysisPage({ route }: NewAnalysisPageProps) {
         if (!current) {
           return current;
         }
-        return appendRunLogLines({ ...current, logLines: [], lastLogLine: undefined }, snapshot.lines);
+        return appendRunLogLines(
+          {
+            ...current,
+            logPath: snapshot.logPath,
+            logLines: [],
+            lastLogLine: undefined,
+          },
+          snapshot.lines,
+        );
       });
     } catch (error: unknown) {
       setRunError(error instanceof Error ? error.message : String(error));
@@ -382,6 +399,20 @@ export default function NewAnalysisPage({ route }: NewAnalysisPageProps) {
     const outdir = runState?.outdir ?? draft?.outputDirectory ?? "";
     if (outdir) {
       await openPath({ path: outdir });
+    }
+  }
+
+  async function handleOpenLog() {
+    const path = runState?.logPath ?? runState?.summaryView?.runLogPath ?? "";
+    if (path) {
+      await openPath({ path });
+    }
+  }
+
+  async function handleOpenSummary() {
+    const path = runState?.summaryPath ?? runState?.summaryView?.runSummaryPath ?? "";
+    if (path) {
+      await openPath({ path });
     }
   }
 
@@ -419,6 +450,8 @@ export default function NewAnalysisPage({ route }: NewAnalysisPageProps) {
   const progress = toProgressPercent(runState?.progress ?? 0);
   const logLines = runState?.logLines ?? [];
   const summaryView = runState?.summaryView ?? null;
+  const resolvedLogPath = runState?.logPath ?? summaryView?.runLogPath ?? "";
+  const resolvedSummaryPath = runState?.summaryPath ?? summaryView?.runSummaryPath ?? "";
 
   return (
     <div className="grid w-full gap-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(23rem,0.85fr)]">
@@ -852,6 +885,22 @@ export default function NewAnalysisPage({ route }: NewAnalysisPageProps) {
             <button type="button" className={SECONDARY_BUTTON_CLASS} onClick={handleReadLog}>
               读取日志
             </button>
+            <button
+              type="button"
+              className={SECONDARY_BUTTON_CLASS}
+              disabled={!resolvedLogPath}
+              onClick={handleOpenLog}
+            >
+              打开日志
+            </button>
+            <button
+              type="button"
+              className={SECONDARY_BUTTON_CLASS}
+              disabled={!resolvedSummaryPath}
+              onClick={handleOpenSummary}
+            >
+              打开 summary
+            </button>
             <button type="button" className={SECONDARY_BUTTON_CLASS} onClick={handleOpenOutput}>
               打开输出目录
             </button>
@@ -868,9 +917,15 @@ export default function NewAnalysisPage({ route }: NewAnalysisPageProps) {
               <div className="h-full rounded-full bg-ice-500 transition-all" style={{ width: `${Math.max(0, Math.min(progress, 100))}%` }} />
             </div>
             {runState ? (
-              <div className="grid gap-1 font-mono text-xs text-text-tertiary">
+              <div className="grid gap-2 font-mono text-xs text-text-tertiary">
                 <span>runId: {runState.runId}</span>
+                <span>pid: {runState.pid ?? "-"}</span>
                 <span>outdir: {runState.outdir}</span>
+                <span>exitCode: {runState.exitCode ?? "-"}</span>
+                <span>logPath: {resolvedLogPath || "-"}</span>
+                <span>summaryPath: {resolvedSummaryPath || "-"}</span>
+                <span>startedAt: {runState.startedAt ?? "-"}</span>
+                <span>finishedAt: {runState.finishedAt ?? "-"}</span>
               </div>
             ) : null}
             {runError ? <p className="text-sm font-medium text-rose-600 dark:text-rose-300">{runError}</p> : null}
@@ -917,6 +972,18 @@ export default function NewAnalysisPage({ route }: NewAnalysisPageProps) {
                 <div className="flex justify-between gap-3">
                   <span>progress</span>
                   <span className="font-semibold text-text-primary">{toProgressPercent(summaryView.progress)}%</span>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <span>summary path</span>
+                  <span className="break-all font-mono text-[11px] text-text-tertiary">
+                    {resolvedSummaryPath || "-"}
+                  </span>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <span>log path</span>
+                  <span className="break-all font-mono text-[11px] text-text-tertiary">
+                    {resolvedLogPath || "-"}
+                  </span>
                 </div>
               </div>
               <div>
