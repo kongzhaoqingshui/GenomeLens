@@ -100,7 +100,9 @@ def _formats(value: object) -> list[str]:
     return [item for item in items if item] or ["png"]
 
 
-def _species_from_params(params: dict[str, object], base: Path, mode: str) -> list[dict[str, object]]:
+def _species_from_params(
+    params: dict[str, object], base: Path, mode: str
+) -> list[dict[str, object]]:
     species_payload = params.get("species")
     if not isinstance(species_payload, list) or not species_payload:
         raise PluginError("species must contain at least two entries")
@@ -114,8 +116,12 @@ def _species_from_params(params: dict[str, object], base: Path, mode: str) -> li
                 {
                     "name": name,
                     "input_mode": "bed_cds",
-                    "bed": resolve_param_path(base, item.get("bed"), required=True, must_exist=True),
-                    "cds": resolve_param_path(base, item.get("cds"), required=True, must_exist=True),
+                    "bed": resolve_param_path(
+                        base, item.get("bed"), required=True, must_exist=True
+                    ),
+                    "cds": resolve_param_path(
+                        base, item.get("cds"), required=True, must_exist=True
+                    ),
                 }
             )
         elif mode == "gff_genome":
@@ -123,8 +129,12 @@ def _species_from_params(params: dict[str, object], base: Path, mode: str) -> li
                 {
                     "name": name,
                     "input_mode": "gff_genome",
-                    "gff": resolve_param_path(base, item.get("gff"), required=True, must_exist=True),
-                    "genome": resolve_param_path(base, item.get("genome"), required=True, must_exist=True),
+                    "gff": resolve_param_path(
+                        base, item.get("gff"), required=True, must_exist=True
+                    ),
+                    "genome": resolve_param_path(
+                        base, item.get("genome"), required=True, must_exist=True
+                    ),
                 }
             )
         else:
@@ -144,11 +154,15 @@ def _workflow(params: dict[str, object]) -> str:
     workflow = str(params.get("workflow") or "graphics_synteny").strip()
     if workflow not in SUPPORTED_WORKFLOWS:
         allowed = ", ".join(sorted(SUPPORTED_WORKFLOWS))
-        raise PluginError(f"Unsupported HAIant workflow: {workflow}. Supported workflow: {allowed}")
+        raise PluginError(
+            f"Unsupported HAIant workflow: {workflow}. Supported workflow: {allowed}"
+        )
     return workflow
 
 
-def _reference_index(params: dict[str, object], species: list[dict[str, object]]) -> int:
+def _reference_index(
+    params: dict[str, object], species: list[dict[str, object]]
+) -> int:
     """解析参考物种索引"""
 
     value = params.get("reference")
@@ -205,11 +219,15 @@ def write_runtime_request(params: dict[str, object], base: Path) -> Path:
             "makeblastdb": _optional_path(base, params.get("makeblastdb")),
             "jcvi_layout": _optional_path(base, params.get("jcvi_layout")),
             "jcvi_seqids": _optional_path(base, params.get("jcvi_seqids")),
-            "allow_simplified_fallback": parse_bool(params.get("allow_simplified_fallback", False)),
+            "allow_simplified_fallback": parse_bool(
+                params.get("allow_simplified_fallback", False)
+            ),
         },
     }
     target = output_dir / "genomelens_request.json"
-    target.write_text(json.dumps(request, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    target.write_text(
+        json.dumps(request, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+    )
     return target
 
 
