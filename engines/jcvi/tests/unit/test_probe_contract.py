@@ -19,6 +19,7 @@ def test_probe_contract() -> None:
         "catalog_ortholog",
         "local_synteny",
         "graphics_karyotype_global",
+        "local_synteny_multi",
     ]
     assert payload["dispatchable_workflows"] == payload["capabilities"]
     assert "jcvi.graphics.dotplot" in payload["bundled_jcvi_modules"]

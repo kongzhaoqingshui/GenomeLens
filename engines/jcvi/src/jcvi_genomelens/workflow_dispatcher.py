@@ -7,7 +7,11 @@ from pathlib import Path
 
 from jcvi_genomelens.manifest_models import EngineRunManifest
 from jcvi_genomelens.runtime.command_runner import CommandAudit
-from jcvi_genomelens.workflow_contract import GLOBAL_KARYOTYPE_WORKFLOW, normalize_workflow
+from jcvi_genomelens.workflow_contract import (
+    GLOBAL_KARYOTYPE_WORKFLOW,
+    MULTI_LOCAL_SYNTENY_WORKFLOW,
+    normalize_workflow,
+)
 from jcvi_genomelens.workflows import (
     catalog_ortholog,
     graphics_dotplot,
@@ -15,6 +19,7 @@ from jcvi_genomelens.workflows import (
     graphics_karyotype_global,
     graphics_synteny,
     local_synteny,
+    local_synteny_multi,
     mcscan_pairwise,
 )
 
@@ -38,6 +43,8 @@ def dispatch(manifest: EngineRunManifest, outdir: str | Path) -> tuple[list[Comm
         return catalog_ortholog.run(manifest, outdir)
     if workflow == "local_synteny":
         return local_synteny.run(manifest, outdir)
+    if workflow == MULTI_LOCAL_SYNTENY_WORKFLOW:
+        return local_synteny_multi.run(manifest, outdir)
     if workflow == GLOBAL_KARYOTYPE_WORKFLOW:
         return graphics_karyotype_global.run(manifest, outdir)
     raise ValueError(f"Unsupported workflow: {manifest.workflow}")

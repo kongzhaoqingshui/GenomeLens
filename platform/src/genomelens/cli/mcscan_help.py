@@ -84,6 +84,9 @@ _PAGES: tuple[McscanHelpPage, ...] = (
             ("--shadestyle {curve,line}", "连线样式"),
             ("--figsize FIGSIZE", "画布尺寸，例如 10x5"),
             ("--dpi DPI", "图片分辨率，默认 300"),
+            ("--optimize-figsize", "自动推导 synteny 图件尺寸，默认关闭"),
+            ("--rewrite-layout-links", "将跨轨道 layout 连线改写为链式连线，默认关闭"),
+            ("--trim-cross-chromosome-blocks", "切除 blocks 中跨染色体的基因行，默认关闭"),
         ),
     ),
     McscanHelpPage(

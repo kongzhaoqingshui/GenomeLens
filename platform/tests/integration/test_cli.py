@@ -982,6 +982,10 @@ def test_analyze_mcscan_reference_vs_targets_three_species(tmp_path: Path) -> No
     pair_ids = {job["pair_id"] for job in summary["pairwise_jobs"]}
     assert pair_ids == {"query__subject", "query__third"}
     assert all(job["status"] == "SUCCEEDED" for job in summary["pairwise_jobs"])
+    assert summary["multi_species_local_figures"], "expected a multi-species local synteny figure"
+    assert all(Path(path).is_file() for path in summary["multi_species_local_figures"])
+    assert any(Path(path).name.startswith("multi_species_local.") for path in summary["multi_species_local_figures"])
+    assert any(path in summary["final_figures"] for path in summary["multi_species_local_figures"])
     run_log = (outdir / "logs" / "run.log").read_text(encoding="utf-8")
     assert "step=prepare_multi_species_workspace status=STARTED" in run_log
     assert "step=run_pairwise_job status=STARTED" in run_log

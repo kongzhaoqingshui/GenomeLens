@@ -16,6 +16,7 @@ from genomelens.app.controller.runners._shared import (
     species_summary,
     write_run_summary,
 )
+from genomelens.app.controller.runners.local_synteny_aggregate import build_multi_species_local_synteny
 from genomelens.app.controller.runners.pairwise_runner import run_pairwise_mcscan
 from genomelens.app.controller.state_machine import WorkflowState
 from genomelens.core.jcvi_adapter.adapter_models import McscanRequest
@@ -154,6 +155,8 @@ def _run_reference_vs_targets_mcscan(
 
     layout, _manifest = _prepare_reference_workspace(set_state, request)
     pairwise_jobs, final_figures = _run_reference_pairwise_jobs(set_state, request, layout)
+    multi_species_local_figures = build_multi_species_local_synteny(request, pairwise_jobs, layout)
+    final_figures.extend(multi_species_local_figures)
 
     reference = request.query
     logger = logging.getLogger(logger_name_for_path(layout.logs / "run.log"))
@@ -165,6 +168,7 @@ def _run_reference_vs_targets_mcscan(
             final_figures,
             pairing_strategy="reference_vs_targets",
             reference_name=reference.name,
+            multi_species_local_figures=multi_species_local_figures,
         )
 
         write_run_summary(layout, run_summary)

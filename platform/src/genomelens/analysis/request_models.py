@@ -207,6 +207,9 @@ class McscanMethodConfig:
     shadestyle: str = ""
     figsize: str = ""
     dpi: int = 300
+    optimize_figsize: bool = False
+    rewrite_layout_links: bool = False
+    trim_cross_chromosome_blocks: bool = False
 
     def to_json(self) -> dict[str, object]:
         return {
@@ -232,6 +235,9 @@ class McscanMethodConfig:
             "shadestyle": self.shadestyle,
             "figsize": self.figsize,
             "dpi": self.dpi,
+            "optimize_figsize": self.optimize_figsize,
+            "rewrite_layout_links": self.rewrite_layout_links,
+            "trim_cross_chromosome_blocks": self.trim_cross_chromosome_blocks,
         }
 
     @classmethod
@@ -259,6 +265,9 @@ class McscanMethodConfig:
             shadestyle=_str(data.get("shadestyle")),
             figsize=_str(data.get("figsize")),
             dpi=_int(data.get("dpi"), default=300),
+            optimize_figsize=_bool(data.get("optimize_figsize"), default=False),
+            rewrite_layout_links=_bool(data.get("rewrite_layout_links"), default=False),
+            trim_cross_chromosome_blocks=_bool(data.get("trim_cross_chromosome_blocks"), default=False),
         )
 
 
