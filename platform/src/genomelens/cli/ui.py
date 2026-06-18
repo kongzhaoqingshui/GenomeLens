@@ -332,9 +332,11 @@ class ProgressAdapter(Protocol):
 
     def current_frame(self) -> ProgressFrame:
         """Return the current progress frame"""
+        ...
 
     def apply(self, event: Event) -> ProgressFrame | None:
         """Update internal state from an event and return the next frame"""
+        ...
 
 
 def _pad_visible(text: str, width: int) -> str:
