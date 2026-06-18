@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">GenomeLens icon</title>
+  <desc id="desc">A teal rounded square with a stylized magnifying lens and genomic track.</desc>
+  <defs>
+    <linearGradient id="bg" x1="64" y1="64" x2="448" y2="448" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#0EA5E9" />
+      <stop offset="1" stop-color="#075985" />
+    </linearGradient>
+  </defs>
+  <rect x="40" y="40" width="432" height="432" rx="112" fill="url(#bg)" />
+  <circle cx="224" cy="224" r="104" fill="none" stroke="#F8FAFC" stroke-width="36" />
+  <path
+    d="M292 292 L380 380"
+    fill="none"
+    stroke="#F8FAFC"
+    stroke-linecap="round"
+    stroke-width="36"
+  />
+  <path
+    d="M156 224 H292"
+    fill="none"
+    stroke="#BAE6FD"
+    stroke-linecap="round"
+    stroke-width="22"
+  />
+  <circle cx="184" cy="224" r="18" fill="#F8FAFC" />
+  <circle cx="224" cy="224" r="18" fill="#F8FAFC" />
+  <circle cx="264" cy="224" r="18" fill="#F8FAFC" />
+</svg>

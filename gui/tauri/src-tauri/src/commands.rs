@@ -20,7 +20,7 @@ pub struct VersionInfo {
 pub fn get_version() -> VersionInfo {
     VersionInfo {
         platform: command_version("genomelens", &["--version"]),
-        engine: command_version("jcvi-genomelens", &["--version"]),
+        engine: command_version("jcvi-genomelens", &["probe"]),
     }
 }
 

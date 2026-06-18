@@ -23,7 +23,7 @@ vi.mock("@tauri-apps/api/core", () => ({
 
     return Promise.resolve({
       platform: { ok: true, command: "genomelens --version", version: "GenomeLens Shell 0.0.0" },
-      engine: { ok: false, command: "jcvi-genomelens --version", version: "", error: "not found" },
+      engine: { ok: false, command: "jcvi-genomelens probe", version: "", error: "not found" },
     });
   }),
 }));
