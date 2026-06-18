@@ -10,6 +10,7 @@ from genomelens.analysis.request_models import (
 from genomelens.app.events.signal_bus import SignalBus
 from genomelens.cli.main import main
 from genomelens.cli.ui import (
+    PALETTE,
     CliProgressReporter,
     StyledArgumentParser,
     prompt_text,
@@ -114,5 +115,56 @@ def test_cli_progress_reporter_ignores_inner_success_until_all_pairs_finish() ->
 
     output = stream.getvalue()
 
+    assert output.startswith("\n")
     assert "100%" in output
     assert "33%" not in output
+
+
+def test_cli_progress_reporter_aligns_primary_field_in_noninteractive_mode() -> None:
+    request = AnalysisRequest(
+        method="mcscan",
+        input=AnalysisInput(
+            mode="bed_cds",
+            species=[
+                AnalysisSpeciesInput(name="query", input_mode="bed_cds"),
+                AnalysisSpeciesInput(name="subject", input_mode="bed_cds"),
+            ],
+        ),
+        output=AnalysisOutput(directory="out"),
+    )
+    stream = io.StringIO()
+    signal_bus = SignalBus()
+    reporter = CliProgressReporter(request, color=False, stream=stream)
+    reporter.attach(signal_bus)
+
+    signal_bus.emit("state", state="VALIDATING_INPUTS")
+    signal_bus.emit("state", state="CHECKING_TOOLCHAIN")
+
+    lines = [line for line in stream.getvalue().splitlines() if line]
+
+    assert len(lines) >= 2
+    assert lines[0].index("=") == lines[1].index("=")
+
+
+def test_cli_progress_reporter_uses_gray_detail_text_when_colored() -> None:
+    request = AnalysisRequest(
+        method="mcscan",
+        input=AnalysisInput(
+            mode="bed_cds",
+            species=[
+                AnalysisSpeciesInput(name="query", input_mode="bed_cds"),
+                AnalysisSpeciesInput(name="subject", input_mode="bed_cds"),
+            ],
+        ),
+        output=AnalysisOutput(directory="out"),
+    )
+    stream = io.StringIO()
+    signal_bus = SignalBus()
+    reporter = CliProgressReporter(request, color=True, stream=stream)
+    reporter.attach(signal_bus)
+
+    signal_bus.emit("pair_started", index=1, query="query", subject="subject")
+
+    output = stream.getvalue()
+
+    assert f"{PALETTE.gray}query vs subject{PALETTE.reset}" in output
