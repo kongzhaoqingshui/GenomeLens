@@ -7,6 +7,7 @@ GenomeLens.exe --help
 GenomeLens.exe --version
 GenomeLens.exe check [-j] [-c <path>] [--jcvi-config <path>] [--install-missing]
 GenomeLens.exe config init --workspace <path> [--config-path <path>] [--jcvi-config-path <path>] [--force]
+GenomeLens.exe analyze run <request.json> [-j]
 GenomeLens.exe analyze mcscan <input-dir> <outdir> [jcvi-config.json] [options] [-j]
 GenomeLens.exe help [command...]
 GenomeLens.exe workbench
@@ -15,7 +16,7 @@ GenomeLens.exe clean [--cache] [--all] [--yes]
 
 ## 推荐入口
 
-公开分析入口当前只承诺 `analyze mcscan`。
+人工命令行推荐入口是 `analyze mcscan`。
 
 它要求：
 
@@ -39,6 +40,14 @@ GenomeLens.exe analyze mcscan input output --force
 ```powershell
 GenomeLens.exe analyze mcscan input output --force -j
 ```
+
+插件、GUI 和批处理系统可以使用稳定请求入口：
+
+```powershell
+GenomeLens.exe analyze run request.json
+```
+
+`request.json` 使用 `AnalysisRequest` 协议，字段与运行后写入的 `output\inputs\analysis_request.json` 快照一致。
 
 ## 帮助页
 
@@ -97,4 +106,4 @@ GenomeLens.exe analyze mcscan input output `
 
 ## 当前边界
 
-`analyze run` 和 `analyze template` 仍未重新开放。GUI、插件和批处理系统当前应通过 `analyze mcscan` 配合配置文件调用正式流程。
+`analyze run <request.json>` 已重新开放，用于消费完整 `AnalysisRequest`。`analyze template` 仍未重新开放；需要模板时可参考一次成功运行后的 `output\inputs\analysis_request.json`。

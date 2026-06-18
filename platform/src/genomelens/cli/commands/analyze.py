@@ -9,6 +9,7 @@ from functools import partial
 
 from genomelens.analysis.dispatcher import AnalysisDispatcher
 from genomelens.analysis.methods.registry import MethodPlugin, MethodRegistry
+from genomelens.analysis.request_loader import load_analysis_request
 from genomelens.cli.ui import render_analysis_summary
 from genomelens.core.summary_models import RunSummary
 
@@ -20,6 +21,11 @@ def register(subparsers: argparse._SubParsersAction) -> None:
 
     parser = subparsers.add_parser("analyze", help="运行 GenomeLens 分析")
     nested = parser.add_subparsers(dest="analysis_command", required=True)
+
+    run_parser = nested.add_parser("run", help="运行 AnalysisRequest JSON")
+    run_parser.add_argument("request_json", help="AnalysisRequest JSON 文件路径")
+    run_parser.add_argument("-j", "--json", action="store_true", help="输出机器可读的原始 JSON 摘要")
+    run_parser.set_defaults(func=_run_request_file)
 
     registry = MethodRegistry()
     for plugin in registry.list_all():
@@ -52,5 +58,13 @@ def _run_plugin(args: argparse.Namespace, plugin: MethodPlugin) -> int:
     """运行任意已注册方法子命令"""
 
     request = plugin.build_request(args)
+    summary = AnalysisDispatcher().dispatch(request)
+    return _print_summary(summary, json_output=bool(getattr(args, "json", False)))
+
+
+def _run_request_file(args: argparse.Namespace) -> int:
+    """运行 AnalysisRequest JSON 文件"""
+
+    request = load_analysis_request(args.request_json)
     summary = AnalysisDispatcher().dispatch(request)
     return _print_summary(summary, json_output=bool(getattr(args, "json", False)))
