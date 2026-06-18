@@ -7,7 +7,11 @@ pub fn run() {
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_shell::init())
-        .invoke_handler(tauri::generate_handler![commands::get_version])
+        .invoke_handler(tauri::generate_handler![
+            commands::get_analysis_schema,
+            commands::get_template,
+            commands::get_version
+        ])
         .run(tauri::generate_context!())
         .expect("error while running GenomeLens GUI");
 }
