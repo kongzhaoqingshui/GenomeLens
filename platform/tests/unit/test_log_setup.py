@@ -117,3 +117,16 @@ def test_setup_logging_console_handler_uses_concise_filter(tmp_path: Path) -> No
     assert any(isinstance(f, ConciseConsoleFilter) for h in stream_handlers for f in h.filters)
 
     close_logging()
+
+
+def test_setup_logging_can_disable_console_handler(tmp_path: Path) -> None:
+    log_path = tmp_path / "logs" / "run.log"
+    logger = setup_logging(log_path, console=False)
+
+    stream_handlers = [
+        h for h in logger.handlers if isinstance(h, logging.StreamHandler) and not isinstance(h, logging.FileHandler)
+    ]
+
+    assert stream_handlers == []
+
+    close_logging()

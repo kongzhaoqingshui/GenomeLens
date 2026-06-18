@@ -22,7 +22,7 @@ from genomelens.core.summary_models import RunSummary
 class AnalysisDispatcher:
     """统一调度 analysis request(分析请求)"""
 
-    def dispatch(self, request: AnalysisRequest) -> RunSummary:
+    def dispatch(self, request: AnalysisRequest, signal_bus: SignalBus | None = None) -> RunSummary:
         """运行一个 AnalysisRequest(分析请求)"""
 
         # dispatcher 永远先消费规范化后的请求，这样 CLI、插件和未来 GUI 入口都复用同一条执行路径
@@ -33,7 +33,7 @@ class AnalysisDispatcher:
 
         plugin.validate_request(normalized)
         provider = plugin.get_provider()
-        summary = WorkflowOrchestrator().run(normalized, provider, SignalBus())
+        summary = WorkflowOrchestrator().run(normalized, provider, signal_bus or SignalBus())
         if isinstance(summary, dict):
             summary = RunSummary.from_json(summary)
 

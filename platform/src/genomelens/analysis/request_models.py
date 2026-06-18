@@ -153,6 +153,7 @@ class AnalysisOptions:
     min_block_size: int | None = None
     log_level: str = "INFO"
     verbose: bool = False
+    console_log: bool = False
 
     def to_json(self) -> dict[str, object]:
         return {
@@ -161,6 +162,7 @@ class AnalysisOptions:
             "min_block_size": self.min_block_size,
             "log_level": self.log_level,
             "verbose": self.verbose,
+            "console_log": self.console_log,
         }
 
     @classmethod
@@ -171,6 +173,7 @@ class AnalysisOptions:
             min_block_size=_optional_int(data.get("min_block_size")),
             log_level=_str(data.get("log_level"), default="INFO"),
             verbose=_bool(data.get("verbose"), default=False),
+            console_log=_bool(data.get("console_log"), default=False),
         )
 
 

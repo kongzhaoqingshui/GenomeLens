@@ -1,7 +1,21 @@
 import argparse
+import io
 
+from genomelens.analysis.request_models import (
+    AnalysisInput,
+    AnalysisOutput,
+    AnalysisRequest,
+    AnalysisSpeciesInput,
+)
+from genomelens.app.events.signal_bus import SignalBus
 from genomelens.cli.main import main
-from genomelens.cli.ui import StyledArgumentParser, prompt_text, render_command_error, render_workbench_banner
+from genomelens.cli.ui import (
+    CliProgressReporter,
+    StyledArgumentParser,
+    prompt_text,
+    render_command_error,
+    render_workbench_banner,
+)
 
 
 def test_workbench_banner_plain_text() -> None:
@@ -69,3 +83,36 @@ def test_workbench_exits_cleanly_on_keyboard_interrupt(monkeypatch) -> None:
     monkeypatch.setattr("builtins.input", raise_keyboard_interrupt)
 
     assert main([]) == 0
+
+
+def test_cli_progress_reporter_ignores_inner_success_until_all_pairs_finish() -> None:
+    request = AnalysisRequest(
+        method="mcscan",
+        input=AnalysisInput(
+            mode="bed_cds",
+            species=[
+                AnalysisSpeciesInput(name="query", input_mode="bed_cds"),
+                AnalysisSpeciesInput(name="subject", input_mode="bed_cds"),
+                AnalysisSpeciesInput(name="third", input_mode="bed_cds"),
+            ],
+        ),
+        output=AnalysisOutput(directory="out"),
+    )
+    stream = io.StringIO()
+    signal_bus = SignalBus()
+    reporter = CliProgressReporter(request, color=False, stream=stream)
+    reporter.attach(signal_bus)
+
+    signal_bus.emit("state", state="RUNNING_ENGINE")
+    signal_bus.emit("pair_started", index=1, query="query", subject="subject")
+    signal_bus.emit("state", state="SUCCEEDED")
+    signal_bus.emit("pair_finished", index=1, status="SUCCEEDED")
+    signal_bus.emit("pair_started", index=2, query="query", subject="third")
+    signal_bus.emit("state", state="FINALIZING")
+    signal_bus.emit("pair_finished", index=3, status="SUCCEEDED")
+    signal_bus.emit("state", state="SUCCEEDED")
+
+    output = stream.getvalue()
+
+    assert "100%" in output
+    assert "33%" not in output

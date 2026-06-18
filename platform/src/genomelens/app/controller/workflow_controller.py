@@ -93,6 +93,7 @@ def _mcscan_request_to_analysis(request: McscanRequest) -> AnalysisRequest:
             min_block_size=request.min_block_size,
             log_level=request.log_level,
             verbose=request.verbose,
+            console_log=request.console_log,
         ),
         method_config=method_config.to_json(),
     )
