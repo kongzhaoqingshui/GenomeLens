@@ -7,7 +7,10 @@ GenomeLens.exe --help
 GenomeLens.exe --version
 GenomeLens.exe check [-j] [-c <path>] [--jcvi-config <path>] [--install-missing]
 GenomeLens.exe config init --workspace <path> [--config-path <path>] [--jcvi-config-path <path>] [--force]
+GenomeLens.exe analyze run <request.json> [-j]
 GenomeLens.exe analyze mcscan <input-dir> <outdir> [jcvi-config.json] [options] [-j]
+GenomeLens.exe analyze template [mcscan]
+GenomeLens.exe analyze schema
 GenomeLens.exe help [command...]
 GenomeLens.exe workbench
 GenomeLens.exe clean [--cache] [--all] [--yes]
@@ -15,7 +18,7 @@ GenomeLens.exe clean [--cache] [--all] [--yes]
 
 ## 推荐入口
 
-公开分析入口当前只承诺 `analyze mcscan`。
+交互式命令行优先使用 `analyze mcscan`；外部系统、GUI、插件和批处理系统可以使用 `analyze run <request.json>`。
 
 它要求：
 
@@ -38,6 +41,55 @@ GenomeLens.exe analyze mcscan input output --force
 
 ```powershell
 GenomeLens.exe analyze mcscan input output --force -j
+```
+
+## 外部 JSON 请求
+
+`analyze run` 读取一个稳定的 `AnalysisRequest` JSON 文件，并复用与 `analyze mcscan` 相同的 dispatcher、方法校验和执行路径。`request.json` 字段与一次成功运行后写入的 `output\inputs\analysis_request.json` 快照一致。
+
+输出 mcscan 请求示例：
+
+```powershell
+GenomeLens.exe analyze template mcscan > request.json
+```
+
+输出 JSON schema：
+
+```powershell
+GenomeLens.exe analyze schema > analysis-request.schema.json
+```
+
+最小 `auto_directory` 请求：
+
+```json
+{
+  "schema_version": 1,
+  "kind": "analysis_request",
+  "method": "mcscan",
+  "input": {
+    "mode": "auto_directory",
+    "directory": "input"
+  },
+  "output": {
+    "directory": "output",
+    "force": true,
+    "formats": ["png"]
+  },
+  "config": {},
+  "options": {
+    "preset": "auto",
+    "min_block_size": 1
+  },
+  "method_config": {
+    "workflow": "graphics_synteny"
+  }
+}
+```
+
+运行：
+
+```powershell
+GenomeLens.exe analyze run request.json
 ```
 
 ## 帮助页
@@ -97,4 +149,4 @@ GenomeLens.exe analyze mcscan input output `
 
 ## 当前边界
 
-`analyze run` 和 `analyze template` 仍未重新开放。GUI、插件和批处理系统当前应通过 `analyze mcscan` 配合配置文件调用正式流程。
+`analyze run` 当前支持 `schema_version = 1` 的 `analysis_request`，首个稳定方法为 `mcscan`。后续方法接入时会扩展同一 request schema。
