@@ -8,17 +8,13 @@ from pathlib import Path
 from jcvi.graphics.synteny import main as jcvi_graphics_synteny
 from jcvi_genomelens.manifest_models import EngineRunManifest
 from jcvi_genomelens.runtime.command_runner import CommandAudit, run_python_step
+from jcvi_genomelens.workflows.common import _assert_ok
 from jcvi_genomelens.workflows.local_synteny import _figure_options
 
 # endregion
 
 
 _TRACK_COLORS = ("#2f6f73", "#b85c38", "#5b8c5a", "#8c6bb1", "#c2914a", "#41699e")
-
-
-def _assert_ok(command: CommandAudit) -> None:
-    if command.returncode != 0:
-        raise RuntimeError(command.stderr or command.stdout or f"{command.name} failed")
 
 
 def _write_multi_local_layout(path: Path, manifest: EngineRunManifest) -> Path:

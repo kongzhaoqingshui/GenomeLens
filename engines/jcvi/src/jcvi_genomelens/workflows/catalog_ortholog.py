@@ -10,13 +10,9 @@ from pathlib import Path
 import jcvi.compara.catalog as jcvi_catalog
 from jcvi_genomelens.manifest_models import EngineRunManifest
 from jcvi_genomelens.runtime.command_runner import CommandAudit, run_python_step
+from jcvi_genomelens.workflows.common import _assert_ok
 
 # endregion
-
-
-def _assert_ok(command: CommandAudit) -> None:
-    if command.returncode != 0:
-        raise RuntimeError(command.stderr or command.stdout or f"{command.name} failed")
 
 
 def _copy_inputs_for_catalog(manifest: EngineRunManifest, root: Path) -> tuple[str, str]:

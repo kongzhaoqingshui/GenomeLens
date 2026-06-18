@@ -9,7 +9,6 @@ from collections.abc import Callable
 from dataclasses import replace
 from typing import Any, cast
 
-from genomelens.analysis.methods.mcscan_summary import McscanSummaryExtension
 from genomelens.app.controller.runners._shared import (
     artifact_index as build_artifact_index,
 )
@@ -26,6 +25,7 @@ from genomelens.app.errors.error_codes import ErrorCode
 from genomelens.app.errors.exceptions import ToolchainError
 from genomelens.core.jcvi_adapter.adapter import JcviEngineAdapter
 from genomelens.core.jcvi_adapter.adapter_models import JcviRunResult, McscanRequest
+from genomelens.core.mcscan_summary import McscanSummaryExtension
 from genomelens.core.models import PreparedGenomeInputSpec
 from genomelens.core.summary_models import RunSummary
 from genomelens.core.validators import validate_request

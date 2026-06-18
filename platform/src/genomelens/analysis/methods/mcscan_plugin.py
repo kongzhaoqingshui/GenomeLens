@@ -8,8 +8,8 @@ import argparse
 from genomelens.analysis.methods.mcscan_provider import McscanWorkflowProvider
 from genomelens.analysis.methods.mcscan_request_mapping import to_mcscan_request
 from genomelens.analysis.methods.registry import ArtifactDeclaration, MethodPlugin
-from genomelens.analysis.request_models import AnalysisRequest
-from genomelens.analysis.request_normalizer import mcscan_auto_request_from_cli
+from genomelens.analysis.requests.models import AnalysisRequest
+from genomelens.analysis.requests.normalizer import mcscan_auto_request_from_cli
 from genomelens.app.controller.workflow_provider import WorkflowProvider
 
 # endregion

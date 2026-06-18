@@ -15,6 +15,7 @@ from pathlib import Path
 from jcvi.graphics.karyotype import main as jcvi_graphics_karyotype
 from jcvi_genomelens.manifest_models import EngineRunManifest
 from jcvi_genomelens.runtime.command_runner import CommandAudit, run_python_step
+from jcvi_genomelens.workflows.common import _assert_ok
 
 # endregion
 
@@ -23,11 +24,6 @@ from jcvi_genomelens.runtime.command_runner import CommandAudit, run_python_step
 
 
 _TRACK_COLORS = ("#2f6f73", "#b85c38", "#5b8c5a", "#8c6bb1", "#c2914a", "#41699e")
-
-
-def _assert_ok(command: CommandAudit) -> None:
-    if command.returncode != 0:
-        raise RuntimeError(command.stderr or command.stdout or f"{command.name} failed")
 
 
 def _seqids_from_bed(path: Path) -> list[str]:

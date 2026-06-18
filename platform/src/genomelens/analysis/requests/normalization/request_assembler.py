@@ -5,8 +5,16 @@ from __future__ import annotations
 
 import argparse
 
-from genomelens.analysis.normalization.input_resolver import _path_text, discover_species_from_directory
-from genomelens.analysis.normalization.option_merger import (
+from genomelens.analysis.requests.models import (
+    AnalysisConfigRef,
+    AnalysisInput,
+    AnalysisOptions,
+    AnalysisOutput,
+    AnalysisRequest,
+    McscanMethodConfig,
+)
+from genomelens.analysis.requests.normalization.input_resolver import _path_text, discover_species_from_directory
+from genomelens.analysis.requests.normalization.option_merger import (
     _align_soft,
     _cscore,
     _dbtype,
@@ -26,18 +34,10 @@ from genomelens.analysis.normalization.option_merger import (
     _up,
     _workflow,
 )
-from genomelens.analysis.normalization.reference_resolver import (
+from genomelens.analysis.requests.normalization.reference_resolver import (
     _reference,
     _resolve_jcvi_config,
     _resolve_reference_index,
-)
-from genomelens.analysis.request_models import (
-    AnalysisConfigRef,
-    AnalysisInput,
-    AnalysisOptions,
-    AnalysisOutput,
-    AnalysisRequest,
-    McscanMethodConfig,
 )
 from genomelens.app.errors.exceptions import InputValidationError
 from genomelens.data.config.config_models import ConfigModel

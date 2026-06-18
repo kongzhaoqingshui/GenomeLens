@@ -3,8 +3,9 @@ import json
 from pathlib import Path
 from types import SimpleNamespace
 
-from genomelens.analysis.normalization.input_resolver import discover_species_from_directory
-from genomelens.analysis.normalization.option_merger import (
+from genomelens.analysis.requests.models import AnalysisSpeciesInput
+from genomelens.analysis.requests.normalization.input_resolver import discover_species_from_directory
+from genomelens.analysis.requests.normalization.option_merger import (
     _align_soft,
     _cscore,
     _dbtype,
@@ -16,9 +17,8 @@ from genomelens.analysis.normalization.option_merger import (
     _target_gene_ids,
     _up,
 )
-from genomelens.analysis.normalization.reference_resolver import _resolve_reference_index
-from genomelens.analysis.normalization.request_assembler import mcscan_auto_request_from_cli
-from genomelens.analysis.request_models import AnalysisSpeciesInput
+from genomelens.analysis.requests.normalization.reference_resolver import _resolve_reference_index
+from genomelens.analysis.requests.normalization.request_assembler import mcscan_auto_request_from_cli
 from genomelens.app.controller.runners import _shared as runner_shared
 from genomelens.app.controller.state_machine import WorkflowState
 from genomelens.core.jcvi_adapter.adapter_models import McscanRequest

@@ -3,7 +3,7 @@
 # region import
 from __future__ import annotations
 
-from genomelens.analysis.request_models import (
+from genomelens.analysis.requests.models import (
     AnalysisConfigRef,
     AnalysisInput,
     AnalysisOptions,

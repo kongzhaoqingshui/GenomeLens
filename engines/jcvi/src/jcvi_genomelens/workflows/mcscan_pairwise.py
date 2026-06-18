@@ -13,6 +13,7 @@ from jcvi.formats.bed import merge as jcvi_bed_merge
 from jcvi_genomelens.manifest_models import EngineRunManifest
 from jcvi_genomelens.runtime.command_runner import CommandAudit, run_command, run_python_step
 from jcvi_genomelens.workflows import catalog_ortholog
+from jcvi_genomelens.workflows.common import _assert_ok
 
 # endregion
 
@@ -23,14 +24,6 @@ def _required_tool(path: Path | None, label: str) -> str:
     if path is None or not path.is_file():
         raise FileNotFoundError(f"{label} executable not found: {path}")
     return str(path)
-
-
-def _assert_ok(command: CommandAudit) -> None:
-    """类命令步骤失败时中止 workflow(工作流)"""
-
-    if command.returncode != 0:
-        message = command.stderr or command.stdout or f"{command.name} failed"
-        raise RuntimeError(message)
 
 
 def _write_default_layout(path: Path, query_label: str, subject_label: str) -> Path:

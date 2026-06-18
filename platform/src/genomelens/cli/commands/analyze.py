@@ -9,10 +9,10 @@ from functools import partial
 
 from genomelens.analysis.dispatcher import AnalysisDispatcher
 from genomelens.analysis.methods.registry import MethodPlugin, MethodRegistry
-from genomelens.analysis.request_loader import load_analysis_request
-from genomelens.analysis.request_models import AnalysisRequest
-from genomelens.analysis.request_normalizer import mcscan_template_request
-from genomelens.analysis.request_schema import analysis_request_json_schema
+from genomelens.analysis.requests.loader import load_analysis_request
+from genomelens.analysis.requests.models import AnalysisRequest
+from genomelens.analysis.requests.normalizer import mcscan_template_request
+from genomelens.analysis.requests.schema import analysis_request_json_schema
 from genomelens.app.events.signal_bus import SignalBus
 from genomelens.cli.ui import CliProgressReporter, render_analysis_summary
 from genomelens.core.summary_models import RunSummary

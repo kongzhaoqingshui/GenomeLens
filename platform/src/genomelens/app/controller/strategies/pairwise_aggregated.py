@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import Any, cast
 
 from genomelens.analysis.methods.mcscan_request_mapping import to_mcscan_request
-from genomelens.analysis.request_models import AnalysisRequest, AnalysisSpeciesInput
+from genomelens.analysis.requests.models import AnalysisRequest, AnalysisSpeciesInput
 from genomelens.app.controller.runners._shared import (
     build_multi_run_summary,
     copy_pairwise_figures,

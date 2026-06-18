@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from typing import Protocol
 
-from genomelens.analysis.request_models import AnalysisRequest
+from genomelens.analysis.requests.models import AnalysisRequest
 from genomelens.app.events.signal_bus import SignalBus
 from genomelens.core.summary_models import RunSummary
 

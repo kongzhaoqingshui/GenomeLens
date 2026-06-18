@@ -7,7 +7,7 @@ import argparse
 import os
 
 from genomelens.data.config.config_models import ConfigModel
-from genomelens.parsers import parse_formats
+from genomelens.utils.parsers import parse_formats
 
 # endregion
 

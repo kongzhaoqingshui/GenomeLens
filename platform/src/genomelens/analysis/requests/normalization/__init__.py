@@ -1,18 +1,18 @@
-"""analysis/normalization(分析请求归一化子包)
+"""analysis/requests/normalization(分析请求归一化子包)
 
 把 `request_normalizer.py` 中混杂的职责拆成单一模块，公共 API 仍通过
-`genomelens.analysis.request_normalizer` 暴露。"""
+`genomelens.analysis.requests.normalizer` 暴露。"""
 
 # region import
 from __future__ import annotations
 
-from genomelens.analysis.normalization.input_resolver import discover_species_from_directory
-from genomelens.analysis.normalization.reference_resolver import (
+from genomelens.analysis.requests.normalization.input_resolver import discover_species_from_directory
+from genomelens.analysis.requests.normalization.reference_resolver import (
     _reference,
     _resolve_jcvi_config,
     _resolve_reference_index,
 )
-from genomelens.analysis.normalization.request_assembler import (
+from genomelens.analysis.requests.normalization.request_assembler import (
     mcscan_auto_request_from_cli,
     mcscan_template_request,
     normalize_analysis_request,
