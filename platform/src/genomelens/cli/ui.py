@@ -11,7 +11,7 @@ import time
 import unicodedata
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, TextIO
+from typing import Any, TextIO, cast
 
 from genomelens.analysis.methods.registry import list_methods
 from genomelens.analysis.request_models import AnalysisRequest
@@ -217,7 +217,9 @@ class CliProgressReporter:
             return
 
         if event.name == "pair_started":
-            self._active_pair_index = int(event.payload.get("index") or self._active_pair_index)
+            raw_index = event.payload.get("index")
+            if raw_index is not None:
+                self._active_pair_index = int(cast(int, raw_index))
             query = str(event.payload.get("query") or "")
             subject = str(event.payload.get("subject") or "")
             self._active_pair_label = f"{query} vs {subject}" if query and subject else self._active_pair_label
@@ -225,7 +227,9 @@ class CliProgressReporter:
             return
 
         if event.name == "pair_finished":
-            self._active_pair_index = int(event.payload.get("index") or self._active_pair_index)
+            raw_index = event.payload.get("index")
+            if raw_index is not None:
+                self._active_pair_index = int(cast(int, raw_index))
             self._completed_pairs = max(self._completed_pairs, self._active_pair_index)
             status = str(event.payload.get("status") or "")
             if status == "FAILED":
@@ -508,7 +512,7 @@ class StyledArgumentParser(argparse.ArgumentParser):
 
         return _color_help(text, enabled=_supports_color())
 
-    def print_help(self, file: TextIO | None = None) -> None:
+    def print_help(self, file: TextIO | None = None) -> None:  # type: ignore[reportIncompatibleMethodOverride]
         """通过统一函数输出 help，供 `-h/--help` 与 `help xxx` 共用"""
 
         print_parser_help(self, file=file)
