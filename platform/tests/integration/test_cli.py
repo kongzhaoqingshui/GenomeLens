@@ -69,17 +69,29 @@ def test_cli_help_for_mcscan_jcvi_page(capsys) -> None:
     assert "--jcvi-engine JCVI_ENGINE" not in output
 
 
-# 非 auto 入口已注销，以下模板相关测试暂时注释。
-# def test_cli_help_for_analyze_run() -> None:
-#     assert main(["help", "analyze", "run"]) == 0
-#
-#
-# def test_analyze_template_mcscan(capsys) -> None:
-#     assert main(["analyze", "template", "mcscan"]) == 0
-#     payload = json.loads(capsys.readouterr().out)
-#     assert payload["kind"] == "analysis_request"
-#     assert payload["method"] == "mcscan"
-#     assert payload["input"]["mode"] == "auto_directory"
+def test_cli_help_for_analyze_run(capsys) -> None:
+    assert main(["help", "analyze", "run"]) == 0
+    output = capsys.readouterr().out
+
+    assert "request_json" in output
+    assert "--json" in output
+
+
+def test_analyze_template_mcscan(capsys) -> None:
+    assert main(["analyze", "template", "mcscan"]) == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["kind"] == "analysis_request"
+    assert payload["method"] == "mcscan"
+    assert payload["input"]["mode"] == "auto_directory"
+
+
+def test_analyze_schema(capsys) -> None:
+    assert main(["analyze", "schema"]) == 0
+    payload = json.loads(capsys.readouterr().out)
+
+    assert payload["$schema"] == "https://json-schema.org/draft/2020-12/schema"
+    assert payload["properties"]["kind"]["const"] == "analysis_request"
+    assert payload["properties"]["method"]["enum"] == ["mcscan"]
 
 
 def test_check_json_short_option() -> None:
@@ -299,59 +311,70 @@ def test_analyze_mcscan_discovers_bed_cds_directory(tmp_path: Path) -> None:
     assert [item["name"] for item in summary["species"]] == ["query", "subject"]
 
 
-# 非 auto 入口已注销，request JSON 直接运行测试暂时注释。
-# def test_analyze_run_request_json(tmp_path: Path) -> None:
-#     root = Path(__file__).resolve().parents[3]
-#     sample = root / "references" / "samples" / "shell" / "bed_cds_minimal"
-#     outdir = tmp_path / "out-run"
-#     request_path = tmp_path / "request.json"
-#     request_path.write_text(
-#         json.dumps(
-#             {
-#                 "schema_version": 1,
-#                 "kind": "analysis_request",
-#                 "method": "mcscan",
-#                 "input": {
-#                     "mode": "bed_cds",
-#                     "species": [
-#                         {
-#                             "name": "query",
-#                             "input_mode": "bed_cds",
-#                             "bed": str(sample / "query.bed"),
-#                             "cds": str(sample / "query.cds"),
-#                         },
-#                         {
-#                             "name": "subject",
-#                             "input_mode": "bed_cds",
-#                             "bed": str(sample / "subject.bed"),
-#                             "cds": str(sample / "subject.cds"),
-#                         },
-#                     ],
-#                 },
-#                 "output": {
-#                     "directory": str(outdir),
-#                     "force": True,
-#                     "formats": ["png"],
-#                 },
-#                 "config": {},
-#                 "options": {
-#                     "preset": "auto",
-#                     "min_block_size": 1,
-#                 },
-#                 "method_config": {
-#                     "workflow": "graphics_synteny",
-#                 },
-#             }
-#         ),
-#         encoding="utf-8",
-#     )
-#
-#     code = main(["analyze", "run", str(request_path)])
-#
-#     assert code == 0
-#     summary = json.loads((outdir / "report" / "run_summary.json").read_text(encoding="utf-8"))
-#     assert summary["status"] == "SUCCEEDED"
-#     assert (outdir / "inputs" / "analysis_request.json").is_file()
+def test_analyze_run_request_json(tmp_path: Path, monkeypatch) -> None:
+    root = Path(__file__).resolve().parents[3]
+    sample = root / "references" / "samples" / "shell" / "bed_cds_minimal"
+    input_dir = tmp_path / "input-run"
+    _copy_species_files(input_dir, sample, ["query.bed", "query.cds", "subject.bed", "subject.cds"])
+    outdir = tmp_path / "out-run"
+    request_path = tmp_path / "request.json"
+    captured = {}
+
+    request_path.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "kind": "analysis_request",
+                "method": "mcscan",
+                "input": {
+                    "mode": "auto_directory",
+                    "directory": str(input_dir),
+                },
+                "output": {
+                    "directory": str(outdir),
+                    "force": True,
+                    "formats": ["png"],
+                },
+                "config": {},
+                "options": {
+                    "preset": "auto",
+                    "min_block_size": 1,
+                },
+                "method_config": {
+                    "workflow": "graphics_synteny",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    def fake_provider_run(_self, request, _signal_bus):
+        captured["species"] = [item.name for item in request.input.species]
+        return RunSummary(
+            status="SUCCEEDED",
+            schema_version=2,
+            workflow="mcscan",
+            method="mcscan",
+            task={"workflow": "mcscan"},
+            species=[],
+            final_figures=[],
+            artifact_index=[],
+            logs={},
+            ui=UiBlock(
+                "SUCCEEDED", 1.0, [], str(outdir / "report" / "run_summary.json"), str(outdir / "logs" / "run.log")
+            ),
+            scoring=ScoringBlock(),
+        )
+
+    monkeypatch.setattr("genomelens.analysis.methods.mcscan_provider.McscanWorkflowProvider.run", fake_provider_run)
+
+    code = main(["analyze", "run", str(request_path)])
+
+    assert code == 0
+    assert captured["species"] == ["query", "subject"]
+    request_snapshot = json.loads((outdir / "inputs" / "analysis_request.json").read_text(encoding="utf-8"))
+    assert request_snapshot["kind"] == "analysis_request"
+    assert request_snapshot["input"]["species"][0]["name"] == "query"
 
 
 def test_analyze_mcscan_with_explicit_jcvi_config(tmp_path: Path) -> None:

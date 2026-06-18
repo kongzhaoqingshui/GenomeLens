@@ -68,6 +68,15 @@ GenomeLens.exe analyze mcscan input output --force -j
 
 `-j` 只向 stdout 输出 JSON；日志和进度仍写到 stderr。
 
+外部系统、GUI 或批处理可以改用 `AnalysisRequest` JSON：
+
+```powershell
+GenomeLens.exe analyze template mcscan > request.json
+GenomeLens.exe analyze run request.json
+```
+
+请求格式见 [`AnalysisRequest JSON.md`](AnalysisRequest%20JSON.md)。
+
 ## 常见场景
 
 GFF + FASTA 输入：
