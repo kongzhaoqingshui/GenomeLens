@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import shutil
 from pathlib import Path
+from typing import Any, cast
 
 from jcvi_genomelens.manifest_models import EngineRunManifest
 from jcvi_genomelens.runtime.command_runner import CommandAudit, run_python_step
@@ -187,7 +188,7 @@ def _figure_options(opts: dict[str, object], fmt: str, figsize: str = "") -> lis
         args.extend(["--shadestyle", str(opts["shadestyle"])])
     if opts.get("label_targets") and opts.get("target_gene_ids"):
         # 本地共线性图的基因标签直接复用目标基因列表，不再单独维护映射。
-        labels = ",".join(str(g) for g in opts["target_gene_ids"])
+        labels = ",".join(str(g) for g in cast(list[str], opts["target_gene_ids"]))
         args.extend(["--genelabels", labels])
     return args
 
@@ -207,6 +208,9 @@ def run(manifest: EngineRunManifest, outdir: str | Path) -> tuple[list[CommandAu
 
     root = Path(outdir).expanduser().resolve(strict=False)
     root.mkdir(parents=True, exist_ok=True)
+
+    if manifest.query is None or manifest.subject is None:
+        raise ValueError("local_synteny requires query and subject species")
 
     target_gene_ids = manifest.options.target_gene_ids
     if not target_gene_ids:
@@ -303,6 +307,6 @@ def run(manifest: EngineRunManifest, outdir: str | Path) -> tuple[list[CommandAu
         **pairwise_artifacts,
         "local_figures": local_figures,
         "local_artifacts": local_artifacts,
-        "figures": list(pairwise_artifacts.get("figures") or []) + local_figures,
+        "figures": cast(list[Any], pairwise_artifacts.get("figures") or []) + local_figures,
     }
     return commands, artifacts

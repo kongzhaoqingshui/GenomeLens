@@ -36,6 +36,9 @@ def _seqids_from_bed(path: Path) -> list[str]:
 
 
 def _write_default_seqids(path: Path, manifest: EngineRunManifest) -> Path:
+    if manifest.query is None or manifest.subject is None:
+        raise ValueError("karyotype seqids require query and subject species")
+
     query_seqids = ",".join(_seqids_from_bed(manifest.query.bed))
     subject_seqids = ",".join(_seqids_from_bed(manifest.subject.bed))
     path.write_text(f"{query_seqids}\n{subject_seqids}\n", encoding="utf-8")
@@ -43,6 +46,9 @@ def _write_default_seqids(path: Path, manifest: EngineRunManifest) -> Path:
 
 
 def _write_default_layout(path: Path, manifest: EngineRunManifest, simple: str) -> Path:
+    if manifest.query is None or manifest.subject is None:
+        raise ValueError("karyotype layout requires query and subject species")
+
     path.write_text(
         "\n".join(
             [
@@ -61,6 +67,9 @@ def _write_default_layout(path: Path, manifest: EngineRunManifest, simple: str) 
 
 def run(manifest: EngineRunManifest, outdir: str | Path) -> tuple[list[CommandAudit], dict[str, object]]:
     """运行 pairwise MCscan(成对 MCscan) 后绘制 karyotype(核型共线性图)"""
+
+    if manifest.query is None or manifest.subject is None:
+        raise ValueError("karyotype requires query and subject species")
 
     commands, artifacts = run_pairwise(manifest, outdir)
     root = Path(outdir).expanduser().resolve(strict=False)

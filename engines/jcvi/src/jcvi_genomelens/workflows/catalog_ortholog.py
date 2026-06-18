@@ -22,6 +22,9 @@ def _assert_ok(command: CommandAudit) -> None:
 def _copy_inputs_for_catalog(manifest: EngineRunManifest, root: Path) -> tuple[str, str]:
     """JCVI `catalog.ortholog` 期望在 cwd(当前目录) 中存在 `<species>.bed` 和 `<species>.cds`"""
 
+    if manifest.query is None or manifest.subject is None:
+        raise ValueError("catalog.ortholog requires query and subject species")
+
     query = manifest.query.name
     subject = manifest.subject.name
     # catalog.ortholog 假设文件名由物种名推导，所以先把输入复制成 JCVI 期望命名。

@@ -76,6 +76,9 @@ def _run_makeblastdb(
 ) -> CommandAudit:
     """为 subject CDS 建立 BLAST nucleotide 数据库"""
 
+    if manifest.query is None or manifest.subject is None:
+        raise ValueError("makeblastdb step requires query and subject species")
+
     # BLAST 路径在 manifest 阶段允许为空，这里到真正执行时再转成硬错误。
     makeblastdb = _required_tool(manifest.toolchain.makeblastdb, "makeblastdb")
     cmd = run_command(
@@ -101,6 +104,9 @@ def _run_blastn(
     blast_table: Path,
 ) -> CommandAudit:
     """用 blastn 比对 query CDS 到 subject 数据库"""
+
+    if manifest.query is None or manifest.subject is None:
+        raise ValueError("blastn step requires query and subject species")
 
     blastn = _required_tool(manifest.toolchain.blastn, "blastn")
     threads = max(1, manifest.options.threads)
@@ -134,6 +140,9 @@ def _run_scan(
 ) -> CommandAudit:
     """从 blast 表生成 anchors"""
 
+    if manifest.query is None or manifest.subject is None:
+        raise ValueError("scan step requires query and subject species")
+
     # min_size/dist 在 engine 边界再做一次下限保护，避免异常配置穿透到 JCVI。
     min_size = max(1, manifest.options.min_block_size)
     dist = max(1, manifest.options.dist)
@@ -165,6 +174,9 @@ def _run_simple(
 ) -> CommandAudit:
     """从 anchors 生成 simple 文件"""
 
+    if manifest.query is None or manifest.subject is None:
+        raise ValueError("simple step requires query and subject species")
+
     cmd = run_python_step(
         "jcvi.compara.synteny.simple",
         jcvi_simple,
@@ -189,6 +201,9 @@ def _run_mcscan(
 ) -> CommandAudit:
     """从 anchors 生成 blocks"""
 
+    if manifest.query is None or manifest.subject is None:
+        raise ValueError("mcscan step requires query and subject species")
+
     iter_count = max(1, manifest.options.iter)
     cmd = run_python_step(
         "jcvi.compara.synteny.mcscan",
@@ -208,6 +223,9 @@ def _run_merge_bed(
 ) -> CommandAudit:
     """合并 query 与 subject bed 为 all.bed"""
 
+    if manifest.query is None or manifest.subject is None:
+        raise ValueError("bed merge step requires query and subject species")
+
     cmd = run_python_step(
         "jcvi.formats.bed.merge",
         jcvi_bed_merge,
@@ -221,6 +239,9 @@ def _run_merge_bed(
 
 def _run_with_blast(manifest: EngineRunManifest, root: Path) -> tuple[list[CommandAudit], dict[str, object]]:
     """使用 BLAST+ 运行 pairwise MCscan 并返回标准 artifacts"""
+
+    if manifest.query is None or manifest.subject is None:
+        raise ValueError("blast pairwise workflow requires query and subject species")
 
     prefix = f"{manifest.query.name}.{manifest.subject.name}"
     db_prefix = root / f"{manifest.subject.name}.blastdb"
@@ -251,6 +272,9 @@ def _run_with_blast(manifest: EngineRunManifest, root: Path) -> tuple[list[Comma
 
 def _run_with_catalog(manifest: EngineRunManifest, root: Path) -> tuple[list[CommandAudit], dict[str, object]]:
     """使用 JCVI catalog.ortholog（支持 LAST / Diamond）运行 pairwise 并返回标准 artifacts"""
+
+    if manifest.query is None or manifest.subject is None:
+        raise ValueError("catalog pairwise workflow requires query and subject species")
 
     # LAST / Diamond 直接复用 catalog workflow，避免在这里重复维护同源搜索细节。
     catalog_commands, catalog_artifacts = catalog_ortholog.run(manifest, root)
@@ -287,6 +311,9 @@ def run(manifest: EngineRunManifest, outdir: str | Path) -> tuple[list[CommandAu
     - align_soft == "blast" 时：makeblastdb -> blastn -> scan -> simple -> mcscan。
     - align_soft 为 "last" 或 "diamond_blastp" 时：复用 JCVI catalog.ortholog。
     """
+
+    if manifest.query is None or manifest.subject is None:
+        raise ValueError("pairwise MCscan workflow requires query and subject species")
 
     root = Path(outdir).expanduser().resolve(strict=False)
     root.mkdir(parents=True, exist_ok=True)

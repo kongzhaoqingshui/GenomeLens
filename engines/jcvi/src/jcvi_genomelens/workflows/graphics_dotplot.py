@@ -27,6 +27,9 @@ def draw_dotplots(
 ) -> tuple[list[CommandAudit], list[str]]:
     """基于现有 anchors(锚点) 与 BED 绘制 dotplot(点图)"""
 
+    if manifest.query is None or manifest.subject is None:
+        raise ValueError("dotplot requires query and subject species")
+
     commands: list[CommandAudit] = []
     figures: list[str] = []
     formats = manifest.options.formats or ["png"]
