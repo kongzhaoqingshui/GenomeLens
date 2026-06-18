@@ -2,9 +2,25 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@tauri-apps/api/core", () => ({
-  invoke: vi.fn().mockResolvedValue({
-    platform: { ok: true, command: "genomelens --version", version: "GenomeLens Shell 0.0.0" },
-    engine: { ok: false, command: "jcvi-genomelens --version", version: "", error: "not found" },
+  invoke: vi.fn((command: string) => {
+    if (command === "get_template") {
+      return Promise.resolve({
+        kind: "analysis_request",
+        method: "mcscan",
+        input: { mode: "auto_directory" },
+      });
+    }
+    if (command === "get_analysis_schema") {
+      return Promise.resolve({
+        title: "GenomeLens AnalysisRequest",
+        properties: { kind: { const: "analysis_request" } },
+      });
+    }
+
+    return Promise.resolve({
+      platform: { ok: true, command: "genomelens --version", version: "GenomeLens Shell 0.0.0" },
+      engine: { ok: false, command: "jcvi-genomelens --version", version: "", error: "not found" },
+    });
   }),
 }));
 
@@ -23,6 +39,7 @@ describe("App", () => {
 
     expect(screen.getByText("比较基因组学分析工作台")).toBeInTheDocument();
     expect(await screen.findByText("GenomeLens Shell 0.0.0")).toBeInTheDocument();
+    expect(await screen.findAllByText(/analysis_request/)).toHaveLength(2);
   });
 
   it("switches theme modes", async () => {
@@ -41,5 +58,6 @@ describe("App", () => {
 
     expect(window.location.hash).toBe("#/analysis/new");
     expect(screen.getByText(/任务创建向导入口/)).toBeInTheDocument();
+    expect(await screen.findByText("get_template('mcscan')")).toBeInTheDocument();
   });
 });

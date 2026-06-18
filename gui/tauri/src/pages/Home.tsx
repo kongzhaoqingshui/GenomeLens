@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 
+import { CommandPreview } from "../components/CommandPreview";
 import type { VersionInfo } from "../models/version";
 import { getVersion } from "../services/version";
+import { getAnalysisSchema, getTemplate } from "../services/analysis";
 import type { AppRoute } from "../routes/routes";
 
 const EMPTY_VERSION: VersionInfo = {
@@ -136,6 +138,20 @@ export default function Home({ route, onNavigate }: HomeProps) {
             <VersionStatus label="JCVI Engine" value={version.engine} />
           </div>
         </section>
+
+        <CommandPreview
+          title="请求模板"
+          command="get_template('mcscan')"
+          description="首页直接展示平台模板入口，后续任务向导复用同一数据源。"
+          load={() => getTemplate("mcscan")}
+        />
+
+        <CommandPreview
+          title="请求 Schema"
+          command="get_analysis_schema()"
+          description="用于前端表单校验和契约展示，不在 GUI 侧复制 schema。"
+          load={getAnalysisSchema}
+        />
 
         <section className="rounded-2xl border border-border bg-surface/70 p-5 shadow-card">
           <h2 className="text-lg font-semibold text-text-primary">导航入口</h2>
