@@ -10,6 +10,9 @@
 
 | 版本 | 主题 | 目标时间 | 关键内容 |
 |------|------|----------|----------|
+| v0.9.7 | 架构整理与功能补齐 | 已发布 | `analysis/requests/` 结构重组、engine workflow `_assert_ok` 去重、清理死代码、JCVI 子任务 CLI、多物种局部共线性总图 |
+| v0.9.6 | CLI 进度与出图回退 | 已发布 | 紧凑进度报告、`trim_cross_chromosome_blocks` 与 `rewrite_layout_links` 回退、Pyright 修复 |
+| v0.9.5 | 日志与出图尺寸 | 已发布 | 控制台静默模式、JCVI 出图尺寸取整 |
 | v0.9.0 | 体验与输入优化 | 已发布 | CLI 分页帮助、`analyze mcscan jcvi` 子命令、局部共线性目标基因高亮、自动目录输入混用模式、文档刷新 |
 | v0.9.1 | 可观测性 | 已发布 | 结构化 `run.log`、CLI `--verbose` / `--log-level`、失败上下文 |
 | v0.9.2 | 外部配置与插件化 | 已发布 | `analyze run <request.json>`、`analyze template/schema`、智然体插件接入 |
