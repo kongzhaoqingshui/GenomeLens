@@ -8,7 +8,10 @@ function makeHandle(): RunHandle {
     requestPath: "requests/demo.json",
     outdir: "runs/demo",
     status: "PENDING",
+    pid: 4123,
     startedAt: "unix-1.000",
+    logPath: "runs/demo/logs/run.log",
+    summaryPath: "runs/demo/report/run_summary.json",
   };
 }
 
@@ -38,6 +41,7 @@ describe("run-session helpers", () => {
 
     expect(second.logLines).toEqual(["line-1", "line-2"]);
     expect(second.lastLogLine).toBe("line-2");
+    expect(second.logPath).toBe("runs/demo/logs/run.log");
   });
 
   it("updates status and progress from analysis:state", () => {
@@ -67,6 +71,9 @@ describe("run-session helpers", () => {
         outdir: "runs/demo",
         requestPath: "requests/demo.json",
         startedAt: "unix-1.000",
+        exitCode: 0,
+        logPath: "runs/demo/logs/run.log",
+        summaryPath: "runs/demo/report/run_summary.json",
         finishedAt: "unix-2.000",
         status: "SUCCEEDED",
         summary: {
@@ -109,8 +116,34 @@ describe("run-session helpers", () => {
 
     expect(next.finished).toBe(true);
     expect(next.finishedAt).toBe("unix-2.000");
+    expect(next.exitCode).toBe(0);
+    expect(next.summaryPath).toBe("runs/demo/report/run_summary.json");
     expect(next.status).toBe("SUCCEEDED");
     expect(next.summaryView?.figureAssets).toHaveLength(1);
     expect(next.summaryView?.runSummaryPath).toBe("/tmp/run_summary.json");
+  });
+
+  it("captures terminal metadata from analysis:error", () => {
+    const initial = createAnalysisRunState(makeHandle());
+    const next = applyAnalysisEvent(initial, {
+      name: "analysis:error",
+      payload: {
+        runId: "run-1",
+        outdir: "runs/demo",
+        requestPath: "requests/demo.json",
+        startedAt: "unix-1.000",
+        finishedAt: "unix-2.500",
+        exitCode: 17,
+        logPath: "runs/demo/logs/run.log",
+        summaryPath: "runs/demo/report/run_summary.json",
+        message: "run failed",
+        code: "non_zero_exit",
+      },
+    });
+
+    expect(next.error?.code).toBe("non_zero_exit");
+    expect(next.finishedAt).toBe("unix-2.500");
+    expect(next.exitCode).toBe(17);
+    expect(next.summaryPath).toBe("runs/demo/report/run_summary.json");
   });
 });

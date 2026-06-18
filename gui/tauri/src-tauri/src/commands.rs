@@ -36,7 +36,10 @@ pub struct RunHandle {
     request_path: String,
     outdir: String,
     status: String,
+    pid: u32,
     started_at: String,
+    log_path: String,
+    summary_path: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -97,6 +100,9 @@ pub struct AnalysisFinishedEventPayload {
     request_path: String,
     started_at: String,
     finished_at: String,
+    exit_code: Option<i32>,
+    log_path: String,
+    summary_path: String,
     status: String,
     summary: Option<Value>,
 }
@@ -109,6 +115,9 @@ pub struct AnalysisErrorEventPayload {
     request_path: String,
     started_at: String,
     finished_at: Option<String>,
+    exit_code: Option<i32>,
+    log_path: String,
+    summary_path: String,
     message: String,
     code: Option<String>,
     details: Option<Value>,
@@ -120,6 +129,8 @@ struct RunEventContext {
     outdir: String,
     request_path: String,
     started_at: String,
+    log_path: String,
+    summary_path: String,
 }
 
 #[tauri::command]
@@ -240,6 +251,16 @@ pub fn run_analysis(app: AppHandle, input: RunAnalysisInput) -> Result<RunHandle
     let started_at = system_time_to_iso_like(SystemTime::now());
     let request_path = input.request_path.clone();
     let outdir = input.outdir.clone();
+    let log_path = Path::new(&outdir)
+        .join("logs")
+        .join("run.log")
+        .to_string_lossy()
+        .to_string();
+    let summary_path = Path::new(&outdir)
+        .join("report")
+        .join("run_summary.json")
+        .to_string_lossy()
+        .to_string();
 
     let mut child = Command::new("genomelens")
         .args(["analyze", "run", &request_path])
@@ -256,6 +277,9 @@ pub fn run_analysis(app: AppHandle, input: RunAnalysisInput) -> Result<RunHandle
                     request_path: request_path.clone(),
                     started_at: started_at.clone(),
                     finished_at: None,
+                    exit_code: None,
+                    log_path: log_path.clone(),
+                    summary_path: summary_path.clone(),
                     message: message.clone(),
                     code: Some("spawn_failed".to_string()),
                     details: None,
@@ -263,6 +287,7 @@ pub fn run_analysis(app: AppHandle, input: RunAnalysisInput) -> Result<RunHandle
             );
             message
         })?;
+    let pid = child.id();
 
     let app_handle = app.clone();
     let thread_context = RunEventContext {
@@ -270,6 +295,8 @@ pub fn run_analysis(app: AppHandle, input: RunAnalysisInput) -> Result<RunHandle
         outdir: outdir.clone(),
         request_path: request_path.clone(),
         started_at: started_at.clone(),
+        log_path: log_path.clone(),
+        summary_path: summary_path.clone(),
     };
 
     thread::spawn(move || {
@@ -303,6 +330,9 @@ pub fn run_analysis(app: AppHandle, input: RunAnalysisInput) -> Result<RunHandle
                             request_path: thread_context.request_path.clone(),
                             started_at: thread_context.started_at.clone(),
                             finished_at: Some(finished_at),
+                            exit_code: None,
+                            log_path: thread_context.log_path.clone(),
+                            summary_path: thread_context.summary_path.clone(),
                             message: format!("run {} wait error: {}", thread_context.run_id, error),
                             code: Some("wait_failed".to_string()),
                             details: Some(serde_json::json!({
@@ -327,11 +357,9 @@ pub fn run_analysis(app: AppHandle, input: RunAnalysisInput) -> Result<RunHandle
             &mut last_state,
         );
 
-        let summary_path = Path::new(&thread_context.outdir)
-            .join("report")
-            .join("run_summary.json");
-        let summary = read_json_file(&summary_path).ok();
+        let summary = read_json_file(Path::new(&thread_context.summary_path)).ok();
         let finished_at = system_time_to_iso_like(SystemTime::now());
+        let exit_code = exit_status.code();
         let finished_status = if exit_status.success() {
             "SUCCEEDED".to_string()
         } else {
@@ -352,6 +380,9 @@ pub fn run_analysis(app: AppHandle, input: RunAnalysisInput) -> Result<RunHandle
                     request_path: thread_context.request_path.clone(),
                     started_at: thread_context.started_at.clone(),
                     finished_at: Some(finished_at.clone()),
+                    exit_code,
+                    log_path: thread_context.log_path.clone(),
+                    summary_path: thread_context.summary_path.clone(),
                     message: format!(
                         "run {} exited with status {}",
                         thread_context.run_id,
@@ -381,6 +412,9 @@ pub fn run_analysis(app: AppHandle, input: RunAnalysisInput) -> Result<RunHandle
                 request_path: thread_context.request_path,
                 started_at: thread_context.started_at,
                 finished_at,
+                exit_code,
+                log_path: thread_context.log_path,
+                summary_path: thread_context.summary_path,
                 status: finished_status,
                 summary,
             },
@@ -392,7 +426,10 @@ pub fn run_analysis(app: AppHandle, input: RunAnalysisInput) -> Result<RunHandle
         request_path,
         outdir,
         status: "PENDING".to_string(),
+        pid,
         started_at,
+        log_path,
+        summary_path,
     })
 }
 

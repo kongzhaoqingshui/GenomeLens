@@ -28,6 +28,8 @@ export interface RunHandle {
   status: WorkflowState;
   pid?: number;
   startedAt?: string;
+  logPath?: string;
+  summaryPath?: string;
   [extraField: string]: unknown;
 }
 
@@ -77,6 +79,9 @@ export interface AnalysisFinishedEventPayload {
   requestPath: string;
   startedAt?: string;
   finishedAt?: string;
+  exitCode?: number | null;
+  logPath?: string;
+  summaryPath?: string;
   status: "SUCCEEDED" | "FAILED" | "CANCELLED";
   summary?: RunSummary;
 }
@@ -87,6 +92,9 @@ export interface AnalysisErrorEventPayload {
   requestPath: string;
   startedAt?: string;
   finishedAt?: string;
+  exitCode?: number | null;
+  logPath?: string;
+  summaryPath?: string;
   message: string;
   code?: string;
   details?: Record<string, unknown>;
@@ -111,10 +119,14 @@ export interface AnalysisRunState {
   runId: string;
   outdir: string;
   requestPath: string;
+  pid?: number;
+  logPath?: string;
+  summaryPath?: string;
   status: WorkflowState;
   progress: number;
   startedAt?: string;
   finishedAt?: string;
+  exitCode?: number | null;
   finished: boolean;
   error?: AnalysisErrorEventPayload;
   summary?: RunSummary;
@@ -128,6 +140,9 @@ export function createAnalysisRunState(handle: RunHandle): AnalysisRunState {
     runId: handle.runId,
     outdir: handle.outdir,
     requestPath: handle.requestPath,
+    pid: handle.pid,
+    logPath: handle.logPath,
+    summaryPath: handle.summaryPath,
     status: handle.status,
     progress: 0,
     startedAt: handle.startedAt,
@@ -169,9 +184,12 @@ export function applyAnalysisEvent(state: AnalysisRunState, event: AnalysisEvent
     case "analysis:finished":
       return {
         ...state,
+        logPath: event.payload.logPath ?? state.logPath,
+        summaryPath: event.payload.summaryPath ?? state.summaryPath,
         status: event.payload.status,
         progress: 1,
         finishedAt: event.payload.finishedAt,
+        exitCode: event.payload.exitCode ?? state.exitCode,
         finished: true,
         summary: event.payload.summary,
         summaryView:
@@ -180,7 +198,10 @@ export function applyAnalysisEvent(state: AnalysisRunState, event: AnalysisEvent
     case "analysis:error":
       return {
         ...state,
+        logPath: event.payload.logPath ?? state.logPath,
+        summaryPath: event.payload.summaryPath ?? state.summaryPath,
         finishedAt: event.payload.finishedAt ?? state.finishedAt,
+        exitCode: event.payload.exitCode ?? state.exitCode,
         error: event.payload,
       };
     default:
