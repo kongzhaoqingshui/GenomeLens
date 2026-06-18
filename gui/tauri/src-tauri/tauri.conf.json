@@ -4,9 +4,9 @@
   "version": "0.1.0",
   "identifier": "org.genomelens.gui",
   "build": {
-    "beforeDevCommand": "pnpm dev:web",
+    "beforeDevCommand": "corepack pnpm dev:web",
     "devUrl": "http://127.0.0.1:1420",
-    "beforeBuildCommand": "pnpm build:web",
+    "beforeBuildCommand": "corepack pnpm build:web",
     "frontendDist": "../dist"
   },
   "app": {
