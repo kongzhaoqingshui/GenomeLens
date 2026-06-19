@@ -25,7 +25,6 @@ from genomelens.app.errors.error_codes import ErrorCode
 from genomelens.app.errors.exceptions import ToolchainError
 from genomelens.core.jcvi_adapter.adapter import JcviEngineAdapter
 from genomelens.core.jcvi_adapter.adapter_models import JcviRunResult, McscanRequest
-from genomelens.core.jcvi_adapter.command_mapping import normalize_workflow
 from genomelens.core.mcscan_summary import McscanSummaryExtension
 from genomelens.core.models import PreparedGenomeInputSpec
 from genomelens.core.summary_models import RunSummary
@@ -103,19 +102,6 @@ def _resolve_pairwise_toolchain(
     """定位引擎与 BLAST/LAST 工具链，必要时自动安装 BLAST+"""
 
     engine = locate_engine(explicit=request.jcvi_engine)
-    if normalize_workflow(request.jcvi_workflow) == "bed_summary":
-        if not engine.ok:
-            raise ToolchainError(
-                messages.TOOLCHAIN_ENGINE_NOT_FOUND.format(message=engine.message),
-            )
-        return (
-            engine,
-            LocatedResource(name="blast", status="ok"),
-            LocatedResource(name="makeblastdb", status="ok"),
-            "",
-            "",
-        )
-
     blastn = locate_tool("blast", explicit=request.blastn_path, packaged_names=blastn_candidates())
     makeblastdb = locate_tool("blast", explicit=request.makeblastdb_path, packaged_names=makeblastdb_candidates())
 

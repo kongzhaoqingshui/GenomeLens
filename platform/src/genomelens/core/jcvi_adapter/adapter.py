@@ -121,11 +121,6 @@ class JcviEngineAdapter:
             "rewrite_layout_links": request.rewrite_layout_links,
             "trim_cross_chromosome_blocks": request.trim_cross_chromosome_blocks,
         }
-        expected_outputs = (
-            ["query_bed_summary", "query_bed_summary_tsv", "subject_bed_summary", "subject_bed_summary_tsv"]
-            if workflow == "bed_summary"
-            else ["blast_table", "anchors", "simple", "blocks", "figures"]
-        )
         return {
             "schema_version": 2,
             "workflow": workflow,
@@ -150,7 +145,7 @@ class JcviEngineAdapter:
             },
             "toolchain": toolchain,
             "options": options,
-            "expected_outputs": expected_outputs,
+            "expected_outputs": ["blast_table", "anchors", "simple", "blocks", "figures"],
             "meta": {
                 "source": "genomelens-shell",
                 "shell_version": __version__,

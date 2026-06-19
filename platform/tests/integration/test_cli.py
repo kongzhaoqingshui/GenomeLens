@@ -223,65 +223,6 @@ def test_analyze_mcscan_jcvi_subtask_sets_workflow(tmp_path: Path, monkeypatch) 
     assert captured["workflow"] == "graphics_dotplot"
 
 
-def test_analyze_mcscan_jcvi_bed_summary_subtask_sets_workflow(tmp_path: Path, monkeypatch) -> None:
-    root = Path(__file__).resolve().parents[3]
-    sample = root / "references" / "samples" / "shell" / "bed_cds_minimal"
-    input_dir = tmp_path / "input"
-    _copy_species_files(input_dir, sample, ["query.bed", "query.cds", "subject.bed", "subject.cds"])
-    outdir = tmp_path / "out"
-    captured = {}
-
-    def fake_provider_run(_self, request, _signal_bus):
-        captured["workflow"] = request.method_config["workflow"]
-        return RunSummary(
-            status="SUCCEEDED",
-            schema_version=2,
-            workflow="mcscan",
-            method="mcscan",
-            task={"workflow": "mcscan"},
-            species=[],
-            final_figures=[],
-            artifact_index=[],
-            logs={},
-            ui=UiBlock(
-                "SUCCEEDED", 1.0, [], str(outdir / "report" / "run_summary.json"), str(outdir / "logs" / "run.log")
-            ),
-            scoring=ScoringBlock(),
-        )
-
-    monkeypatch.setattr("genomelens.analysis.methods.mcscan_provider.McscanWorkflowProvider.run", fake_provider_run)
-
-    code = main(["analyze", "mcscan", "jcvi", "bed_summary", str(input_dir), str(outdir), "--force"])
-
-    assert code == 0
-    assert captured["workflow"] == "bed_summary"
-
-
-def test_analyze_mcscan_jcvi_bed_summary_real_run(tmp_path: Path) -> None:
-    root = Path(__file__).resolve().parents[3]
-    sample = root / "references" / "samples" / "shell" / "bed_cds_minimal"
-    input_dir = tmp_path / "input-bed-summary"
-    _copy_species_files(input_dir, sample, ["query.bed", "query.cds", "subject.bed", "subject.cds"])
-    outdir = tmp_path / "out-bed-summary"
-
-    code = main(["analyze", "mcscan", "jcvi", "bed_summary", str(input_dir), str(outdir), "--force"])
-
-    assert code == 0
-    summary = json.loads((outdir / "report" / "run_summary.json").read_text(encoding="utf-8"))
-    assert summary["status"] == "SUCCEEDED"
-    assert summary["task"]["workflow"] == "bed_summary"
-    assert any(item["artifact_id"] == "query_bed_summary" for item in summary["artifact_index"])
-
-    engine_summary = json.loads(
-        (outdir / "intermediate" / "jcvi" / "engine_run_summary.json").read_text(encoding="utf-8")
-    )
-    assert engine_summary["artifacts"]["backend"] == "jcvi.formats.bed.summary"
-    query_summary = Path(engine_summary["artifacts"]["query_bed_summary"])
-    assert query_summary.is_file()
-    query_payload = json.loads(query_summary.read_text(encoding="utf-8"))
-    assert query_payload["feature_count"] == 4
-
-
 def test_analyze_mcscan_jcvi_subtask_overrides_workflow_flag(tmp_path: Path, monkeypatch) -> None:
     root = Path(__file__).resolve().parents[3]
     sample = root / "references" / "samples" / "shell" / "bed_cds_minimal"

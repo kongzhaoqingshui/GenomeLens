@@ -39,7 +39,7 @@
 
 ## workflow(工作流)
 
-智然体插件仅暴露一站式 JCVI 出图入口，`workflow` 当前只支持 `graphics_synteny`。该 workflow 会输出 dotplot(点图) 与 synteny figure(共线性图)。`graphics_dotplot`、`graphics_karyotype`、`mcscan_pairwise`、`catalog_ortholog` 和 `bed_summary` 暂不作为智然体插件入口暴露。
+智然体插件仅暴露一站式 JCVI 出图入口，`workflow` 当前只支持 `graphics_synteny`。该 workflow 会输出 dotplot(点图) 与 synteny figure(共线性图)。`graphics_dotplot`、`graphics_karyotype`、`mcscan_pairwise` 和 `catalog_ortholog` 暂不作为智然体插件入口暴露。
 
 插件会在输出目录写入：
 

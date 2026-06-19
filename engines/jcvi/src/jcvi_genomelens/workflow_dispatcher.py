@@ -8,13 +8,11 @@ from pathlib import Path
 from jcvi_genomelens.manifest_models import EngineRunManifest
 from jcvi_genomelens.runtime.command_runner import CommandAudit
 from jcvi_genomelens.workflow_contract import (
-    BED_SUMMARY_WORKFLOW,
     GLOBAL_KARYOTYPE_WORKFLOW,
     MULTI_LOCAL_SYNTENY_WORKFLOW,
     normalize_workflow,
 )
 from jcvi_genomelens.workflows import (
-    bed_summary,
     catalog_ortholog,
     graphics_dotplot,
     graphics_karyotype,
@@ -43,8 +41,6 @@ def dispatch(manifest: EngineRunManifest, outdir: str | Path) -> tuple[list[Comm
         return graphics_karyotype.run(manifest, outdir)
     if workflow == "catalog_ortholog":
         return catalog_ortholog.run(manifest, outdir)
-    if workflow == BED_SUMMARY_WORKFLOW:
-        return bed_summary.run(manifest, outdir)
     if workflow == "local_synteny":
         return local_synteny.run(manifest, outdir)
     if workflow == MULTI_LOCAL_SYNTENY_WORKFLOW:

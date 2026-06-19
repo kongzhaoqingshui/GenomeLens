@@ -120,27 +120,6 @@ def test_engine_run_catalog_ortholog(tmp_path: Path) -> None:
     assert payload["artifacts"]["backend"] == "jcvi.catalog.ortholog"
 
 
-def test_engine_run_bed_summary(tmp_path: Path) -> None:
-    manifest = tmp_path / "manifest.json"
-    manifest.write_text(json.dumps(_manifest("bed_summary")), encoding="utf-8")
-    summary_path = run_manifest(manifest, tmp_path / "engine")
-    payload = json.loads(summary_path.read_text(encoding="utf-8"))
-    assert payload["status"] == "ok"
-    assert [command["name"] for command in payload["commands"]] == [
-        "jcvi.formats.bed.summary",
-        "jcvi.formats.bed.summary",
-    ]
-    query_summary = Path(payload["artifacts"]["query_bed_summary"])
-    subject_summary = Path(payload["artifacts"]["subject_bed_summary"])
-    assert query_summary.is_file()
-    assert subject_summary.is_file()
-    query_payload = json.loads(query_summary.read_text(encoding="utf-8"))
-    assert query_payload["species"] == "query"
-    assert query_payload["feature_count"] == 4
-    assert query_payload["seqid_count"] == 1
-    assert payload["artifacts"]["backend"] == "jcvi.formats.bed.summary"
-
-
 def test_engine_run_graphics_karyotype_global(tmp_path: Path) -> None:
     # 先跑一对 pairwise 拿到真实 .anchors.simple，再喂给全局总图工作流。
     pairwise_manifest = tmp_path / "pairwise.json"

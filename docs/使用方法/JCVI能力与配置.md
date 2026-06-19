@@ -9,7 +9,6 @@ GenomeLens engine(引擎) 当前可调度的 workflow(工作流) 包括：
 - `graphics_dotplot`：单独输出 dotplot(点图)。
 - `graphics_karyotype`：单独输出 karyotype(核型共线性图)。
 - `catalog_ortholog`：调用 `jcvi.compara.catalog.ortholog --full` 输出双向 ortholog(同源基因) 结果。
-- `bed_summary`：调用 `jcvi.formats.bed` 汇总 query/subject BED 的 feature 数、seqid 数、覆盖长度和最长/最短 feature，输出 JSON 与 TSV 摘要。
 - `graphics_karyotype_global`：跨全部物种的全局核型总图。它不重算共线性，而是把已算好的各对 `.simple` 边渲染成一张多轨总图；由多物种运行自动调度，不需要用户手动通过 `--jcvi-workflow` 选择。
 
 兼容别名 `dotplot` 和 `karyotype` 会被规范化为 `graphics_dotplot` 和 `graphics_karyotype`。
