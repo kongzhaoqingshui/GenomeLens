@@ -16,6 +16,7 @@ from jcvi.graphics.karyotype import main as jcvi_graphics_karyotype
 from jcvi_genomelens.manifest_models import EngineEdge, EngineRunManifest, EngineTrack
 from jcvi_genomelens.runtime.command_runner import CommandAudit, run_python_step
 from jcvi_genomelens.workflows.common import _assert_ok
+from jcvi_genomelens.workflows.local_synteny import _layout_label_fields
 from jcvi_genomelens.workflows.plot_optimization import suggest_karyotype_figsize
 
 # endregion
@@ -93,7 +94,7 @@ def _display_tracks_and_edges(
 def _write_global_layout(path: Path, tracks: list[EngineTrack], edges: list[EngineEdge]) -> Path:
     """生成 karyotype layout(布局)：track 段 + edges 段"""
 
-    lines = ["# y, xstart, xend, rotation, color, label, va, bed"]
+    lines = ["# y, xstart, xend, rotation, color, label, va, bed, label_va"]
     count = len(tracks)
     top, bottom = 0.85, 0.15
     for index, track in enumerate(tracks):
@@ -102,7 +103,8 @@ def _write_global_layout(path: Path, tracks: list[EngineTrack], edges: list[Engi
         else:
             y = top - (top - bottom) * index / (count - 1)
         color = _TRACK_COLORS[index % len(_TRACK_COLORS)]
-        lines.append(f"{y:.4f}, 0.10, 0.90, 0, {color}, {track.name}, top, {track.bed}")
+        _, label_va, display_label, _ = _layout_label_fields(track.name, "top")
+        lines.append(f"{y:.4f}, 0.10, 0.90, 0, {color}, {display_label}, top, {track.bed}, {label_va}")
     lines.append("# edges")
     for edge in edges:
         lines.append(f"e, {edge.i}, {edge.j}, {edge.simple}")
