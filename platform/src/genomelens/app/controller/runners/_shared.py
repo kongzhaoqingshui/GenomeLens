@@ -87,6 +87,10 @@ def artifact_index(
         ("anchors", "anchors", engine_result.artifacts.get("anchors", "")),
         ("simple", "simple", engine_result.artifacts.get("simple", "")),
         ("blocks", "blocks", engine_result.artifacts.get("blocks", "")),
+        ("query_bed_summary", "summary", engine_result.artifacts.get("query_bed_summary", "")),
+        ("query_bed_summary_tsv", "table", engine_result.artifacts.get("query_bed_summary_tsv", "")),
+        ("subject_bed_summary", "summary", engine_result.artifacts.get("subject_bed_summary", "")),
+        ("subject_bed_summary_tsv", "table", engine_result.artifacts.get("subject_bed_summary_tsv", "")),
     ]:
         record = artifact_record(artifact_id, artifact_type, value, request.jcvi_workflow)
         if record:

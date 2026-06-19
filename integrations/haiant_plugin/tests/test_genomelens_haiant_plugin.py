@@ -83,7 +83,7 @@ def test_write_runtime_request_rejects_non_plugin_workflows(tmp_path: Path) -> N
             {"name": "subject", "bed": str(sample), "cds": str(cds)},
         ],
         "output_dir": str(tmp_path / "output"),
-        "workflow": "catalog_ortholog",
+        "workflow": "bed_summary",
     }
 
     try:

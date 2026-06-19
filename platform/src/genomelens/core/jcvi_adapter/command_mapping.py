@@ -6,6 +6,7 @@ SUPPORTED_WORKFLOWS = {
     "graphics_dotplot",
     "graphics_karyotype",
     "catalog_ortholog",
+    "bed_summary",
     "local_synteny",
 }
 # adapter 层只维护 shell 当前真正承诺支持的稳定 workflow 名称。
@@ -13,6 +14,8 @@ WORKFLOW_ALIASES = {
     "dotplot": "graphics_dotplot",
     "karyotype": "graphics_karyotype",
     "local": "local_synteny",
+    "bed": "bed_summary",
+    "bed_stats": "bed_summary",
 }
 
 

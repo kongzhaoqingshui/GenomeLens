@@ -11,6 +11,7 @@ from __future__ import annotations
 
 GLOBAL_KARYOTYPE_WORKFLOW = "graphics_karyotype_global"
 MULTI_LOCAL_SYNTENY_WORKFLOW = "local_synteny_multi"
+BED_SUMMARY_WORKFLOW = "bed_summary"
 
 SUPPORTED_WORKFLOWS = (
     "mcscan_pairwise",
@@ -18,6 +19,7 @@ SUPPORTED_WORKFLOWS = (
     "graphics_dotplot",
     "graphics_karyotype",
     "catalog_ortholog",
+    BED_SUMMARY_WORKFLOW,
     "local_synteny",
     GLOBAL_KARYOTYPE_WORKFLOW,
     MULTI_LOCAL_SYNTENY_WORKFLOW,
@@ -29,6 +31,8 @@ WORKFLOW_ALIASES = {
     "karyotype_global": GLOBAL_KARYOTYPE_WORKFLOW,
     "local": "local_synteny",
     "local_multi": MULTI_LOCAL_SYNTENY_WORKFLOW,
+    "bed": BED_SUMMARY_WORKFLOW,
+    "bed_stats": BED_SUMMARY_WORKFLOW,
 }
 
 
