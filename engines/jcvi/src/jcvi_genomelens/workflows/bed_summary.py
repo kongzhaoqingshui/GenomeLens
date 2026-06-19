@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any
 
 from jcvi.formats.bed import Bed, BedSummary
 from jcvi_genomelens.manifest_models import EngineRunManifest, GenomeSpec
@@ -14,7 +15,7 @@ from jcvi_genomelens.workflows.common import _assert_ok
 # endregion
 
 
-def _summary_payload(species: str, bed_path: Path) -> dict[str, object]:
+def _summary_payload(species: str, bed_path: Path) -> dict[str, Any]:
     bed = Bed(str(bed_path))
     summary = BedSummary(bed)
     longest_span, longest_name = max(summary.mspans)
@@ -47,7 +48,8 @@ def _write_summary(species: str, bed_path: Path, json_path: Path, tsv_path: Path
     payload = _summary_payload(species, bed_path)
     json_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     tsv_path.write_text(
-        "\t".join(["species", "seqids", "features", "unique_bases", "total_bases", "coverage"]) + "\n"
+        "\t".join(["species", "seqids", "features", "unique_bases", "total_bases", "coverage"])
+        + "\n"
         + "\t".join(
             [
                 str(payload["species"]),
