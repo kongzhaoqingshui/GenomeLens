@@ -1,4 +1,4 @@
 """GenomeLens shell 的单一版本来源"""
 
-__version__ = "0.9.9"
+__version__ = "0.9.10"
 PRODUCT_NAME = "GenomeLens"
