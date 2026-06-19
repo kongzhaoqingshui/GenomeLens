@@ -37,6 +37,12 @@ JCVI_SUBTASKS: tuple[JcviSubtask, ...] = (
         "目标基因局部共线性",
         "围绕参考物种目标基因截取局部窗口并出图，需提供 --target-genes。",
     ),
+    JcviSubtask(
+        "bed_summary",
+        "bed_summary",
+        "BED summary",
+        "Use JCVI formats.bed to summarize query and subject BED feature counts and spans.",
+    ),
 )
 
 JCVI_SUBTASK_WORKFLOWS = {subtask.name: subtask.workflow for subtask in JCVI_SUBTASKS}
