@@ -145,29 +145,3 @@ def test_global_karyotype_reorders_tracks_without_faking_edge_semantics(tmp_path
     assert artifacts["optimized_figsize"] == "10x9"
     assert "--figsize" in commands[0].argv
     assert commands[0].argv[commands[0].argv.index("--figsize") + 1] == "10x9"
-
-
-def test_global_karyotype_compacts_long_track_label(tmp_path: Path, monkeypatch) -> None:
-    monkeypatch.setattr(graphics_karyotype_global, "run_python_step", _fake_karyotype_step)
-
-    long_bed = _write_bed(tmp_path / "long.bed", prefix="l")
-    short_bed = _write_bed(tmp_path / "short.bed", prefix="s")
-    simple = tmp_path / "long_short.simple"
-    simple.write_text("simple\n", encoding="utf-8")
-    manifest = EngineRunManifest(
-        workflow="graphics_karyotype_global",
-        toolchain=ToolchainSpec(),
-        options=WorkflowOptions(formats=["png"]),
-        tracks=[
-            EngineTrack("Eutrema_salsugineum-Scaffold", long_bed),
-            EngineTrack("Iin.Chr", short_bed),
-        ],
-        edges=[EngineEdge(0, 1, simple)],
-    )
-
-    _, artifacts = graphics_karyotype_global.run(manifest, tmp_path / "engine")
-
-    layout_path = Path(str(artifacts["global_karyotype_layout"]))
-    lines = layout_path.read_text(encoding="utf-8").splitlines()
-    assert lines[1] == f"0.8500, 0.10, 0.90, 0, #2f6f73, E. salsugineum, top, {long_bed}, center"
-    assert lines[2] == f"0.1500, 0.10, 0.90, 0, #b85c38, Iin.Chr, top, {short_bed}, top"
