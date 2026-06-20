@@ -1032,7 +1032,7 @@ def test_analyze_mcscan_local_synteny_flags(tmp_path: Path) -> None:
     # 局部共线性结果应落入 intermediate/local/
     local_dir = outdir / "intermediate" / "local"
     assert local_dir.is_dir()
-    assert any(local_dir.glob("*.local.png"))
+    assert any(local_dir.glob("*.local.svg"))
     assert any(local_dir.glob("*.local.blocks"))
     assert any(local_dir.glob("*.local.bed"))
     assert any(local_dir.glob("*.local.layout"))
