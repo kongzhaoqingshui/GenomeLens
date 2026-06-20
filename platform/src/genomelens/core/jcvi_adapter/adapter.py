@@ -19,7 +19,7 @@ from typing import cast
 
 from genomelens._version import __version__
 from genomelens.app.errors.exceptions import EngineProbeError, EngineRunError, SummaryParseError
-from genomelens.core.jcvi_adapter.adapter_models import JcviRunResult, McscanRequest
+from genomelens.core.jcvi_adapter.adapter_models import HeatmapPlotRequest, JcviRunResult, McscanRequest
 from genomelens.core.jcvi_adapter.command_mapping import normalize_workflow
 from genomelens.core.jcvi_adapter.path_patch import absolute_path
 from genomelens.core.models import GenomeInputSpec, PreparedGenomeInputSpec
@@ -264,6 +264,41 @@ class JcviEngineAdapter:
                 "shell_version": __version__,
                 "platform_protocol": "task_manifest_v2",
                 "species_model": "multi_species_local_tracks",
+            },
+        }
+
+    def build_heatmap_manifest(self, request: HeatmapPlotRequest) -> dict[str, object]:
+        """构建独立 heatmap plot manifest(热图清单)"""
+
+        options: dict[str, object] = {
+            "formats": list(request.formats),
+            "figsize": request.figsize,
+            "dpi": request.dpi,
+            "cmap": request.cmap,
+            "groups": request.groups,
+            "horizontalbar": request.horizontalbar,
+            "log_level": request.log_level,
+        }
+        if request.rowgroups is not None:
+            options["rowgroups"] = absolute_path(request.rowgroups)
+
+        return {
+            "schema_version": 2,
+            "workflow": "graphics_heatmap",
+            "task": {
+                "task_id": request.task_id,
+                "task_type": "plot_heatmap",
+                "workflow": "graphics_heatmap",
+            },
+            "toolchain": {},
+            "matrix": absolute_path(request.matrix),
+            "options": options,
+            "expected_outputs": ["figures", "heatmap_figures"],
+            "meta": {
+                "source": "genomelens-shell",
+                "shell_version": __version__,
+                "platform_protocol": "task_manifest_v2",
+                "input_model": "matrix_csv",
             },
         }
 

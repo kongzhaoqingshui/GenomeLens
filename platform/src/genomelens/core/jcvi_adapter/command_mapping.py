@@ -4,6 +4,7 @@ SUPPORTED_WORKFLOWS = {
     "mcscan_pairwise",
     "graphics_synteny",
     "graphics_dotplot",
+    "graphics_heatmap",
     "graphics_karyotype",
     "catalog_ortholog",
     "local_synteny",
@@ -11,6 +12,7 @@ SUPPORTED_WORKFLOWS = {
 # adapter 层只维护 shell 当前真正承诺支持的稳定 workflow 名称。
 WORKFLOW_ALIASES = {
     "dotplot": "graphics_dotplot",
+    "heatmap": "graphics_heatmap",
     "karyotype": "graphics_karyotype",
     "local": "local_synteny",
 }

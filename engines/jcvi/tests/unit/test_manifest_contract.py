@@ -85,3 +85,48 @@ def test_manifest_loader(tmp_path: Path) -> None:
     assert loaded.options.trim_cross_chromosome_blocks is True
     assert loaded.toolchain.lastal is None
     assert loaded.toolchain.lastdb is None
+
+
+def test_manifest_loader_heatmap(tmp_path: Path) -> None:
+    matrix = tmp_path / "heatmap.csv"
+    matrix.write_text("gene,s1,s2\ng1,1,2\ng2,3,4\n", encoding="utf-8")
+    rowgroups = tmp_path / "rowgroups.tsv"
+    rowgroups.write_text("I\tg1\nII\tg2\n", encoding="utf-8")
+    manifest = tmp_path / "heatmap_manifest.json"
+    manifest.write_text(
+        json.dumps(
+            {
+                "schema_version": 2,
+                "workflow": "graphics_heatmap",
+                "task": {
+                    "task_id": "heatmap__graphics_heatmap",
+                    "task_type": "plot_heatmap",
+                    "workflow": "graphics_heatmap",
+                    "source": "pytest",
+                },
+                "toolchain": {},
+                "matrix": str(matrix),
+                "options": {
+                    "formats": ["png"],
+                    "figsize": "7x5",
+                    "dpi": 200,
+                    "cmap": "viridis",
+                    "groups": True,
+                    "rowgroups": str(rowgroups),
+                    "horizontalbar": True,
+                },
+                "expected_outputs": ["figures", "heatmap_figures"],
+            }
+        ),
+        encoding="utf-8",
+    )
+    loaded = load_manifest(manifest)
+    assert loaded.workflow == "graphics_heatmap"
+    assert loaded.matrix == matrix.resolve(strict=False)
+    assert loaded.options.formats == ["png"]
+    assert loaded.options.figsize == "7x5"
+    assert loaded.options.dpi == 200
+    assert loaded.options.cmap == "viridis"
+    assert loaded.options.groups is True
+    assert loaded.options.rowgroups == rowgroups.resolve(strict=False)
+    assert loaded.options.horizontalbar is True

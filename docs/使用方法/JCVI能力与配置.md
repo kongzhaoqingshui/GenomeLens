@@ -8,10 +8,42 @@ GenomeLens engine(引擎) 当前可调度的 workflow(工作流) 包括：
 - `graphics_synteny`：默认主链路，输出 dotplot(点图) 与 synteny figure(共线性图)。
 - `graphics_dotplot`：单独输出 dotplot(点图)。
 - `graphics_karyotype`：单独输出 karyotype(核型共线性图)。
+- `graphics_heatmap`：从矩阵 CSV 渲染 heatmap(热图)，适合表达矩阵、统计矩阵等独立绘图任务。
 - `catalog_ortholog`：调用 `jcvi.compara.catalog.ortholog --full` 输出双向 ortholog(同源基因) 结果。
 - `graphics_karyotype_global`：跨全部物种的全局核型总图。它不重算共线性，而是把已算好的各对 `.simple` 边渲染成一张多轨总图；由多物种运行自动调度，不需要用户手动通过 `--jcvi-workflow` 选择。
 
-兼容别名 `dotplot` 和 `karyotype` 会被规范化为 `graphics_dotplot` 和 `graphics_karyotype`。
+兼容别名 `dotplot`、`heatmap` 和 `karyotype` 会被规范化为对应的 `graphics_*` workflow 名称。
+
+## 独立热图命令：`plot heatmap`
+
+`graphics_heatmap` 不走 `mcscan` 的 `species[]` / `query` / `subject` 协议，而是作为独立绘图 workflow 由 `genomelens plot heatmap` 调度。适用场景包括：
+
+- 基因表达矩阵
+- 共线性分数矩阵
+- 染色体尺度统计量矩阵
+
+命令形态：
+
+```powershell
+GenomeLens.exe plot heatmap <matrix.csv> <outdir> [options]
+```
+
+当前支持的公开参数包括：
+
+- `--formats`：输出格式列表，默认继承 `runtime.formats` 或回退到 `svg`
+- `--figsize`：画布尺寸
+- `--dpi`：分辨率
+- `--cmap`：colormap 名称，默认 `jet`
+- `--groups`：把 CSV 第一行解释为列分组
+- `--rowgroups`：提供额外的行分组文件
+- `--horizontalbar`：改用水平色条
+
+该命令仍通过 shell(外壳) 写出 `task_manifest_v2`，再调用 `jcvi-genomelens run --manifest ... --outdir ...`。输出目录中会保留：
+
+- `inputs/input_manifest.json`
+- `intermediate/jcvi/engine_run_summary.json`
+- `results/figures/*.png|*.svg|*.pdf`
+- `report/run_summary.json`
 
 ## 一站式流程：多物种局部共线性分析
 

@@ -9,7 +9,7 @@ import sys
 
 from genomelens._version import __version__
 from genomelens.app.errors.error_reporter import exit_code_for, format_user_error
-from genomelens.cli.commands import analyze, check, clean, config
+from genomelens.cli.commands import analyze, check, clean, config, plot
 from genomelens.cli.jcvi_subtasks import rewrite_jcvi_subtask_argv
 from genomelens.cli.mcscan_help import render_mcscan_help
 from genomelens.cli.ui import (
@@ -44,6 +44,7 @@ def build_parser() -> argparse.ArgumentParser:
     check.register(subparsers)
     config.register(subparsers)
     analyze.register(subparsers)  # 核心功能命令 - 分析
+    plot.register(subparsers)
     clean.register(subparsers)
 
     # endregion

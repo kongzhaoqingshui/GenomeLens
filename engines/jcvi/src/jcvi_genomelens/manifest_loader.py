@@ -16,6 +16,7 @@ from jcvi_genomelens.manifest_models import (
 )
 from jcvi_genomelens.workflow_contract import (
     GLOBAL_KARYOTYPE_WORKFLOW,
+    HEATMAP_WORKFLOW,
     MULTI_LOCAL_SYNTENY_WORKFLOW,
     normalize_workflow,
 )
@@ -178,6 +179,9 @@ def load_manifest(path: str | Path) -> EngineRunManifest:
     allow_simplified_fallback = _bool(options_raw.get("allow_simplified_fallback", False))
     if allow_simplified_fallback:
         raise ManifestError("allow_simplified_fallback is not implemented for production JCVI workflows")
+    rowgroups = _path(options_raw.get("rowgroups"))
+    if rowgroups is not None and not rowgroups.is_file():
+        raise ManifestError(f"options.rowgroups does not exist: {rowgroups}")
 
     # 全局总图工作流用 tracks/edges 表达 N 个物种；pairwise 工作流仍用 query/subject
     query: GenomeSpec | None = None
@@ -186,6 +190,7 @@ def load_manifest(path: str | Path) -> EngineRunManifest:
     edges: list[EngineEdge] = []
     blocks: Path | None = None
     bed: Path | None = None
+    matrix: Path | None = None
     if workflow == GLOBAL_KARYOTYPE_WORKFLOW:
         track_data = raw.get("tracks")
         if not isinstance(track_data, list) or len(track_data) < 2:
@@ -203,6 +208,8 @@ def load_manifest(path: str | Path) -> EngineRunManifest:
         tracks = [_load_track(item, f"tracks[{index}]") for index, item in enumerate(track_data)]
         blocks = _load_precomputed_path(raw.get("blocks"), "blocks")
         bed = _load_precomputed_path(raw.get("bed"), "bed")
+    elif workflow == HEATMAP_WORKFLOW:
+        matrix = _load_precomputed_path(raw.get("matrix"), "matrix")
     else:
         query = _load_genome(raw.get("query"), "query")
         subject = _load_genome(raw.get("subject"), "subject")
@@ -239,6 +246,10 @@ def load_manifest(path: str | Path) -> EngineRunManifest:
             shadestyle=_string(options_raw.get("shadestyle"), ""),
             figsize=_string(options_raw.get("figsize"), ""),
             dpi=_int(options_raw.get("dpi"), 300),
+            cmap=_string(options_raw.get("cmap"), ""),
+            groups=_bool(options_raw.get("groups", False)),
+            rowgroups=rowgroups,
+            horizontalbar=_bool(options_raw.get("horizontalbar", False)),
             log_level=_string(options_raw.get("log_level"), "INFO"),
             verbose=_bool(options_raw.get("verbose", False)),
             optimize_figsize=_bool(options_raw.get("optimize_figsize", False)),
@@ -256,4 +267,5 @@ def load_manifest(path: str | Path) -> EngineRunManifest:
         edges=edges,
         blocks=blocks,
         bed=bed,
+        matrix=matrix,
     )

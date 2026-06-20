@@ -49,6 +49,33 @@ def _manifest(workflow: str) -> dict[str, object]:
     }
 
 
+def _heatmap_manifest(matrix: Path, rowgroups: Path | None = None) -> dict[str, object]:
+    options: dict[str, object] = {
+        "formats": ["png"],
+        "figsize": "6x4",
+        "dpi": 150,
+        "cmap": "viridis",
+        "groups": True,
+        "horizontalbar": True,
+    }
+    if rowgroups is not None:
+        options["rowgroups"] = str(rowgroups)
+    return {
+        "schema_version": 2,
+        "workflow": "graphics_heatmap",
+        "task": {
+            "task_id": "heatmap__graphics_heatmap",
+            "task_type": "plot_heatmap",
+            "workflow": "graphics_heatmap",
+            "source": "pytest",
+        },
+        "toolchain": {},
+        "matrix": str(matrix),
+        "options": options,
+        "expected_outputs": ["figures", "heatmap_figures"],
+    }
+
+
 def test_engine_run_graphics_synteny(tmp_path: Path) -> None:
     manifest = tmp_path / "manifest.json"
     manifest.write_text(json.dumps(_manifest("graphics_synteny")), encoding="utf-8")
@@ -90,6 +117,29 @@ def test_engine_run_graphics_dotplot(tmp_path: Path) -> None:
     assert payload["status"] == "ok"
     assert [command["name"] for command in payload["commands"]][-1] == "jcvi.graphics.dotplot"
     assert Path(payload["artifacts"]["dotplot_figures"][0]).is_file()
+
+
+def test_engine_run_graphics_heatmap(tmp_path: Path) -> None:
+    matrix = tmp_path / "matrix.csv"
+    matrix.write_text(",grpA,,grpB,\n,g1,g2,g1,g2\ngene1,1,10,100,1000\ngene2,5,20,250,500\n", encoding="utf-8")
+    rowgroups = tmp_path / "rowgroups.tsv"
+    rowgroups.write_text("I\tgene1\nII\tgene2\n", encoding="utf-8")
+    manifest = tmp_path / "heatmap.json"
+    manifest.write_text(json.dumps(_heatmap_manifest(matrix, rowgroups)), encoding="utf-8")
+    summary_path = run_manifest(manifest, tmp_path / "heatmap")
+    payload = json.loads(summary_path.read_text(encoding="utf-8"))
+
+    assert payload["status"] == "ok"
+    assert [command["name"] for command in payload["commands"]] == ["jcvi.graphics.heatmap"]
+    assert payload["task"]["task_type"] == "plot_heatmap"
+    assert payload["artifacts"]["backend"] == "jcvi.graphics.heatmap"
+    assert payload["artifacts"]["heatmap_cmap"] == "viridis"
+    assert payload["artifacts"]["heatmap_groups"] is True
+    assert payload["artifacts"]["heatmap_horizontalbar"] is True
+    assert Path(payload["artifacts"]["matrix"]).is_file()
+    assert Path(payload["artifacts"]["rowgroups"]).is_file()
+    assert Path(payload["artifacts"]["heatmap_figures"][0]).is_file()
+    assert any(item["artifact_type"] == "heatmap_figures" for item in payload["artifact_index"])
 
 
 def test_engine_run_graphics_karyotype(tmp_path: Path) -> None:

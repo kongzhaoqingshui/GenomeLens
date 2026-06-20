@@ -11,6 +11,7 @@ GenomeLens.exe analyze run <request.json> [-j]
 GenomeLens.exe analyze mcscan <input-dir> <outdir> [jcvi-config.json] [options] [-j]
 GenomeLens.exe analyze template [mcscan]
 GenomeLens.exe analyze schema
+GenomeLens.exe plot heatmap <matrix.csv> <outdir> [options] [-j]
 GenomeLens.exe help [command...]
 GenomeLens.exe workbench
 GenomeLens.exe clean [--cache] [--all] [--yes]
@@ -150,3 +151,43 @@ GenomeLens.exe analyze mcscan input output `
 ## 当前边界
 
 `analyze run` 当前支持 `schema_version = 1` 的 `analysis_request`，首个稳定方法为 `mcscan`。后续方法接入时会扩展同一 request schema。
+
+## 独立绘图：Heatmap 热图
+
+`plot heatmap` 适合直接把矩阵 CSV 渲染成热图，不依赖 `mcscan` 的物种输入模型。
+
+最小示例：
+
+```powershell
+GenomeLens.exe plot heatmap expr.csv heatmap-out --formats png --force
+```
+
+带列分组、行分组与水平色条：
+
+```powershell
+GenomeLens.exe plot heatmap expr.csv heatmap-out `
+  --groups `
+  --rowgroups rowgroups.tsv `
+  --horizontalbar `
+  --cmap viridis `
+  --formats png `
+  --force
+```
+
+常用参数：
+
+- `--formats svg,pdf`：输出格式列表。
+- `--figsize 8x8`：画布尺寸。
+- `--dpi 300`：输出分辨率。
+- `--cmap viridis`：matplotlib colormap 名称；默认 `jet`。
+- `--groups`：把 CSV 第一行解释为列分组。
+- `--rowgroups <path>`：提供行分组文件。
+- `--horizontalbar`：改用水平色条。
+- `--jcvi-engine <path>`：显式指定 `jcvi-genomelens` 引擎。
+
+输出目录会复用标准 GenomeLens 布局：
+
+- `inputs/input_manifest.json`：写出的 engine manifest。
+- `intermediate/jcvi/engine_run_summary.json`：引擎原始摘要。
+- `results/figures/`：归档后的最终热图。
+- `report/run_summary.json`：CLI 侧统一摘要。
