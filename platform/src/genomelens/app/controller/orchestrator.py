@@ -44,6 +44,10 @@ class WorkflowOrchestrator:
 
         species_count = len(request.input.species)
 
+        # method-specific / plot-only 请求没有 species[]，直接交给 provider 自行处理
+        if species_count == 0:
+            return provider.run(request, signal_bus)
+
         # 恰好两个物种：直接交给 provider 的 pairwise 能力
         if species_count == 2:
             return provider.run(request, signal_bus)

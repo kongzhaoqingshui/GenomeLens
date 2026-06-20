@@ -77,6 +77,12 @@ def _float(value: object, default: float) -> float:
         raise ManifestError(f"invalid float value: {value}") from exc
 
 
+def _optional_float(value: object) -> float | None:
+    if value is None:
+        return None
+    return _float(value, 0.0)
+
+
 def _int(value: object, default: int) -> int:
     if value is None:
         return default
@@ -161,6 +167,19 @@ def _load_precomputed_path(data: object, label: str) -> Path:
     return path
 
 
+def _load_existing_paths(data: object, label: str) -> list[Path]:
+    if not isinstance(data, list) or not data:
+        raise ManifestError(f"{label} must be a non-empty list")
+    paths: list[Path] = []
+    for index, item in enumerate(data):
+        path = _path(item, required=True)
+        assert path is not None
+        if not path.is_file():
+            raise ManifestError(f"{label}[{index}] does not exist: {path}")
+        paths.append(path)
+    return paths
+
+
 def load_manifest(path: str | Path) -> EngineRunManifest:
     """从磁盘加载并校验 manifest(清单)"""
 
@@ -186,6 +205,7 @@ def load_manifest(path: str | Path) -> EngineRunManifest:
     edges: list[EngineEdge] = []
     blocks: Path | None = None
     bed: Path | None = None
+    histogram_inputs: list[Path] = []
     if workflow == GLOBAL_KARYOTYPE_WORKFLOW:
         track_data = raw.get("tracks")
         if not isinstance(track_data, list) or len(track_data) < 2:
@@ -203,6 +223,8 @@ def load_manifest(path: str | Path) -> EngineRunManifest:
         tracks = [_load_track(item, f"tracks[{index}]") for index, item in enumerate(track_data)]
         blocks = _load_precomputed_path(raw.get("blocks"), "blocks")
         bed = _load_precomputed_path(raw.get("bed"), "bed")
+    elif workflow == "graphics_histogram":
+        histogram_inputs = _load_existing_paths(options_raw.get("histogram_inputs"), "options.histogram_inputs")
     else:
         query = _load_genome(raw.get("query"), "query")
         subject = _load_genome(raw.get("subject"), "subject")
@@ -245,6 +267,19 @@ def load_manifest(path: str | Path) -> EngineRunManifest:
             rewrite_layout_links=_bool(options_raw.get("rewrite_layout_links", False)),
             fix_karyotype_label_overlap=_bool(options_raw.get("fix_karyotype_label_overlap", False)),
             trim_cross_chromosome_blocks=_bool(options_raw.get("trim_cross_chromosome_blocks", False)),
+            histogram_inputs=histogram_inputs,
+            histogram_columns=_string_list(options_raw.get("histogram_columns"))
+            and [_int(item, 0) for item in _string_list(options_raw.get("histogram_columns"))]
+            or [0],
+            histogram_skip=_int(options_raw.get("histogram_skip"), 0),
+            histogram_bins=_int(options_raw.get("histogram_bins"), 20),
+            histogram_vmin=_optional_float(options_raw.get("histogram_vmin")),
+            histogram_vmax=_optional_float(options_raw.get("histogram_vmax")),
+            histogram_xlabel=_string(options_raw.get("histogram_xlabel"), "value"),
+            histogram_title=_string(options_raw.get("histogram_title"), ""),
+            histogram_base=_int(options_raw.get("histogram_base"), 0),
+            histogram_facet=_bool(options_raw.get("histogram_facet", False)),
+            histogram_fill=_string(options_raw.get("histogram_fill"), "white"),
         ),
         schema_version=_int(raw.get("schema_version"), 1),
         # task/species/meta 保持宽松对象结构，供 shell summary 直接回写。

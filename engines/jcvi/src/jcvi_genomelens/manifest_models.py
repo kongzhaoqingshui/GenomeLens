@@ -64,6 +64,17 @@ class WorkflowOptions:
     rewrite_layout_links: bool = False
     fix_karyotype_label_overlap: bool = False
     trim_cross_chromosome_blocks: bool = False
+    histogram_inputs: list[Path] = field(default_factory=list)
+    histogram_columns: list[int] = field(default_factory=lambda: [0])
+    histogram_skip: int = 0
+    histogram_bins: int = 20
+    histogram_vmin: float | None = 0.0
+    histogram_vmax: float | None = None
+    histogram_xlabel: str = "value"
+    histogram_title: str = ""
+    histogram_base: int = 0
+    histogram_facet: bool = False
+    histogram_fill: str = "white"
 
 
 @dataclass(frozen=True)

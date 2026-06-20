@@ -6,7 +6,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from genomelens.app.errors.exceptions import InputValidationError
-from genomelens.core.jcvi_adapter.adapter_models import McscanRequest
+from genomelens.core.jcvi_adapter.adapter_models import HistogramRequest, McscanRequest
 from genomelens.core.jcvi_adapter.command_mapping import SUPPORTED_WORKFLOWS, normalize_workflow
 from genomelens.core.models import GenomeInputSpec
 
@@ -63,3 +63,25 @@ def validate_request(request: McscanRequest) -> None:
     for optional_path, label in [(request.blastn_path, "blastn"), (request.makeblastdb_path, "makeblastdb")]:
         if optional_path and not Path(optional_path).expanduser().is_file():
             raise InputValidationError(f"{label} path does not exist: {optional_path}")
+
+
+def validate_histogram_request(request: HistogramRequest) -> None:
+    """校验 plot-only histogram(纯绘图直方图) 请求"""
+
+    if not request.inputs:
+        raise InputValidationError("graphics_histogram requires at least one input file")
+    for path in request.inputs:
+        require_existing_file(path, "histogram input")
+    if not request.columns:
+        raise InputValidationError("graphics_histogram requires at least one column index")
+    if any(index < 0 for index in request.columns):
+        raise InputValidationError("histogram column indices must be >= 0")
+    if request.histogram_skip < 0:
+        raise InputValidationError("histogram skip must be >= 0")
+    if request.histogram_bins < 1:
+        raise InputValidationError("histogram bins must be >= 1")
+    if request.histogram_base not in {0, 2, 10}:
+        raise InputValidationError("histogram base must be one of 0, 2, 10")
+    if request.histogram_vmin is not None and request.histogram_vmax is not None:
+        if request.histogram_vmin >= request.histogram_vmax:
+            raise InputValidationError("histogram vmin must be smaller than vmax")

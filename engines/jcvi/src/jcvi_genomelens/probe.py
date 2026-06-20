@@ -18,6 +18,7 @@ BUNDLED_JCVI_MODULES = [
     "jcvi.compara.catalog",
     "jcvi.graphics.synteny",
     "jcvi.graphics.dotplot",
+    "jcvi.graphics.histogram",
     "jcvi.graphics.karyotype",
 ]
 

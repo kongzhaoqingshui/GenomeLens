@@ -13,7 +13,7 @@ from genomelens.analysis.requests.models import (
 )
 from genomelens.app.errors import messages
 from genomelens.app.errors.exceptions import InputValidationError
-from genomelens.core.jcvi_adapter.adapter_models import McscanRequest
+from genomelens.core.jcvi_adapter.adapter_models import HistogramRequest, McscanRequest
 from genomelens.core.models import (
     GenomeInputSpec,
     PreparedGenomeInputSpec,
@@ -182,4 +182,35 @@ def to_mcscan_request(request: AnalysisRequest) -> McscanRequest:
         verbose=bool(options.verbose),
         console_log=bool(options.console_log),
         **mapped,
+    )
+
+
+def to_histogram_request(request: AnalysisRequest) -> HistogramRequest:
+    """把 AnalysisRequest(分析请求) 转为 plot-only histogram(直方图) 请求"""
+
+    method_config = McscanMethodConfig.from_json(request.method_config)
+    inputs = [_path(item) for item in method_config.histogram_inputs]
+    if not inputs:
+        raise InputValidationError("graphics_histogram requires at least one histogram input file")
+
+    return HistogramRequest(
+        inputs=inputs,
+        outdir=_path(request.output.directory),
+        columns=list(method_config.histogram_columns) or [0],
+        formats=request.output.formats,
+        jcvi_engine=method_config.jcvi_engine,
+        force=bool(request.output.force),
+        histogram_skip=method_config.histogram_skip,
+        histogram_bins=method_config.histogram_bins,
+        histogram_vmin=method_config.histogram_vmin,
+        histogram_vmax=method_config.histogram_vmax,
+        histogram_xlabel=method_config.histogram_xlabel,
+        histogram_title=method_config.histogram_title,
+        histogram_base=method_config.histogram_base,
+        histogram_facet=method_config.histogram_facet,
+        histogram_fill=method_config.histogram_fill,
+        dpi=method_config.dpi,
+        log_level=str(request.options.log_level or "INFO").upper(),
+        verbose=bool(request.options.verbose),
+        console_log=bool(request.options.console_log),
     )

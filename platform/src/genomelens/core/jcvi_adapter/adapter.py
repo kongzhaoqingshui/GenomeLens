@@ -19,7 +19,7 @@ from typing import cast
 
 from genomelens._version import __version__
 from genomelens.app.errors.exceptions import EngineProbeError, EngineRunError, SummaryParseError
-from genomelens.core.jcvi_adapter.adapter_models import JcviRunResult, McscanRequest
+from genomelens.core.jcvi_adapter.adapter_models import HistogramRequest, JcviRunResult, McscanRequest
 from genomelens.core.jcvi_adapter.command_mapping import normalize_workflow
 from genomelens.core.jcvi_adapter.path_patch import absolute_path
 from genomelens.core.models import GenomeInputSpec, PreparedGenomeInputSpec
@@ -153,6 +153,45 @@ class JcviEngineAdapter:
                 "platform_protocol": "task_manifest_v2",
                 # 当前 engine 仍以 query/subject 为 pairwise worker 输入模型
                 "species_model": "pairwise_query_subject",
+            },
+        }
+
+    def build_histogram_manifest(self, request: HistogramRequest) -> dict[str, object]:
+        """构建 histogram workflow 的公开 engine manifest(引擎清单)"""
+
+        workflow = normalize_workflow(request.workflow)
+        return {
+            "schema_version": 2,
+            "workflow": workflow,
+            "task": {
+                **request.task_spec.to_manifest_json(),
+                "workflow": workflow,
+            },
+            "species": [],
+            "toolchain": {},
+            "options": {
+                "formats": request.formats,
+                "dpi": request.dpi,
+                "log_level": request.log_level,
+                "verbose": request.verbose,
+                "histogram_inputs": [absolute_path(item) for item in request.inputs],
+                "histogram_columns": list(request.columns),
+                "histogram_skip": request.histogram_skip,
+                "histogram_bins": request.histogram_bins,
+                "histogram_vmin": request.histogram_vmin,
+                "histogram_vmax": request.histogram_vmax,
+                "histogram_xlabel": request.histogram_xlabel,
+                "histogram_title": request.histogram_title,
+                "histogram_base": request.histogram_base,
+                "histogram_facet": request.histogram_facet,
+                "histogram_fill": request.histogram_fill,
+            },
+            "expected_outputs": ["figures"],
+            "meta": {
+                "source": "genomelens-shell",
+                "shell_version": __version__,
+                "platform_protocol": "task_manifest_v2",
+                "species_model": "plot_numeric_files",
             },
         }
 

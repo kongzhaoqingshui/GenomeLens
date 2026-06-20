@@ -78,6 +78,15 @@ def test_cli_help_for_mcscan_jcvi_subtask(capsys) -> None:
     assert "共享参数页:" in output
 
 
+def test_cli_help_for_mcscan_jcvi_histogram_subtask(capsys) -> None:
+    assert main(["help", "analyze", "mcscan", "jcvi", "graphics_histogram"]) == 0
+    output = capsys.readouterr().out
+
+    assert "genomelens analyze mcscan jcvi graphics_histogram" in output
+    assert "number_file output_dir" in output
+    assert "histogram-columns" in output
+
+
 def test_cli_help_for_analyze_run(capsys) -> None:
     assert main(["help", "analyze", "run"]) == 0
     output = capsys.readouterr().out
@@ -221,6 +230,56 @@ def test_analyze_mcscan_jcvi_subtask_sets_workflow(tmp_path: Path, monkeypatch) 
 
     assert code == 0
     assert captured["workflow"] == "graphics_dotplot"
+
+
+def test_analyze_mcscan_jcvi_histogram_subtask_sets_workflow(tmp_path: Path, monkeypatch) -> None:
+    numbers = tmp_path / "numbers.txt"
+    numbers.write_text("1\n2\n3\n", encoding="utf-8")
+    outdir = tmp_path / "out"
+    captured = {}
+
+    def fake_provider_run(_self, request, _signal_bus):
+        captured["workflow"] = request.method_config["workflow"]
+        captured["input_mode"] = request.input.mode
+        captured["species"] = request.input.species
+        captured["histogram_inputs"] = request.method_config["histogram_inputs"]
+        return RunSummary(
+            status="SUCCEEDED",
+            schema_version=2,
+            workflow="mcscan",
+            method="mcscan",
+            task={"workflow": "mcscan"},
+            species=[],
+            final_figures=[],
+            artifact_index=[],
+            logs={},
+            ui=UiBlock(
+                "SUCCEEDED", 1.0, [], str(outdir / "report" / "run_summary.json"), str(outdir / "logs" / "run.log")
+            ),
+            scoring=ScoringBlock(),
+        )
+
+    monkeypatch.setattr("genomelens.analysis.methods.mcscan_provider.McscanWorkflowProvider.run", fake_provider_run)
+
+    code = main(
+        [
+            "analyze",
+            "mcscan",
+            "jcvi",
+            "graphics_histogram",
+            str(numbers),
+            str(outdir),
+            "--histogram-columns",
+            "0",
+            "--force",
+        ]
+    )
+
+    assert code == 0
+    assert captured["workflow"] == "graphics_histogram"
+    assert captured["input_mode"] == "method_specific"
+    assert captured["species"] == []
+    assert captured["histogram_inputs"] == [str(numbers.resolve())]
 
 
 def test_analyze_mcscan_jcvi_subtask_overrides_workflow_flag(tmp_path: Path, monkeypatch) -> None:
@@ -1038,6 +1097,45 @@ def test_analyze_mcscan_local_synteny_flags(tmp_path: Path) -> None:
     assert any(local_dir.glob("*.local.layout"))
     assert summary["final_figures"]
     assert any("local" in Path(p).name for p in summary["final_figures"])
+
+
+def test_analyze_mcscan_graphics_histogram_end_to_end(tmp_path: Path) -> None:
+    numbers = tmp_path / "numbers.txt"
+    numbers.write_text("1\n2\n2\n3\n5\n8\n13\n", encoding="utf-8-sig")
+    outdir = tmp_path / "out-histogram"
+
+    code = main(
+        [
+            "analyze",
+            "mcscan",
+            "jcvi",
+            "graphics_histogram",
+            str(numbers),
+            str(outdir),
+            "--formats",
+            "png,svg",
+            "--histogram-columns",
+            "0",
+            "--histogram-bins",
+            "4",
+            "--histogram-title",
+            "Histogram",
+            "--force",
+        ]
+    )
+
+    assert code == 0
+    summary = json.loads((outdir / "report" / "run_summary.json").read_text(encoding="utf-8"))
+    assert summary["status"] == "SUCCEEDED"
+    assert summary["jcvi_workflow"] == "graphics_histogram"
+    assert summary["histogram_inputs"] == [str(numbers.resolve())]
+    assert len(summary["final_figures"]) == 2
+    assert all(Path(path).is_file() for path in summary["final_figures"])
+
+    manifest = json.loads((outdir / "inputs" / "input_manifest.json").read_text(encoding="utf-8"))
+    assert manifest["workflow"] == "graphics_histogram"
+    assert manifest["options"]["histogram_inputs"] == [str(numbers.resolve())]
+    assert manifest["options"]["histogram_bins"] == 4
 
 
 def test_analyze_mcscan_reference_swap(tmp_path: Path) -> None:

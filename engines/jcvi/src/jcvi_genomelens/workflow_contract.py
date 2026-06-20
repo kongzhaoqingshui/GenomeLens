@@ -16,6 +16,7 @@ SUPPORTED_WORKFLOWS = (
     "mcscan_pairwise",
     "graphics_synteny",
     "graphics_dotplot",
+    "graphics_histogram",
     "graphics_karyotype",
     "catalog_ortholog",
     "local_synteny",
@@ -25,6 +26,7 @@ SUPPORTED_WORKFLOWS = (
 
 WORKFLOW_ALIASES = {
     "dotplot": "graphics_dotplot",
+    "histogram": "graphics_histogram",
     "karyotype": "graphics_karyotype",
     "karyotype_global": GLOBAL_KARYOTYPE_WORKFLOW,
     "local": "local_synteny",

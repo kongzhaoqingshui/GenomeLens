@@ -92,6 +92,43 @@ def test_engine_run_graphics_dotplot(tmp_path: Path) -> None:
     assert Path(payload["artifacts"]["dotplot_figures"][0]).is_file()
 
 
+def test_engine_run_graphics_histogram(tmp_path: Path) -> None:
+    numbers = tmp_path / "numbers.txt"
+    numbers.write_text("1\n2\n2\n3\n5\n8\n13\n", encoding="utf-8")
+    manifest = {
+        "schema_version": 2,
+        "workflow": "graphics_histogram",
+        "task": {"task_id": "histogram", "task_type": "plot_histogram", "workflow": "graphics_histogram"},
+        "species": [],
+        "toolchain": {},
+        "options": {
+            "formats": ["png", "svg"],
+            "dpi": 150,
+            "histogram_inputs": [str(numbers)],
+            "histogram_columns": [0],
+            "histogram_bins": 4,
+            "histogram_vmin": 0,
+            "histogram_xlabel": "Ks",
+            "histogram_title": "Histogram",
+            "histogram_fill": "#8fb9a8",
+        },
+        "expected_outputs": ["figures"],
+        "meta": {"source": "pytest"},
+    }
+    manifest_path = tmp_path / "histogram.json"
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    summary_path = run_manifest(manifest_path, tmp_path / "histogram")
+    payload = json.loads(summary_path.read_text(encoding="utf-8"))
+
+    assert payload["status"] == "ok"
+    assert [command["name"] for command in payload["commands"]] == ["genomelens.graphics_histogram"]
+    assert len(payload["artifacts"]["histogram_figures"]) == 2
+    assert all(Path(path).is_file() for path in payload["artifacts"]["histogram_figures"])
+    assert payload["artifacts"]["histogram_columns"] == [0]
+    assert payload["artifacts"]["histogram_bins"] == 4
+    assert payload["artifacts"]["backend"] == "genomelens.matplotlib.histogram"
+
+
 def test_engine_run_graphics_karyotype(tmp_path: Path) -> None:
     manifest = tmp_path / "manifest.json"
     manifest.write_text(json.dumps(_manifest("graphics_karyotype")), encoding="utf-8")

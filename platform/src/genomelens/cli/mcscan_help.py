@@ -91,6 +91,24 @@ _PAGES: tuple[McscanHelpPage, ...] = (
         ),
     ),
     McscanHelpPage(
+        "histogram",
+        "Histogram",
+        "graphics_histogram 专用数值文件与绘图参数。",
+        (
+            ("--histogram-inputs HISTOGRAM_INPUTS", "附加数值文件，多个路径用逗号分隔"),
+            ("--histogram-columns HISTOGRAM_COLUMNS", "0-based 列号列表，多个列用逗号分隔"),
+            ("--histogram-skip HISTOGRAM_SKIP", "跳过输入文件前几行"),
+            ("--histogram-bins HISTOGRAM_BINS", "直方图 bin 数"),
+            ("--histogram-vmin HISTOGRAM_VMIN", "最小值下界，默认 0"),
+            ("--histogram-vmax HISTOGRAM_VMAX", "最大值上界"),
+            ("--histogram-xlabel HISTOGRAM_XLABEL", "X 轴标签"),
+            ("--histogram-title HISTOGRAM_TITLE", "图标题"),
+            ("--histogram-base {0,2,10}", "对数坐标底数，0 表示关闭"),
+            ("--histogram-facet", "多序列时分面展示"),
+            ("--histogram-fill HISTOGRAM_FILL", "柱体填充颜色"),
+        ),
+    ),
+    McscanHelpPage(
         "diagnostics",
         "诊断开关",
         "低层 JCVI workflow 和诊断参数，通常不需要手动指定。",
@@ -199,6 +217,16 @@ def _render_page(page: McscanHelpPage, *, enabled: bool) -> str:
 def _render_subtask(subtask: JcviSubtask, *, enabled: bool) -> str:
     command = f"genomelens analyze mcscan jcvi {subtask.name}"
     prefix = "help analyze mcscan jcvi"
+    usage = (
+        f"  {_paint(command, PALETTE.cyan, enabled=enabled)} number_file output_dir [jcvi_config_positional] [选项]"
+        if subtask.name == "graphics_histogram"
+        else f"  {_paint(command, PALETTE.cyan, enabled=enabled)} input_dir output_dir [jcvi_config_positional] [选项]"
+    )
+    example = (
+        f"  {_paint(command, PALETTE.cyan, enabled=enabled)} numbers.txt outdir --histogram-columns 0,1 --force"
+        if subtask.name == "graphics_histogram"
+        else f"  {_paint(command, PALETTE.cyan, enabled=enabled)} <input_dir> <output_dir> --force"
+    )
     lines = [
         f"{_paint(command, PALETTE.bold + PALETTE.blue, enabled=enabled)} - "
         f"{_paint(subtask.title, PALETTE.yellow, enabled=enabled)}",
@@ -206,10 +234,10 @@ def _render_subtask(subtask: JcviSubtask, *, enabled: bool) -> str:
         _paint(subtask.summary, PALETTE.gray, enabled=enabled),
         "",
         _paint("用法:", PALETTE.bold + PALETTE.blue, enabled=enabled),
-        f"  {_paint(command, PALETTE.cyan, enabled=enabled)} input_dir output_dir [jcvi_config_positional] [选项]",
+        usage,
         "",
         _paint("示例:", PALETTE.bold + PALETTE.blue, enabled=enabled),
-        f"  {_paint(command, PALETTE.cyan, enabled=enabled)} <input_dir> <output_dir> --force",
+        example,
         "",
         _paint("共享参数页:", PALETTE.bold + PALETTE.blue, enabled=enabled),
         f"  {_paint(prefix, PALETTE.cyan, enabled=enabled)} "

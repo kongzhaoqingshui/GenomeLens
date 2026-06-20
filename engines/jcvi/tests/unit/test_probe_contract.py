@@ -15,6 +15,7 @@ def test_probe_contract() -> None:
         "mcscan_pairwise",
         "graphics_synteny",
         "graphics_dotplot",
+        "graphics_histogram",
         "graphics_karyotype",
         "catalog_ortholog",
         "local_synteny",
@@ -23,4 +24,5 @@ def test_probe_contract() -> None:
     ]
     assert payload["dispatchable_workflows"] == payload["capabilities"]
     assert "jcvi.graphics.dotplot" in payload["bundled_jcvi_modules"]
+    assert "jcvi.graphics.histogram" in payload["bundled_jcvi_modules"]
     assert "jcvi.graphics.karyotype" in payload["bundled_jcvi_modules"]

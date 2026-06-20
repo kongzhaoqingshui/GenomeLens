@@ -6,6 +6,7 @@ import pytest
 
 from genomelens.analysis.methods.mcscan_request_mapping import (
     _map_method_config_to_request,
+    to_histogram_request,
     to_mcscan_request,
 )
 from genomelens.analysis.requests.models import (
@@ -246,3 +247,50 @@ def test_to_mcscan_request_rejects_target_genes_missing_from_reference_bed(tmp_p
         to_mcscan_request(request)
     assert "missing_gene" in str(exc_info.value)
     assert "ref" in str(exc_info.value)
+
+
+def test_to_histogram_request_uses_method_specific_inputs(tmp_path: Path) -> None:
+    numbers = tmp_path / "numbers.txt"
+    numbers.write_text("1\n2\n3\n", encoding="utf-8")
+    request = AnalysisRequest(
+        method="mcscan",
+        input=AnalysisInput(
+            mode="method_specific",
+            directory=str(numbers),
+            species=[],
+        ),
+        output=AnalysisOutput(
+            directory=str(tmp_path / "out"),
+            force=True,
+            formats=["png"],
+        ),
+        options=AnalysisOptions(log_level="WARNING"),
+        method_config=McscanMethodConfig(
+            workflow="graphics_histogram",
+            histogram_inputs=[str(numbers)],
+            histogram_columns=[0, 1],
+            histogram_bins=12,
+            histogram_vmin=0.0,
+            histogram_vmax=10.0,
+            histogram_xlabel="Ks",
+            histogram_title="Histogram",
+            histogram_base=10,
+            histogram_facet=True,
+            histogram_fill="#88aa99",
+            dpi=200,
+        ).to_json(),
+    )
+
+    histogram_request = to_histogram_request(request)
+
+    assert histogram_request.workflow == "graphics_histogram"
+    assert histogram_request.inputs == [numbers.resolve()]
+    assert histogram_request.columns == [0, 1]
+    assert histogram_request.formats == ["png"]
+    assert histogram_request.histogram_bins == 12
+    assert histogram_request.histogram_vmax == 10.0
+    assert histogram_request.histogram_xlabel == "Ks"
+    assert histogram_request.histogram_base == 10
+    assert histogram_request.histogram_facet is True
+    assert histogram_request.histogram_fill == "#88aa99"
+    assert histogram_request.dpi == 200

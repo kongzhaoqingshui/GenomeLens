@@ -7,11 +7,35 @@ GenomeLens engine(引擎) 当前可调度的 workflow(工作流) 包括：
 - `mcscan_pairwise`：执行 BLAST+ 与 JCVI MCscan(共线性扫描)，输出 anchors(锚点)、simple blocks(简化区块) 和 blocks(区块轨道)。
 - `graphics_synteny`：默认主链路，输出 dotplot(点图) 与 synteny figure(共线性图)。
 - `graphics_dotplot`：单独输出 dotplot(点图)。
+- `graphics_histogram`：读取一个或多个数值文件，输出 histogram(直方图)；适合 Ks、基因长度、覆盖度等分布检查。
 - `graphics_karyotype`：单独输出 karyotype(核型共线性图)。
 - `catalog_ortholog`：调用 `jcvi.compara.catalog.ortholog --full` 输出双向 ortholog(同源基因) 结果。
 - `graphics_karyotype_global`：跨全部物种的全局核型总图。它不重算共线性，而是把已算好的各对 `.simple` 边渲染成一张多轨总图；由多物种运行自动调度，不需要用户手动通过 `--jcvi-workflow` 选择。
 
-兼容别名 `dotplot` 和 `karyotype` 会被规范化为 `graphics_dotplot` 和 `graphics_karyotype`。
+兼容别名 `dotplot`、`histogram` 和 `karyotype` 会被规范化为 `graphics_dotplot`、`graphics_histogram` 和 `graphics_karyotype`。
+
+## Histogram 工作流
+
+`graphics_histogram` 是一个 plot-only workflow(纯绘图工作流)，不要求 `species[]`、BED/CDS 或 GFF/FASTA 输入。它直接读取数值文本文件，并复用 GenomeLens 的 manifest、summary、artifact 归档链路。
+
+常见用法：
+
+```powershell
+GenomeLens.exe analyze mcscan jcvi graphics_histogram numbers.txt output `
+  --formats png,svg `
+  --histogram-columns 0 `
+  --histogram-bins 40 `
+  --histogram-title "Ks histogram" `
+  --force
+```
+
+补充说明：
+
+- 第一个位置参数在该子任务下表示数值文件路径，而不是物种输入目录。
+- 可通过 `--histogram-inputs a.txt,b.txt` 追加更多文件。
+- 可通过 `--histogram-columns 0,1` 从同一个文件中读取多列并叠加/分面展示。
+- `--histogram-facet` 会把多序列拆成多个子图；默认是叠加在同一张图上。
+- 当前实现使用 Python/matplotlib 后端，避免依赖未随环境分发的 `Rscript`。
 
 ## 一站式流程：多物种局部共线性分析
 

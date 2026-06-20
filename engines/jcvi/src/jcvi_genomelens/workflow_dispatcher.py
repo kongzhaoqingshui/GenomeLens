@@ -15,6 +15,7 @@ from jcvi_genomelens.workflow_contract import (
 from jcvi_genomelens.workflows import (
     catalog_ortholog,
     graphics_dotplot,
+    graphics_histogram,
     graphics_karyotype,
     graphics_karyotype_global,
     graphics_synteny,
@@ -37,6 +38,8 @@ def dispatch(manifest: EngineRunManifest, outdir: str | Path) -> tuple[list[Comm
         return graphics_synteny.run(manifest, outdir)
     if workflow == "graphics_dotplot":
         return graphics_dotplot.run(manifest, outdir)
+    if workflow == "graphics_histogram":
+        return graphics_histogram.run(manifest, outdir)
     if workflow == "graphics_karyotype":
         return graphics_karyotype.run(manifest, outdir)
     if workflow == "catalog_ortholog":

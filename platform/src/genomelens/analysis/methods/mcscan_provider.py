@@ -3,12 +3,12 @@
 # region import
 from __future__ import annotations
 
-from genomelens.analysis.methods.mcscan_request_mapping import to_mcscan_request
+from genomelens.analysis.methods.mcscan_request_mapping import to_histogram_request, to_mcscan_request
 from genomelens.analysis.requests.models import AnalysisRequest
 from genomelens.app.controller.state_machine import WorkflowState
 from genomelens.app.controller.workflow_provider import WorkflowProvider
 from genomelens.app.events.signal_bus import SignalBus
-from genomelens.core.jcvi_adapter.adapter_models import McscanRequest
+from genomelens.core.jcvi_adapter.adapter_models import HistogramRequest, McscanRequest
 from genomelens.core.summary_models import RunSummary
 
 # endregion
@@ -35,10 +35,16 @@ class McscanWorkflowProvider(WorkflowProvider):
     def run(self, request: AnalysisRequest, signal_bus: SignalBus) -> RunSummary:
         """运行一次 MCscan 分析任务（预期为 2 个物种的 pairwise 请求）"""
 
+        from genomelens.app.controller.runners.histogram_runner import run_histogram_workflow
         from genomelens.app.controller.runners.pairwise_runner import run_pairwise_mcscan
 
         def _set_state(state: WorkflowState) -> None:
             signal_bus.emit("state", state=state.value)
+
+        workflow = str(request.method_config.get("workflow") or "")
+        if workflow == "graphics_histogram":
+            histogram_request = to_histogram_request(request)
+            return run_histogram_workflow(_set_state, histogram_request)
 
         mcscan_request = to_mcscan_request(request)
         return run_pairwise_mcscan(_set_state, mcscan_request)
@@ -48,3 +54,9 @@ def _to_mcscan_request(request: AnalysisRequest) -> McscanRequest:
     """把 AnalysisRequest 转成 McscanRequest（provider 内部使用的便利函数）"""
 
     return to_mcscan_request(request)
+
+
+def _to_histogram_request(request: AnalysisRequest) -> HistogramRequest:
+    """把 AnalysisRequest 转成 HistogramRequest（provider 内部使用的便利函数）"""
+
+    return to_histogram_request(request)
