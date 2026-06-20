@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Protocol, TextIO, cast
 
+from genomelens._version import __version__
 from genomelens.analysis.methods.registry import list_methods
 from genomelens.analysis.requests.models import AnalysisRequest
 from genomelens.app.events.signal_bus import Event, SignalBus
@@ -581,6 +582,7 @@ def render_workbench_banner(*, color: bool | None = None) -> str:
     title = _paint("✦ GenomeLens", PALETTE.bold + PALETTE.blue, enabled=enabled)
     subtitle = _paint("比较基因组学工作台", PALETTE.gray, enabled=enabled)
     status = _paint("● 就绪", PALETTE.green, enabled=enabled)
+    version = _paint(f"Version {__version__}", PALETTE.gray, enabled=enabled)
     core = (
         f"{_paint('外壳', PALETTE.cyan, enabled=enabled)} "
         f"{_paint('→', PALETTE.gray, enabled=enabled)} "
@@ -599,6 +601,7 @@ def render_workbench_banner(*, color: bool | None = None) -> str:
     header = [
         f"{title}  {subtitle}",
         f"{status}    {core}",
+        version,
     ]
     method_lines = [_paint("可用分析方法", PALETTE.bold, enabled=enabled), *[f"  {line}" for line in methods]]
 

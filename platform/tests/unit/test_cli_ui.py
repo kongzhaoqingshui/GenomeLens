@@ -1,6 +1,7 @@
 import argparse
 import io
 
+from genomelens._version import __version__
 from genomelens.analysis.requests.models import (
     AnalysisInput,
     AnalysisOutput,
@@ -22,6 +23,7 @@ from genomelens.cli.ui import (
 def test_workbench_banner_plain_text() -> None:
     banner = render_workbench_banner(color=False)
     assert "GenomeLens" in banner
+    assert f"Version {__version__}" in banner
     assert "常用命令" in banner
     assert "analyze mcscan" in banner
     assert "analyze run" in banner
