@@ -53,7 +53,7 @@ ANALYSIS_REQUEST_JSON_SCHEMA: dict[str, object] = {
             "properties": {
                 "mode": {
                     "type": "string",
-                    "enum": ["auto_directory", "bed_cds", "gff_genome"],
+                    "enum": ["auto_directory", "bed_cds", "gff_genome", "method_specific"],
                 },
                 "directory": {
                     "type": "string",
@@ -261,6 +261,60 @@ ANALYSIS_REQUEST_JSON_SCHEMA: dict[str, object] = {
                     "type": "integer",
                     "minimum": 1,
                     "default": 300,
+                },
+                "histogram_inputs": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                    },
+                    "default": [],
+                },
+                "histogram_columns": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer",
+                        "minimum": 0,
+                    },
+                    "default": [0],
+                },
+                "histogram_skip": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "default": 0,
+                },
+                "histogram_bins": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "default": 20,
+                },
+                "histogram_vmin": {
+                    "type": ["number", "null"],
+                    "default": 0.0,
+                },
+                "histogram_vmax": {
+                    "type": ["number", "null"],
+                    "default": None,
+                },
+                "histogram_xlabel": {
+                    "type": "string",
+                    "default": "value",
+                },
+                "histogram_title": {
+                    "type": "string",
+                    "default": "",
+                },
+                "histogram_base": {
+                    "type": "integer",
+                    "enum": [0, 2, 10],
+                    "default": 0,
+                },
+                "histogram_facet": {
+                    "type": "boolean",
+                    "default": False,
+                },
+                "histogram_fill": {
+                    "type": "string",
+                    "default": "white",
                 },
             },
         },

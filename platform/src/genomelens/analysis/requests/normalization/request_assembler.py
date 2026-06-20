@@ -46,6 +46,29 @@ from genomelens.data.config.config_store import read_optional_config
 # endregion
 
 
+def _comma_split(text: str) -> list[str]:
+    """按逗号拆分非空文本项"""
+
+    return [item.strip() for item in text.split(",") if item.strip()]
+
+
+def _histogram_inputs(args: argparse.Namespace) -> list[str]:
+    """解析 histogram 输入文件列表"""
+
+    primary = _path_text(args.input_dir)
+    extras = _comma_split(str(getattr(args, "histogram_inputs", "") or ""))
+    return [primary, *(_path_text(item) for item in extras)]
+
+
+def _histogram_columns(args: argparse.Namespace) -> list[int]:
+    """解析 histogram 列号列表"""
+
+    raw = _comma_split(str(getattr(args, "histogram_columns", "") or ""))
+    if not raw:
+        return [0]
+    return [int(item) for item in raw]
+
+
 def read_request_config(request: AnalysisRequest) -> ConfigModel | None:
     """读取 request(请求) 引用的配置文件"""
 
@@ -83,6 +106,17 @@ def _build_mcscan_method_config(args: argparse.Namespace, config: ConfigModel | 
         figsize=_style_arg(args, config, "figsize"),
         dpi=_dpi(args, config),
         auto_optimization=_auto_optimization_dict(args, config),
+        histogram_inputs=_histogram_inputs(args),
+        histogram_columns=_histogram_columns(args),
+        histogram_skip=int(getattr(args, "histogram_skip", 0) or 0),
+        histogram_bins=int(getattr(args, "histogram_bins", 20) or 20),
+        histogram_vmin=float(args.histogram_vmin) if getattr(args, "histogram_vmin", None) is not None else 0.0,
+        histogram_vmax=float(args.histogram_vmax) if getattr(args, "histogram_vmax", None) is not None else None,
+        histogram_xlabel=str(getattr(args, "histogram_xlabel", "") or "value"),
+        histogram_title=str(getattr(args, "histogram_title", "") or ""),
+        histogram_base=int(getattr(args, "histogram_base", 0) or 0),
+        histogram_facet=bool(getattr(args, "histogram_facet", False)),
+        histogram_fill=str(getattr(args, "histogram_fill", "") or "white"),
     )
 
 
@@ -101,15 +135,23 @@ def mcscan_auto_request_from_cli(args: argparse.Namespace) -> AnalysisRequest:
     )
     config = read_request_config(base_request)
 
-    input_dir = _path_text(args.input_dir)
-    discovered = discover_species_from_directory(input_dir)
-    reference_index = _resolve_reference_index(_reference(args, config), discovered)
-    analysis_input = AnalysisInput(
-        mode="auto_directory",
-        directory=input_dir,
-        species=discovered,
-        reference_index=reference_index,
-    )
+    method_config = _build_mcscan_method_config(args, config)
+    if method_config.workflow == "graphics_histogram":
+        analysis_input = AnalysisInput(
+            mode="method_specific",
+            directory=_path_text(args.input_dir),
+            species=[],
+        )
+    else:
+        input_dir = _path_text(args.input_dir)
+        discovered = discover_species_from_directory(input_dir)
+        reference_index = _resolve_reference_index(_reference(args, config), discovered)
+        analysis_input = AnalysisInput(
+            mode="auto_directory",
+            directory=input_dir,
+            species=discovered,
+            reference_index=reference_index,
+        )
     return AnalysisRequest(
         method="mcscan",
         input=analysis_input,
@@ -127,7 +169,7 @@ def mcscan_auto_request_from_cli(args: argparse.Namespace) -> AnalysisRequest:
             verbose=bool(getattr(args, "verbose", False)),
             console_log=False,
         ),
-        method_config=_build_mcscan_method_config(args, config).to_json(),
+        method_config=method_config.to_json(),
     )
 
 

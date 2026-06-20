@@ -116,6 +116,56 @@ class HeatmapPlotRequest:
 
 
 @dataclass(frozen=True)
+class HistogramRequest:
+    """HistogramRequest(直方图请求)：plot-only workflow(纯绘图工作流) 的 shell 请求"""
+
+    inputs: list[Path]
+    outdir: Path
+    columns: list[int] = field(default_factory=lambda: [0])
+    formats: list[str] = field(default_factory=lambda: ["svg"])
+    jcvi_engine: str = ""
+    force: bool = False
+    histogram_skip: int = 0
+    histogram_bins: int = 20
+    histogram_vmin: float | None = 0.0
+    histogram_vmax: float | None = None
+    histogram_xlabel: str = "value"
+    histogram_title: str = ""
+    histogram_base: int = 0
+    histogram_facet: bool = False
+    histogram_fill: str = "white"
+    dpi: int = 300
+    log_level: str = "INFO"
+    verbose: bool = False
+    console_log: bool = False
+
+    @property
+    def workflow(self) -> str:
+        """返回稳定的 workflow 名称"""
+
+        return "graphics_histogram"
+
+    @property
+    def task_id(self) -> str:
+        """返回可读且稳定的任务标识"""
+
+        stems = "__".join(path.stem for path in self.inputs)
+        suffix = "cols_" + "_".join(str(item) for item in self.columns)
+        return f"{stems}__{suffix}__{self.workflow}"
+
+    @property
+    def task_spec(self) -> AnalysisTaskSpec:
+        """构建平台核心使用的任务规格"""
+
+        return AnalysisTaskSpec(
+            task_id=self.task_id,
+            task_type="plot_histogram",
+            workflow=self.workflow,
+            species=[],
+        )
+
+
+@dataclass(frozen=True)
 class JcviRunResult:
     """JcviRunResult(engine 结果)：解析后的 engine summary(引擎摘要) 字段"""
 

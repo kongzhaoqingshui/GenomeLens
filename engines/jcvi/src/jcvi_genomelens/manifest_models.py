@@ -65,6 +65,17 @@ class WorkflowOptions:
     log_level: str = "INFO"
     verbose: bool = False
     auto_optimization: dict[str, bool] = field(default_factory=dict)
+    histogram_inputs: list[Path] = field(default_factory=list)
+    histogram_columns: list[int] = field(default_factory=lambda: [0])
+    histogram_skip: int = 0
+    histogram_bins: int = 20
+    histogram_vmin: float | None = 0.0
+    histogram_vmax: float | None = None
+    histogram_xlabel: str = "value"
+    histogram_title: str = ""
+    histogram_base: int = 0
+    histogram_facet: bool = False
+    histogram_fill: str = "white"
 
 
 @dataclass(frozen=True)

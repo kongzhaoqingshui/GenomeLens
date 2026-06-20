@@ -9,6 +9,8 @@ from jcvi_genomelens.manifest_models import EngineRunManifest
 from jcvi_genomelens.runtime.command_runner import CommandAudit
 from jcvi_genomelens.workflow_contract import (
     GLOBAL_KARYOTYPE_WORKFLOW,
+    HEATMAP_WORKFLOW,
+    HISTOGRAM_WORKFLOW,
     MULTI_LOCAL_SYNTENY_WORKFLOW,
     normalize_workflow,
 )
@@ -16,6 +18,7 @@ from jcvi_genomelens.workflows import (
     catalog_ortholog,
     graphics_dotplot,
     graphics_heatmap,
+    graphics_histogram,
     graphics_karyotype,
     graphics_karyotype_global,
     graphics_synteny,
@@ -38,9 +41,11 @@ def dispatch(manifest: EngineRunManifest, outdir: str | Path) -> tuple[list[Comm
         return graphics_synteny.run(manifest, outdir)
     if workflow == "graphics_dotplot":
         return graphics_dotplot.run(manifest, outdir)
+    if workflow == HISTOGRAM_WORKFLOW:
+        return graphics_histogram.run(manifest, outdir)
     if workflow == "graphics_karyotype":
         return graphics_karyotype.run(manifest, outdir)
-    if workflow == "graphics_heatmap":
+    if workflow == HEATMAP_WORKFLOW:
         return graphics_heatmap.run(manifest, outdir)
     if workflow == "catalog_ortholog":
         return catalog_ortholog.run(manifest, outdir)

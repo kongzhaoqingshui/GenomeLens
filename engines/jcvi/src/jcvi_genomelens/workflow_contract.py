@@ -12,11 +12,13 @@ from __future__ import annotations
 GLOBAL_KARYOTYPE_WORKFLOW = "graphics_karyotype_global"
 MULTI_LOCAL_SYNTENY_WORKFLOW = "local_synteny_multi"
 HEATMAP_WORKFLOW = "graphics_heatmap"
+HISTOGRAM_WORKFLOW = "graphics_histogram"
 
 SUPPORTED_WORKFLOWS = (
     "mcscan_pairwise",
     "graphics_synteny",
     "graphics_dotplot",
+    "graphics_histogram",
     "graphics_karyotype",
     HEATMAP_WORKFLOW,
     "catalog_ortholog",
@@ -28,6 +30,7 @@ SUPPORTED_WORKFLOWS = (
 WORKFLOW_ALIASES = {
     "dotplot": "graphics_dotplot",
     "heatmap": HEATMAP_WORKFLOW,
+    "histogram": HISTOGRAM_WORKFLOW,
     "karyotype": "graphics_karyotype",
     "karyotype_global": GLOBAL_KARYOTYPE_WORKFLOW,
     "local": "local_synteny",

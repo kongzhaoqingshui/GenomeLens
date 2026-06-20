@@ -224,7 +224,7 @@ def run_heatmap(args: argparse.Namespace) -> int:
             engine_result = adapter.run_manifest(layout.manifest, layout.jcvi)
 
         with task_scope(logger, task_id=request.task_id, step="archive_figures"):
-            figures = [str(item) for item in (engine_result.artifacts.get("figures") or [])]
+            figures = [str(item) for item in cast(list[object], engine_result.artifacts.get("figures") or [])]
             final_figures = archive_figures(figures, layout.figures)
 
         with task_scope(logger, task_id=request.task_id, step="write_summary"):

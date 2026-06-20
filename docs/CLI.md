@@ -121,6 +121,31 @@ GenomeLens.exe analyze mcscan --help
 - `--formats svg,pdf`：输出格式。
 - `--jcvi-workflow <name>`：选择 workflow。
 
+## Histogram 直方图
+
+`graphics_histogram` 子任务直接消费数值文件，不走物种目录自动发现：
+
+```powershell
+GenomeLens.exe analyze mcscan jcvi graphics_histogram numbers.txt output `
+  --histogram-columns 0,1 `
+  --histogram-bins 30 `
+  --histogram-title "Histogram" `
+  --force
+```
+
+常用参数：
+
+- `--histogram-inputs <path1,path2,...>`：追加更多数值文件。
+- `--histogram-columns <c1,c2,...>`：读取哪些 0-based 列。
+- `--histogram-skip <int>`：跳过文件前几行。
+- `--histogram-bins <int>`：设置 bin 数。
+- `--histogram-vmin <float>` / `--histogram-vmax <float>`：限制数值范围。
+- `--histogram-xlabel <text>`：设置 X 轴标签。
+- `--histogram-title <text>`：设置图标题。
+- `--histogram-base {0,2,10}`：启用对数 X 轴。
+- `--histogram-facet`：多序列时分面展示。
+- `--histogram-fill <color>`：设置柱体填充颜色。
+
 ## 目标基因局部共线性
 
 局部共线性参数仍通过 `analyze mcscan` 传入：

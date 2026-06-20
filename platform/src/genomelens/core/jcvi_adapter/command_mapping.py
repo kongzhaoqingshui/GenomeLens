@@ -5,6 +5,7 @@ SUPPORTED_WORKFLOWS = {
     "graphics_synteny",
     "graphics_dotplot",
     "graphics_heatmap",
+    "graphics_histogram",
     "graphics_karyotype",
     "catalog_ortholog",
     "local_synteny",
@@ -13,6 +14,7 @@ SUPPORTED_WORKFLOWS = {
 WORKFLOW_ALIASES = {
     "dotplot": "graphics_dotplot",
     "heatmap": "graphics_heatmap",
+    "histogram": "graphics_histogram",
     "karyotype": "graphics_karyotype",
     "local": "local_synteny",
 }

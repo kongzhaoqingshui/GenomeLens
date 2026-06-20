@@ -211,7 +211,20 @@ class McscanMethodConfig:
     shadestyle: str = ""
     figsize: str = ""
     dpi: int = 300
+    # GenomeLens 自动优化开关（嵌套，便于区分原生 JCVI 参数）
     auto_optimization: dict[str, bool] = field(default_factory=dict)
+    # 直方图 workflow 参数
+    histogram_inputs: list[str] = field(default_factory=list)
+    histogram_columns: list[int] = field(default_factory=lambda: [0])
+    histogram_skip: int = 0
+    histogram_bins: int = 20
+    histogram_vmin: float | None = 0.0
+    histogram_vmax: float | None = None
+    histogram_xlabel: str = "value"
+    histogram_title: str = ""
+    histogram_base: int = 0
+    histogram_facet: bool = False
+    histogram_fill: str = "white"
 
     def to_json(self) -> dict[str, object]:
         return {
@@ -238,10 +251,22 @@ class McscanMethodConfig:
             "figsize": self.figsize,
             "dpi": self.dpi,
             "auto_optimization": dict(self.auto_optimization),
+            "histogram_inputs": list(self.histogram_inputs),
+            "histogram_columns": list(self.histogram_columns),
+            "histogram_skip": self.histogram_skip,
+            "histogram_bins": self.histogram_bins,
+            "histogram_vmin": self.histogram_vmin,
+            "histogram_vmax": self.histogram_vmax,
+            "histogram_xlabel": self.histogram_xlabel,
+            "histogram_title": self.histogram_title,
+            "histogram_base": self.histogram_base,
+            "histogram_facet": self.histogram_facet,
+            "histogram_fill": self.histogram_fill,
         }
 
     @classmethod
     def from_json(cls, data: dict[str, object]) -> McscanMethodConfig:
+        raw_histogram_columns = data.get("histogram_columns")
         return cls(
             workflow=_str(data.get("workflow"), default="graphics_synteny"),
             jcvi_engine=_str(data.get("jcvi_engine")),
@@ -266,6 +291,21 @@ class McscanMethodConfig:
             figsize=_str(data.get("figsize")),
             dpi=_int(data.get("dpi"), default=300),
             auto_optimization=_bool_dict(data.get("auto_optimization")),
+            histogram_inputs=_str_list(data.get("histogram_inputs")),
+            histogram_columns=[_int(item, default=0) for item in raw_histogram_columns]
+            if isinstance(raw_histogram_columns, list) and raw_histogram_columns
+            else [0],
+            histogram_skip=_int(data.get("histogram_skip"), default=0),
+            histogram_bins=_int(data.get("histogram_bins"), default=20),
+            histogram_vmin=_float(data.get("histogram_vmin"), default=0.0),
+            histogram_vmax=_float(data.get("histogram_vmax"), default=0.0)
+            if data.get("histogram_vmax") is not None
+            else None,
+            histogram_xlabel=_str(data.get("histogram_xlabel"), default="value"),
+            histogram_title=_str(data.get("histogram_title")),
+            histogram_base=_int(data.get("histogram_base"), default=0),
+            histogram_facet=_bool(data.get("histogram_facet"), default=False),
+            histogram_fill=_str(data.get("histogram_fill"), default="white"),
         )
 
 

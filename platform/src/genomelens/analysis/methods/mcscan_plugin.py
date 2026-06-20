@@ -6,11 +6,12 @@ from __future__ import annotations
 import argparse
 
 from genomelens.analysis.methods.mcscan_provider import McscanWorkflowProvider
-from genomelens.analysis.methods.mcscan_request_mapping import to_mcscan_request
+from genomelens.analysis.methods.mcscan_request_mapping import to_histogram_request, to_mcscan_request
 from genomelens.analysis.methods.registry import ArtifactDeclaration, MethodPlugin
-from genomelens.analysis.requests.models import AnalysisRequest
+from genomelens.analysis.requests.models import AnalysisRequest, McscanMethodConfig
 from genomelens.analysis.requests.normalizer import mcscan_auto_request_from_cli
 from genomelens.app.controller.workflow_provider import WorkflowProvider
+from genomelens.core.validators import validate_histogram_request
 
 # endregion
 
@@ -39,6 +40,10 @@ class McscanPlugin(MethodPlugin):
     def validate_request(self, request: AnalysisRequest) -> None:
         """通过构造 McscanRequest 来校验输入是否满足 MCscan 要求"""
 
+        workflow = McscanMethodConfig.from_json(request.method_config).workflow
+        if workflow == "graphics_histogram":
+            validate_histogram_request(to_histogram_request(request))
+            return
         to_mcscan_request(request)
 
     def get_provider(self) -> WorkflowProvider:
@@ -141,6 +146,40 @@ class McscanPlugin(MethodPlugin):
             action="store_true",
             help="切除 blocks 中跨染色体的基因行",
         )
+
+        # endregion
+
+        # region Histogram 参数
+        histogram_group = parser.add_argument_group("Histogram")
+        histogram_group.add_argument(
+            "--histogram-inputs",
+            default="",
+            help="附加数值文件，多个路径用逗号分隔，仅 graphics_histogram 使用",
+        )
+        histogram_group.add_argument(
+            "--histogram-columns",
+            default="0",
+            help="要读取的列号，0-based，多个列用逗号分隔",
+        )
+        histogram_group.add_argument("--histogram-skip", type=int, default=0, help="跳过输入文件前几行")
+        histogram_group.add_argument("--histogram-bins", type=int, default=20, help="直方图 bin 数")
+        histogram_group.add_argument("--histogram-vmin", type=float, default=None, help="最小值下界，默认 0")
+        histogram_group.add_argument("--histogram-vmax", type=float, default=None, help="最大值上界")
+        histogram_group.add_argument("--histogram-xlabel", default="value", help="X 轴标签")
+        histogram_group.add_argument("--histogram-title", default="", help="图标题")
+        histogram_group.add_argument(
+            "--histogram-base",
+            type=int,
+            choices=[0, 2, 10],
+            default=0,
+            help="对数坐标底数，0 表示关闭",
+        )
+        histogram_group.add_argument(
+            "--histogram-facet",
+            action="store_true",
+            help="多序列输入时分面展示，而不是叠加在同一张图上",
+        )
+        histogram_group.add_argument("--histogram-fill", default="white", help="柱体填充颜色")
 
         # endregion
 

@@ -32,6 +32,12 @@ JCVI_SUBTASKS: tuple[JcviSubtask, ...] = (
         "运行 pairwise MCscan 后调用 JCVI graphics.dotplot 出图。",
     ),
     JcviSubtask(
+        "graphics_histogram",
+        "graphics_histogram",
+        "直方图",
+        "读取一个或多个数值文件，绘制数值分布直方图。",
+    ),
+    JcviSubtask(
         "local_synteny",
         "local_synteny",
         "目标基因局部共线性",
