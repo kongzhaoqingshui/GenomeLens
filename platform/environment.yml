@@ -20,3 +20,14 @@ dependencies:
       - ortools
       - palettable
       - rich
+      # JCVI 未来能力扩展依赖（Windows 可直接安装部分）
+      - deap
+      - pyliftover
+      - boto3
+      - pyefd
+      # 以下依赖在 Windows 上无法直接安装，暂保留为注释：
+      # - pybedtools   # 需要 bedtools + C 编译环境
+      # - bx-python    # 源码编译需要 zlib/samtools 头文件
+      # - pysam        # Windows 无官方 wheel/conda 包
+      # - CrossMap     # 即 cmmodule，依赖 pysam
+      # - pyfasta      # 0.5.2 不兼容 Python 3，需 pyfastx 替代或源码补丁

@@ -31,6 +31,19 @@ dev = [
   "pyinstaller>=6",
   "ruff>=0.6",
 ]
+# 未来 JCVI 能力扩展所需的额外依赖。
+# 注意：部分包在 Windows 上没有预构建 wheel，当前环境无法直接安装。
+future = [
+  "deap",               # assembly.hic, algorithms.ec
+  "pyliftover",         # variation.impute, formats.vcf
+  "boto3",              # variation.delly, utils.aws
+  "pyefd",              # graphics.grabseeds
+  # "pyfasta",          # 0.5.2 不支持 Python 3，需替换为 pyfastx 或打补丁
+  # "pysam",            # Windows 无官方 wheel/conda 包，需 WSL 或源码编译
+  # "pybedtools",       # 依赖 bedtools 与 pysam，Windows 支持差
+  # "bx-python",        # 源码编译需要 zlib/samtools 头文件，Windows 复杂
+  # "CrossMap",         # 依赖 pysam，即 cmmodule 的宿主包
+]
 
 [project.scripts]
 jcvi-genomelens = "jcvi_genomelens.cli:main"
