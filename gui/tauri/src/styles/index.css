@@ -41,7 +41,57 @@ button {
   font: inherit;
 }
 
+#root {
+  min-height: 100vh;
+}
+
+.jcvi-launch-shell {
+  box-shadow:
+    0 24px 80px rgba(14, 165, 233, 0.12),
+    0 4px 16px rgba(15, 23, 42, 0.08);
+}
+
+.jcvi-launch-icon {
+  animation: jcvi-drop-in 0.85s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.jcvi-launch-line {
+  animation: jcvi-line-pulse 2.2s ease-in-out infinite;
+}
+
+@keyframes jcvi-drop-in {
+  0% {
+    opacity: 0;
+    transform: translateY(-22px) scale(0.9);
+  }
+  60% {
+    opacity: 1;
+    transform: translateY(8px) scale(1.03);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes jcvi-line-pulse {
+  0%,
+  100% {
+    opacity: 0.28;
+    transform: scaleX(0.92);
+  }
+  50% {
+    opacity: 0.82;
+    transform: scaleX(1.06);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .jcvi-launch-icon,
+  .jcvi-launch-line {
+    animation: none !important;
+  }
+
   *,
   *::before,
   *::after {

@@ -56,6 +56,15 @@ vi.mock("@tauri-apps/api/core", () => ({
         truncated: false,
       });
     }
+    if (command === "check_environment") {
+      return Promise.resolve({
+        status: "ok",
+        blastn: { status: "ok", path: "blastn", message: "ready" },
+        makeblastdb: { status: "ok", path: "makeblastdb", message: "ready" },
+        magick: { status: "ok", path: "magick", message: "ready" },
+        jcvi_engine: { status: "ok", path: "jcvi-genomelens", message: "ready" },
+      });
+    }
     if (command === "open_path") {
       return Promise.resolve();
     }
@@ -86,13 +95,12 @@ afterEach(() => {
 });
 
 describe("App", () => {
-  it("renders the Phase 0 workbench", async () => {
+  it("renders the JCVI喵 desktop and startup overlay", async () => {
     render(<App />);
 
-    expect(screen.getByText("比较基因组学分析工作台")).toBeInTheDocument();
+    expect(screen.getAllByText("JCVI喵").length).toBeGreaterThan(0);
+    expect(screen.getByRole("heading", { name: "正在唤醒你的 JCVI 工作台" })).toBeInTheDocument();
     expect(await screen.findByText("GenomeLens Shell 0.0.0")).toBeInTheDocument();
-    const analysisRequestEntries = await screen.findAllByText(/analysis_request/);
-    expect(analysisRequestEntries.length).toBeGreaterThan(0);
   });
 
   it("switches theme modes", async () => {
@@ -104,15 +112,14 @@ describe("App", () => {
     expect(window.localStorage.getItem("genomelens.theme")).toBe("dark");
   });
 
-  it("navigates through primary entries", async () => {
+  it("navigates from the home ring into the analysis workbench", async () => {
     render(<App />);
 
-    fireEvent.click(screen.getByRole("button", { name: "新建分析任务" }));
+    fireEvent.click(await screen.findByRole("button", { name: /进入分析工作台/ }));
 
     expect(window.location.hash).toBe("#/analysis/new");
-    expect(screen.getByText(/任务创建向导入口/)).toBeInTheDocument();
-    expect(await screen.findByText("MCSCAN 分析向导")).toBeInTheDocument();
+    expect(screen.getByText(/JCVI 任务工作台/)).toBeInTheDocument();
+    expect(await screen.findByText("MCSCAN 分析工作台")).toBeInTheDocument();
     expect(screen.getByText("validateAnalysisRequestDraft()")).toBeInTheDocument();
-    expect(screen.getByText("draftToAnalysisRequest()")).toBeInTheDocument();
   });
 });
