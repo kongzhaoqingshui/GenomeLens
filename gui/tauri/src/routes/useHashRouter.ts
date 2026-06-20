@@ -4,7 +4,8 @@ import { APP_ROUTES, findRouteByPath, type AppRoute } from "./routes";
 
 function normalizeHash(hash: string): string {
   const value = hash.replace(/^#/, "");
-  return value.startsWith("/") ? value : "/";
+  const pathname = value.split("?")[0] ?? "/";
+  return pathname.startsWith("/") ? pathname : "/";
 }
 
 function readCurrentRoute(): AppRoute {
@@ -13,9 +14,11 @@ function readCurrentRoute(): AppRoute {
 
 export function useHashRouter() {
   const [route, setRoute] = useState<AppRoute>(readCurrentRoute);
+  const [hash, setHash] = useState(window.location.hash || "#/");
 
   useEffect(() => {
     function handleHashChange(): void {
+      setHash(window.location.hash || "#/");
       setRoute(readCurrentRoute());
     }
 
@@ -25,16 +28,18 @@ export function useHashRouter() {
 
   const navigate = useCallback((path: string) => {
     window.location.hash = path;
-    setRoute(findRouteByPath(path));
+    setHash(`#${path}`);
+    setRoute(findRouteByPath(normalizeHash(path)));
   }, []);
 
   return useMemo(
     () => ({
+      hash,
       route,
       routes: APP_ROUTES,
       navigate,
     }),
-    [navigate, route],
+    [hash, navigate, route],
   );
 }
 

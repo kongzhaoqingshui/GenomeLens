@@ -12,6 +12,7 @@ import type {
   SpeciesInputMode,
 } from "../models/analysis-request";
 import type { AnalysisRequestDraft, SpeciesInputDraft } from "../models/analysis-request-draft";
+import { createDraftForCapability, type JcviCapabilityId } from "../models";
 import { draftToAnalysisRequest } from "../models/analysis-request-draft";
 import {
   appendRunLogLines,
@@ -26,6 +27,8 @@ import { listenToAnalysisEvents, openPath, readRunLog, readSummaryView, runAnaly
 
 interface NewAnalysisPageProps {
   route: AppRoute;
+  onNavigate: (path: string) => void;
+  locationHash: string;
 }
 
 const FIELD_CLASS =
@@ -61,6 +64,12 @@ const MCSCAN_NUMBER_FIELDS: Array<{
   { key: "up", label: "upstream", min: 0, step: 1 },
   { key: "down", label: "downstream", min: 0, step: 1 },
   { key: "dpi", label: "dpi", min: 1, step: 1 },
+];
+const WORKBENCH_RAIL_ITEMS = [
+  { title: "双物种共线性", subtitle: "Pairwise Synteny", path: "/analysis/new?capability=pairwise-synteny", active: true },
+  { title: "多物种共线性", subtitle: "Multi-species", path: "/analysis/new?capability=multi-species-synteny", active: true },
+  { title: "局部共线性", subtitle: "Local Synteny", path: "/analysis/new?capability=local-synteny", active: true },
+  { title: "环境诊断", subtitle: "Environment Check", path: "/settings", active: false },
 ];
 
 function issueFor(issues: ValidationIssue[], field: string): ValidationIssue | undefined {
@@ -137,7 +146,29 @@ function coerceDialogPath(value: string | string[] | null): string | null {
   return value;
 }
 
-export default function NewAnalysisPage({ route }: NewAnalysisPageProps) {
+function readCapabilityFromHash(locationHash: string): JcviCapabilityId | null {
+  const queryIndex = locationHash.indexOf("?");
+  if (queryIndex < 0) {
+    return null;
+  }
+
+  const params = new URLSearchParams(locationHash.slice(queryIndex + 1));
+  const capability = params.get("capability");
+  if (
+    capability === "pairwise-synteny" ||
+    capability === "multi-species-synteny" ||
+    capability === "local-synteny" ||
+    capability === "dotplot" ||
+    capability === "karyotype" ||
+    capability === "ortholog-catalog" ||
+    capability === "environment-check"
+  ) {
+    return capability;
+  }
+  return null;
+}
+
+export default function NewAnalysisPage({ route, onNavigate, locationHash }: NewAnalysisPageProps) {
   const [draft, setDraft] = useState<AnalysisRequestDraft | null>(null);
   const [schema, setSchema] = useState<JsonObject | null>(null);
   const [loading, setLoading] = useState(true);
@@ -146,6 +177,7 @@ export default function NewAnalysisPage({ route }: NewAnalysisPageProps) {
   const [runState, setRunState] = useState<AnalysisRunState | null>(null);
   const [runError, setRunError] = useState<string | null>(null);
   const [pendingRequestJson, setPendingRequestJson] = useState("");
+  const capabilityId = useMemo(() => readCapabilityFromHash(locationHash), [locationHash]);
 
   useEffect(() => {
     let cancelled = false;
@@ -155,7 +187,7 @@ export default function NewAnalysisPage({ route }: NewAnalysisPageProps) {
     void Promise.all([getTemplateDraft("mcscan"), getAnalysisSchema()])
       .then(([templateDraft, analysisSchema]) => {
         if (!cancelled) {
-          setDraft(templateDraft);
+          setDraft(capabilityId ? createDraftForCapability(templateDraft, capabilityId) : templateDraft);
           setSchema(analysisSchema);
         }
       })
@@ -173,7 +205,7 @@ export default function NewAnalysisPage({ route }: NewAnalysisPageProps) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [capabilityId]);
 
   const validation = useMemo(() => (draft ? validateAnalysisRequestDraft(draft) : null), [draft]);
   const requestJson = useMemo(() => (draft ? stringifyJson(draftToAnalysisRequest(draft)) : ""), [draft]);
@@ -452,19 +484,60 @@ export default function NewAnalysisPage({ route }: NewAnalysisPageProps) {
   const summaryView = runState?.summaryView ?? null;
   const resolvedLogPath = runState?.logPath ?? summaryView?.runLogPath ?? "";
   const resolvedSummaryPath = runState?.summaryPath ?? summaryView?.runSummaryPath ?? "";
+  const recentEvents = logLines.slice(-5).reverse();
 
   return (
-    <div className="grid w-full gap-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(23rem,0.85fr)]">
+    <div className="grid w-full gap-6 xl:grid-cols-[15rem_minmax(0,1fr)_minmax(20rem,24rem)]">
+      <aside className="grid content-start gap-4 xl:sticky xl:top-6">
+        <section className={FIELD_GROUP_CLASS}>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ice-600 dark:text-ice-300">
+            JCVI喵 Workbench
+          </p>
+          <h2 className="mt-3 text-lg font-semibold text-text-primary">能力与任务栏</h2>
+          <div className="mt-4 grid gap-2">
+            {WORKBENCH_RAIL_ITEMS.map((item) => (
+              <button
+                key={item.title}
+                type="button"
+                className={
+                  item.active
+                    ? "rounded-xl border border-ice-200 bg-ice-50/80 px-3 py-3 text-left transition hover:border-ice-300 hover:bg-ice-100/80 dark:border-ice-800 dark:bg-ice-900/30 dark:hover:border-ice-700 dark:hover:bg-ice-900/50"
+                    : "rounded-xl border border-border bg-bg px-3 py-3 text-left transition hover:border-ice-200 hover:bg-ice-50 dark:hover:border-ice-800 dark:hover:bg-ice-900/30"
+                }
+                onClick={() => onNavigate(item.path)}
+              >
+                <span className="block text-sm font-semibold text-text-primary">{item.title}</span>
+                <span className="mt-1 block text-xs text-text-tertiary">{item.subtitle}</span>
+              </button>
+            ))}
+          </div>
+        </section>
+
+        <section className={FIELD_GROUP_CLASS}>
+          <SectionTitle title="当前任务" subtitle="先让现有 MCSCAN 向导进入新的工作台骨架。" />
+          <div className="mt-4 grid gap-3 text-sm text-text-secondary">
+            <div className="rounded-xl border border-border bg-bg p-3">
+              <p className="font-semibold text-text-primary">MCSCAN Wizard</p>
+              <p className="mt-1 text-xs text-text-tertiary">参数表单、Run 流程和 summary 展示保持在同一任务上下文里。</p>
+            </div>
+            <div className="rounded-xl border border-border bg-bg p-3">
+              <p className="font-semibold text-text-primary">上下文栏</p>
+              <p className="mt-1 text-xs text-text-tertiary">右侧集中承接运行状态、日志片段、路径与结果入口。</p>
+            </div>
+          </div>
+        </section>
+      </aside>
+
       <section className="grid gap-5">
         <div>
           <p className="text-sm font-semibold uppercase tracking-[0.2em] text-ice-600 dark:text-ice-300">
-            GenomeLens GUI · {route.description}
+            JCVI喵 · {route.description}
           </p>
           <div className="mt-4 flex flex-wrap items-end justify-between gap-4">
             <div>
-              <h1 className="text-4xl font-bold text-text-primary">MCSCAN 分析向导</h1>
+              <h1 className="text-4xl font-bold text-text-primary">MCSCAN 分析工作台</h1>
               <p className="mt-3 max-w-3xl text-sm leading-7 text-text-secondary">
-                默认值来自平台模板，当前表单直接编辑 AnalysisRequestDraft，并通过统一校验器反馈字段问题。
+                当前阶段继续复用平台模板和统一校验器，把参数编辑、运行确认与状态反馈集中到一个可持续迭代的 JCVI 任务工作台里。
               </p>
             </div>
             <span
@@ -867,7 +940,40 @@ export default function NewAnalysisPage({ route }: NewAnalysisPageProps) {
         </section>
       </section>
 
-      <aside className="grid content-start gap-5">
+      <aside className="grid content-start gap-5 xl:sticky xl:top-6">
+        <section className={FIELD_GROUP_CLASS}>
+          <SectionTitle title="上下文栏" subtitle="后端状态、路径快照与最近事件。" />
+          <div className="mt-4 grid gap-3 rounded-xl border border-border bg-bg p-4 text-sm text-text-secondary">
+            <div className="flex items-center justify-between gap-3">
+              <span>当前工作流</span>
+              <span className="font-semibold text-text-primary">{draft.mcscan.workflow}</span>
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <span>输出目录</span>
+              <span className="truncate font-mono text-[11px] text-text-tertiary">{draft.outputDirectory || "-"}</span>
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <span>最近事件</span>
+              <span className="rounded-full bg-ice-100 px-2 py-1 text-[11px] font-semibold text-ice-700 dark:bg-ice-900/40 dark:text-ice-200">
+                {recentEvents.length}
+              </span>
+            </div>
+          </div>
+          <div className="mt-4 grid gap-2">
+            {recentEvents.length > 0 ? (
+              recentEvents.map((line, index) => (
+                <div key={`${index}-${line}`} className="rounded-lg border border-border bg-bg px-3 py-2 font-mono text-[11px] leading-5 text-text-tertiary">
+                  {line}
+                </div>
+              ))
+            ) : (
+              <p className="rounded-lg border border-border bg-bg p-3 text-sm text-text-secondary">
+                运行开始后，这里会保留最近 5 条事件快照。
+              </p>
+            )}
+          </div>
+        </section>
+
         <section className={FIELD_GROUP_CLASS}>
           <SectionTitle title="运行面板" subtitle="runAnalysis() + listenToAnalysisEvents()" />
           <div className="mt-4 flex flex-wrap items-center gap-3">

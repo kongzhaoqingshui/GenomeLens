@@ -1,4 +1,8 @@
+import { useEffect, useMemo, useRef, useState } from "react";
+
 import { AppShell } from "./components/AppShell";
+import { LaunchScreen } from "./components/LaunchScreen";
+import { useWorkbenchStartup } from "./hooks/useWorkbenchStartup";
 import Home from "./pages/Home";
 import NewAnalysisPage from "./pages/NewAnalysisPage";
 import PlaceholderPage from "./pages/PlaceholderPage";
@@ -6,22 +10,30 @@ import SettingsPage from "./pages/SettingsPage";
 import { useHashRouter } from "./routes/useHashRouter";
 import { useTheme } from "./theme/useTheme";
 
-function renderRoute(route: ReturnType<typeof useHashRouter>["route"], navigate: (path: string) => void) {
+function isTestRuntime(): boolean {
+  return typeof navigator !== "undefined" && /jsdom/i.test(navigator.userAgent);
+}
+
+function renderRoute(
+  route: ReturnType<typeof useHashRouter>["route"],
+  navigate: (path: string) => void,
+  hash: string,
+) {
   if (route.id === "home") {
     return <Home route={route} onNavigate={navigate} />;
   }
   if (route.id === "new-analysis") {
-    return <NewAnalysisPage route={route} />;
+    return <NewAnalysisPage route={route} onNavigate={navigate} locationHash={hash} />;
   }
   if (route.id === "settings") {
-    return <SettingsPage route={route} />;
+    return <SettingsPage route={route} onNavigate={navigate} />;
   }
   if (route.id === "projects") {
     return (
       <PlaceholderPage
         route={route}
         title="项目列表"
-        subtitle="项目浏览、创建和最近任务入口将在 Phase 1 接入 A 的项目持久化命令。"
+        subtitle="项目浏览、创建和最近任务入口会在后续工作台阶段接入。"
         details={["最近项目列表", "创建项目弹窗", "工作区路径选择"]}
       />
     );
@@ -30,27 +42,145 @@ function renderRoute(route: ReturnType<typeof useHashRouter>["route"], navigate:
     <PlaceholderPage
       route={route}
       title="结果与图件预览"
-      subtitle="结果摘要、文件树和图件预览将在 Phase 3 接入 summary 与 artifact 读取命令。"
+      subtitle="结果摘要、文件树和图件预览会在下一阶段补齐。"
       details={["运行摘要卡片", "结果文件树", "图件网格与放大预览"]}
     />
   );
 }
 
-export default function App() {
-  const { route, routes, navigate } = useHashRouter();
-  const { mode, resolvedTheme, setMode } = useTheme();
+function useLaunchOverlay(startupStatus: "loading" | "ready" | "error", hintCount: number) {
+  const cycleStartedAt = useRef(Date.now());
+  const [showOverlay, setShowOverlay] = useState(true);
+  const [slow, setSlow] = useState(false);
+  const [ready, setReady] = useState(false);
+  const [hintIndex, setHintIndex] = useState(0);
 
-  return (
-    <AppShell
-      activeRoute={route}
-      routes={routes}
-      themeMode={mode}
-      resolvedTheme={resolvedTheme}
-      onNavigate={navigate}
-      onThemeChange={setMode}
-    >
-      {renderRoute(route, navigate)}
-    </AppShell>
+  useEffect(() => {
+    if (startupStatus === "loading") {
+      cycleStartedAt.current = Date.now();
+      setShowOverlay(true);
+      setSlow(false);
+      setReady(false);
+      setHintIndex(0);
+    }
+
+    if (startupStatus === "error") {
+      setShowOverlay(true);
+      setReady(false);
+    }
+  }, [startupStatus]);
+
+  useEffect(() => {
+    let active = true;
+    const messageTimer = window.setInterval(() => {
+      if (active && hintCount > 0) {
+        setHintIndex((current) => (current + 1) % hintCount);
+      }
+    }, 2200);
+
+    return () => {
+      active = false;
+      window.clearInterval(messageTimer);
+    };
+  }, [hintCount]);
+
+  useEffect(() => {
+    if (startupStatus !== "loading") {
+      return undefined;
+    }
+
+    const slowTimer = window.setTimeout(() => {
+      setSlow(true);
+    }, 10000);
+
+    return () => {
+      window.clearTimeout(slowTimer);
+    };
+  }, [startupStatus]);
+
+  useEffect(() => {
+    if (startupStatus !== "ready") {
+      return undefined;
+    }
+
+    let active = true;
+    const minDuration = isTestRuntime() ? 0 : 1800;
+    const fadeDuration = isTestRuntime() ? 0 : 260;
+
+    void (async () => {
+      const elapsed = Date.now() - cycleStartedAt.current;
+      if (elapsed < minDuration) {
+        await new Promise((resolve) => window.setTimeout(resolve, minDuration - elapsed));
+      }
+
+      if (!active) {
+        return;
+      }
+
+      setReady(true);
+      window.setTimeout(() => {
+        if (active) {
+          setShowOverlay(false);
+        }
+      }, fadeDuration);
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [startupStatus]);
+
+  return useMemo(
+    () => ({
+      ready,
+      showOverlay,
+      slow,
+      hintIndex,
+    }),
+    [hintIndex, ready, showOverlay, slow],
   );
 }
 
+export default function App() {
+  const { hash, route, routes, navigate } = useHashRouter();
+  const { mode, resolvedTheme, setMode } = useTheme();
+  const startup = useWorkbenchStartup();
+  const overlay = useLaunchOverlay(startup.status, startup.hints.length);
+  const startupError =
+    startup.failed.length > 0
+      ? startup.failed
+          .map((key) => startup[key].error)
+          .filter((value): value is string => typeof value === "string" && value.length > 0)
+          .join(" ")
+      : null;
+  const launchMessage =
+    startup.hints.length > 0
+      ? startup.hints[Math.min(overlay.hintIndex, Math.max(0, startup.hints.length - 1))]
+      : startup.activeHint;
+
+  return (
+    <>
+      <AppShell
+        activeRoute={route}
+        routes={routes}
+        themeMode={mode}
+        resolvedTheme={resolvedTheme}
+        onNavigate={navigate}
+        onThemeChange={setMode}
+      >
+        {renderRoute(route, navigate, hash)}
+      </AppShell>
+
+      {overlay.showOverlay ? (
+        <LaunchScreen
+          message={launchMessage}
+          error={startup.status === "error" ? startupError : null}
+          slow={overlay.slow}
+          closing={overlay.ready}
+          onRetry={startup.reload}
+          onOpenDiagnostics={() => navigate(startup.diagnosticsRoute)}
+        />
+      ) : null}
+    </>
+  );
+}

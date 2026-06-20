@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 
 import type { AppRoute } from "../routes/routes";
 import type { ThemeMode } from "../theme/theme";
+import { JcviMeowIcon } from "./JcviMeowIcon";
 import { ThemeToggle } from "./ThemeToggle";
 
 interface AppShellProps {
@@ -30,23 +31,23 @@ export function AppShell({
         <div className="absolute left-1/2 top-16 h-64 w-[42rem] -translate-x-1/2 rounded-full border border-ice-200/50 opacity-50 blur-3xl dark:border-ice-700/30" />
       </div>
 
-      <div className="relative mx-auto flex min-h-screen w-full max-w-7xl flex-col px-6 py-5 lg:px-8">
-        <header className="flex items-center justify-between border-b border-border/80 pb-4">
+      <div className="relative mx-auto flex min-h-screen w-full max-w-[1600px] flex-col px-6 py-5 lg:px-8">
+        <header className="flex flex-wrap items-center justify-between gap-4 border-b border-border/80 pb-4">
           <button
             type="button"
             className="flex items-center gap-3 rounded-xl text-left outline-none transition focus-visible:ring-2 focus-visible:ring-ice-500 focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
             onClick={() => onNavigate("/")}
           >
-            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-ice-500 text-lg font-bold text-white shadow-lg shadow-ice-500/20">
-              G
+            <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-ice-50 text-ice-500 shadow-lg shadow-ice-500/10 ring-1 ring-ice-100 dark:bg-ice-950/60 dark:ring-ice-900/60">
+              <JcviMeowIcon className="h-8 w-8" showLensText={false} />
             </span>
             <span>
-              <span className="block text-lg font-semibold tracking-tight">GenomeLens</span>
-              <span className="block text-xs text-text-secondary">Comparative Genomics Workbench</span>
+              <span className="block text-lg font-semibold tracking-tight">JCVI喵</span>
+              <span className="block text-xs text-text-secondary">Comparative genomics workbench · Powered by GenomeLens</span>
             </span>
           </button>
 
-          <nav className="hidden items-center gap-1 rounded-full border border-border bg-surface/80 p-1 shadow-card backdrop-blur md:flex">
+          <nav className="hidden items-center gap-1 rounded-full border border-border bg-surface/80 p-1 shadow-card backdrop-blur lg:flex">
             {routes.map((route) => (
               <button
                 key={route.id}
@@ -63,10 +64,15 @@ export function AppShell({
             ))}
           </nav>
 
-          <ThemeToggle mode={themeMode} resolvedTheme={resolvedTheme} onChange={onThemeChange} />
+          <div className="flex items-center gap-3">
+            <span className="hidden rounded-full border border-border bg-surface/80 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-text-tertiary lg:inline-flex">
+              {activeRoute.label}
+            </span>
+            <ThemeToggle mode={themeMode} resolvedTheme={resolvedTheme} onChange={onThemeChange} />
+          </div>
         </header>
 
-        <main className="flex flex-1 animate-fade-up py-8">{children}</main>
+        <main className="flex flex-1 py-8">{children}</main>
       </div>
     </div>
   );
