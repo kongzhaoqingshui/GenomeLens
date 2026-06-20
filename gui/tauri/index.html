@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>JCVI喵</title>
+    <script>
+      (() => {
+        const stored = localStorage.getItem("genomelens.theme");
+        const mode = stored === "light" || stored === "dark" || stored === "system" ? stored : "system";
+        const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+        document.documentElement.dataset.themeMode = mode;
+        document.documentElement.classList.toggle("dark", mode === "dark" || (mode === "system" && prefersDark));
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

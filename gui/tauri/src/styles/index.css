@@ -1,0 +1,119 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-bg: 255 255 255;
+  --color-surface: 248 250 252;
+  --color-surface-raised: 255 255 255;
+  --color-border: 226 232 240;
+  --color-text-primary: 15 23 42;
+  --color-text-secondary: 100 116 139;
+  --color-text-tertiary: 148 163 184;
+  color-scheme: light;
+  font-family: "Inter", "PingFang SC", "Microsoft YaHei", sans-serif;
+  background: #ffffff;
+}
+
+html.dark {
+  --color-bg: 11 18 32;
+  --color-surface: 17 24 39;
+  --color-surface-raised: 30 41 59;
+  --color-border: 30 41 59;
+  --color-text-primary: 248 250 252;
+  --color-text-secondary: 148 163 184;
+  --color-text-tertiary: 100 116 139;
+  color-scheme: dark;
+  background: #0b1220;
+}
+
+html {
+  background: rgb(var(--color-bg));
+}
+
+body {
+  margin: 0;
+  min-width: 960px;
+  background: rgb(var(--color-bg));
+}
+
+button {
+  font: inherit;
+}
+
+.jcvi-brand-title {
+  font-family: "ZCOOL KuaiLe", "站酷快乐体", "YouYuan", "Microsoft YaHei", "PingFang SC", sans-serif;
+  font-weight: 700;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+.jcvi-launch-icon {
+  animation: jcvi-drop-in 0.85s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.jcvi-launch-icon .jcvi-icon-lens {
+  transform-box: fill-box;
+  transform-origin: 72% 72%;
+  animation: jcvi-lens-in 0.78s 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.jcvi-launch-icon .jcvi-icon-lens-text {
+  animation: jcvi-text-print 0.7s 0.9s steps(4, end) both;
+}
+
+@keyframes jcvi-drop-in {
+  0% {
+    opacity: 0;
+    transform: translateY(-22px) scale(0.9);
+  }
+  60% {
+    opacity: 1;
+    transform: translateY(8px) scale(1.03);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes jcvi-lens-in {
+  0% {
+    opacity: 0;
+    transform: translate(-10px, -10px) scale(0.62);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(0, 0) scale(1);
+  }
+}
+
+@keyframes jcvi-text-print {
+  0% {
+    opacity: 0;
+    clip-path: inset(0 100% 0 0);
+  }
+  100% {
+    opacity: 1;
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .jcvi-launch-icon,
+  .jcvi-launch-icon .jcvi-icon-lens,
+  .jcvi-launch-icon .jcvi-icon-lens-text {
+    animation: none !important;
+  }
+
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}

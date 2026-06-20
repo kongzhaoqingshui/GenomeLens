@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "kind": "analysis_request",
+  "method": "mcscan",
+  "input": {
+    "mode": "bed_cds",
+    "species": [
+      {
+        "name": "query",
+        "input_mode": "bed_cds",
+        "bed": "gui/demo-data/bed-cds-minimal/input/query.bed",
+        "cds": "gui/demo-data/bed-cds-minimal/input/query.cds"
+      },
+      {
+        "name": "subject",
+        "input_mode": "bed_cds",
+        "bed": "gui/demo-data/bed-cds-minimal/input/subject.bed",
+        "cds": "gui/demo-data/bed-cds-minimal/input/subject.cds"
+      }
+    ],
+    "reference_index": 0
+  },
+  "output": {
+    "directory": "gui/demo-data/runs/local-synteny",
+    "force": true,
+    "formats": ["png"]
+  },
+  "config": {},
+  "options": {
+    "preset": "auto",
+    "threads": 1,
+    "min_block_size": 1
+  },
+  "method_config": {
+    "workflow": "local_synteny",
+    "align_soft": "blast",
+    "dbtype": "nucl",
+    "cscore": 0.7,
+    "dist": 20,
+    "iter": 1,
+    "target_gene_ids": ["qgene2"],
+    "up": 1,
+    "down": 1,
+    "split_targets": false,
+    "label_targets": true,
+    "glyphstyle": "box",
+    "glyphcolor": "orientation",
+    "shadestyle": "line",
+    "dpi": 150
+  }
+}
