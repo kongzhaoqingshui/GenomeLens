@@ -642,6 +642,7 @@ def test_analyze_mcscan_with_three_species(tmp_path: Path) -> None:
             *_auto_args(input_dir, outdir),
             "--rewrite-layout-links",
             "--optimize-figsize",
+            "--fix-karyotype-label-overlap",
             "--min-block-size",
             "1",
             "--force",
@@ -667,11 +668,14 @@ def test_analyze_mcscan_with_three_species(tmp_path: Path) -> None:
     assert all(Path(path).is_file() for path in summary["global_figures"])
     assert any(Path(path).name.startswith("global.") for path in summary["global_figures"])
     assert any(path in summary["final_figures"] for path in summary["global_figures"])
+    request_snapshot = json.loads((outdir / "inputs" / "analysis_request.json").read_text(encoding="utf-8"))
+    assert request_snapshot["method_config"]["fix_karyotype_label_overlap"] is True
     global_manifest = json.loads(
         (outdir / "intermediate" / "global_karyotype" / "global_manifest.json").read_text(encoding="utf-8")
     )
     assert global_manifest["options"]["rewrite_layout_links"] is True
     assert global_manifest["options"]["optimize_figsize"] is True
+    assert global_manifest["options"]["fix_karyotype_label_overlap"] is True
     global_summary = json.loads(
         (outdir / "intermediate" / "global_karyotype" / "engine_run_summary.json").read_text(encoding="utf-8")
     )
@@ -679,6 +683,12 @@ def test_analyze_mcscan_with_three_species(tmp_path: Path) -> None:
     assert global_artifacts["rewritten_layout_edges"] >= 0
     assert global_artifacts["rewritten_track_order"]
     assert global_artifacts["optimized_figsize"]
+    assert global_artifacts["karyotype_renderer_variant"] == "mirrored"
+    assert global_artifacts["karyotype_label_overlap_fix"] is True
+    global_layout = (outdir / "intermediate" / "global_karyotype" / "karyotype_global.layout").read_text(
+        encoding="utf-8"
+    )
+    assert "label_va" in global_layout
     global_command = global_summary["commands"][-1]["argv"]
     assert "--figsize" in global_command
     run_log = (outdir / "logs" / "run.log").read_text(encoding="utf-8")
@@ -1163,6 +1173,7 @@ def test_analyze_mcscan_config_defaults_exposed_in_init(tmp_path: Path) -> None:
     assert jcvi_config["local_synteny"]["up"] == 20
     assert jcvi_config["local_synteny"]["down"] == 20
     assert jcvi_config["local_synteny"]["dpi"] == 300
+    assert jcvi_config["local_synteny"]["fix_karyotype_label_overlap"] is False
 
     root = Path(__file__).resolve().parents[3]
     sample = root / "references" / "samples" / "shell" / "bed_cds_minimal"

@@ -119,6 +119,7 @@ class JcviEngineAdapter:
             "verbose": request.verbose,
             "optimize_figsize": request.optimize_figsize,
             "rewrite_layout_links": request.rewrite_layout_links,
+            "fix_karyotype_label_overlap": request.fix_karyotype_label_overlap,
             "trim_cross_chromosome_blocks": request.trim_cross_chromosome_blocks,
         }
         return {
@@ -167,6 +168,7 @@ class JcviEngineAdapter:
         dpi: int = 300,
         optimize_figsize: bool = False,
         rewrite_layout_links: bool = False,
+        fix_karyotype_label_overlap: bool = False,
         log_level: str = "INFO",
         task: dict[str, object] | None = None,
         species: list[dict[str, object]] | None = None,
@@ -202,6 +204,7 @@ class JcviEngineAdapter:
                 "log_level": log_level,
                 "optimize_figsize": optimize_figsize,
                 "rewrite_layout_links": rewrite_layout_links,
+                "fix_karyotype_label_overlap": fix_karyotype_label_overlap,
             },
             "expected_outputs": ["global_karyotype_figures"],
             "meta": {

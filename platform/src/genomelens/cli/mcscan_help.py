@@ -86,6 +86,7 @@ _PAGES: tuple[McscanHelpPage, ...] = (
             ("--dpi DPI", "图片分辨率，默认 300"),
             ("--optimize-figsize", "自动推导 synteny 图件尺寸，默认关闭"),
             ("--rewrite-layout-links", "将跨轨道 layout 连线改写为链式连线，默认关闭"),
+            ("--fix-karyotype-label-overlap", "改善 karyotype 轨道名称与 seqid 圆点重叠，默认关闭"),
             ("--trim-cross-chromosome-blocks", "切除 blocks 中跨染色体的基因行，默认关闭"),
         ),
     ),

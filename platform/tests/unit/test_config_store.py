@@ -46,6 +46,7 @@ def test_split_config_roundtrip(tmp_path: Path) -> None:
     assert loaded.local_synteny.dpi == 300
     assert loaded.local_synteny.optimize_figsize is False
     assert loaded.local_synteny.rewrite_layout_links is False
+    assert loaded.local_synteny.fix_karyotype_label_overlap is False
     assert loaded.local_synteny.trim_cross_chromosome_blocks is False
 
     assert loaded.toolchain.lastal_path == ""
@@ -60,6 +61,7 @@ def test_split_config_roundtrip(tmp_path: Path) -> None:
     assert '"reference"' in jcvi_text
     assert '"dpi"' in jcvi_text
     assert '"optimize_figsize"' in jcvi_text
+    assert '"fix_karyotype_label_overlap"' in jcvi_text
 
 
 def test_jcvi_config_reads_v2_grouped_keys(tmp_path: Path) -> None:
@@ -84,6 +86,7 @@ def test_jcvi_config_reads_v2_grouped_keys(tmp_path: Path) -> None:
                     "dpi": 200,
                     "optimize_figsize": True,
                     "rewrite_layout_links": True,
+                    "fix_karyotype_label_overlap": True,
                     "trim_cross_chromosome_blocks": True,
                 },
             }
@@ -112,4 +115,5 @@ def test_jcvi_config_reads_v2_grouped_keys(tmp_path: Path) -> None:
     assert loaded.local_synteny.dpi == 200
     assert loaded.local_synteny.optimize_figsize is True
     assert loaded.local_synteny.rewrite_layout_links is True
+    assert loaded.local_synteny.fix_karyotype_label_overlap is True
     assert loaded.local_synteny.trim_cross_chromosome_blocks is True

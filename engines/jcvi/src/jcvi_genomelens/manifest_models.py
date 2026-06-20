@@ -62,6 +62,7 @@ class WorkflowOptions:
     verbose: bool = False
     optimize_figsize: bool = False
     rewrite_layout_links: bool = False
+    fix_karyotype_label_overlap: bool = False
     trim_cross_chromosome_blocks: bool = False
 
 

@@ -84,6 +84,7 @@ def _build_mcscan_method_config(args: argparse.Namespace, config: ConfigModel | 
         dpi=_dpi(args, config),
         optimize_figsize=_plot_flag(args, config, "optimize_figsize"),
         rewrite_layout_links=_plot_flag(args, config, "rewrite_layout_links"),
+        fix_karyotype_label_overlap=_plot_flag(args, config, "fix_karyotype_label_overlap"),
         trim_cross_chromosome_blocks=_plot_flag(args, config, "trim_cross_chromosome_blocks"),
     )
 

@@ -132,6 +132,11 @@ class McscanPlugin(MethodPlugin):
             help="将跨轨道 layout 连线改写为邻接轨道链",
         )
         style_group.add_argument(
+            "--fix-karyotype-label-overlap",
+            action="store_true",
+            help="在 karyotype 图中把轨道名称和 seqid 圆点分到对立侧，默认关闭",
+        )
+        style_group.add_argument(
             "--trim-cross-chromosome-blocks",
             action="store_true",
             help="切除 blocks 中跨染色体的基因行",

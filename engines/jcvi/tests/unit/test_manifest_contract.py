@@ -54,6 +54,7 @@ def test_manifest_loader(tmp_path: Path) -> None:
                     "dpi": 300,
                     "optimize_figsize": True,
                     "rewrite_layout_links": True,
+                    "fix_karyotype_label_overlap": True,
                     "trim_cross_chromosome_blocks": True,
                 },
                 "expected_outputs": ["blast_table", "figures"],
@@ -80,6 +81,7 @@ def test_manifest_loader(tmp_path: Path) -> None:
     assert loaded.options.dpi == 300
     assert loaded.options.optimize_figsize is True
     assert loaded.options.rewrite_layout_links is True
+    assert loaded.options.fix_karyotype_label_overlap is True
     assert loaded.options.trim_cross_chromosome_blocks is True
     assert loaded.toolchain.lastal is None
     assert loaded.toolchain.lastdb is None
