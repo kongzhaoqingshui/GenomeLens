@@ -21,13 +21,14 @@ e, 0, 1, athaliana.grape.4x1.simple
 
 import sys
 
+from matplotlib.transforms import Affine2D
+
 from jcvi.apps.base import OptionParser, logger
 from jcvi.compara.synteny import SimpleFile
 from jcvi.formats.bed import Bed
 from jcvi.graphics.base import (
     AbstractLayout,
     markup,
-    mpl,
     normalize_axes,
     plt,
     savefig,
@@ -72,9 +73,7 @@ class LayoutLine:
 
 
 class Layout(AbstractLayout):
-    def __init__(
-        self, filename, delimiter=",", generank=False, seed: int | None = None
-    ):
+    def __init__(self, filename, delimiter=",", generank=False, seed: int | None = None):
         super().__init__(filename)
         fp = open(filename)
         self.edges = []
@@ -183,10 +182,7 @@ class Track:
         # Rotation transform
         self.x = x = (self.xstart + self.xend) / 2
         y = self.y
-        self.tr = (
-            mpl.transforms.Affine2D().rotate_deg_around(x, y, self.rotation)
-            + ax.transAxes
-        )
+        self.tr = Affine2D().rotate_deg_around(x, y, self.rotation) + ax.transAxes
         self.inv = ax.transAxes.inverted()
 
         nseqids = len(self.seqids)
@@ -222,7 +218,7 @@ class Track:
             return
 
         y = self.y
-        color = self.color
+        color = self.color or "gainsboro"
         ax = self.ax
         xstart = self.xstart
         gap = self.gap
@@ -309,13 +305,9 @@ class ShadeManager:
         self.style = style
         for i, j, blocks, samearc in layout.edges:
             # if same track (duplication shades), shall we draw above or below?
-            self.draw_blocks(
-                ax, blocks, tracks[i], tracks[j], samearc=samearc, heightpad=heightpad
-            )
+            self.draw_blocks(ax, blocks, tracks[i], tracks[j], samearc=samearc, heightpad=heightpad)
 
-    def draw_blocks(
-        self, ax, blocks, atrack, btrack, samearc: str | None, heightpad=0
-    ):
+    def draw_blocks(self, ax, blocks, atrack, btrack, samearc: str | None, heightpad=0):
         for a, b, c, d, _, _, highlight in blocks:
             p = atrack.get_coords(a), atrack.get_coords(b)
             q = btrack.get_coords(c), btrack.get_coords(d)
@@ -370,6 +362,7 @@ class Karyotype:
         layout = Layout(layoutfile, generank=generank, seed=seed)
 
         fp = open(seqidsfile)
+
         # Strip the reverse orientation tag for e.g. chr3-
         def di(seqid: str) -> str:
             return seqid[:-1] if seqid[-1] == "-" else seqid
@@ -392,9 +385,7 @@ class Karyotype:
             if generank:
                 sz = dict((x, len(list(bed.sub_bed(x)))) for x in seqids)
             else:
-                sz = sizes or dict(
-                    (x, max(z.end for z in list(bed.sub_bed(x)))) for x in seqids
-                )
+                sz = sizes or dict((x, max(z.end for z in list(bed.sub_bed(x)))) for x in seqids)
                 assert sz is not None, "sizes not available and cannot be inferred"
             t.seqids = seqids
             # validate if all seqids are non-empty
