@@ -113,3 +113,60 @@ GenomeLens.exe analyze schema > analysis-request.schema.json
 ```
 
 `input.reference_index` 使用 0-based 索引，默认第一个物种为参考物种。指定 `method_config.target_gene_ids` 后，流程会进入目标基因局部共线性分析。
+
+## method_config 扩展字段
+
+### 自动优化
+
+`method_config.auto_optimization` 是 GenomeLens 添加的嵌套开关组，与原生 JCVI 参数区分：
+
+```json
+{
+  "method_config": {
+    "workflow": "graphics_synteny",
+    "auto_optimization": {
+      "optimize_figsize": true,
+      "rewrite_layout_links": true,
+      "optimize_karyotype_labels": true,
+      "trim_cross_chromosome_blocks": true
+    }
+  }
+}
+```
+
+- `optimize_figsize`：自动推导合适画布尺寸。
+- `rewrite_layout_links`：全局核型/多物种局部图按链式关系重写 edges。
+- `optimize_karyotype_labels`：镜像分布全局核型标签，避免重叠。
+- `trim_cross_chromosome_blocks`：渲染前裁切跨染色体 block。
+
+### Histogram 纯绘图请求
+
+`graphics_histogram` 不要求物种目录，使用 `method_specific` 输入模式：
+
+```json
+{
+  "schema_version": 1,
+  "kind": "analysis_request",
+  "method": "mcscan",
+  "input": {
+    "mode": "method_specific",
+    "directory": "numbers.txt"
+  },
+  "output": {
+    "directory": "output",
+    "force": true,
+    "formats": ["svg"]
+  },
+  "config": {},
+  "options": {
+    "preset": "auto"
+  },
+  "method_config": {
+    "workflow": "graphics_histogram",
+    "histogram_inputs": ["numbers.txt"],
+    "histogram_columns": [0],
+    "histogram_bins": 40,
+    "histogram_title": "Ks histogram"
+  }
+}
+```
