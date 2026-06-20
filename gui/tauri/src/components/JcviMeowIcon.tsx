@@ -28,26 +28,33 @@ export function JcviMeowIcon({
           <stop stopColor="#C4B5FD" />
           <stop offset="1" stopColor="#2563EB" />
         </linearGradient>
-        <linearGradient id="jcvi-meow-lens" x1="88" y1="78" x2="138" y2="132" gradientUnits="userSpaceOnUse">
+        <linearGradient id="jcvi-meow-lens" x1="78" y1="78" x2="128" y2="132" gradientUnits="userSpaceOnUse">
           <stop stopColor="#EFF6FF" />
           <stop offset="1" stopColor="#BAE6FD" />
         </linearGradient>
       </defs>
 
       <g className="jcvi-icon-cat">
-        <path d="M40 54C35 38 39 26 52 20C60 27 66 35 70 44H87C93 34 101 27 111 22C122 31 124 44 119 57C127 68 128 84 121 98C110 120 88 128 62 121C42 116 30 100 29 80C28 69 32 60 40 54Z" fill="url(#jcvi-meow-face-shadow)" opacity="0.42" />
-        <path d="M42 50C37 36 41 25 53 19C61 27 67 36 70 45H88C94 35 102 28 112 23C122 32 123 44 117 57C124 67 125 83 118 96C108 116 88 123 64 117C45 112 34 97 33 79C32 67 35 57 42 50Z" fill="url(#jcvi-meow-face)" />
-        <path d="M45 31C48 29 51 27 53 26C57 31 61 37 64 45C58 41 52 37 45 31Z" fill="#E0F2FE" opacity="0.45" />
+        <path d="M41 54C35 38 39 26 53 20C62 28 68 37 71 46H88C94 36 102 28 113 23C124 33 125 46 118 59C125 70 126 86 119 98C108 118 88 125 64 118C45 113 33 98 32 80C31 69 34 60 41 54Z" fill="url(#jcvi-meow-face-shadow)" opacity="0.4" />
+        <path d="M43 50C38 36 42 25 54 19C63 28 68 37 71 45H88C95 35 103 28 113 23C123 33 124 45 117 57C124 68 124 83 117 96C107 116 88 123 64 117C45 112 34 97 33 79C32 67 36 57 43 50Z" fill="url(#jcvi-meow-face)" />
+        <path d="M57 46C54 40 50 35 46 31C44 36 44 43 47 51C50 49 53 47 57 46Z" fill="#E0F2FE" opacity="0.44" />
         <path d="M103 46C106 40 110 35 114 31C116 36 116 43 113 51C110 49 107 47 103 46Z" fill="#DBEAFE" opacity="0.34" />
-        <path d="M50 62C56 60 62 61 67 65C64 70 58 73 51 73C48 70 48 66 50 62Z" fill="#F8FAFC" opacity="0.96" />
-        <path d="M78 64C84 62 90 63 95 67C92 72 86 75 79 75C76 72 76 68 78 64Z" fill="#F8FAFC" opacity="0.96" />
-        <circle cx="60" cy="69" r="3.8" fill="#1E3A8A" />
-        <circle cx="88" cy="71" r="3.8" fill="#1E3A8A" />
+        <path d="M55 66H66" stroke="#0F172A" strokeWidth="7.5" strokeLinecap="round" />
+        <path d="M81 68H92" stroke="#0F172A" strokeWidth="7.5" strokeLinecap="round" />
       </g>
 
+      <path
+        d="M62 113C75 137 104 132 114 113C119 104 112 96 104 101C97 105 101 116 112 116"
+        fill="none"
+        stroke="#2563EB"
+        strokeWidth="9"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        opacity="0.88"
+      />
       <g className="jcvi-icon-lens">
-        <path d="M121 119L143 141" stroke="#2563EB" strokeWidth="13" strokeLinecap="round" />
-        <path d="M121 119L143 141" stroke="#DBEAFE" strokeWidth="5" strokeLinecap="round" opacity="0.72" />
+        <path d="M91 121L72 141" stroke="#2563EB" strokeWidth="13" strokeLinecap="round" />
+        <path d="M91 121L72 141" stroke="#DBEAFE" strokeWidth="5" strokeLinecap="round" opacity="0.72" />
         <circle cx="105" cy="102" r="29" fill="#2563EB" opacity="0.2" />
         <circle cx="105" cy="102" r="25" fill="url(#jcvi-meow-lens)" stroke="#2563EB" strokeWidth="7" />
         <circle cx="96" cy="92" r="5" fill="#FFFFFF" opacity="0.82" />

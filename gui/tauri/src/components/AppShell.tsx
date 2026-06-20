@@ -53,7 +53,7 @@ export function AppShell({
               <JcviMeowIcon className="h-8 w-8" showLensText={false} />
             </span>
             <span>
-              <span className="block text-lg font-semibold tracking-tight">JCVI喵</span>
+              <span className="jcvi-brand-title block text-xl font-semibold tracking-tight">JCVI喵</span>
               <span className="block text-xs text-text-secondary">Comparative genomics workbench · Powered by GenomeLens</span>
             </span>
           </button>

@@ -1,17 +1,18 @@
 import { useMemo } from "react";
 
+import { GameIcon } from "../components/GameIcon";
 import { JcviMeowIcon } from "../components/JcviMeowIcon";
 import { listJcviCapabilities } from "../models";
 import type { AppRoute } from "../routes/routes";
 
 const CAPABILITY_LAYOUT = {
-  "pairwise-synteny": { offsetX: -184, offsetY: -92, shortLabel: "Pairwise" },
-  "multi-species-synteny": { offsetX: 166, offsetY: -118, shortLabel: "Multi" },
-  "local-synteny": { offsetX: -206, offsetY: 54, shortLabel: "Local" },
-  dotplot: { offsetX: 202, offsetY: 38, shortLabel: "Dotplot" },
-  karyotype: { offsetX: -118, offsetY: 164, shortLabel: "Karyotype" },
-  "ortholog-catalog": { offsetX: 132, offsetY: 166, shortLabel: "Ortholog" },
-  "environment-check": { offsetX: 4, offsetY: -198, shortLabel: "Check" },
+  "pairwise-synteny": { offsetX: -184, offsetY: -92, icon: "pairwise" },
+  "multi-species-synteny": { offsetX: 166, offsetY: -118, icon: "multi-species" },
+  "local-synteny": { offsetX: -206, offsetY: 54, icon: "local" },
+  dotplot: { offsetX: 202, offsetY: 38, icon: "dotplot" },
+  karyotype: { offsetX: -118, offsetY: 164, icon: "karyotype" },
+  "ortholog-catalog": { offsetX: 132, offsetY: 166, icon: "ortholog" },
+  "environment-check": { offsetX: 4, offsetY: -198, icon: "environment" },
 } as const;
 
 interface HomeProps {
@@ -68,13 +69,13 @@ export default function Home({ onNavigate }: HomeProps) {
             >
               <span
                 className={[
-                  "relative flex h-20 w-20 items-center justify-center rounded-full text-xs font-semibold shadow-lg transition duration-200",
+                  "relative flex h-20 w-20 items-center justify-center rounded-full shadow-lg transition duration-200",
                   isConnected
-                    ? "bg-white/88 text-ice-700 shadow-ice-500/10 ring-1 ring-ice-200/80 group-hover:scale-105 group-hover:bg-white group-hover:shadow-ice-500/20 dark:bg-slate-950/72 dark:text-ice-200 dark:ring-ice-700/40"
+                    ? "bg-white/88 text-ice-600 shadow-ice-500/10 ring-1 ring-ice-200/80 group-hover:scale-105 group-hover:bg-white group-hover:text-ice-500 group-hover:shadow-ice-500/20 dark:bg-slate-950/72 dark:text-ice-200 dark:ring-ice-700/40"
                     : "bg-white/48 text-text-tertiary ring-1 ring-border/60 dark:bg-slate-950/42",
                 ].join(" ")}
               >
-                {entry.shortLabel}
+                <GameIcon name={entry.icon} className="h-9 w-9" />
                 <span className="absolute -right-1 -top-1 h-3 w-3 rounded-full bg-ice-400 opacity-0 transition group-hover:opacity-100" />
               </span>
               <span className="text-xs font-semibold text-text-secondary">{entry.title}</span>
@@ -95,7 +96,7 @@ export default function Home({ onNavigate }: HomeProps) {
           onClick={() => onNavigate("/analysis/new")}
         >
           <JcviMeowIcon className="h-32 w-32 drop-shadow-[0_24px_48px_rgba(37,99,235,0.2)] transition group-hover:scale-[1.03]" />
-          <span className="mt-4 text-3xl font-semibold tracking-tight text-text-primary">JCVI喵</span>
+          <span className="jcvi-brand-title mt-4 text-4xl font-semibold tracking-tight text-text-primary">JCVI喵</span>
           <span className="mt-2 text-xs font-medium text-text-tertiary">Powered by GenomeLens</span>
           <span className="sr-only">进入分析工作台</span>
         </button>

@@ -41,6 +41,11 @@ button {
   font: inherit;
 }
 
+.jcvi-brand-title {
+  font-family: "ZCOOL KuaiLe", "站酷快乐体", "YouYuan", "Microsoft YaHei", "PingFang SC", sans-serif;
+  font-weight: 700;
+}
+
 #root {
   min-height: 100vh;
 }
