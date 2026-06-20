@@ -50,10 +50,12 @@ def test_map_method_config_to_request_field_names() -> None:
         shadestyle="curve",
         figsize="12x6",
         dpi=600,
-        optimize_figsize=True,
-        rewrite_layout_links=True,
-        fix_karyotype_label_overlap=True,
-        trim_cross_chromosome_blocks=True,
+        auto_optimization={
+            "optimize_figsize": True,
+            "rewrite_layout_links": True,
+            "optimize_karyotype_labels": True,
+            "trim_cross_chromosome_blocks": True,
+        },
     )
     config = ConfigModel(
         workspace=WorkspaceConfig(
@@ -94,10 +96,12 @@ def test_map_method_config_to_request_field_names() -> None:
     assert mapped["shadestyle"] == "curve"
     assert mapped["figsize"] == "12x6"
     assert mapped["dpi"] == 600
-    assert mapped["optimize_figsize"] is True
-    assert mapped["rewrite_layout_links"] is True
-    assert mapped["fix_karyotype_label_overlap"] is True
-    assert mapped["trim_cross_chromosome_blocks"] is True
+    assert mapped["auto_optimization"] == {
+        "optimize_figsize": True,
+        "rewrite_layout_links": True,
+        "optimize_karyotype_labels": True,
+        "trim_cross_chromosome_blocks": True,
+    }
 
 
 def test_map_method_config_uses_toolchain_fallback() -> None:

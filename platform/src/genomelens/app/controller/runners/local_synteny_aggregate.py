@@ -249,8 +249,7 @@ def build_multi_species_local_synteny(
             shadestyle=request.shadestyle,
             figsize=request.figsize,
             dpi=request.dpi,
-            optimize_figsize=request.optimize_figsize,
-            rewrite_layout_links=request.rewrite_layout_links,
+            auto_optimization=request.auto_optimization,
             task={"workflow": "local_synteny_multi", "task_type": "multi_species_local_synteny"},
             species=species_summary(request),
         )

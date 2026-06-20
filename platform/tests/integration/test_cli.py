@@ -642,7 +642,7 @@ def test_analyze_mcscan_with_three_species(tmp_path: Path) -> None:
             *_auto_args(input_dir, outdir),
             "--rewrite-layout-links",
             "--optimize-figsize",
-            "--fix-karyotype-label-overlap",
+            "--optimize-karyotype-labels",
             "--min-block-size",
             "1",
             "--force",
@@ -669,13 +669,15 @@ def test_analyze_mcscan_with_three_species(tmp_path: Path) -> None:
     assert any(Path(path).name.startswith("global.") for path in summary["global_figures"])
     assert any(path in summary["final_figures"] for path in summary["global_figures"])
     request_snapshot = json.loads((outdir / "inputs" / "analysis_request.json").read_text(encoding="utf-8"))
-    assert request_snapshot["method_config"]["fix_karyotype_label_overlap"] is True
+    assert request_snapshot["method_config"]["auto_optimization"]["optimize_karyotype_labels"] is True
+    assert request_snapshot["method_config"]["auto_optimization"]["optimize_figsize"] is True
+    assert request_snapshot["method_config"]["auto_optimization"]["rewrite_layout_links"] is True
     global_manifest = json.loads(
         (outdir / "intermediate" / "global_karyotype" / "global_manifest.json").read_text(encoding="utf-8")
     )
-    assert global_manifest["options"]["rewrite_layout_links"] is True
-    assert global_manifest["options"]["optimize_figsize"] is True
-    assert global_manifest["options"]["fix_karyotype_label_overlap"] is True
+    assert global_manifest["options"]["auto_optimization"]["rewrite_layout_links"] is True
+    assert global_manifest["options"]["auto_optimization"]["optimize_figsize"] is True
+    assert global_manifest["options"]["auto_optimization"]["optimize_karyotype_labels"] is True
     global_summary = json.loads(
         (outdir / "intermediate" / "global_karyotype" / "engine_run_summary.json").read_text(encoding="utf-8")
     )
@@ -684,7 +686,7 @@ def test_analyze_mcscan_with_three_species(tmp_path: Path) -> None:
     assert global_artifacts["rewritten_track_order"]
     assert global_artifacts["optimized_figsize"]
     assert global_artifacts["karyotype_renderer_variant"] == "mirrored"
-    assert global_artifacts["karyotype_label_overlap_fix"] is True
+    assert global_artifacts["optimize_karyotype_labels"] is True
     global_layout = (outdir / "intermediate" / "global_karyotype" / "karyotype_global.layout").read_text(
         encoding="utf-8"
     )
@@ -1134,8 +1136,8 @@ def test_analyze_mcscan_reference_vs_targets_three_species(tmp_path: Path) -> No
             encoding="utf-8"
         )
     )
-    assert local_manifest["options"]["rewrite_layout_links"] is True
-    assert local_manifest["options"]["optimize_figsize"] is True
+    assert local_manifest["options"]["auto_optimization"]["rewrite_layout_links"] is True
+    assert local_manifest["options"]["auto_optimization"]["optimize_figsize"] is True
     local_layout = (outdir / "intermediate" / "multi_species_local_synteny" / "local_multi.layout").read_text(
         encoding="utf-8"
     )
@@ -1173,7 +1175,10 @@ def test_analyze_mcscan_config_defaults_exposed_in_init(tmp_path: Path) -> None:
     assert jcvi_config["local_synteny"]["up"] == 20
     assert jcvi_config["local_synteny"]["down"] == 20
     assert jcvi_config["local_synteny"]["dpi"] == 300
-    assert jcvi_config["local_synteny"]["fix_karyotype_label_overlap"] is False
+    assert jcvi_config["local_synteny"]["auto_optimization"]["optimize_karyotype_labels"] is False
+    assert jcvi_config["local_synteny"]["auto_optimization"]["optimize_figsize"] is False
+    assert jcvi_config["local_synteny"]["auto_optimization"]["rewrite_layout_links"] is False
+    assert jcvi_config["local_synteny"]["auto_optimization"]["trim_cross_chromosome_blocks"] is False
 
     root = Path(__file__).resolve().parents[3]
     sample = root / "references" / "samples" / "shell" / "bed_cds_minimal"

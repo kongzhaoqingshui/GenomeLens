@@ -306,7 +306,7 @@ def prepare_synteny_plot_inputs(
     active_layout = layout
     artifacts: dict[str, object] = {}
 
-    if options.trim_cross_chromosome_blocks:
+    if options.auto_optimization.get("trim_cross_chromosome_blocks"):
         trimmed_blocks, trimmed = trim_cross_chromosome_blocks(
             active_blocks,
             bed,
@@ -320,7 +320,7 @@ def prepare_synteny_plot_inputs(
         else:
             active_blocks = trimmed_blocks
 
-    if options.rewrite_layout_links:
+    if options.auto_optimization.get("rewrite_layout_links"):
         active_layout, rewritten = rewrite_layout_links(
             active_layout,
             root / f"{stem}.rewritten.layout",
@@ -329,7 +329,7 @@ def prepare_synteny_plot_inputs(
         artifacts["rewritten_layout_edges"] = rewritten
 
     figsize = options.figsize
-    if options.optimize_figsize and not figsize:
+    if options.auto_optimization.get("optimize_figsize") and not figsize:
         figsize = suggest_figsize(active_blocks, active_layout)
         artifacts["optimized_figsize"] = figsize
 

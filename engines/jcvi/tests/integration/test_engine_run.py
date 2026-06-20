@@ -103,12 +103,15 @@ def test_engine_run_graphics_karyotype(tmp_path: Path) -> None:
     assert Path(payload["artifacts"]["karyotype_seqids"]).is_file()
     assert Path(payload["artifacts"]["karyotype_layout"]).is_file()
     assert payload["artifacts"]["karyotype_renderer_variant"] == "vendored"
-    assert payload["artifacts"]["karyotype_label_overlap_fix"] is False
+    assert payload["artifacts"]["optimize_karyotype_labels"] is False
 
 
 def test_engine_run_graphics_karyotype_with_label_overlap_fix(tmp_path: Path) -> None:
     data = _manifest("graphics_karyotype")
-    data["options"] = {**data["options"], "fix_karyotype_label_overlap": True}
+    data["options"] = {
+        **data["options"],
+        "auto_optimization": {"optimize_karyotype_labels": True},
+    }
     manifest = tmp_path / "manifest.json"
     manifest.write_text(json.dumps(data), encoding="utf-8")
     summary_path = run_manifest(manifest, tmp_path / "engine")
@@ -116,7 +119,7 @@ def test_engine_run_graphics_karyotype_with_label_overlap_fix(tmp_path: Path) ->
 
     assert payload["status"] == "ok"
     assert payload["artifacts"]["karyotype_renderer_variant"] == "mirrored"
-    assert payload["artifacts"]["karyotype_label_overlap_fix"] is True
+    assert payload["artifacts"]["optimize_karyotype_labels"] is True
     layout_text = Path(payload["artifacts"]["karyotype_layout"]).read_text(encoding="utf-8")
     assert "label_va" in layout_text
     assert "0.12, 0.88" in layout_text
@@ -163,7 +166,13 @@ def test_engine_run_graphics_karyotype_global(tmp_path: Path) -> None:
             {"i": 0, "j": 2, "simple": simple},
         ],
         "toolchain": {},
-        "options": {"formats": ["png"], "optimize_figsize": True, "rewrite_layout_links": True},
+        "options": {
+            "formats": ["png"],
+            "auto_optimization": {
+                "optimize_figsize": True,
+                "rewrite_layout_links": True,
+            },
+        },
         "expected_outputs": ["figures"],
     }
     manifest = tmp_path / "global.json"
@@ -178,7 +187,7 @@ def test_engine_run_graphics_karyotype_global(tmp_path: Path) -> None:
     assert payload["artifacts"]["rewritten_track_order"] == ["subject", "query", "third"]
     assert payload["artifacts"]["optimized_figsize"]
     assert payload["artifacts"]["karyotype_renderer_variant"] == "vendored"
-    assert payload["artifacts"]["karyotype_label_overlap_fix"] is False
+    assert payload["artifacts"]["optimize_karyotype_labels"] is False
     assert "--figsize" in payload["commands"][0]["argv"]
     assert Path(payload["artifacts"]["global_karyotype_figures"][0]).is_file()
     assert Path(payload["artifacts"]["global_karyotype_seqids"]).is_file()
@@ -209,9 +218,11 @@ def test_engine_run_graphics_karyotype_global_with_label_overlap_fix(tmp_path: P
         "toolchain": {},
         "options": {
             "formats": ["png"],
-            "optimize_figsize": True,
-            "rewrite_layout_links": True,
-            "fix_karyotype_label_overlap": True,
+            "auto_optimization": {
+                "optimize_figsize": True,
+                "rewrite_layout_links": True,
+                "optimize_karyotype_labels": True,
+            },
         },
         "expected_outputs": ["figures"],
     }
@@ -222,7 +233,7 @@ def test_engine_run_graphics_karyotype_global_with_label_overlap_fix(tmp_path: P
 
     assert payload["status"] == "ok"
     assert payload["artifacts"]["karyotype_renderer_variant"] == "mirrored"
-    assert payload["artifacts"]["karyotype_label_overlap_fix"] is True
+    assert payload["artifacts"]["optimize_karyotype_labels"] is True
     layout_text = Path(payload["artifacts"]["global_karyotype_layout"]).read_text(encoding="utf-8")
     assert "label_va" in layout_text
     assert "0.12, 0.88" in layout_text
@@ -261,8 +272,10 @@ def test_engine_run_local_synteny_multi(tmp_path: Path) -> None:
         "options": {
             "formats": ["png"],
             "target_gene_ids": ["qgene1"],
-            "optimize_figsize": True,
-            "rewrite_layout_links": True,
+            "auto_optimization": {
+                "optimize_figsize": True,
+                "rewrite_layout_links": True,
+            },
         },
         "expected_outputs": ["figures"],
     }

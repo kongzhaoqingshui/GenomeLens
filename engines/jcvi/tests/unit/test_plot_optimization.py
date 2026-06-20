@@ -120,9 +120,11 @@ def test_prepare_synteny_plot_inputs_applies_independent_switches(tmp_path: Path
         root=tmp_path,
         stem="plot",
         options=WorkflowOptions(
-            optimize_figsize=True,
-            rewrite_layout_links=True,
-            trim_cross_chromosome_blocks=True,
+            auto_optimization={
+                "optimize_figsize": True,
+                "rewrite_layout_links": True,
+                "trim_cross_chromosome_blocks": True,
+            }
         ),
     )
 
@@ -150,7 +152,7 @@ def test_prepare_synteny_plot_inputs_falls_back_when_trimmed_blocks_are_empty(tm
         layout=layout,
         root=tmp_path,
         stem="plot",
-        options=WorkflowOptions(trim_cross_chromosome_blocks=True),
+        options=WorkflowOptions(auto_optimization={"trim_cross_chromosome_blocks": True}),
     )
 
     assert inputs.blocks == blocks
@@ -178,7 +180,7 @@ def test_prepare_synteny_plot_inputs_falls_back_when_trimmed_blocks_leave_missin
         layout=layout,
         root=tmp_path,
         stem="plot",
-        options=WorkflowOptions(trim_cross_chromosome_blocks=True),
+        options=WorkflowOptions(auto_optimization={"trim_cross_chromosome_blocks": True}),
     )
 
     assert inputs.blocks == blocks

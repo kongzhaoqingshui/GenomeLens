@@ -117,10 +117,7 @@ class JcviEngineAdapter:
             "dpi": request.dpi,
             "log_level": request.log_level,
             "verbose": request.verbose,
-            "optimize_figsize": request.optimize_figsize,
-            "rewrite_layout_links": request.rewrite_layout_links,
-            "fix_karyotype_label_overlap": request.fix_karyotype_label_overlap,
-            "trim_cross_chromosome_blocks": request.trim_cross_chromosome_blocks,
+            "auto_optimization": dict(request.auto_optimization),
         }
         return {
             "schema_version": 2,
@@ -166,9 +163,7 @@ class JcviEngineAdapter:
         formats: list[str],
         figsize: str = "",
         dpi: int = 300,
-        optimize_figsize: bool = False,
-        rewrite_layout_links: bool = False,
-        fix_karyotype_label_overlap: bool = False,
+        auto_optimization: dict[str, bool] | None = None,
         log_level: str = "INFO",
         task: dict[str, object] | None = None,
         species: list[dict[str, object]] | None = None,
@@ -202,9 +197,7 @@ class JcviEngineAdapter:
                 "figsize": figsize,
                 "dpi": dpi,
                 "log_level": log_level,
-                "optimize_figsize": optimize_figsize,
-                "rewrite_layout_links": rewrite_layout_links,
-                "fix_karyotype_label_overlap": fix_karyotype_label_overlap,
+                "auto_optimization": dict(auto_optimization or {}),
             },
             "expected_outputs": ["global_karyotype_figures"],
             "meta": {
@@ -230,8 +223,7 @@ class JcviEngineAdapter:
         shadestyle: str,
         figsize: str,
         dpi: int,
-        optimize_figsize: bool,
-        rewrite_layout_links: bool,
+        auto_optimization: dict[str, bool] | None = None,
         task: dict[str, object] | None = None,
         species: list[dict[str, object]] | None = None,
     ) -> dict[str, object]:
@@ -255,8 +247,7 @@ class JcviEngineAdapter:
                 "shadestyle": shadestyle,
                 "figsize": figsize,
                 "dpi": dpi,
-                "optimize_figsize": optimize_figsize,
-                "rewrite_layout_links": rewrite_layout_links,
+                "auto_optimization": dict(auto_optimization or {}),
             },
             "expected_outputs": ["multi_species_local_figures"],
             "meta": {

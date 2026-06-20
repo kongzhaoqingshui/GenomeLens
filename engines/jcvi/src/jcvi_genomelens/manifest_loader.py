@@ -113,6 +113,14 @@ def _bool(value: object) -> bool:
     raise ManifestError(f"invalid boolean value: {value}")
 
 
+def _bool_dict(value: object) -> dict[str, bool]:
+    raw = _optional_object(value, "bool dict")
+    result: dict[str, bool] = {}
+    for key, val in raw.items():
+        result[str(key)] = _bool(val)
+    return result
+
+
 def _load_genome(data: object, label: str) -> GenomeSpec:
     raw = _require_object(data, label)
     name = str(raw.get("name") or label)
@@ -241,10 +249,7 @@ def load_manifest(path: str | Path) -> EngineRunManifest:
             dpi=_int(options_raw.get("dpi"), 300),
             log_level=_string(options_raw.get("log_level"), "INFO"),
             verbose=_bool(options_raw.get("verbose", False)),
-            optimize_figsize=_bool(options_raw.get("optimize_figsize", False)),
-            rewrite_layout_links=_bool(options_raw.get("rewrite_layout_links", False)),
-            fix_karyotype_label_overlap=_bool(options_raw.get("fix_karyotype_label_overlap", False)),
-            trim_cross_chromosome_blocks=_bool(options_raw.get("trim_cross_chromosome_blocks", False)),
+            auto_optimization=_bool_dict(options_raw.get("auto_optimization")),
         ),
         schema_version=_int(raw.get("schema_version"), 1),
         # task/species/meta 保持宽松对象结构，供 shell summary 直接回写。

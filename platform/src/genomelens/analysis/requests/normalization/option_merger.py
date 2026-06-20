@@ -158,12 +158,21 @@ def _label_targets(args: argparse.Namespace, config: ConfigModel | None) -> bool
     return False
 
 
-def _plot_flag(args: argparse.Namespace, config: ConfigModel | None, name: str) -> bool:
+def _auto_optimization_flag(args: argparse.Namespace, config: ConfigModel | None, name: str) -> bool:
     if bool(getattr(args, name, False)):
         return True
     if config:
-        return bool(getattr(config.local_synteny, name, False))
+        return bool(getattr(config.local_synteny.auto_optimization, name, False))
     return False
+
+
+def _auto_optimization_dict(args: argparse.Namespace, config: ConfigModel | None) -> dict[str, bool]:
+    return {
+        "optimize_figsize": _auto_optimization_flag(args, config, "optimize_figsize"),
+        "rewrite_layout_links": _auto_optimization_flag(args, config, "rewrite_layout_links"),
+        "optimize_karyotype_labels": _auto_optimization_flag(args, config, "optimize_karyotype_labels"),
+        "trim_cross_chromosome_blocks": _auto_optimization_flag(args, config, "trim_cross_chromosome_blocks"),
+    }
 
 
 def _style_arg(args: argparse.Namespace, config: ConfigModel | None, name: str) -> str:

@@ -140,10 +140,7 @@ def _map_method_config_to_request(
         "shadestyle": method_config.shadestyle,
         "figsize": method_config.figsize,
         "dpi": method_config.dpi,
-        "optimize_figsize": method_config.optimize_figsize,
-        "rewrite_layout_links": method_config.rewrite_layout_links,
-        "fix_karyotype_label_overlap": method_config.fix_karyotype_label_overlap,
-        "trim_cross_chromosome_blocks": method_config.trim_cross_chromosome_blocks,
+        "auto_optimization": dict(method_config.auto_optimization),
     }
     return mapped
 

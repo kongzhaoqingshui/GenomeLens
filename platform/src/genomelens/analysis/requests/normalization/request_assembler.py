@@ -16,6 +16,7 @@ from genomelens.analysis.requests.models import (
 from genomelens.analysis.requests.normalization.input_resolver import _path_text, discover_species_from_directory
 from genomelens.analysis.requests.normalization.option_merger import (
     _align_soft,
+    _auto_optimization_dict,
     _cscore,
     _dbtype,
     _dist,
@@ -26,7 +27,6 @@ from genomelens.analysis.requests.normalization.option_merger import (
     _label_targets,
     _log_level,
     _min_block_size,
-    _plot_flag,
     _split_targets,
     _style_arg,
     _target_gene_ids,
@@ -82,10 +82,7 @@ def _build_mcscan_method_config(args: argparse.Namespace, config: ConfigModel | 
         shadestyle=_style_arg(args, config, "shadestyle"),
         figsize=_style_arg(args, config, "figsize"),
         dpi=_dpi(args, config),
-        optimize_figsize=_plot_flag(args, config, "optimize_figsize"),
-        rewrite_layout_links=_plot_flag(args, config, "rewrite_layout_links"),
-        fix_karyotype_label_overlap=_plot_flag(args, config, "fix_karyotype_label_overlap"),
-        trim_cross_chromosome_blocks=_plot_flag(args, config, "trim_cross_chromosome_blocks"),
+        auto_optimization=_auto_optimization_dict(args, config),
     )
 
 

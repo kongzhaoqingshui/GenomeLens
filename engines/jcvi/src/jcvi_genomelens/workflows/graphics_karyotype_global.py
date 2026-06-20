@@ -45,7 +45,12 @@ def _display_tracks_and_edges(
     tracks = list(manifest.tracks)
     edges = list(manifest.edges)
     track_order = [track.name for track in tracks]
-    if not allow_rewrite or not manifest.options.rewrite_layout_links or len(tracks) < 3 or len(edges) < 2:
+    if (
+        not allow_rewrite
+        or not manifest.options.auto_optimization.get("rewrite_layout_links")
+        or len(tracks) < 3
+        or len(edges) < 2
+    ):
         return tracks, edges, 0, track_order
 
     degrees = [0] * len(tracks)
@@ -75,11 +80,11 @@ def _write_global_layout(
     tracks: list[EngineTrack],
     edges: list[EngineEdge],
     *,
-    fix_label_overlap: bool,
+    optimize_labels: bool,
 ) -> Path:
     header = (
         "# y, xstart, xend, rotation, color, label, va, bed, label_va"
-        if fix_label_overlap
+        if optimize_labels
         else "# y, xstart, xend, rotation, color, label, va, bed"
     )
     lines = [header]
@@ -89,8 +94,8 @@ def _write_global_layout(
         y = (top + bottom) / 2 if count == 1 else top - (top - bottom) * index / (count - 1)
         color = _TRACK_COLORS[index % len(_TRACK_COLORS)]
         is_upper = index <= (count - 1) // 2
-        va = "bottom" if fix_label_overlap and is_upper else "top"
-        lines.append(format_track_row(y, color, track.name, va, track.bed, fix_label_overlap=fix_label_overlap))
+        va = "bottom" if optimize_labels and is_upper else "top"
+        lines.append(format_track_row(y, color, track.name, va, track.bed, optimize_labels=optimize_labels))
     lines.append("# edges")
     for edge in edges:
         lines.append(f"e, {edge.i}, {edge.j}, {edge.simple}")
@@ -103,7 +108,8 @@ def run(manifest: EngineRunManifest, outdir: str | Path) -> tuple[list[CommandAu
 
     root = Path(outdir).expanduser().resolve(strict=False)
     root.mkdir(parents=True, exist_ok=True)
-    karyotype_main, renderer_variant = select_karyotype_renderer(manifest.options.fix_karyotype_label_overlap)
+    optimize_labels = manifest.options.auto_optimization.get("optimize_karyotype_labels", False)
+    karyotype_main, renderer_variant = select_karyotype_renderer(optimize_labels)
     display_tracks, display_edges, rewritten_edges, track_order = _display_tracks_and_edges(
         manifest,
         allow_rewrite=manifest.options.layout is None and manifest.options.seqids is None,
@@ -121,7 +127,7 @@ def run(manifest: EngineRunManifest, outdir: str | Path) -> tuple[list[CommandAu
             root / "karyotype_global.layout",
             display_tracks,
             display_edges,
-            fix_label_overlap=manifest.options.fix_karyotype_label_overlap,
+            optimize_labels=optimize_labels,
         )
     )
     figsize = manifest.options.figsize
@@ -129,9 +135,9 @@ def run(manifest: EngineRunManifest, outdir: str | Path) -> tuple[list[CommandAu
         "rewritten_layout_edges": rewritten_edges,
         "rewritten_track_order": track_order,
         "karyotype_renderer_variant": renderer_variant,
-        "karyotype_label_overlap_fix": manifest.options.fix_karyotype_label_overlap,
+        "optimize_karyotype_labels": optimize_labels,
     }
-    if manifest.options.optimize_figsize and not figsize:
+    if manifest.options.auto_optimization.get("optimize_figsize") and not figsize:
         figsize = suggest_karyotype_figsize(track_order, len(display_edges))
         artifacts["optimized_figsize"] = figsize
 

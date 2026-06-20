@@ -212,7 +212,7 @@ class Track:
         plot_label=True,
         plot_circles=True,
         pad=0.03,
-        vpad=0.09,
+        vpad=0.05,
     ):
         if self.empty:
             return

@@ -7,13 +7,13 @@ from genomelens.analysis.requests.models import AnalysisSpeciesInput
 from genomelens.analysis.requests.normalization.input_resolver import discover_species_from_directory
 from genomelens.analysis.requests.normalization.option_merger import (
     _align_soft,
+    _auto_optimization_flag,
     _cscore,
     _dbtype,
     _dist,
     _down,
     _dpi,
     _iter,
-    _plot_flag,
     _target_gene_ids,
     _up,
 )
@@ -277,6 +277,7 @@ def test_request_normalizer_resolves_new_options_from_defaults() -> None:
         dpi=None,
         optimize_figsize=False,
         rewrite_layout_links=False,
+        optimize_karyotype_labels=False,
         trim_cross_chromosome_blocks=False,
     )
     assert _align_soft(ns, None) == "blast"
@@ -287,9 +288,10 @@ def test_request_normalizer_resolves_new_options_from_defaults() -> None:
     assert _up(ns, None) == 20
     assert _down(ns, None) == 20
     assert _dpi(ns, None) == 300
-    assert _plot_flag(ns, None, "optimize_figsize") is False
-    assert _plot_flag(ns, None, "rewrite_layout_links") is False
-    assert _plot_flag(ns, None, "trim_cross_chromosome_blocks") is False
+    assert _auto_optimization_flag(ns, None, "optimize_figsize") is False
+    assert _auto_optimization_flag(ns, None, "rewrite_layout_links") is False
+    assert _auto_optimization_flag(ns, None, "optimize_karyotype_labels") is False
+    assert _auto_optimization_flag(ns, None, "trim_cross_chromosome_blocks") is False
 
 
 def test_request_normalizer_uses_cli_overrides() -> None:
@@ -329,6 +331,7 @@ def test_request_normalizer_uses_cli_overrides() -> None:
         dpi=600,
         optimize_figsize=True,
         rewrite_layout_links=True,
+        optimize_karyotype_labels=True,
         trim_cross_chromosome_blocks=True,
     )
     assert _align_soft(ns, None) == "last"
@@ -340,9 +343,10 @@ def test_request_normalizer_uses_cli_overrides() -> None:
     assert _up(ns, None) == 10
     assert _down(ns, None) == 15
     assert _dpi(ns, None) == 600
-    assert _plot_flag(ns, None, "optimize_figsize") is True
-    assert _plot_flag(ns, None, "rewrite_layout_links") is True
-    assert _plot_flag(ns, None, "trim_cross_chromosome_blocks") is True
+    assert _auto_optimization_flag(ns, None, "optimize_figsize") is True
+    assert _auto_optimization_flag(ns, None, "rewrite_layout_links") is True
+    assert _auto_optimization_flag(ns, None, "optimize_karyotype_labels") is True
+    assert _auto_optimization_flag(ns, None, "trim_cross_chromosome_blocks") is True
 
 
 def test_mcscan_auto_request_from_cli_includes_local_synteny_options(tmp_path: Path) -> None:
@@ -389,6 +393,7 @@ def test_mcscan_auto_request_from_cli_includes_local_synteny_options(tmp_path: P
         dpi=600,
         optimize_figsize=True,
         rewrite_layout_links=True,
+        optimize_karyotype_labels=True,
         trim_cross_chromosome_blocks=True,
     )
     request = mcscan_auto_request_from_cli(ns)
@@ -408,9 +413,12 @@ def test_mcscan_auto_request_from_cli_includes_local_synteny_options(tmp_path: P
     assert method_config["shadestyle"] == "curve"
     assert method_config["figsize"] == "8x4"
     assert method_config["dpi"] == 600
-    assert method_config["optimize_figsize"] is True
-    assert method_config["rewrite_layout_links"] is True
-    assert method_config["trim_cross_chromosome_blocks"] is True
+    assert method_config["auto_optimization"] == {
+        "optimize_figsize": True,
+        "rewrite_layout_links": True,
+        "optimize_karyotype_labels": True,
+        "trim_cross_chromosome_blocks": True,
+    }
     assert request.output.formats == ["png", "pdf"]
 
 

@@ -41,10 +41,10 @@ def _write_default_layout(path: Path, manifest: EngineRunManifest, simple: str) 
     if manifest.query is None or manifest.subject is None:
         raise ValueError("karyotype layout requires query and subject species")
 
-    fix_label_overlap = manifest.options.fix_karyotype_label_overlap
+    optimize_labels = manifest.options.auto_optimization.get("optimize_karyotype_labels", False)
     header = (
         "# y, xstart, xend, rotation, color, label, va, bed, label_va"
-        if fix_label_overlap
+        if optimize_labels
         else "# y, xstart, xend, rotation, color, label, va, bed"
     )
     path.write_text(
@@ -55,9 +55,9 @@ def _write_default_layout(path: Path, manifest: EngineRunManifest, simple: str) 
                     0.65,
                     "#2f6f73",
                     manifest.query.name,
-                    "bottom" if fix_label_overlap else "top",
+                    "bottom" if optimize_labels else "top",
                     manifest.query.bed,
-                    fix_label_overlap=fix_label_overlap,
+                    optimize_labels=optimize_labels,
                 ),
                 format_track_row(
                     0.35,
@@ -65,7 +65,7 @@ def _write_default_layout(path: Path, manifest: EngineRunManifest, simple: str) 
                     manifest.subject.name,
                     "top",
                     manifest.subject.bed,
-                    fix_label_overlap=fix_label_overlap,
+                    optimize_labels=optimize_labels,
                 ),
                 "# edges",
                 f"e, 0, 1, {simple}",
@@ -86,7 +86,9 @@ def run(manifest: EngineRunManifest, outdir: str | Path) -> tuple[list[CommandAu
     commands, artifacts = run_pairwise(manifest, outdir)
     root = Path(outdir).expanduser().resolve(strict=False)
     root.mkdir(parents=True, exist_ok=True)
-    karyotype_main, renderer_variant = select_karyotype_renderer(manifest.options.fix_karyotype_label_overlap)
+    karyotype_main, renderer_variant = select_karyotype_renderer(
+        manifest.options.auto_optimization.get("optimize_karyotype_labels", False)
+    )
     seqids = (
         manifest.options.seqids
         if manifest.options.seqids
@@ -120,6 +122,6 @@ def run(manifest: EngineRunManifest, outdir: str | Path) -> tuple[list[CommandAu
     artifacts["karyotype_seqids"] = str(seqids)
     artifacts["karyotype_layout"] = str(layout)
     artifacts["karyotype_renderer_variant"] = renderer_variant
-    artifacts["karyotype_label_overlap_fix"] = manifest.options.fix_karyotype_label_overlap
+    artifacts["optimize_karyotype_labels"] = manifest.options.auto_optimization.get("optimize_karyotype_labels", False)
     artifacts["backend"] = "jcvi.graphics.karyotype"
     return commands, artifacts

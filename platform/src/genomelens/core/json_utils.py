@@ -119,6 +119,17 @@ def _bool(value: object, default: bool = False) -> bool:
     return bool(value)
 
 
+def _bool_dict(value: object) -> dict[str, bool]:
+    """把 value 安全转成 dict[str, bool]，失败返回空 dict 并警告"""
+
+    if value is None:
+        return {}
+    if isinstance(value, dict):
+        return {str(k): bool(v) for k, v in value.items()}
+    _warn(value, "dict[str, bool]")
+    return {}
+
+
 def _dict(value: object) -> dict[str, object]:
     """把 value 安全转成 dict[str, object]，失败返回空 dict 并警告"""
 

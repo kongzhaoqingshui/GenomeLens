@@ -45,8 +45,10 @@ def test_local_synteny_multi_rewrites_default_layout_and_optimizes_figsize(tmp_p
         toolchain=ToolchainSpec(),
         options=WorkflowOptions(
             formats=["png"],
-            optimize_figsize=True,
-            rewrite_layout_links=True,
+            auto_optimization={
+                "optimize_figsize": True,
+                "rewrite_layout_links": True,
+            },
             target_gene_ids=["qgene2"],
         ),
         tracks=[EngineTrack("query", bed), EngineTrack("subject", bed), EngineTrack("third", bed)],
@@ -80,8 +82,10 @@ def test_local_synteny_multi_keeps_explicit_figsize(tmp_path: Path, monkeypatch)
         options=WorkflowOptions(
             formats=["png"],
             figsize="13x8",
-            optimize_figsize=True,
-            rewrite_layout_links=True,
+            auto_optimization={
+                "optimize_figsize": True,
+                "rewrite_layout_links": True,
+            },
             target_gene_ids=["qgene1"],
         ),
         tracks=[EngineTrack("query", bed), EngineTrack("subject", bed), EngineTrack("third", bed)],
@@ -109,7 +113,13 @@ def test_global_karyotype_reorders_tracks_without_overlap_fix_by_default(tmp_pat
     manifest = EngineRunManifest(
         workflow="graphics_karyotype_global",
         toolchain=ToolchainSpec(),
-        options=WorkflowOptions(formats=["png"], optimize_figsize=True, rewrite_layout_links=True),
+        options=WorkflowOptions(
+            formats=["png"],
+            auto_optimization={
+                "optimize_figsize": True,
+                "rewrite_layout_links": True,
+            },
+        ),
         tracks=[
             EngineTrack("query", query_bed),
             EngineTrack("subject", subject_bed),
@@ -127,7 +137,7 @@ def test_global_karyotype_reorders_tracks_without_overlap_fix_by_default(tmp_pat
     assert artifacts["rewritten_track_order"] == ["subject", "query", "third"]
     assert artifacts["rewritten_layout_edges"] == 2
     assert artifacts["karyotype_renderer_variant"] == "vendored"
-    assert artifacts["karyotype_label_overlap_fix"] is False
+    assert artifacts["optimize_karyotype_labels"] is False
     assert artifacts["optimized_figsize"] == "10x9"
     assert "--figsize" in commands[0].argv
     assert commands[0].argv[commands[0].argv.index("--figsize") + 1] == "10x9"
@@ -148,9 +158,11 @@ def test_global_karyotype_uses_mirrored_renderer_when_fix_enabled(tmp_path: Path
         toolchain=ToolchainSpec(),
         options=WorkflowOptions(
             formats=["png"],
-            optimize_figsize=True,
-            rewrite_layout_links=True,
-            fix_karyotype_label_overlap=True,
+            auto_optimization={
+                "optimize_figsize": True,
+                "rewrite_layout_links": True,
+                "optimize_karyotype_labels": True,
+            },
         ),
         tracks=[
             EngineTrack("query", query_bed),
@@ -170,4 +182,4 @@ def test_global_karyotype_uses_mirrored_renderer_when_fix_enabled(tmp_path: Path
     assert lines[-2].startswith(f"e, 0, 1, {simple_a}")
     assert lines[-1].startswith(f"e, 1, 2, {simple_b}")
     assert artifacts["karyotype_renderer_variant"] == "mirrored"
-    assert artifacts["karyotype_label_overlap_fix"] is True
+    assert artifacts["optimize_karyotype_labels"] is True

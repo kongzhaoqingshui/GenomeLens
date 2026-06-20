@@ -52,10 +52,12 @@ def test_manifest_loader(tmp_path: Path) -> None:
                     "shadestyle": "curve",
                     "figsize": "10x5",
                     "dpi": 300,
-                    "optimize_figsize": True,
-                    "rewrite_layout_links": True,
-                    "fix_karyotype_label_overlap": True,
-                    "trim_cross_chromosome_blocks": True,
+                    "auto_optimization": {
+                        "optimize_figsize": True,
+                        "rewrite_layout_links": True,
+                        "optimize_karyotype_labels": True,
+                        "trim_cross_chromosome_blocks": True,
+                    },
                 },
                 "expected_outputs": ["blast_table", "figures"],
             }
@@ -79,9 +81,9 @@ def test_manifest_loader(tmp_path: Path) -> None:
     assert loaded.options.glyphstyle == "arrow"
     assert loaded.options.figsize == "10x5"
     assert loaded.options.dpi == 300
-    assert loaded.options.optimize_figsize is True
-    assert loaded.options.rewrite_layout_links is True
-    assert loaded.options.fix_karyotype_label_overlap is True
-    assert loaded.options.trim_cross_chromosome_blocks is True
+    assert loaded.options.auto_optimization["optimize_figsize"] is True
+    assert loaded.options.auto_optimization["rewrite_layout_links"] is True
+    assert loaded.options.auto_optimization["optimize_karyotype_labels"] is True
+    assert loaded.options.auto_optimization["trim_cross_chromosome_blocks"] is True
     assert loaded.toolchain.lastal is None
     assert loaded.toolchain.lastdb is None

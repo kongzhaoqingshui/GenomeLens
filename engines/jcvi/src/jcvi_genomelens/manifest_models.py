@@ -60,10 +60,7 @@ class WorkflowOptions:
     dpi: int = 300
     log_level: str = "INFO"
     verbose: bool = False
-    optimize_figsize: bool = False
-    rewrite_layout_links: bool = False
-    fix_karyotype_label_overlap: bool = False
-    trim_cross_chromosome_blocks: bool = False
+    auto_optimization: dict[str, bool] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)

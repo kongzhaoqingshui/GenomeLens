@@ -65,7 +65,10 @@ def test_pairwise_karyotype_uses_mirrored_renderer_when_fix_enabled(tmp_path: Pa
     manifest = EngineRunManifest(
         workflow="graphics_karyotype",
         toolchain=ToolchainSpec(),
-        options=WorkflowOptions(formats=["png"], fix_karyotype_label_overlap=True),
+        options=WorkflowOptions(
+            formats=["png"],
+            auto_optimization={"optimize_karyotype_labels": True},
+        ),
         query=query,
         subject=subject,
     )
@@ -79,5 +82,5 @@ def test_pairwise_karyotype_uses_mirrored_renderer_when_fix_enabled(tmp_path: Pa
     assert lines[1].endswith(", top")
     assert lines[2].endswith(", bottom")
     assert artifacts["karyotype_renderer_variant"] == "mirrored"
-    assert artifacts["karyotype_label_overlap_fix"] is True
+    assert artifacts["optimize_karyotype_labels"] is True
     assert commands[-1].name == "jcvi.graphics.karyotype"

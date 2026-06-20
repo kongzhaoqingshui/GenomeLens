@@ -57,6 +57,16 @@ class McscanDefaults:
 
 
 @dataclass
+class AutoOptimizationDefaults:
+    """AutoOptimizationDefaults(出图自动优化开关)：本工具添加的非原生选项"""
+
+    optimize_figsize: bool = False
+    rewrite_layout_links: bool = False
+    optimize_karyotype_labels: bool = False
+    trim_cross_chromosome_blocks: bool = False
+
+
+@dataclass
 class LocalSyntenyDefaults:
     """LocalSyntenyDefaults(目标基因局部共线性默认参数)"""
 
@@ -70,10 +80,7 @@ class LocalSyntenyDefaults:
     shadestyle: str = ""
     figsize: str = ""
     dpi: int = 300
-    optimize_figsize: bool = False
-    rewrite_layout_links: bool = False
-    fix_karyotype_label_overlap: bool = False
-    trim_cross_chromosome_blocks: bool = False
+    auto_optimization: AutoOptimizationDefaults = field(default_factory=AutoOptimizationDefaults)
 
 
 @dataclass
@@ -142,10 +149,12 @@ class ConfigModel:
                 "shadestyle": self.local_synteny.shadestyle,
                 "figsize": self.local_synteny.figsize,
                 "dpi": self.local_synteny.dpi,
-                "optimize_figsize": self.local_synteny.optimize_figsize,
-                "rewrite_layout_links": self.local_synteny.rewrite_layout_links,
-                "fix_karyotype_label_overlap": self.local_synteny.fix_karyotype_label_overlap,
-                "trim_cross_chromosome_blocks": self.local_synteny.trim_cross_chromosome_blocks,
+                "auto_optimization": {
+                    "optimize_figsize": self.local_synteny.auto_optimization.optimize_figsize,
+                    "rewrite_layout_links": self.local_synteny.auto_optimization.rewrite_layout_links,
+                    "optimize_karyotype_labels": self.local_synteny.auto_optimization.optimize_karyotype_labels,
+                    "trim_cross_chromosome_blocks": self.local_synteny.auto_optimization.trim_cross_chromosome_blocks,
+                },
             },
         }
 
@@ -194,6 +203,13 @@ class ConfigModel:
         )
 
         local_raw = _dict(data.get("local_synteny"))
+        auto_opt_raw = _dict(local_raw.get("auto_optimization"))
+        auto_optimization = AutoOptimizationDefaults(
+            optimize_figsize=_bool(auto_opt_raw.get("optimize_figsize"), default=False),
+            rewrite_layout_links=_bool(auto_opt_raw.get("rewrite_layout_links"), default=False),
+            optimize_karyotype_labels=_bool(auto_opt_raw.get("optimize_karyotype_labels"), default=False),
+            trim_cross_chromosome_blocks=_bool(auto_opt_raw.get("trim_cross_chromosome_blocks"), default=False),
+        )
         local_synteny = LocalSyntenyDefaults(
             # 目标基因必须保持 list 语义，避免字符串被拆成字符列表
             target_gene_ids=_str_list(local_raw.get("target_gene_ids")),
@@ -206,10 +222,7 @@ class ConfigModel:
             shadestyle=_str(local_raw.get("shadestyle")),
             figsize=_str(local_raw.get("figsize")),
             dpi=_int(local_raw.get("dpi"), default=300),
-            optimize_figsize=_bool(local_raw.get("optimize_figsize"), default=False),
-            rewrite_layout_links=_bool(local_raw.get("rewrite_layout_links"), default=False),
-            fix_karyotype_label_overlap=_bool(local_raw.get("fix_karyotype_label_overlap"), default=False),
-            trim_cross_chromosome_blocks=_bool(local_raw.get("trim_cross_chromosome_blocks"), default=False),
+            auto_optimization=auto_optimization,
         )
 
         return cls(

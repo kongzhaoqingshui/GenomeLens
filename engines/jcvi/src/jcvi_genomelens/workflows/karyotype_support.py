@@ -22,10 +22,10 @@ def default_label_va(va: str) -> str:
     return "top" if va == "bottom" else "bottom" if va == "top" else "center"
 
 
-def select_karyotype_renderer(fix_label_overlap: bool) -> tuple[KaryotypeMain, str]:
+def select_karyotype_renderer(optimize_labels: bool) -> tuple[KaryotypeMain, str]:
     """Return the karyotype entrypoint and a stable variant label."""
 
-    if fix_label_overlap:
+    if optimize_labels:
         return mirrored_karyotype.main, "mirrored"
     return vendored_karyotype_main, "vendored"
 
@@ -37,13 +37,13 @@ def format_track_row(
     va: str,
     bed: Path,
     *,
-    fix_label_overlap: bool,
+    optimize_labels: bool,
 ) -> str:
     """Format an auto-generated karyotype track row."""
 
-    xstart = FIXED_XSTART if fix_label_overlap else DEFAULT_XSTART
-    xend = FIXED_XEND if fix_label_overlap else DEFAULT_XEND
+    xstart = FIXED_XSTART if optimize_labels else DEFAULT_XSTART
+    xend = FIXED_XEND if optimize_labels else DEFAULT_XEND
     row = f"{y:.4f}, {xstart:.2f}, {xend:.2f}, 0, {color}, {label}, {va}, {bed}"
-    if fix_label_overlap:
+    if optimize_labels:
         row += f", {default_label_va(va)}"
     return row
