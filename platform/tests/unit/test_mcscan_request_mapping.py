@@ -52,6 +52,7 @@ def test_map_method_config_to_request_field_names() -> None:
         dpi=600,
         optimize_figsize=True,
         rewrite_layout_links=True,
+        fix_karyotype_label_overlap=True,
         trim_cross_chromosome_blocks=True,
     )
     config = ConfigModel(
@@ -95,6 +96,7 @@ def test_map_method_config_to_request_field_names() -> None:
     assert mapped["dpi"] == 600
     assert mapped["optimize_figsize"] is True
     assert mapped["rewrite_layout_links"] is True
+    assert mapped["fix_karyotype_label_overlap"] is True
     assert mapped["trim_cross_chromosome_blocks"] is True
 
 

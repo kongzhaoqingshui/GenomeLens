@@ -108,6 +108,7 @@ def _build_global_karyotype(
             dpi=request.dpi,
             optimize_figsize=request.optimize_figsize,
             rewrite_layout_links=request.rewrite_layout_links,
+            fix_karyotype_label_overlap=request.fix_karyotype_label_overlap,
             log_level=request.log_level,
             task={"workflow": "graphics_karyotype_global", "task_type": "global_synteny"},
             species=species_summary(request),

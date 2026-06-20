@@ -72,6 +72,7 @@ class LocalSyntenyDefaults:
     dpi: int = 300
     optimize_figsize: bool = False
     rewrite_layout_links: bool = False
+    fix_karyotype_label_overlap: bool = False
     trim_cross_chromosome_blocks: bool = False
 
 
@@ -143,6 +144,7 @@ class ConfigModel:
                 "dpi": self.local_synteny.dpi,
                 "optimize_figsize": self.local_synteny.optimize_figsize,
                 "rewrite_layout_links": self.local_synteny.rewrite_layout_links,
+                "fix_karyotype_label_overlap": self.local_synteny.fix_karyotype_label_overlap,
                 "trim_cross_chromosome_blocks": self.local_synteny.trim_cross_chromosome_blocks,
             },
         }
@@ -206,6 +208,7 @@ class ConfigModel:
             dpi=_int(local_raw.get("dpi"), default=300),
             optimize_figsize=_bool(local_raw.get("optimize_figsize"), default=False),
             rewrite_layout_links=_bool(local_raw.get("rewrite_layout_links"), default=False),
+            fix_karyotype_label_overlap=_bool(local_raw.get("fix_karyotype_label_overlap"), default=False),
             trim_cross_chromosome_blocks=_bool(local_raw.get("trim_cross_chromosome_blocks"), default=False),
         )
 

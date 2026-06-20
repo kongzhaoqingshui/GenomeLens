@@ -243,6 +243,7 @@ def load_manifest(path: str | Path) -> EngineRunManifest:
             verbose=_bool(options_raw.get("verbose", False)),
             optimize_figsize=_bool(options_raw.get("optimize_figsize", False)),
             rewrite_layout_links=_bool(options_raw.get("rewrite_layout_links", False)),
+            fix_karyotype_label_overlap=_bool(options_raw.get("fix_karyotype_label_overlap", False)),
             trim_cross_chromosome_blocks=_bool(options_raw.get("trim_cross_chromosome_blocks", False)),
         ),
         schema_version=_int(raw.get("schema_version"), 1),

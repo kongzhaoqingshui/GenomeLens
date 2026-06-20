@@ -71,6 +71,7 @@ def _mcscan_request_to_analysis(request: McscanRequest) -> AnalysisRequest:
         dpi=request.dpi,
         optimize_figsize=request.optimize_figsize,
         rewrite_layout_links=request.rewrite_layout_links,
+        fix_karyotype_label_overlap=request.fix_karyotype_label_overlap,
         trim_cross_chromosome_blocks=request.trim_cross_chromosome_blocks,
     )
 

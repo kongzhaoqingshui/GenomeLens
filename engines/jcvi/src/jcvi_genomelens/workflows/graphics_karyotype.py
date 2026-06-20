@@ -1,17 +1,14 @@
-"""真实 JCVI `graphics.karyotype` workflow(工作流)"""
+"""Real JCVI graphics.karyotype workflow."""
 
-# region import
 from __future__ import annotations
 
 from pathlib import Path
 
-from jcvi.graphics.karyotype import main as jcvi_graphics_karyotype
 from jcvi_genomelens.manifest_models import EngineRunManifest
 from jcvi_genomelens.runtime.command_runner import CommandAudit, run_python_step
 from jcvi_genomelens.workflows.common import _assert_ok
+from jcvi_genomelens.workflows.karyotype_support import format_track_row, select_karyotype_renderer
 from jcvi_genomelens.workflows.mcscan_pairwise import run as run_pairwise
-
-# endregion
 
 
 def _seqids_from_bed(path: Path) -> list[str]:
@@ -23,7 +20,6 @@ def _seqids_from_bed(path: Path) -> list[str]:
                 continue
             seqid = line.split("\t", 1)[0].strip()
             if seqid and seqid not in seen:
-                # karyotype 需要稳定染色体顺序，这里按 BED 首次出现顺序保留。
                 seen.add(seqid)
                 ordered.append(seqid)
     if not ordered:
@@ -45,12 +41,32 @@ def _write_default_layout(path: Path, manifest: EngineRunManifest, simple: str) 
     if manifest.query is None or manifest.subject is None:
         raise ValueError("karyotype layout requires query and subject species")
 
+    fix_label_overlap = manifest.options.fix_karyotype_label_overlap
+    header = (
+        "# y, xstart, xend, rotation, color, label, va, bed, label_va"
+        if fix_label_overlap
+        else "# y, xstart, xend, rotation, color, label, va, bed"
+    )
     path.write_text(
         "\n".join(
             [
-                "# y, xstart, xend, rotation, color, label, va, bed",
-                f"0.65, 0.10, 0.90, 0, #2f6f73, {manifest.query.name}, top, {manifest.query.bed}",
-                f"0.35, 0.10, 0.90, 0, #b85c38, {manifest.subject.name}, top, {manifest.subject.bed}",
+                header,
+                format_track_row(
+                    0.65,
+                    "#2f6f73",
+                    manifest.query.name,
+                    "bottom" if fix_label_overlap else "top",
+                    manifest.query.bed,
+                    fix_label_overlap=fix_label_overlap,
+                ),
+                format_track_row(
+                    0.35,
+                    "#b85c38",
+                    manifest.subject.name,
+                    "top",
+                    manifest.subject.bed,
+                    fix_label_overlap=fix_label_overlap,
+                ),
                 "# edges",
                 f"e, 0, 1, {simple}",
             ]
@@ -62,14 +78,15 @@ def _write_default_layout(path: Path, manifest: EngineRunManifest, simple: str) 
 
 
 def run(manifest: EngineRunManifest, outdir: str | Path) -> tuple[list[CommandAudit], dict[str, object]]:
-    """运行 pairwise MCscan(成对 MCscan) 后绘制 karyotype(核型共线性图)"""
+    """Run pairwise MCscan and render the karyotype figure."""
 
     if manifest.query is None or manifest.subject is None:
         raise ValueError("karyotype requires query and subject species")
 
     commands, artifacts = run_pairwise(manifest, outdir)
     root = Path(outdir).expanduser().resolve(strict=False)
-    # 用户未提供 seqids/layout 时，这里按 pairwise 输入自动生成最小可用版本。
+    root.mkdir(parents=True, exist_ok=True)
+    karyotype_main, renderer_variant = select_karyotype_renderer(manifest.options.fix_karyotype_label_overlap)
     seqids = (
         manifest.options.seqids
         if manifest.options.seqids
@@ -80,33 +97,29 @@ def run(manifest: EngineRunManifest, outdir: str | Path) -> tuple[list[CommandAu
         if manifest.options.layout
         else _write_default_layout(root / "karyotype.layout", manifest, str(artifacts["simple"]))
     )
+    figsize = manifest.options.figsize
     figures: list[str] = []
     formats = manifest.options.formats or ["png"]
     for fmt in formats:
         figure = root / f"karyotype.{fmt}"
-        command = run_python_step(
-            "jcvi.graphics.karyotype",
-            jcvi_graphics_karyotype,
-            [
-                str(seqids),
-                str(layout),
-                "--format",
-                fmt,
-                "--notex",
-                "-o",
-                str(figure),
-            ],
-            cwd=root,
-        )
+        argv = [str(seqids), str(layout), "--format", fmt, "--notex"]
+        if figsize:
+            argv.extend(["--figsize", figsize])
+        if manifest.options.dpi > 0:
+            argv.extend(["--dpi", str(manifest.options.dpi)])
+        argv.extend(["-o", str(figure)])
+        command = run_python_step("jcvi.graphics.karyotype", karyotype_main, argv, cwd=root)
         commands.append(command)
         _assert_ok(command)
         if not figure.is_file() or figure.stat().st_size == 0:
             raise RuntimeError(f"JCVI karyotype figure was not created: {figure}")
         figures.append(str(figure))
-    # 统一 figures 入口供 shell 归档，细分字段保留给 UI/后处理使用。
+
     artifacts["figures"] = figures
     artifacts["karyotype_figures"] = figures
     artifacts["karyotype_seqids"] = str(seqids)
     artifacts["karyotype_layout"] = str(layout)
+    artifacts["karyotype_renderer_variant"] = renderer_variant
+    artifacts["karyotype_label_overlap_fix"] = manifest.options.fix_karyotype_label_overlap
     artifacts["backend"] = "jcvi.graphics.karyotype"
     return commands, artifacts

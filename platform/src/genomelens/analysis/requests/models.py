@@ -212,6 +212,7 @@ class McscanMethodConfig:
     dpi: int = 300
     optimize_figsize: bool = False
     rewrite_layout_links: bool = False
+    fix_karyotype_label_overlap: bool = False
     trim_cross_chromosome_blocks: bool = False
 
     def to_json(self) -> dict[str, object]:
@@ -240,6 +241,7 @@ class McscanMethodConfig:
             "dpi": self.dpi,
             "optimize_figsize": self.optimize_figsize,
             "rewrite_layout_links": self.rewrite_layout_links,
+            "fix_karyotype_label_overlap": self.fix_karyotype_label_overlap,
             "trim_cross_chromosome_blocks": self.trim_cross_chromosome_blocks,
         }
 
@@ -270,6 +272,7 @@ class McscanMethodConfig:
             dpi=_int(data.get("dpi"), default=300),
             optimize_figsize=_bool(data.get("optimize_figsize"), default=False),
             rewrite_layout_links=_bool(data.get("rewrite_layout_links"), default=False),
+            fix_karyotype_label_overlap=_bool(data.get("fix_karyotype_label_overlap"), default=False),
             trim_cross_chromosome_blocks=_bool(data.get("trim_cross_chromosome_blocks"), default=False),
         )
 

@@ -102,6 +102,24 @@ def test_engine_run_graphics_karyotype(tmp_path: Path) -> None:
     assert Path(payload["artifacts"]["karyotype_figures"][0]).is_file()
     assert Path(payload["artifacts"]["karyotype_seqids"]).is_file()
     assert Path(payload["artifacts"]["karyotype_layout"]).is_file()
+    assert payload["artifacts"]["karyotype_renderer_variant"] == "vendored"
+    assert payload["artifacts"]["karyotype_label_overlap_fix"] is False
+
+
+def test_engine_run_graphics_karyotype_with_label_overlap_fix(tmp_path: Path) -> None:
+    data = _manifest("graphics_karyotype")
+    data["options"] = {**data["options"], "fix_karyotype_label_overlap": True}
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text(json.dumps(data), encoding="utf-8")
+    summary_path = run_manifest(manifest, tmp_path / "engine")
+    payload = json.loads(summary_path.read_text(encoding="utf-8"))
+
+    assert payload["status"] == "ok"
+    assert payload["artifacts"]["karyotype_renderer_variant"] == "mirrored"
+    assert payload["artifacts"]["karyotype_label_overlap_fix"] is True
+    layout_text = Path(payload["artifacts"]["karyotype_layout"]).read_text(encoding="utf-8")
+    assert "label_va" in layout_text
+    assert "0.12, 0.88" in layout_text
 
 
 def test_engine_run_catalog_ortholog(tmp_path: Path) -> None:
@@ -159,10 +177,55 @@ def test_engine_run_graphics_karyotype_global(tmp_path: Path) -> None:
     assert payload["artifacts"]["rewritten_layout_edges"] == 2
     assert payload["artifacts"]["rewritten_track_order"] == ["subject", "query", "third"]
     assert payload["artifacts"]["optimized_figsize"]
+    assert payload["artifacts"]["karyotype_renderer_variant"] == "vendored"
+    assert payload["artifacts"]["karyotype_label_overlap_fix"] is False
     assert "--figsize" in payload["commands"][0]["argv"]
     assert Path(payload["artifacts"]["global_karyotype_figures"][0]).is_file()
     assert Path(payload["artifacts"]["global_karyotype_seqids"]).is_file()
     assert Path(payload["artifacts"]["global_karyotype_layout"]).is_file()
+
+
+def test_engine_run_graphics_karyotype_global_with_label_overlap_fix(tmp_path: Path) -> None:
+    pairwise_manifest = tmp_path / "pairwise.json"
+    pairwise_manifest.write_text(json.dumps(_manifest("mcscan_pairwise")), encoding="utf-8")
+    pairwise_summary = json.loads(run_manifest(pairwise_manifest, tmp_path / "pairwise").read_text(encoding="utf-8"))
+    simple = pairwise_summary["artifacts"]["simple"]
+
+    third_bed = tmp_path / "third.bed"
+    third_bed.write_text((SAMPLE / "subject.bed").read_text(encoding="utf-8"), encoding="utf-8")
+    global_manifest = {
+        "schema_version": 2,
+        "workflow": "graphics_karyotype_global",
+        "task": {"task_id": "global", "task_type": "multi_species_synteny", "source": "pytest"},
+        "tracks": [
+            {"name": "query", "bed": str(SAMPLE / "query.bed")},
+            {"name": "subject", "bed": str(SAMPLE / "subject.bed")},
+            {"name": "third", "bed": str(third_bed)},
+        ],
+        "edges": [
+            {"i": 0, "j": 1, "simple": simple},
+            {"i": 0, "j": 2, "simple": simple},
+        ],
+        "toolchain": {},
+        "options": {
+            "formats": ["png"],
+            "optimize_figsize": True,
+            "rewrite_layout_links": True,
+            "fix_karyotype_label_overlap": True,
+        },
+        "expected_outputs": ["figures"],
+    }
+    manifest = tmp_path / "global.json"
+    manifest.write_text(json.dumps(global_manifest), encoding="utf-8")
+    summary_path = run_manifest(manifest, tmp_path / "global")
+    payload = json.loads(summary_path.read_text(encoding="utf-8"))
+
+    assert payload["status"] == "ok"
+    assert payload["artifacts"]["karyotype_renderer_variant"] == "mirrored"
+    assert payload["artifacts"]["karyotype_label_overlap_fix"] is True
+    layout_text = Path(payload["artifacts"]["global_karyotype_layout"]).read_text(encoding="utf-8")
+    assert "label_va" in layout_text
+    assert "0.12, 0.88" in layout_text
 
 
 def test_engine_run_local_synteny_multi(tmp_path: Path) -> None:
