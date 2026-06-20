@@ -58,6 +58,10 @@ class WorkflowOptions:
     shadestyle: str = ""
     figsize: str = ""
     dpi: int = 300
+    cmap: str = ""
+    groups: bool = False
+    rowgroups: Path | None = None
+    horizontalbar: bool = False
     log_level: str = "INFO"
     verbose: bool = False
     auto_optimization: dict[str, bool] = field(default_factory=dict)
@@ -103,3 +107,4 @@ class EngineRunManifest:
     edges: list[EngineEdge] = field(default_factory=list)
     blocks: Path | None = None
     bed: Path | None = None
+    matrix: Path | None = None

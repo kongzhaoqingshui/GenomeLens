@@ -16,6 +16,7 @@ from jcvi_genomelens.workflow_contract import SUPPORTED_WORKFLOWS
 BUNDLED_JCVI_MODULES = [
     "jcvi.compara.synteny",
     "jcvi.compara.catalog",
+    "jcvi.graphics.heatmap",
     "jcvi.graphics.synteny",
     "jcvi.graphics.dotplot",
     "jcvi.graphics.karyotype",

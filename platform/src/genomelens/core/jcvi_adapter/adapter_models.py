@@ -86,6 +86,36 @@ class McscanRequest:
 
 
 @dataclass(frozen=True)
+class HeatmapPlotRequest:
+    """HeatmapPlotRequest(热图请求)：独立热图绘制请求"""
+
+    matrix: Path
+    outdir: Path
+    formats: list[str] = field(default_factory=lambda: ["svg"])
+    jcvi_engine: str = ""
+    figsize: str = ""
+    dpi: int = 300
+    cmap: str = ""
+    groups: bool = False
+    rowgroups: Path | None = None
+    horizontalbar: bool = False
+    force: bool = False
+    log_level: str = "INFO"
+
+    @property
+    def workflow(self) -> str:
+        """返回公开 workflow 名称"""
+
+        return "graphics_heatmap"
+
+    @property
+    def task_id(self) -> str:
+        """返回稳定但可读的任务标识"""
+
+        return f"{self.matrix.stem}__{self.workflow}"
+
+
+@dataclass(frozen=True)
 class JcviRunResult:
     """JcviRunResult(engine 结果)：解析后的 engine summary(引擎摘要) 字段"""
 

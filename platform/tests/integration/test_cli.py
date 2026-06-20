@@ -35,6 +35,15 @@ def test_cli_help() -> None:
     assert main(["--help"]) == 0
 
 
+def test_cli_help_for_plot_heatmap(capsys) -> None:
+    assert main(["help", "plot", "heatmap"]) == 0
+    output = capsys.readouterr().out
+
+    assert "matrix_csv" in output
+    assert "--rowgroups" in output
+    assert "--horizontalbar" in output
+
+
 def test_cli_help_for_command(capsys) -> None:
     assert main(["help", "analyze", "mcscan"]) == 0
     help_command_output = capsys.readouterr().out
@@ -92,6 +101,56 @@ def test_analyze_template_mcscan(capsys) -> None:
     assert payload["kind"] == "analysis_request"
     assert payload["method"] == "mcscan"
     assert payload["input"]["mode"] == "auto_directory"
+
+
+def test_plot_heatmap_command(tmp_path: Path) -> None:
+    matrix = tmp_path / "heatmap.csv"
+    matrix.write_text(",WT,,OE,\n,Day 0,Day 3,Day 0,Day 3\ngene1,1,10,100,1000\ngene2,5,20,200,500\n", encoding="utf-8")
+    rowgroups = tmp_path / "rowgroups.tsv"
+    rowgroups.write_text("I\tgene1\nII\tgene2\n", encoding="utf-8")
+    outdir = tmp_path / "heatmap-out"
+
+    code = main(
+        [
+            "plot",
+            "heatmap",
+            str(matrix),
+            str(outdir),
+            "--formats",
+            "png",
+            "--cmap",
+            "viridis",
+            "--groups",
+            "--rowgroups",
+            str(rowgroups),
+            "--horizontalbar",
+            "--force",
+        ]
+    )
+
+    assert code == 0
+    summary = json.loads((outdir / "report" / "run_summary.json").read_text(encoding="utf-8"))
+    assert summary["status"] == "SUCCEEDED"
+    assert summary["workflow"] == "graphics_heatmap"
+    assert summary["method"] == "plot"
+    assert summary["task"]["task_type"] == "plot_heatmap"
+    assert summary["heatmap_cmap"] == "viridis"
+    assert summary["heatmap_groups"] is True
+    assert summary["heatmap_horizontalbar"] is True
+    assert summary["final_figures"]
+    assert Path(summary["final_figures"][0]).is_file()
+
+    manifest = json.loads((outdir / "inputs" / "input_manifest.json").read_text(encoding="utf-8"))
+    assert manifest["workflow"] == "graphics_heatmap"
+    assert manifest["options"]["groups"] is True
+    assert manifest["options"]["horizontalbar"] is True
+    assert manifest["options"]["rowgroups"] == str(rowgroups.resolve())
+
+    engine_summary = json.loads(
+        (outdir / "intermediate" / "jcvi" / "engine_run_summary.json").read_text(encoding="utf-8")
+    )
+    assert engine_summary["artifacts"]["heatmap_cmap"] == "viridis"
+    assert Path(engine_summary["artifacts"]["heatmap_figures"][0]).is_file()
 
 
 def test_analyze_schema(capsys) -> None:
