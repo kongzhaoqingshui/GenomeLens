@@ -72,7 +72,7 @@ def run(manifest: EngineRunManifest, outdir: str | Path) -> tuple[list[CommandAu
             options=manifest.options,
         )
 
-    formats = manifest.options.formats or ["png"]
+    formats = manifest.options.formats or ["svg"]
     plot_options = {
         "figsize": plot_inputs.figsize,
         "dpi": manifest.options.dpi,

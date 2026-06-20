@@ -13,7 +13,7 @@ def parse_formats(value: str | list[str] | None) -> list[str]:
     """把 逗号分隔的输出格式 解析为 小写标记列表"""
 
     if value is None:
-        return ["png"]  # 纯兜底用，无意味
+        return ["svg"]  # 纯兜底用，无意味
     if isinstance(value, list):
         raw_items = value
     else:
@@ -21,7 +21,7 @@ def parse_formats(value: str | list[str] | None) -> list[str]:
 
     # shell/JSON 两条入口都收敛到小写格式列表，后续工作流就不再区分来源。
     formats = [item.strip().lower() for item in raw_items if item and item.strip()]
-    return formats or ["png"]
+    return formats or ["svg"]
 
 
 def parse_seqids_file(path: Path) -> list[str]:

@@ -19,7 +19,7 @@ def _formats(args: argparse.Namespace, config: ConfigModel | None) -> list[str]:
     # 运行时默认格式集中放在 runtime 组，避免 method config 重复维护同一来源
     if config:
         return parse_formats(config.runtime.default_formats)
-    return ["png"]
+    return ["svg"]
 
 
 def _threads(args: argparse.Namespace, config: ConfigModel | None) -> int | None:

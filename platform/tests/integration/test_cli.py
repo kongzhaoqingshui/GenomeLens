@@ -610,8 +610,8 @@ def test_analyze_mcscan_with_source_engine(tmp_path: Path) -> None:
         "jcvi.graphics.dotplot",
         "jcvi.graphics.synteny",
     ]
-    assert any(Path(path).name == "dotplot.png" for path in summary["final_figures"])
-    assert any(Path(path).name == "synteny.png" for path in summary["final_figures"])
+    assert any(Path(path).name == "dotplot.svg" for path in summary["final_figures"])
+    assert any(Path(path).name == "synteny.svg" for path in summary["final_figures"])
     request_snapshot = json.loads((outdir / "inputs" / "analysis_request.json").read_text(encoding="utf-8"))
     assert request_snapshot["kind"] == "analysis_request"
     assert request_snapshot["method"] == "mcscan"
@@ -1164,7 +1164,7 @@ def test_analyze_mcscan_config_defaults_exposed_in_init(tmp_path: Path) -> None:
     assert jcvi_config["toolchain"]["lastal_path"] == ""
     assert jcvi_config["toolchain"]["lastdb_path"] == ""
     assert jcvi_config["runtime"]["threads"] == 4
-    assert jcvi_config["runtime"]["formats"] == ["png"]
+    assert jcvi_config["runtime"]["formats"] == ["svg"]
     assert jcvi_config["mcscan"]["align_soft"] == "blast"
     assert jcvi_config["mcscan"]["dbtype"] == "nucl"
     assert jcvi_config["mcscan"]["cscore"] == 0.7

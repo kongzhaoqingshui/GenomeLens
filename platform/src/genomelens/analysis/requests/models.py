@@ -100,7 +100,7 @@ class AnalysisOutput:
 
     directory: str
     force: bool = False
-    formats: list[str] = field(default_factory=lambda: ["png"])
+    formats: list[str] = field(default_factory=lambda: ["svg"])
 
     def to_json(self) -> dict[str, object]:
         return {
@@ -114,7 +114,7 @@ class AnalysisOutput:
         return cls(
             directory=_str(data.get("directory")),
             force=_bool(data.get("force"), default=False),
-            formats=_str_list(data.get("formats"), default=["png"]),
+            formats=_str_list(data.get("formats"), default=["svg"]),
         )
 
 

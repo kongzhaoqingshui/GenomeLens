@@ -93,7 +93,7 @@ HAIant/Tauri 侧如果只开放一个入口，建议把它命名为“GenomeLens
    - `.local.blocks`
    - `.local.bed`
    - `.local.layout`
-   - `.local.png` / `.local.pdf` 等图件
+   - `.local.svg` / `.local.pdf` 等图件
 
    绘图阶段调用真实 `jcvi.graphics.synteny`。图件样式参数包括 `figsize`、`dpi`、`glyphstyle`、`glyphcolor`、`shadestyle` 和输出格式。
 

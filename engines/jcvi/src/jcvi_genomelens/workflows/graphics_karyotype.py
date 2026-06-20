@@ -99,7 +99,7 @@ def run(manifest: EngineRunManifest, outdir: str | Path) -> tuple[list[CommandAu
     )
     figsize = manifest.options.figsize
     figures: list[str] = []
-    formats = manifest.options.formats or ["png"]
+    formats = manifest.options.formats or ["svg"]
     for fmt in formats:
         figure = root / f"karyotype.{fmt}"
         argv = [str(seqids), str(layout), "--format", fmt, "--notex"]

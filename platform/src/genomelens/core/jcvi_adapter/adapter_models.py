@@ -21,7 +21,7 @@ class McscanRequest:
     additional_species: list[GenomeInputSpec] = field(default_factory=list)
     threads: int = 4
     min_block_size: int = 5
-    formats: list[str] = field(default_factory=lambda: ["png"])
+    formats: list[str] = field(default_factory=lambda: ["svg"])
     jcvi_engine: str = ""
     jcvi_workflow: str = "graphics_synteny"
     blastn_path: str = ""
