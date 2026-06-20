@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">JCVI Meow icon</title>
+  <desc id="desc">A blue cat head with long black eyes, a curled tail, and a magnifying lens marked JCVI.</desc>
+  <defs>
+    <linearGradient id="bg" x1="72" y1="56" x2="436" y2="456" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#E0F2FE" />
+      <stop offset="0.58" stop-color="#BAE6FD" />
+      <stop offset="1" stop-color="#60A5FA" />
+    </linearGradient>
+    <linearGradient id="cat" x1="140" y1="96" x2="340" y2="360" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#A5F3FC" />
+      <stop offset="0.58" stop-color="#60A5FA" />
+      <stop offset="1" stop-color="#3B82F6" />
+    </linearGradient>
+    <linearGradient id="lens" x1="260" y1="248" x2="404" y2="388" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#EFF6FF" />
+      <stop offset="1" stop-color="#BAE6FD" />
+    </linearGradient>
+  </defs>
+  <rect x="40" y="40" width="432" height="432" rx="112" fill="url(#bg)" />
+  <circle cx="256" cy="256" r="172" fill="#EFF6FF" opacity="0.26" />
+  <path d="M142 184C126 138 139 101 178 82C205 108 223 136 232 164H287C308 133 333 108 366 92C399 123 403 164 381 203C403 236 404 284 381 325C349 389 287 412 210 392C148 376 111 327 108 268C105 231 119 201 142 184Z" fill="#2563EB" opacity="0.28" />
+  <path d="M151 173C135 130 148 96 185 78C212 104 229 133 238 160H291C313 129 338 107 369 91C399 121 401 159 379 197C400 231 401 277 379 318C347 378 288 399 214 381C153 365 118 319 116 263C114 226 127 194 151 173Z" fill="url(#cat)" />
+  <path d="M195 161C185 142 172 127 160 115C154 130 155 153 164 177C174 169 184 164 195 161Z" fill="#E0F2FE" opacity="0.46" />
+  <path d="M337 162C346 144 359 129 371 117C377 133 377 154 367 178C358 171 348 166 337 162Z" fill="#DBEAFE" opacity="0.42" />
+  <path d="M188 224H224" stroke="#0F172A" stroke-width="26" stroke-linecap="round" />
+  <path d="M272 230H308" stroke="#0F172A" stroke-width="26" stroke-linecap="round" />
+  <path d="M206 368C248 443 339 424 371 363C387 333 365 308 338 324C316 337 328 373 364 372" fill="none" stroke="#2563EB" stroke-width="31" stroke-linecap="round" stroke-linejoin="round" />
+  <path d="M298 376L238 437" stroke="#2563EB" stroke-width="41" stroke-linecap="round" />
+  <path d="M298 376L238 437" stroke="#DBEAFE" stroke-width="16" stroke-linecap="round" opacity="0.72" />
+  <circle cx="342" cy="318" r="95" fill="#2563EB" opacity="0.18" />
+  <circle cx="342" cy="318" r="78" fill="url(#lens)" stroke="#2563EB" stroke-width="25" />
+  <circle cx="314" cy="286" r="18" fill="#FFFFFF" opacity="0.82" />
+  <text x="342" y="336" text-anchor="middle" font-size="42" font-weight="800" letter-spacing="0" fill="#1D4ED8" font-family="Inter, Microsoft YaHei, sans-serif">JCVI</text>
+</svg>
