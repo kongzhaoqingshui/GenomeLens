@@ -24,6 +24,17 @@ export function AppShell({
   onThemeChange,
   children,
 }: AppShellProps) {
+  if (activeRoute.id === "home") {
+    return (
+      <div className="min-h-screen bg-bg text-text-primary transition-colors duration-200">
+        <div className="fixed right-5 top-5 z-10">
+          <ThemeToggle mode={themeMode} resolvedTheme={resolvedTheme} onChange={onThemeChange} />
+        </div>
+        <main className="min-h-screen p-5">{children}</main>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-bg text-text-primary transition-colors duration-200">
       <div className="pointer-events-none fixed inset-0 overflow-hidden">

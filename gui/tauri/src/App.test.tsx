@@ -99,14 +99,14 @@ describe("App", () => {
     render(<App />);
 
     expect(screen.getAllByText("JCVI喵").length).toBeGreaterThan(0);
-    expect(screen.getByRole("heading", { name: "正在唤醒你的 JCVI 工作台" })).toBeInTheDocument();
-    expect(await screen.findByText("GenomeLens Shell 0.0.0")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "JCVI喵" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: /双物种共线性/ })).toBeInTheDocument();
   });
 
   it("switches theme modes", async () => {
     render(<App />);
 
-    fireEvent.click(screen.getByRole("button", { name: "深色" }));
+    fireEvent.click(await screen.findByRole("button", { name: "深色" }));
 
     expect(document.documentElement).toHaveClass("dark");
     expect(window.localStorage.getItem("genomelens.theme")).toBe("dark");
@@ -115,9 +115,9 @@ describe("App", () => {
   it("navigates from the home ring into the analysis workbench", async () => {
     render(<App />);
 
-    fireEvent.click(await screen.findByRole("button", { name: /进入分析工作台/ }));
+    fireEvent.click(await screen.findByRole("button", { name: /双物种共线性/ }));
 
-    expect(window.location.hash).toBe("#/analysis/new");
+    expect(window.location.hash).toBe("#/analysis/new?capability=pairwise-synteny");
     expect(screen.getByText(/JCVI 任务工作台/)).toBeInTheDocument();
     expect(await screen.findByText("MCSCAN 分析工作台")).toBeInTheDocument();
     expect(screen.getByText("validateAnalysisRequestDraft()")).toBeInTheDocument();

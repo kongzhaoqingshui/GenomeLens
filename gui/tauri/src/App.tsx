@@ -157,19 +157,22 @@ export default function App() {
     startup.hints.length > 0
       ? startup.hints[Math.min(overlay.hintIndex, Math.max(0, startup.hints.length - 1))]
       : startup.activeHint;
+  const shouldRenderShell = !overlay.showOverlay || overlay.ready;
 
   return (
     <>
-      <AppShell
-        activeRoute={route}
-        routes={routes}
-        themeMode={mode}
-        resolvedTheme={resolvedTheme}
-        onNavigate={navigate}
-        onThemeChange={setMode}
-      >
-        {renderRoute(route, navigate, hash)}
-      </AppShell>
+      {shouldRenderShell ? (
+        <AppShell
+          activeRoute={route}
+          routes={routes}
+          themeMode={mode}
+          resolvedTheme={resolvedTheme}
+          onNavigate={navigate}
+          onThemeChange={setMode}
+        >
+          {renderRoute(route, navigate, hash)}
+        </AppShell>
+      ) : null}
 
       {overlay.showOverlay ? (
         <LaunchScreen
