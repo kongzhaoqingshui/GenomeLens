@@ -115,8 +115,8 @@ GenomeLens.exe analyze mcscan input output `
 
 默认 `graphics_synteny` 会输出：
 
-- `dotplot.png`
-- `synteny.png`
+- `dotplot.svg`
+- `synteny.svg`
 - anchors
 - simple blocks
 - blocks

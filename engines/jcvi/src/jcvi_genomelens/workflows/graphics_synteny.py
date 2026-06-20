@@ -38,7 +38,7 @@ def run(manifest: EngineRunManifest, outdir: str | Path) -> tuple[list[CommandAu
     # 先复用 pairwise 主流程产出 anchors/blocks/layout，再叠加 dotplot 和 synteny 图。
     commands, artifacts = run_pairwise(manifest, outdir)
     root = Path(outdir).expanduser().resolve(strict=False)
-    formats = manifest.options.formats or ["png"]
+    formats = manifest.options.formats or ["svg"]
     figures: list[str] = []
     dotplot_commands, dotplot_figures = draw_dotplots(manifest, root, artifacts)
     commands.extend(dotplot_commands)

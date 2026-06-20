@@ -28,7 +28,7 @@ def draw_dotplots(
 
     commands: list[CommandAudit] = []
     figures: list[str] = []
-    formats = manifest.options.formats or ["png"]
+    formats = manifest.options.formats or ["svg"]
     # dotplot 直接消费 pairwise 阶段生成的 anchors，不重复做同源搜索。
     anchors = str(artifacts["anchors"])
     for fmt in formats:

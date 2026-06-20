@@ -272,7 +272,7 @@ def run(manifest: EngineRunManifest, outdir: str | Path) -> tuple[list[CommandAu
         subject_label=manifest.subject.name,
     )
 
-    formats = manifest.options.formats or ["png"]
+    formats = manifest.options.formats or ["svg"]
     # 局部图单独落到 sibling `local/` 目录，避免与全局 pairwise 产物混在一起。
     local_dir = root.parent / "local"
     local_dir.mkdir(parents=True, exist_ok=True)

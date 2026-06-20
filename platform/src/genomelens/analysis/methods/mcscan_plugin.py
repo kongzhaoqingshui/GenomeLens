@@ -114,7 +114,7 @@ class McscanPlugin(MethodPlugin):
 
         # region 图件样式
         style_group = parser.add_argument_group("图件样式")
-        style_group.add_argument("--formats", default="", help="输出格式，例如 png 或 png,pdf")
+        style_group.add_argument("--formats", default="", help="输出格式，例如 svg 或 svg,pdf")
         style_group.add_argument("--glyphstyle", choices=["box", "arrow"], default="", help="基因形状：box / arrow")
         style_group.add_argument(
             "--glyphcolor",

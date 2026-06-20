@@ -78,7 +78,7 @@ _PAGES: tuple[McscanHelpPage, ...] = (
         "图件样式",
         "控制输出格式和 JCVI 图件渲染样式。",
         (
-            ("--formats FORMATS", "输出格式，例如 png 或 png,pdf"),
+            ("--formats FORMATS", "输出格式，例如 svg 或 svg,pdf"),
             ("--glyphstyle {box,arrow}", "基因形状"),
             ("--glyphcolor {orientation,orthogroup}", "基因着色"),
             ("--shadestyle {curve,line}", "连线样式"),

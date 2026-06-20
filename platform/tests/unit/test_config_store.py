@@ -24,7 +24,7 @@ def test_split_config_roundtrip(tmp_path: Path) -> None:
 
     # runtime 仅保留通用运行级字段
     assert loaded.runtime.default_threads == 4
-    assert loaded.runtime.default_formats == ["png"]
+    assert loaded.runtime.default_formats == ["svg"]
     assert loaded.runtime.log_level == "INFO"
 
     # mcscan 分组

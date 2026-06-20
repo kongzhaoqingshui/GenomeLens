@@ -175,7 +175,7 @@ def mcscan_template_request() -> AnalysisRequest:
         output=AnalysisOutput(
             directory="output",
             force=False,
-            formats=["png"],
+            formats=["svg"],
         ),
         config=AnalysisConfigRef(
             project_config="workspace/genomelens.config.json",

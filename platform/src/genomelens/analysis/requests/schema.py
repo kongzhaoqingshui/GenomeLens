@@ -122,7 +122,7 @@ ANALYSIS_REQUEST_JSON_SCHEMA: dict[str, object] = {
                     "items": {
                         "type": "string",
                     },
-                    "default": ["png"],
+                    "default": ["svg"],
                 },
             },
         },

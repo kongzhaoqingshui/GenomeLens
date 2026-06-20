@@ -172,7 +172,7 @@ def load_manifest(path: str | Path) -> EngineRunManifest:
         raise ManifestError("workflow is required")
     toolchain_raw = _require_object(raw.get("toolchain") or {}, "toolchain")
     options_raw = _require_object(raw.get("options") or {}, "options")
-    formats = options_raw.get("formats") or ["png"]
+    formats = options_raw.get("formats") or ["svg"]
     if not isinstance(formats, list):
         raise ManifestError("options.formats must be a list")
     allow_simplified_fallback = _bool(options_raw.get("allow_simplified_fallback", False))

@@ -34,7 +34,7 @@ class WorkflowOptions:
 
     threads: int = 4
     min_block_size: int = 5
-    formats: list[str] = field(default_factory=lambda: ["png"])
+    formats: list[str] = field(default_factory=lambda: ["svg"])
     layout: Path | None = None
     seqids: Path | None = None
     allow_simplified_fallback: bool = False

@@ -137,7 +137,7 @@ def run(manifest: EngineRunManifest, outdir: str | Path) -> tuple[list[CommandAu
 
     commands: list[CommandAudit] = []
     figures: list[str] = []
-    formats = manifest.options.formats or ["png"]
+    formats = manifest.options.formats or ["svg"]
     for fmt in formats:
         figure = root / f"karyotype_global.{fmt}"
         argv = [str(seqids), str(layout), "--format", fmt, "--notex"]

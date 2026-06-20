@@ -143,7 +143,7 @@ def copy_pairwise_figures(pair_id: str, figures: list[str], target_dir: Path) ->
     for figure in figures:
         source = Path(figure)
         if source.is_file():
-            # 顶层 figures 目录按 pair 前缀去重，避免多个子任务都叫 `dotplot.png`
+            # 顶层 figures 目录按 pair 前缀去重，避免多个子任务都叫 `dotplot.svg`
             target = target_dir / f"{pair_id}.{source.name}"
             shutil.copy2(source, target)
             copied.append(str(target))

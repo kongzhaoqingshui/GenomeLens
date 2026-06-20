@@ -38,7 +38,7 @@ class RuntimeDefaults:
     """RuntimeDefaults(运行默认值)：通用运行级默认值"""
 
     default_threads: int = 4
-    default_formats: list[str] = field(default_factory=lambda: ["png"])
+    default_formats: list[str] = field(default_factory=lambda: ["svg"])
     log_level: str = "INFO"
 
 
@@ -177,7 +177,7 @@ class ConfigModel:
         runtime = RuntimeDefaults(
             # log_level 仍属于 shell 运行时，所以继续保留在主配置平面
             default_threads=_int(runtime_raw.get("threads"), default=4),
-            default_formats=_str_list(runtime_raw.get("formats"), default=["png"]),
+            default_formats=_str_list(runtime_raw.get("formats"), default=["svg"]),
             log_level=_str(data.get("log_level"), default="INFO"),
         )
 
