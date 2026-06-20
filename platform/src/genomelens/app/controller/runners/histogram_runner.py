@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import shutil
 from collections.abc import Callable
-
 from typing import cast
 
 from genomelens.app.controller.runners._shared import (
