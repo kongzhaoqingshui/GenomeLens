@@ -367,13 +367,24 @@ def setup_logging(
     """Set up adapter logging under output_dir/run.log."""
 
     output_dir = Path(resolve_param_path(base, output_dir_value or "output"))
-    output_dir.mkdir(parents=True, exist_ok=True)
-    log_file = output_dir / "run.log"
+    return setup_adapter_logging(output_dir, logger_name=logger_name)
+
+
+def setup_adapter_logging(
+    output_dir: str | Path, *, logger_name: str = LOGGER_NAME
+) -> logging.Logger:
+    """Set up adapter logging under output_dir/run.log."""
+
+    destination = Path(output_dir).expanduser().resolve(strict=False)
+    destination.mkdir(parents=True, exist_ok=True)
     logger = logging.getLogger(logger_name)
     logger.setLevel(logging.INFO)
+    logger.propagate = False
     close_logging(logger_name=logger_name)
     formatter = logging.Formatter("%(asctime)s %(levelname)s %(message)s")
-    file_handler = logging.FileHandler(log_file, encoding="utf-8", mode="a")
+    file_handler = logging.FileHandler(
+        destination / "run.log", encoding="utf-8", mode="a"
+    )
     file_handler.setFormatter(formatter)
     stream_handler = logging.StreamHandler(sys.stdout)
     stream_handler.setFormatter(formatter)
@@ -394,6 +405,12 @@ def close_logging(*, logger_name: str = LOGGER_NAME) -> None:
             handler.close()
 
 
+def close_adapter_logging(logger_name: str = LOGGER_NAME) -> None:
+    """Flush and close adapter log handlers."""
+
+    close_logging(logger_name=logger_name)
+
+
 def _has_genomelens_shell(home: Path) -> bool:
     return any(
         (home / candidate).is_file() for candidate in _GENOMELENS_SHELL_CANDIDATES
@@ -409,6 +426,10 @@ def genomelens_shell_path(home: str | Path) -> Path:
         if path.is_file():
             return path
     raise PluginError(f"genomelens shell not found in gljcvimcscan home: {base}")
+
+
+# Backward-compatible alias used by lightweight feature entries.
+discover_genomelens_shell = genomelens_shell_path
 
 
 def discover_mcscan_home(start: str | Path | None = None) -> Path:
@@ -441,6 +462,18 @@ def discover_mcscan_home(start: str | Path | None = None) -> Path:
     raise PluginError(
         "Unable to locate gljcvimcscan heavy center. Install gljcvimcscan or set GLJCVIMCSCAN_HOME."
     )
+
+
+def build_command_for_launcher(
+    launcher: Path,
+    request_path: Path | None = None,
+) -> list[str]:
+    """Build a transparent launcher argv for shells and executables."""
+
+    args = ["analyze", "run", str(request_path)] if request_path is not None else []
+    if launcher.suffix.lower() in {".cmd", ".bat"}:
+        return ["cmd.exe", "/c", str(launcher), *args]
+    return [str(launcher), *args]
 
 
 def run_process(argv: Sequence[str]) -> int:

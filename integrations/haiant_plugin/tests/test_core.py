@@ -15,7 +15,7 @@ from genomelens_haiant_plugin import (
     load_params,
     parse_bool,
     resolve_param_path,
-    setup_adapter_logging,
+    setup_logging,
     write_runtime_request,
 )
 
@@ -107,10 +107,10 @@ def test_build_analysis_request_for_local_synteny_supports_csv_target_ids(
 
 
 def test_setup_adapter_logging_closes_previous_file_handler(tmp_path: Path) -> None:
-    logger = setup_adapter_logging(tmp_path, "first")
+    logger = setup_logging(tmp_path, "first")
     first_handler = _file_handler(logger)
 
-    setup_adapter_logging(tmp_path, "second")
+    setup_logging(tmp_path, "second")
 
     assert first_handler.stream is None
     shutil.rmtree(tmp_path / "first")

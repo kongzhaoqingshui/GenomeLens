@@ -9,9 +9,12 @@ from ._core import (
     SUPPORTED_WORKFLOWS,
     PluginError,
     build_analysis_request,
+    build_command_for_launcher,
     build_runtime_command,
     build_species_from_params,
+    close_adapter_logging,
     close_logging,
+    discover_genomelens_shell,
     discover_mcscan_home,
     genomelens_shell_path,
     load_params,
@@ -22,13 +25,11 @@ from ._core import (
     resource_path,
     run_process,
     runtime_executable,
+    setup_adapter_logging,
     setup_logging,
     write_analysis_request,
     write_runtime_request,
 )
-
-setup_adapter_logging = setup_logging
-close_adapter_logging = close_logging
 
 __all__ = [
     "GLJCVIMCSCAN_HOME_ENV",
@@ -37,10 +38,12 @@ __all__ = [
     "SUPPORTED_WORKFLOWS",
     "PluginError",
     "build_analysis_request",
+    "build_command_for_launcher",
     "build_runtime_command",
     "build_species_from_params",
     "close_adapter_logging",
     "close_logging",
+    "discover_genomelens_shell",
     "discover_mcscan_home",
     "genomelens_shell_path",
     "load_params",

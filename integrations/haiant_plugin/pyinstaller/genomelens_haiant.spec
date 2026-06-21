@@ -1,8 +1,8 @@
 # -*- mode: python ; coding: utf-8 -*-
 
 a = Analysis(
-    ["../src/genomelens_haiant_plugin.py"],
-    pathex=[],
+    ["../src/genomelens_haiant_plugin/legacy_entry.py"],
+    pathex=["../src"],
     binaries=[],
     datas=[],
     hiddenimports=[],
