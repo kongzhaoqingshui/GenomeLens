@@ -191,28 +191,6 @@ def _auto_optimization(params: Mapping[str, object]) -> dict[str, bool]:
     }
 
 
-def _histogram_columns(value: object) -> list[int]:
-    raw = _split_csv(value)
-    if not raw:
-        return [0]
-    columns: list[int] = []
-    for item in raw:
-        try:
-            columns.append(int(item))
-        except ValueError as exc:
-            raise PluginError(f"Invalid histogram column: {item}") from exc
-    return columns
-
-
-def _optional_float(value: object) -> float | None:
-    if value is None or str(value).strip() == "":
-        return None
-    try:
-        return float(str(value).strip())
-    except (TypeError, ValueError) as exc:
-        raise PluginError(f"Invalid numeric value: {value}") from exc
-
-
 def _discover_species_from_input_dir(base: Path, input_dir: object) -> list[dict[str, object]]:
     """Mirror the ``analyze mcscan jcvi`` auto-directory species discovery."""
 
@@ -367,23 +345,6 @@ def build_analysis_request(
             "figsize": str(params.get("figsize") or ""),
             "dpi": _int_value(params.get("dpi"), default=300, label="dpi", minimum=1),
             "auto_optimization": _auto_optimization(params),
-            "histogram_inputs": _split_csv(params.get("histogram_inputs")),
-            "histogram_columns": _histogram_columns(params.get("histogram_columns")),
-            "histogram_skip": _int_value(
-                params.get("histogram_skip"), default=0, label="histogram_skip", minimum=0
-            ),
-            "histogram_bins": _int_value(
-                params.get("histogram_bins"), default=20, label="histogram_bins", minimum=1
-            ),
-            "histogram_vmin": _optional_float(params.get("histogram_vmin")),
-            "histogram_vmax": _optional_float(params.get("histogram_vmax")),
-            "histogram_xlabel": str(params.get("histogram_xlabel") or "value"),
-            "histogram_title": str(params.get("histogram_title") or ""),
-            "histogram_base": _int_value(
-                params.get("histogram_base"), default=0, label="histogram_base", minimum=0
-            ),
-            "histogram_facet": parse_bool(params.get("histogram_facet", False)),
-            "histogram_fill": str(params.get("histogram_fill") or "white"),
         },
     }
     return request

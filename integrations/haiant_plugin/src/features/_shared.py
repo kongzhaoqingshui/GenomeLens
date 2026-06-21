@@ -27,28 +27,17 @@ def source_plugin_root(entry_file: str | Path) -> Path:
     return Path(entry_file).resolve().parents[2]
 
 
-def _resolve_feature_workflow(params: dict[str, object], workflow: str | None) -> str:
-    """Return the workflow to use, preferring the explicit override."""
-
-    if workflow is not None:
-        return workflow
-    value = params.get("workflow")
-    if value is None or str(value).strip() == "":
-        return "graphics_synteny"
-    return str(value).strip()
-
-
 def write_feature_request(
     params: dict[str, object],
     base: Path,
     *,
-    workflow: str | None,
+    workflow: str,
 ) -> Path:
     """Write the request file consumed by the external GenomeLens executable."""
 
     output_dir = Path(resolve_param_path(base, params.get("output_dir") or "output"))
     output_dir.mkdir(parents=True, exist_ok=True)
-    request = build_analysis_request(params, base, workflow=_resolve_feature_workflow(params, workflow))
+    request = build_analysis_request(params, base, workflow=workflow)
     request_path = output_dir / "genomelens_request.json"
     request_path.write_text(
         json.dumps(request, ensure_ascii=False, indent=2) + "\n",
@@ -60,7 +49,7 @@ def write_feature_request(
 def build_feature_runtime_command(
     params_path: str | Path,
     *,
-    workflow: str | None = None,
+    workflow: str,
     plugin_root: Path,
     logger_name: str,
     params: dict[str, object] | None = None,
@@ -86,7 +75,7 @@ def build_feature_runtime_command(
 def build_runtime_command(
     params_path: str | Path,
     *,
-    workflow: str | None = None,
+    workflow: str,
     plugin_root: Path,
     logger_name: str,
     params: dict[str, object] | None = None,
@@ -115,7 +104,7 @@ def run_runtime(argv: list[str]) -> int:
 def main(
     argv: list[str] | None,
     *,
-    workflow: str | None,
+    workflow: str,
     plugin_root: Path,
     logger_name: str,
     error_prefix: str,

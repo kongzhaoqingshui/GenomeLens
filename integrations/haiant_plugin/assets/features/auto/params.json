@@ -1,10 +1,9 @@
 {
   "genomelens_exe": "C:/GenomeLens/GenomeLens-runtime.exe",
-  "workflow": "graphics_synteny",
   "input_dir": "input",
   "output_dir": "output",
   "reference": "1",
-  "target_gene_ids": "Thhalv10024702m.v1.0",
+  "target_gene_ids": "",
   "up": 20,
   "down": 20,
   "split_targets": false,
@@ -31,16 +30,5 @@
   "rewrite_layout_links": false,
   "optimize_karyotype_labels": false,
   "trim_cross_chromosome_blocks": false,
-  "allow_simplified_fallback": false,
-  "histogram_inputs": "",
-  "histogram_columns": "0",
-  "histogram_skip": 0,
-  "histogram_bins": 20,
-  "histogram_vmin": 0,
-  "histogram_vmax": "",
-  "histogram_xlabel": "value",
-  "histogram_title": "",
-  "histogram_base": 0,
-  "histogram_facet": false,
-  "histogram_fill": "white"
+  "allow_simplified_fallback": false
 }

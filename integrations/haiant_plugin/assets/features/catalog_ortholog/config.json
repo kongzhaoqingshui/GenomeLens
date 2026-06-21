@@ -165,8 +165,8 @@
       "description_en": "Optional JCVI seqids file."
     },
     {
-      "label": "自动优化图形尺寸",
-      "label_en": "Optimize Figure Size",
+      "label": "自动优化图形尺寸 (GenomeLens)",
+      "label_en": "Optimize Figure Size (GenomeLens)",
       "key": "optimize_figsize",
       "valueType": "bool",
       "example_value": false,
@@ -174,8 +174,8 @@
       "description_en": "Automatically infer figure size."
     },
     {
-      "label": "重写 layout 连线",
-      "label_en": "Rewrite Layout Links",
+      "label": "重写 layout 连线 (GenomeLens)",
+      "label_en": "Rewrite Layout Links (GenomeLens)",
       "key": "rewrite_layout_links",
       "valueType": "bool",
       "example_value": false,
@@ -183,8 +183,8 @@
       "description_en": "Rewrite cross-track layout links as adjacent track chains."
     },
     {
-      "label": "优化核型标签",
-      "label_en": "Optimize Karyotype Labels",
+      "label": "优化核型标签 (GenomeLens)",
+      "label_en": "Optimize Karyotype Labels (GenomeLens)",
       "key": "optimize_karyotype_labels",
       "valueType": "bool",
       "example_value": false,
@@ -192,8 +192,8 @@
       "description_en": "Automatically optimize global karyotype track label placement."
     },
     {
-      "label": "切除跨染色体 block",
-      "label_en": "Trim Cross-Chromosome Blocks",
+      "label": "切除跨染色体 block (GenomeLens)",
+      "label_en": "Trim Cross-Chromosome Blocks (GenomeLens)",
       "key": "trim_cross_chromosome_blocks",
       "valueType": "bool",
       "example_value": false,

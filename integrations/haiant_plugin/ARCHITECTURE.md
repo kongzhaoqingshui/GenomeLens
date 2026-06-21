@@ -69,16 +69,7 @@ gljcvi-dotplot/
 
 ### 2.3 统一自动流插件
 
-`gljcvi-auto` 是一个统一的 MCscan 自动流插件。它通过 `params.json` 中的 `workflow` 字段选择要运行的子任务，从而用一个插件包覆盖上述所有单功能工作流。
-
-支持的 `workflow` 值：
-
-- `graphics_synteny`
-- `graphics_dotplot`
-- `graphics_karyotype`
-- `catalog_ortholog`
-- `local_synteny`
-- `graphics_histogram`
+`gljcvi-auto` 是一个统一的 MCscan 自动流插件，对应 `analyze mcscan jcvi` 一键分析流程。它固定生成 `workflow = graphics_synteny` 的 AnalysisRequest，运行 pairwise MCscan 并生成共线性图与点图；当填写 `target_gene_ids` 时，平台会自动切换到局部共线性模式（与 CLI 的 `--target-genes` 行为一致）。该插件不再提供 workflow 选择器。
 
 ### 2.4 输入约定
 
@@ -112,7 +103,7 @@ gljcvi-dotplot/
 | `gljcvi-karyotype` | `graphics_karyotype` | 核型图 |
 | `gljcvi-catalog-ortholog` | `catalog_ortholog` | 双向 ortholog 目录 |
 | `gljcvi-local-synteny` | `local_synteny` | 局部共线性 |
-| `gljcvi-auto` | 由 `params.json` 的 `workflow` 决定 | 统一入口 |
+| `gljcvi-auto` | `graphics_synteny`（固定） | `analyze mcscan jcvi` 一键自动流；填写 `target_gene_ids` 时切换到局部共线性 |
 
 ---
 

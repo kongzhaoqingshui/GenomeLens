@@ -1,4 +1,4 @@
-"""Lightweight HAIant feature entry for the unified ``mcscan_auto`` workflow."""
+"""Lightweight HAIant feature entry for the ``analyze mcscan jcvi`` auto workflow."""
 
 from __future__ import annotations
 
@@ -12,6 +12,7 @@ from features._shared import build_runtime_command as shared_build_runtime_comma
 from features._shared import main as run_feature_main
 from features._shared import source_plugin_root
 
+WORKFLOW = "graphics_synteny"
 LOGGER_NAME = "gljcvi_auto"
 
 
@@ -22,22 +23,22 @@ def plugin_root() -> Path:
 
 
 def build_runtime_command(params_path: str | Path) -> list[str]:
-    """Build the GenomeLens analyze run command for the selected workflow."""
+    """Build the GenomeLens analyze run command for the auto workflow."""
 
     return shared_build_runtime_command(
         params_path,
-        workflow=None,
+        workflow=WORKFLOW,
         plugin_root=plugin_root(),
         logger_name=LOGGER_NAME,
     )
 
 
 def main(argv: list[str] | None = None) -> int:
-    """Run the unified MCscan auto workflow entry."""
+    """Run the ``analyze mcscan jcvi`` auto workflow entry."""
 
     return run_feature_main(
         argv,
-        workflow=None,
+        workflow=WORKFLOW,
         plugin_root=plugin_root(),
         logger_name=LOGGER_NAME,
         error_prefix="GenomeLens MCscan auto workflow plugin error",
