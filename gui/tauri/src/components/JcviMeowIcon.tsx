@@ -1,4 +1,4 @@
-import jcviMeowLogo from "../assets/brand/jcvi-meow-logo.svg";
+import jcviMeowLogo from "../assets/brand/jcvi-meow-logo.png";
 
 interface JcviMeowIconProps {
   className?: string;

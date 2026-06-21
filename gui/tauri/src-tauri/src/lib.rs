@@ -18,5 +18,5 @@ pub fn run() {
             commands::run_analysis
         ])
         .run(tauri::generate_context!())
-        .expect("error while running GenomeLens GUI");
+        .expect("error while running JCVI meow");
 }

@@ -49,8 +49,8 @@ export function AppShell({
             className="flex items-center gap-3 rounded-xl text-left outline-none transition focus-visible:ring-2 focus-visible:ring-ice-500 focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
             onClick={() => onNavigate("/")}
           >
-            <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-ice-50 text-ice-500 shadow-lg shadow-ice-500/10 ring-1 ring-ice-100 dark:bg-ice-950/60 dark:ring-ice-900/60">
-              <JcviMeowIcon className="h-8 w-8" />
+            <span className="flex h-11 w-11 items-center justify-center">
+              <JcviMeowIcon className="h-9 w-9" />
             </span>
             <span>
               <span className="jcvi-brand-title block text-xl font-semibold tracking-tight">JCVI meow</span>

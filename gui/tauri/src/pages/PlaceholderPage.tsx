@@ -12,7 +12,7 @@ export default function PlaceholderPage({ route, title, subtitle, details }: Pla
     <section className="grid w-full content-center gap-6">
       <div className="max-w-3xl">
         <p className="text-sm font-semibold uppercase tracking-[0.2em] text-ice-600 dark:text-ice-300">
-          GenomeLens GUI · {route.description}
+          JCVI meow · {route.description}
         </p>
         <h1 className="mt-5 text-4xl font-bold text-text-primary">{title}</h1>
         <p className="mt-4 text-base leading-8 text-text-secondary">{subtitle}</p>

@@ -452,7 +452,7 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
     return (
       <section className="grid w-full content-center gap-4">
         <p className="text-sm font-semibold uppercase tracking-[0.2em] text-ice-600 dark:text-ice-300">
-          GenomeLens GUI · {route.description}
+          JCVI meow · {route.description}
         </p>
         <h1 className="text-3xl font-bold text-text-primary">正在读取 MCSCAN 模板</h1>
         <p className="text-sm text-text-secondary">Tauri command: get_template(&quot;mcscan&quot;)</p>
@@ -464,7 +464,7 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
     return (
       <section className="grid w-full content-center gap-4">
         <p className="text-sm font-semibold uppercase tracking-[0.2em] text-ice-600 dark:text-ice-300">
-          GenomeLens GUI · {route.description}
+          JCVI meow · {route.description}
         </p>
         <h1 className="text-3xl font-bold text-text-primary">模板读取失败</h1>
         <p className="max-w-2xl rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-200">

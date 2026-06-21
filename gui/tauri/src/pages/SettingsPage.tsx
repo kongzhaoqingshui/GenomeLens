@@ -71,7 +71,7 @@ export default function SettingsPage({ route, onNavigate }: SettingsPageProps) {
               className="rounded-lg border border-border bg-surface-raised/80 px-4 py-2 text-sm font-semibold text-text-secondary transition hover:border-ice-200 hover:bg-ice-50 hover:text-ice-700 dark:hover:border-ice-800 dark:hover:bg-ice-900/30 dark:hover:text-ice-200"
               onClick={() => onNavigate("/")}
             >
-              返回 JCVI meow桌面
+              返回 JCVI meow 桌面
             </button>
           </div>
         </section>
