@@ -1,0 +1,99 @@
+{
+  "title": "GenomeLens Karyotype",
+  "title_en": "GenomeLens Karyotype",
+  "description": "Run the graphics_karyotype workflow through the gljcvimcscan center.",
+  "description_en": "Run the graphics_karyotype workflow through the gljcvimcscan center.",
+  "version": "v1.0.0",
+  "context": "Pairwise JCVI karyotype rendering with optional layout controls.",
+  "context_en": "Pairwise JCVI karyotype rendering with optional layout controls.",
+  "env": "Python",
+  "outputType": "dir",
+  "params": [
+    {
+      "label": "Input Mode",
+      "label_en": "Input Mode",
+      "key": "input_mode",
+      "valueType": "customer_selector",
+      "options": ["bed_cds", "gff_genome"],
+      "example_value": "bed_cds",
+      "description": "Choose BED+CDS or GFF+genome FASTA input mode.",
+      "description_en": "Choose BED+CDS or GFF+genome FASTA input mode."
+    },
+    {
+      "label": "Species",
+      "label_en": "Species",
+      "key": "species",
+      "valueType": "json",
+      "example_value": [
+        {"name": "query", "bed": "input/query.bed", "cds": "input/query.cds"},
+        {"name": "subject", "bed": "input/subject.bed", "cds": "input/subject.cds"}
+      ],
+      "description": "At least two species entries.",
+      "description_en": "At least two species entries."
+    },
+    {
+      "label": "Output Directory",
+      "label_en": "Output Directory",
+      "key": "output_dir",
+      "valueType": "dir_selector",
+      "example_value": "output",
+      "description": "Output directory for results.",
+      "description_en": "Output directory for results."
+    },
+    {
+      "label": "Threads",
+      "label_en": "Threads",
+      "key": "threads",
+      "valueType": "int",
+      "example_value": 4,
+      "description": "Number of worker threads.",
+      "description_en": "Number of worker threads."
+    },
+    {
+      "label": "Minimum Block Size",
+      "label_en": "Minimum Block Size",
+      "key": "min_block_size",
+      "valueType": "int",
+      "example_value": 1,
+      "description": "Minimum gene count for retained blocks.",
+      "description_en": "Minimum gene count for retained blocks."
+    },
+    {
+      "label": "Output Formats",
+      "label_en": "Output Formats",
+      "key": "formats",
+      "valueType": "str",
+      "example_value": "png",
+      "description": "Comma-separated output formats.",
+      "description_en": "Comma-separated output formats."
+    },
+    {
+      "label": "Figure Size",
+      "label_en": "Figure Size",
+      "key": "figsize",
+      "valueType": "str",
+      "example_value": "8x6",
+      "description": "Optional JCVI figure size string.",
+      "description_en": "Optional JCVI figure size string."
+    },
+    {
+      "label": "DPI",
+      "label_en": "DPI",
+      "key": "dpi",
+      "valueType": "int",
+      "example_value": 150,
+      "description": "Optional render DPI.",
+      "description_en": "Optional render DPI."
+    },
+    {
+      "label": "Fix Label Overlap",
+      "label_en": "Fix Label Overlap",
+      "key": "fix_karyotype_label_overlap",
+      "valueType": "customer_selector",
+      "options": ["false", "true"],
+      "example_value": "true",
+      "description": "Optional label overlap fix for long tracks.",
+      "description_en": "Optional label overlap fix for long tracks."
+    }
+  ]
+}

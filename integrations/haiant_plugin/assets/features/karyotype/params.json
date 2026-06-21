@@ -1,0 +1,22 @@
+{
+  "input_mode": "bed_cds",
+  "species": [
+    {
+      "name": "query",
+      "bed": "input/query.bed",
+      "cds": "input/query.cds"
+    },
+    {
+      "name": "subject",
+      "bed": "input/subject.bed",
+      "cds": "input/subject.cds"
+    }
+  ],
+  "output_dir": "output",
+  "threads": 4,
+  "min_block_size": 1,
+  "formats": "png",
+  "figsize": "8x6",
+  "dpi": 150,
+  "fix_karyotype_label_overlap": true
+}

@@ -1,0 +1,89 @@
+{
+  "title": "GenomeLens Dotplot",
+  "title_en": "GenomeLens Dotplot",
+  "description": "Run the graphics_dotplot workflow through the gljcvimcscan center.",
+  "description_en": "Run the graphics_dotplot workflow through the gljcvimcscan center.",
+  "version": "v1.0.0",
+  "context": "Pairwise JCVI dotplot rendering with a lightweight HAIant entry.",
+  "context_en": "Pairwise JCVI dotplot rendering with a lightweight HAIant entry.",
+  "env": "Python",
+  "outputType": "dir",
+  "params": [
+    {
+      "label": "Input Mode",
+      "label_en": "Input Mode",
+      "key": "input_mode",
+      "valueType": "customer_selector",
+      "options": ["bed_cds", "gff_genome"],
+      "example_value": "bed_cds",
+      "description": "Choose BED+CDS or GFF+genome FASTA input mode.",
+      "description_en": "Choose BED+CDS or GFF+genome FASTA input mode."
+    },
+    {
+      "label": "Species",
+      "label_en": "Species",
+      "key": "species",
+      "valueType": "json",
+      "example_value": [
+        {"name": "query", "bed": "input/query.bed", "cds": "input/query.cds"},
+        {"name": "subject", "bed": "input/subject.bed", "cds": "input/subject.cds"}
+      ],
+      "description": "At least two species entries.",
+      "description_en": "At least two species entries."
+    },
+    {
+      "label": "Output Directory",
+      "label_en": "Output Directory",
+      "key": "output_dir",
+      "valueType": "dir_selector",
+      "example_value": "output",
+      "description": "Output directory for results.",
+      "description_en": "Output directory for results."
+    },
+    {
+      "label": "Threads",
+      "label_en": "Threads",
+      "key": "threads",
+      "valueType": "int",
+      "example_value": 4,
+      "description": "Number of worker threads.",
+      "description_en": "Number of worker threads."
+    },
+    {
+      "label": "Minimum Block Size",
+      "label_en": "Minimum Block Size",
+      "key": "min_block_size",
+      "valueType": "int",
+      "example_value": 1,
+      "description": "Minimum gene count for retained blocks.",
+      "description_en": "Minimum gene count for retained blocks."
+    },
+    {
+      "label": "Output Formats",
+      "label_en": "Output Formats",
+      "key": "formats",
+      "valueType": "str",
+      "example_value": "png",
+      "description": "Comma-separated output formats.",
+      "description_en": "Comma-separated output formats."
+    },
+    {
+      "label": "C-score",
+      "label_en": "C-score",
+      "key": "cscore",
+      "valueType": "float",
+      "example_value": 0.7,
+      "description": "Optional MCscan cscore threshold.",
+      "description_en": "Optional MCscan cscore threshold."
+    },
+    {
+      "label": "Scan Distance",
+      "label_en": "Scan Distance",
+      "key": "dist",
+      "valueType": "int",
+      "example_value": 20,
+      "description": "Optional MCscan scan distance.",
+      "description_en": "Optional MCscan scan distance."
+    }
+  ]
+}
