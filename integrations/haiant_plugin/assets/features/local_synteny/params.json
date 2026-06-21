@@ -1,4 +1,5 @@
 {
+  "genomelens_exe": "C:/GenomeLens/GenomeLens-runtime.exe",
   "input_dir": "input",
   "output_dir": "output",
   "reference": "1",

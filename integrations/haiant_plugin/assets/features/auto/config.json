@@ -1,11 +1,11 @@
 {
-  "title": "GenomeLens 共线性图",
-  "title_en": "GenomeLens Synteny",
-  "description": "对应 ``analyze mcscan jcvi graphics_synteny`` 自动流：输入目录自动发现物种文件对，调用外部 GenomeLens 执行 ``analyze run`` 生成共线性图。",
-  "description_en": "Matches the ``analyze mcscan jcvi graphics_synteny`` auto flow: auto-discovers species pairs from an input directory and calls the external GenomeLens executable with ``analyze run``.",
+  "title": "GenomeLens MCscan 自动流",
+  "title_en": "GenomeLens MCscan Auto Workflow",
+  "description": "统一的 ``analyze mcscan jcvi`` 自动流插件：通过 ``workflow`` 选择子任务，调用外部 GenomeLens 执行 ``analyze run`` 完成共线性分析。",
+  "description_en": "Unified ``analyze mcscan jcvi`` auto-flow plugin: select a subtask via ``workflow`` and call the external GenomeLens executable with ``analyze run``.",
   "version": "v1.0.0",
-  "context": "双物种 JCVI 共线性图",
-  "context_en": "Pairwise JCVI synteny figure",
+  "context": "MCscan 共线性分析与绘图",
+  "context_en": "MCscan synteny analysis and plotting",
   "env": "Python",
   "outputType": "dir",
   "params": [
@@ -19,13 +19,30 @@
       "description_en": "Path to the external GenomeLens executable (.exe/.cmd/.bat)."
     },
     {
+      "label": "工作流",
+      "label_en": "Workflow",
+      "key": "workflow",
+      "valueType": "customer_selector",
+      "options": [
+        "graphics_synteny",
+        "graphics_dotplot",
+        "graphics_karyotype",
+        "catalog_ortholog",
+        "local_synteny",
+        "graphics_histogram"
+      ],
+      "example_value": "graphics_synteny",
+      "description": "要运行的 MCscan/JCVI 子任务。",
+      "description_en": "MCscan/JCVI subtask to run."
+    },
+    {
       "label": "输入目录",
       "label_en": "Input Directory",
       "key": "input_dir",
       "valueType": "dir_selector",
       "example_value": "input",
-      "description": "自动发现同名物种文件对的输入目录。",
-      "description_en": "Directory where same-stem species file pairs are auto-discovered."
+      "description": "自动发现同名物种文件对的输入目录（analyze mcscan jcvi 自动流）。",
+      "description_en": "Directory where same-stem species file pairs are auto-discovered (analyze mcscan jcvi auto flow)."
     },
     {
       "label": "输出目录",
@@ -44,6 +61,51 @@
       "example_value": "1",
       "description": "参考物种名称或 1-based 索引；默认第一个物种。",
       "description_en": "Reference species name or 1-based index; defaults to the first species."
+    },
+    {
+      "label": "目标基因 ID",
+      "label_en": "Target Gene IDs",
+      "key": "target_gene_ids",
+      "valueType": "str",
+      "example_value": "Thhalv10024702m.v1.0",
+      "description": "局部共线性目标基因 ID，多个用逗号分隔；仅 local_synteny 需要。",
+      "description_en": "Comma-separated target gene IDs for local synteny; required only for local_synteny."
+    },
+    {
+      "label": "上游窗口基因数",
+      "label_en": "Upstream Window",
+      "key": "up",
+      "valueType": "int",
+      "example_value": 20,
+      "description": "目标基因上游取多少个基因。",
+      "description_en": "Number of genes upstream of each target gene."
+    },
+    {
+      "label": "下游窗口基因数",
+      "label_en": "Downstream Window",
+      "key": "down",
+      "valueType": "int",
+      "example_value": 20,
+      "description": "目标基因下游取多少个基因。",
+      "description_en": "Number of genes downstream of each target gene."
+    },
+    {
+      "label": "多个目标各自出图",
+      "label_en": "Split Targets",
+      "key": "split_targets",
+      "valueType": "bool",
+      "example_value": false,
+      "description": "多个目标基因时各自单独出图。",
+      "description_en": "Generate separate figures when multiple target genes are given."
+    },
+    {
+      "label": "标注目标基因",
+      "label_en": "Label Targets",
+      "key": "label_targets",
+      "valueType": "bool",
+      "example_value": false,
+      "description": "在图中标注目标基因名称。",
+      "description_en": "Label target gene names on the figure."
     },
     {
       "label": "线程数",
@@ -256,6 +318,106 @@
       "example_value": false,
       "description": "保留的诊断开关；正式流程通常关闭。",
       "description_en": "Diagnostic switch; normally disabled in production."
+    },
+    {
+      "label": "Histogram 输入文件",
+      "label_en": "Histogram Inputs",
+      "key": "histogram_inputs",
+      "valueType": "str",
+      "example_value": "",
+      "description": "仅 graphics_histogram 使用：附加数值文件路径，多个用逗号分隔。",
+      "description_en": "For graphics_histogram only: comma-separated numeric input file paths."
+    },
+    {
+      "label": "Histogram 列号",
+      "label_en": "Histogram Columns",
+      "key": "histogram_columns",
+      "valueType": "str",
+      "example_value": "0",
+      "description": "仅 graphics_histogram 使用：要读取的 0-based 列号，多个用逗号分隔。",
+      "description_en": "For graphics_histogram only: 0-based column indices, comma-separated."
+    },
+    {
+      "label": "Histogram 跳过行数",
+      "label_en": "Histogram Skip Rows",
+      "key": "histogram_skip",
+      "valueType": "int",
+      "example_value": 0,
+      "description": "仅 graphics_histogram 使用：跳过输入文件前几行。",
+      "description_en": "For graphics_histogram only: rows to skip at the start of input files."
+    },
+    {
+      "label": "Histogram 分箱数",
+      "label_en": "Histogram Bins",
+      "key": "histogram_bins",
+      "valueType": "int",
+      "example_value": 20,
+      "description": "仅 graphics_histogram 使用：直方图 bin 数量。",
+      "description_en": "For graphics_histogram only: number of histogram bins."
+    },
+    {
+      "label": "Histogram 最小值",
+      "label_en": "Histogram VMin",
+      "key": "histogram_vmin",
+      "valueType": "float",
+      "example_value": 0,
+      "description": "仅 graphics_histogram 使用：最小值下界；留空表示自动。",
+      "description_en": "For graphics_histogram only: lower bound; leave empty for auto."
+    },
+    {
+      "label": "Histogram 最大值",
+      "label_en": "Histogram VMax",
+      "key": "histogram_vmax",
+      "valueType": "float",
+      "example_value": "",
+      "description": "仅 graphics_histogram 使用：最大值上界；留空表示自动。",
+      "description_en": "For graphics_histogram only: upper bound; leave empty for auto."
+    },
+    {
+      "label": "Histogram X 轴标签",
+      "label_en": "Histogram X Label",
+      "key": "histogram_xlabel",
+      "valueType": "str",
+      "example_value": "value",
+      "description": "仅 graphics_histogram 使用：X 轴标签。",
+      "description_en": "For graphics_histogram only: X-axis label."
+    },
+    {
+      "label": "Histogram 标题",
+      "label_en": "Histogram Title",
+      "key": "histogram_title",
+      "valueType": "str",
+      "example_value": "",
+      "description": "仅 graphics_histogram 使用：图标题。",
+      "description_en": "For graphics_histogram only: plot title."
+    },
+    {
+      "label": "Histogram 对数底数",
+      "label_en": "Histogram Log Base",
+      "key": "histogram_base",
+      "valueType": "customer_selector",
+      "options": ["0", "2", "10"],
+      "example_value": "0",
+      "description": "仅 graphics_histogram 使用：对数坐标底数，0 表示关闭。",
+      "description_en": "For graphics_histogram only: log base; 0 disables log scale."
+    },
+    {
+      "label": "Histogram 分面展示",
+      "label_en": "Histogram Facet",
+      "key": "histogram_facet",
+      "valueType": "bool",
+      "example_value": false,
+      "description": "仅 graphics_histogram 使用：多序列时分面展示。",
+      "description_en": "For graphics_histogram only: facet by sequence instead of overlay."
+    },
+    {
+      "label": "Histogram 填充颜色",
+      "label_en": "Histogram Fill Color",
+      "key": "histogram_fill",
+      "valueType": "str",
+      "example_value": "white",
+      "description": "仅 graphics_histogram 使用：柱体填充颜色。",
+      "description_en": "For graphics_histogram only: bar fill color."
     }
   ]
 }

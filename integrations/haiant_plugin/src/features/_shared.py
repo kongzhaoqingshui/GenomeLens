@@ -10,11 +10,10 @@ from pathlib import Path
 from genomelens_haiant_plugin._core import (
     PluginError,
     build_analysis_request,
-    build_command_for_launcher,
+    build_analyze_run_command,
     close_adapter_logging,
-    discover_genomelens_shell,
-    discover_mcscan_home,
     load_params,
+    resolve_genomelens_exe,
     resolve_param_path,
     setup_adapter_logging,
 )
@@ -28,17 +27,28 @@ def source_plugin_root(entry_file: str | Path) -> Path:
     return Path(entry_file).resolve().parents[2]
 
 
+def _resolve_feature_workflow(params: dict[str, object], workflow: str | None) -> str:
+    """Return the workflow to use, preferring the explicit override."""
+
+    if workflow is not None:
+        return workflow
+    value = params.get("workflow")
+    if value is None or str(value).strip() == "":
+        return "graphics_synteny"
+    return str(value).strip()
+
+
 def write_feature_request(
     params: dict[str, object],
     base: Path,
     *,
-    workflow: str,
+    workflow: str | None,
 ) -> Path:
-    """Write the request file consumed by the heavyweight shell."""
+    """Write the request file consumed by the external GenomeLens executable."""
 
     output_dir = Path(resolve_param_path(base, params.get("output_dir") or "output"))
     output_dir.mkdir(parents=True, exist_ok=True)
-    request = build_analysis_request(params, base, workflow=workflow)
+    request = build_analysis_request(params, base, workflow=_resolve_feature_workflow(params, workflow))
     request_path = output_dir / "genomelens_request.json"
     request_path.write_text(
         json.dumps(request, ensure_ascii=False, indent=2) + "\n",
@@ -50,13 +60,13 @@ def write_feature_request(
 def build_feature_runtime_command(
     params_path: str | Path,
     *,
-    workflow: str,
+    workflow: str | None = None,
     plugin_root: Path,
     logger_name: str,
     params: dict[str, object] | None = None,
     base: Path | None = None,
 ) -> list[str]:
-    """Translate feature params into a ``gljcvimcscan`` shell invocation."""
+    """Translate feature params into a GenomeLens ``analyze run`` invocation."""
 
     if params is None or base is None:
         params, base = load_params(params_path)
@@ -66,18 +76,17 @@ def build_feature_runtime_command(
     logger = setup_adapter_logging(output_dir, logger_name=logger_name)
     logger.info("Loaded params.json: %s", params_path)
 
-    mcscan_home = discover_mcscan_home(plugin_root)
-    launcher = discover_genomelens_shell(mcscan_home)
+    genomelens_exe = resolve_genomelens_exe(params, base)
     request_path = write_feature_request(params, base, workflow=workflow)
-    argv = build_command_for_launcher(launcher, request_path)
-    logger.info("Dispatching gljcvimcscan shell: %s", argv)
+    argv = build_analyze_run_command(genomelens_exe, request_path)
+    logger.info("Dispatching GenomeLens: %s", argv)
     return argv
 
 
 def build_runtime_command(
     params_path: str | Path,
     *,
-    workflow: str,
+    workflow: str | None = None,
     plugin_root: Path,
     logger_name: str,
     params: dict[str, object] | None = None,
@@ -106,7 +115,7 @@ def run_runtime(argv: list[str]) -> int:
 def main(
     argv: list[str] | None,
     *,
-    workflow: str,
+    workflow: str | None,
     plugin_root: Path,
     logger_name: str,
     error_prefix: str,

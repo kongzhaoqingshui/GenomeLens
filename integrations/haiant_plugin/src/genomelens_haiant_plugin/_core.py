@@ -7,6 +7,7 @@ import logging
 import os
 import subprocess
 import sys
+from dataclasses import asdict
 from pathlib import Path
 from typing import Collection, Mapping, Sequence, cast
 
@@ -14,6 +15,7 @@ from typing import Collection, Mapping, Sequence, cast
 LOGGER_NAME = "genomelens_haiant_plugin"
 PLUGIN_RUNTIME_ENV = "GENOMELENS_PLUGIN_RUNTIME"
 GLJCVIMCSCAN_HOME_ENV = "GLJCVIMCSCAN_HOME"
+GENOMELENS_EXE_ENV = "GENOMELENS_EXE"
 SUPPORTED_WORKFLOWS = {"graphics_synteny"}
 _GENOMELENS_SHELL_CANDIDATES = ("genomelens.cmd", "genomelens.exe", "genomelens")
 _LEGACY_RUNTIME_CANDIDATE = "GenomeLens-runtime.exe"
@@ -189,56 +191,96 @@ def _auto_optimization(params: Mapping[str, object]) -> dict[str, bool]:
     }
 
 
+def _histogram_columns(value: object) -> list[int]:
+    raw = _split_csv(value)
+    if not raw:
+        return [0]
+    columns: list[int] = []
+    for item in raw:
+        try:
+            columns.append(int(item))
+        except ValueError as exc:
+            raise PluginError(f"Invalid histogram column: {item}") from exc
+    return columns
+
+
+def _optional_float(value: object) -> float | None:
+    if value is None or str(value).strip() == "":
+        return None
+    try:
+        return float(str(value).strip())
+    except (TypeError, ValueError) as exc:
+        raise PluginError(f"Invalid numeric value: {value}") from exc
+
+
+def _discover_species_from_input_dir(base: Path, input_dir: object) -> list[dict[str, object]]:
+    """Mirror the ``analyze mcscan jcvi`` auto-directory species discovery."""
+
+    from genomelens.analysis.requests.normalization.input_resolver import (
+        discover_species_from_directory,
+    )
+
+    resolved = Path(resolve_param_path(base, input_dir, required=True, must_exist=True))
+    discovered = discover_species_from_directory(resolved)
+    return [asdict(item) for item in discovered]
+
+
 def build_species_from_params(
     params: Mapping[str, object],
     base: Path,
     mode: str | None = None,
 ) -> list[dict[str, object]]:
-    """Build the AnalysisRequest species list from HAIant params."""
+    """Build the AnalysisRequest species list from HAIant params.
 
-    resolved_mode = (mode or str(params.get("input_mode") or "bed_cds")).strip()
+    Supports explicit ``species`` list or auto-discovery from ``input_dir``.
+    """
+
     species_payload = params.get("species")
-    if not isinstance(species_payload, list) or not species_payload:
-        raise PluginError("species must contain at least two entries")
+    input_dir = params.get("input_dir")
+    if isinstance(species_payload, list) and species_payload:
+        resolved_mode = (mode or str(params.get("input_mode") or "bed_cds")).strip()
+        species: list[dict[str, object]] = []
+        for index, item in enumerate(species_payload, start=1):
+            if not isinstance(item, dict):
+                raise PluginError(f"species[{index}] must be an object")
+            name = str(item.get("name") or f"species{index}")
+            if resolved_mode == "bed_cds":
+                species.append(
+                    {
+                        "name": name,
+                        "input_mode": "bed_cds",
+                        "bed": resolve_param_path(
+                            base, item.get("bed"), required=True, must_exist=True
+                        ),
+                        "cds": resolve_param_path(
+                            base, item.get("cds"), required=True, must_exist=True
+                        ),
+                    }
+                )
+                continue
+            if resolved_mode == "gff_genome":
+                species.append(
+                    {
+                        "name": name,
+                        "input_mode": "gff_genome",
+                        "gff": resolve_param_path(
+                            base, item.get("gff"), required=True, must_exist=True
+                        ),
+                        "genome": resolve_param_path(
+                            base, item.get("genome"), required=True, must_exist=True
+                        ),
+                    }
+                )
+                continue
+            raise PluginError(f"Unsupported input_mode: {resolved_mode}")
+        if len(species) < 2:
+            raise PluginError("At least two species entries are required")
+        return species
 
-    species: list[dict[str, object]] = []
-    for index, item in enumerate(species_payload, start=1):
-        if not isinstance(item, dict):
-            raise PluginError(f"species[{index}] must be an object")
-        name = str(item.get("name") or f"species{index}")
-        if resolved_mode == "bed_cds":
-            species.append(
-                {
-                    "name": name,
-                    "input_mode": "bed_cds",
-                    "bed": resolve_param_path(
-                        base, item.get("bed"), required=True, must_exist=True
-                    ),
-                    "cds": resolve_param_path(
-                        base, item.get("cds"), required=True, must_exist=True
-                    ),
-                }
-            )
-            continue
-        if resolved_mode == "gff_genome":
-            species.append(
-                {
-                    "name": name,
-                    "input_mode": "gff_genome",
-                    "gff": resolve_param_path(
-                        base, item.get("gff"), required=True, must_exist=True
-                    ),
-                    "genome": resolve_param_path(
-                        base, item.get("genome"), required=True, must_exist=True
-                    ),
-                }
-            )
-            continue
-        raise PluginError(f"Unsupported input_mode: {resolved_mode}")
+    if input_dir:
+        return _discover_species_from_input_dir(base, input_dir)
 
-    if len(species) < 2:
-        raise PluginError("At least two species entries are required")
-    return species
+    raise PluginError("Either input_dir or species must be provided")
 
 
 def build_analysis_request(
@@ -325,6 +367,23 @@ def build_analysis_request(
             "figsize": str(params.get("figsize") or ""),
             "dpi": _int_value(params.get("dpi"), default=300, label="dpi", minimum=1),
             "auto_optimization": _auto_optimization(params),
+            "histogram_inputs": _split_csv(params.get("histogram_inputs")),
+            "histogram_columns": _histogram_columns(params.get("histogram_columns")),
+            "histogram_skip": _int_value(
+                params.get("histogram_skip"), default=0, label="histogram_skip", minimum=0
+            ),
+            "histogram_bins": _int_value(
+                params.get("histogram_bins"), default=20, label="histogram_bins", minimum=1
+            ),
+            "histogram_vmin": _optional_float(params.get("histogram_vmin")),
+            "histogram_vmax": _optional_float(params.get("histogram_vmax")),
+            "histogram_xlabel": str(params.get("histogram_xlabel") or "value"),
+            "histogram_title": str(params.get("histogram_title") or ""),
+            "histogram_base": _int_value(
+                params.get("histogram_base"), default=0, label="histogram_base", minimum=0
+            ),
+            "histogram_facet": parse_bool(params.get("histogram_facet", False)),
+            "histogram_fill": str(params.get("histogram_fill") or "white"),
         },
     }
     return request
@@ -462,6 +521,36 @@ def discover_mcscan_home(start: str | Path | None = None) -> Path:
     raise PluginError(
         "Unable to locate gljcvimcscan heavy center. Install gljcvimcscan or set GLJCVIMCSCAN_HOME."
     )
+
+
+def resolve_genomelens_exe(params: Mapping[str, object], base: Path) -> Path:
+    """Locate the external GenomeLens executable from params or environment."""
+
+    raw = str(params.get("genomelens_exe") or os.environ.get(GENOMELENS_EXE_ENV, "")).strip()
+    if not raw:
+        raise PluginError(
+            "genomelens_exe is required: set it in params.json or via GENOMELENS_EXE environment variable"
+        )
+    path = Path(raw)
+    if not path.is_absolute():
+        path = (base / path).expanduser().resolve(strict=False)
+    else:
+        path = path.expanduser().resolve(strict=False)
+    if not path.is_file():
+        raise PluginError(f"GenomeLens executable not found: {path}")
+    return path
+
+
+def build_analyze_run_command(
+    genomelens_exe: str | Path, request_path: Path
+) -> list[str]:
+    """Build the unified ``<GenomeLens.exe> analyze run <request>`` argv."""
+
+    exe = Path(genomelens_exe)
+    args = ["analyze", "run", str(request_path)]
+    if exe.suffix.lower() in {".cmd", ".bat"}:
+        return ["cmd.exe", "/c", str(exe), *args]
+    return [str(exe), *args]
 
 
 def build_command_for_launcher(

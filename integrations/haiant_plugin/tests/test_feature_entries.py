@@ -6,9 +6,11 @@ from typing import Any, Protocol, cast
 import pytest
 
 from features import (
+    auto_entry,
     catalog_ortholog_entry,
     dotplot_entry,
     karyotype_entry,
+    local_synteny_entry,
     synteny_entry,
 )
 from genomelens_haiant_plugin._core import PluginError, discover_mcscan_home
@@ -27,15 +29,14 @@ def _write_params_from_sample(tmp_path: Path) -> Path:
         json.loads(sample_params.read_text(encoding="utf-8")),
     )
 
-    for item in payload["species"]:
-        for key in ("bed", "cds", "gff", "genome"):
-            if item.get(key):
-                item[key] = str(
-                    (sample_params.parent / item[key]).resolve(strict=False)
-                )
+    genomelens_exe = tmp_path / "GenomeLens.cmd"
+    genomelens_exe.write_text("@echo off\r\n", encoding="utf-8")
 
+    sample_input_dir = (sample_params.parent / payload.get("input_dir", "../shell/bed_cds_minimal")).resolve()
+    payload["genomelens_exe"] = str(genomelens_exe)
+    payload["input_dir"] = str(sample_input_dir)
     payload["output_dir"] = str(tmp_path / "output")
-    payload["workflow"] = "should_be_ignored"
+    payload["target_gene_ids"] = "qgene1"
 
     params_path = tmp_path / "params.json"
     params_path.write_text(
@@ -68,25 +69,29 @@ def _write_params_from_sample(tmp_path: Path) -> Path:
             "catalog_ortholog",
             "gljcvi_catalog_ortholog",
         ),
+        (
+            cast(FeatureEntryModule, local_synteny_entry),
+            "local_synteny",
+            "gljcvi_local_synteny",
+        ),
+        (
+            cast(FeatureEntryModule, auto_entry),
+            "graphics_synteny",
+            "gljcvi_auto",
+        ),
     ],
 )
 def test_feature_entry_builds_request_and_command(
     tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
     module: FeatureEntryModule,
     workflow: str,
     logger_name: str,
 ) -> None:
     params_path = _write_params_from_sample(tmp_path)
-    mcscan_home = tmp_path / "gljcvimcscan"
-    mcscan_home.mkdir()
-    shell_path = mcscan_home / "genomelens.cmd"
-    shell_path.write_text("@echo off\r\n", encoding="utf-8")
-    monkeypatch.setenv("GLJCVIMCSCAN_HOME", str(mcscan_home))
 
     argv = module.build_runtime_command(params_path)
 
-    assert argv[:4] == ["cmd.exe", "/c", str(shell_path), "analyze"]
+    assert argv[:4] == ["cmd.exe", "/c", str(tmp_path / "GenomeLens.cmd"), "analyze"]
     assert argv[4] == "run"
     request_path = Path(argv[5])
     assert request_path.name == "genomelens_request.json"
@@ -125,6 +130,14 @@ def test_feature_entry_reports_missing_center(tmp_path: Path) -> None:
         (
             cast(FeatureEntryModule, catalog_ortholog_entry),
             "catalog_ortholog",
+        ),
+        (
+            cast(FeatureEntryModule, local_synteny_entry),
+            "local synteny",
+        ),
+        (
+            cast(FeatureEntryModule, auto_entry),
+            "MCscan auto workflow",
         ),
     ],
 )

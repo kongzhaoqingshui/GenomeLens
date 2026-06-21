@@ -1,17 +1,6 @@
 {
-  "input_mode": "bed_cds",
-  "species": [
-    {
-      "name": "query",
-      "bed": "../shell/bed_cds_minimal/query.bed",
-      "cds": "../shell/bed_cds_minimal/query.cds"
-    },
-    {
-      "name": "subject",
-      "bed": "../shell/bed_cds_minimal/subject.bed",
-      "cds": "../shell/bed_cds_minimal/subject.cds"
-    }
-  ],
+  "genomelens_exe": "C:/GenomeLens/GenomeLens-runtime.exe",
+  "input_dir": "../shell/bed_cds_minimal",
   "output_dir": "output",
   "workflow": "graphics_synteny",
   "threads": 2,
