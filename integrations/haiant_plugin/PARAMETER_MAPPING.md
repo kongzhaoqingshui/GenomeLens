@@ -2,7 +2,7 @@
 
 插件把 HAIant 平台的 `params.json` 转换为 GenomeLens `AnalysisRequest` JSON，再调用 `GenomeLens-runtime.exe analyze run <request.json>`。
 
-插件不直接调用 JCVI，也不拼接旧版 `analyze mcscan` 手动参数。所有相对路径都按 `params.json` 所在目录解析。
+插件不直接调用 JCVI，也不拼接旧版 `analyze mcscan` 手动参数。相对输入路径会优先按插件安装根目录解析，找不到时回退到 `params.json` 所在目录，以兼容智然体执行时把参数文件复制到临时目录的场景。
 
 ## 推荐字段
 
@@ -51,4 +51,27 @@ output/genomelens_request.json
 
 ```text
 GenomeLens-runtime.exe analyze run output/genomelens_request.json
+```
+
+## 旧版字段兼容
+
+为了兼容 1.0.0 HAIant 交付包，未提供 `species[]` 时仍可使用双物种字段：
+
+| Platform field(平台字段) | Type(类型) | Request field(请求字段) |
+|---|---|---|
+| `query_name` | string | `input.species[0].name` |
+| `subject_name` | string | `input.species[1].name` |
+| `query_bed` / `query_cds` | path | `input.species[0].bed/cds` |
+| `subject_bed` / `subject_cds` | path | `input.species[1].bed/cds` |
+| `query_gff` / `query_genome` | path | `input.species[0].gff/genome` |
+| `subject_gff` / `subject_genome` | path | `input.species[1].gff/genome` |
+
+此外，以下命令会直接透传到内置 runtime，便于在插件包内查看帮助或进入 workbench：
+
+```text
+GenomeLens.exe
+GenomeLens.exe workbench
+GenomeLens.exe check --json
+GenomeLens.exe analyze template mcscan
+GenomeLens.exe --help
 ```

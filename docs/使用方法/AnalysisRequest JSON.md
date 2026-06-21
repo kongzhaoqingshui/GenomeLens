@@ -48,7 +48,7 @@ GenomeLens.exe analyze schema > analysis-request.schema.json
   "output": {
     "directory": "output",
     "force": true,
-    "formats": ["svg"]
+    "formats": ["png"]
   },
   "config": {},
   "options": {
@@ -96,7 +96,7 @@ GenomeLens.exe analyze schema > analysis-request.schema.json
   "output": {
     "directory": "output",
     "force": true,
-    "formats": ["svg"]
+    "formats": ["png"]
   },
   "config": {},
   "options": {

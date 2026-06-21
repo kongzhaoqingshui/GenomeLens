@@ -19,8 +19,6 @@
 | v0.9.3 | JCVI 子任务 CLI | 已发布 | `analyze mcscan jcvi <subtask>` 直接调用 JCVI 子命令 workflow |
 | v0.9.4 | 多物种局部共线性 + 出图自动优化 | 已发布 | 多物种局部共线性图、plot 自动优化 |
 | v0.9.x | JCVI 增强 | 后续迭代 | 在 v1.0 前补齐剩余 JCVI 相关能力 |
-| v1.1.0 | GUI | 后续迭代 | Tauri 桌面 GUI 初版 |
-| v1.2.0 / mac 分支 | 跨平台 | 后续迭代 | macOS 端与 mac GUI 预览版本 |
 
 ## 近期提交概要
 
@@ -35,4 +33,4 @@
 - `feat(input): allow mixed auto directory modes` — 同一目录支持不同物种混用输入模式
 - `chore(release): bump version to 0.9.0` — 版本号回退到 0.9.x 预发布阶段
 
-详见 [更新日志](./更新日志.md) 与 [计划更新的内容](./计划更新的内容.md)。
+详见 [更新日志](./更新日志.md)。

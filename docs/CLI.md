@@ -73,7 +73,7 @@ GenomeLens.exe analyze schema > analysis-request.schema.json
   "output": {
     "directory": "output",
     "force": true,
-    "formats": ["svg"]
+    "formats": ["png"]
   },
   "config": {},
   "options": {
@@ -117,7 +117,7 @@ GenomeLens.exe analyze mcscan --help
 - `--dist <int>`：共线性锚点间最大基因距离。
 - `--iter <int>`：block 过滤迭代次数。
 - `--min-block-size <int>`：最小共线性 block 大小。
-- `--formats svg,pdf`：输出格式。
+- `--formats png,pdf`：输出格式。
 - `--jcvi-workflow <name>`：选择 workflow。
 
 ## 目标基因局部共线性

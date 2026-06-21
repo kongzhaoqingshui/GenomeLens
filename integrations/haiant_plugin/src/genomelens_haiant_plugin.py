@@ -22,6 +22,7 @@ from pathlib import Path
 
 LOGGER_NAME = "genomelens_haiant_plugin"
 SUPPORTED_WORKFLOWS = {"graphics_synteny"}
+RUNTIME_PASSTHROUGH_ARGS = {"-h", "--help", "--version", "help", "check", "config", "analyze", "clean", "workbench"}
 
 
 class PluginError(Exception):
@@ -61,7 +62,12 @@ def parse_bool(value: object) -> bool:
 
 
 def resolve_param_path(
-    base: Path, value: object, *, required: bool = False, must_exist: bool = False
+    base: Path,
+    value: object,
+    *,
+    required: bool = False,
+    must_exist: bool = False,
+    fallback_bases: list[Path] | None = None,
 ) -> str:
     """按 `params.json` 位置解析参数路径。"""
 
@@ -70,11 +76,26 @@ def resolve_param_path(
             raise PluginError("Required path field is empty")
         return ""
     raw = Path(str(value))
-    resolved = raw if raw.is_absolute() else base / raw
-    resolved = resolved.resolve(strict=False)
-    if must_exist and not resolved.exists():
-        raise PluginError(f"Path does not exist: {resolved}")
-    return str(resolved)
+    if raw.is_absolute():
+        resolved = raw.resolve(strict=False)
+        if must_exist and not resolved.exists():
+            raise PluginError(f"Path does not exist: {resolved}")
+        return str(resolved)
+
+    candidates = [base / raw]
+    for fallback_base in fallback_bases or []:
+        candidate = fallback_base / raw
+        if candidate not in candidates:
+            candidates.append(candidate)
+
+    resolved_candidates = [candidate.resolve(strict=False) for candidate in candidates]
+    if must_exist:
+        for candidate in resolved_candidates:
+            if candidate.exists():
+                return str(candidate)
+        checked = "; ".join(str(candidate) for candidate in resolved_candidates)
+        raise PluginError(f"Path does not exist: {checked}")
+    return str(resolved_candidates[0])
 
 
 def load_params(path: str | Path) -> tuple[dict[str, object], Path]:
@@ -101,11 +122,15 @@ def _formats(value: object) -> list[str]:
 
 
 def _species_from_params(
-    params: dict[str, object], base: Path, mode: str
+    params: dict[str, object],
+    base: Path,
+    mode: str,
+    *,
+    fallback_bases: list[Path] | None = None,
 ) -> list[dict[str, object]]:
     species_payload = params.get("species")
     if not isinstance(species_payload, list) or not species_payload:
-        raise PluginError("species must contain at least two entries")
+        return _legacy_species_from_params(params, base, mode, fallback_bases=fallback_bases)
     species: list[dict[str, object]] = []
     for index, item in enumerate(species_payload, start=1):
         if not isinstance(item, dict):
@@ -117,10 +142,18 @@ def _species_from_params(
                     "name": name,
                     "input_mode": "bed_cds",
                     "bed": resolve_param_path(
-                        base, item.get("bed"), required=True, must_exist=True
+                        base,
+                        item.get("bed"),
+                        required=True,
+                        must_exist=True,
+                        fallback_bases=fallback_bases,
                     ),
                     "cds": resolve_param_path(
-                        base, item.get("cds"), required=True, must_exist=True
+                        base,
+                        item.get("cds"),
+                        required=True,
+                        must_exist=True,
+                        fallback_bases=fallback_bases,
                     ),
                 }
             )
@@ -130,10 +163,18 @@ def _species_from_params(
                     "name": name,
                     "input_mode": "gff_genome",
                     "gff": resolve_param_path(
-                        base, item.get("gff"), required=True, must_exist=True
+                        base,
+                        item.get("gff"),
+                        required=True,
+                        must_exist=True,
+                        fallback_bases=fallback_bases,
                     ),
                     "genome": resolve_param_path(
-                        base, item.get("genome"), required=True, must_exist=True
+                        base,
+                        item.get("genome"),
+                        required=True,
+                        must_exist=True,
+                        fallback_bases=fallback_bases,
                     ),
                 }
             )
@@ -144,8 +185,106 @@ def _species_from_params(
     return species
 
 
-def _optional_path(base: Path, value: object) -> str:
-    return resolve_param_path(base, value, must_exist=bool(value))
+def _legacy_species_from_params(
+    params: dict[str, object],
+    base: Path,
+    mode: str,
+    *,
+    fallback_bases: list[Path] | None = None,
+) -> list[dict[str, object]]:
+    """把旧版 query/subject 参数转换成新版 species[]。"""
+
+    query_name = str(params.get("query_name") or "query")
+    subject_name = str(params.get("subject_name") or "subject")
+    if mode == "bed_cds":
+        legacy_fields = ["query_bed", "query_cds", "subject_bed", "subject_cds"]
+        if not any(params.get(field) for field in legacy_fields):
+            raise PluginError("species must contain at least two entries")
+        return [
+            {
+                "name": query_name,
+                "input_mode": "bed_cds",
+                "bed": resolve_param_path(
+                    base,
+                    params.get("query_bed"),
+                    required=True,
+                    must_exist=True,
+                    fallback_bases=fallback_bases,
+                ),
+                "cds": resolve_param_path(
+                    base,
+                    params.get("query_cds"),
+                    required=True,
+                    must_exist=True,
+                    fallback_bases=fallback_bases,
+                ),
+            },
+            {
+                "name": subject_name,
+                "input_mode": "bed_cds",
+                "bed": resolve_param_path(
+                    base,
+                    params.get("subject_bed"),
+                    required=True,
+                    must_exist=True,
+                    fallback_bases=fallback_bases,
+                ),
+                "cds": resolve_param_path(
+                    base,
+                    params.get("subject_cds"),
+                    required=True,
+                    must_exist=True,
+                    fallback_bases=fallback_bases,
+                ),
+            },
+        ]
+    if mode == "gff_genome":
+        legacy_fields = ["query_gff", "query_genome", "subject_gff", "subject_genome"]
+        if not any(params.get(field) for field in legacy_fields):
+            raise PluginError("species must contain at least two entries")
+        return [
+            {
+                "name": query_name,
+                "input_mode": "gff_genome",
+                "gff": resolve_param_path(
+                    base,
+                    params.get("query_gff"),
+                    required=True,
+                    must_exist=True,
+                    fallback_bases=fallback_bases,
+                ),
+                "genome": resolve_param_path(
+                    base,
+                    params.get("query_genome"),
+                    required=True,
+                    must_exist=True,
+                    fallback_bases=fallback_bases,
+                ),
+            },
+            {
+                "name": subject_name,
+                "input_mode": "gff_genome",
+                "gff": resolve_param_path(
+                    base,
+                    params.get("subject_gff"),
+                    required=True,
+                    must_exist=True,
+                    fallback_bases=fallback_bases,
+                ),
+                "genome": resolve_param_path(
+                    base,
+                    params.get("subject_genome"),
+                    required=True,
+                    must_exist=True,
+                    fallback_bases=fallback_bases,
+                ),
+            },
+        ]
+    raise PluginError(f"Unsupported input_mode: {mode}")
+
+
+def _optional_path(base: Path, value: object, *, fallback_bases: list[Path] | None = None) -> str:
+    return resolve_param_path(base, value, must_exist=bool(value), fallback_bases=fallback_bases)
 
 
 def _workflow(params: dict[str, object]) -> str:
@@ -181,13 +320,18 @@ def _reference_index(
     return index
 
 
-def write_runtime_request(params: dict[str, object], base: Path) -> Path:
+def write_runtime_request(
+    params: dict[str, object],
+    base: Path,
+    *,
+    fallback_bases: list[Path] | None = None,
+) -> Path:
     """写入 GenomeLens analysis request(JSON 请求)，并返回请求文件路径"""
 
     mode = str(params.get("input_mode") or "bed_cds")
-    output_dir = Path(resolve_param_path(base, params.get("output_dir") or "output"))
+    output_dir = Path(resolve_param_path(base, params.get("output_dir") or "output", fallback_bases=fallback_bases))
     output_dir.mkdir(parents=True, exist_ok=True)
-    species = _species_from_params(params, base, mode)
+    species = _species_from_params(params, base, mode, fallback_bases=fallback_bases)
     request = {
         "schema_version": 1,
         "kind": "analysis_request",
@@ -204,8 +348,8 @@ def write_runtime_request(params: dict[str, object], base: Path) -> Path:
             "formats": _formats(params.get("formats") or "png"),
         },
         "config": {
-            "project_config": _optional_path(base, params.get("config")),
-            "method_config": _optional_path(base, params.get("jcvi_config")),
+            "project_config": _optional_path(base, params.get("config"), fallback_bases=fallback_bases),
+            "method_config": _optional_path(base, params.get("jcvi_config"), fallback_bases=fallback_bases),
         },
         "options": {
             "preset": str(params.get("preset") or "auto"),
@@ -214,11 +358,11 @@ def write_runtime_request(params: dict[str, object], base: Path) -> Path:
         },
         "method_config": {
             "workflow": _workflow(params),
-            "jcvi_engine": _optional_path(base, params.get("jcvi_engine")),
-            "blastn": _optional_path(base, params.get("blastn")),
-            "makeblastdb": _optional_path(base, params.get("makeblastdb")),
-            "jcvi_layout": _optional_path(base, params.get("jcvi_layout")),
-            "jcvi_seqids": _optional_path(base, params.get("jcvi_seqids")),
+            "jcvi_engine": _optional_path(base, params.get("jcvi_engine"), fallback_bases=fallback_bases),
+            "blastn": _optional_path(base, params.get("blastn"), fallback_bases=fallback_bases),
+            "makeblastdb": _optional_path(base, params.get("makeblastdb"), fallback_bases=fallback_bases),
+            "jcvi_layout": _optional_path(base, params.get("jcvi_layout"), fallback_bases=fallback_bases),
+            "jcvi_seqids": _optional_path(base, params.get("jcvi_seqids"), fallback_bases=fallback_bases),
             "allow_simplified_fallback": parse_bool(
                 params.get("allow_simplified_fallback", False)
             ),
@@ -231,10 +375,15 @@ def write_runtime_request(params: dict[str, object], base: Path) -> Path:
     return target
 
 
-def setup_adapter_logging(base: Path, output_dir_value: object) -> logging.Logger:
+def setup_adapter_logging(
+    base: Path,
+    output_dir_value: object,
+    *,
+    fallback_bases: list[Path] | None = None,
+) -> logging.Logger:
     """参数可用时，在 `output_dir/run.log` 下设置 adapter logs(适配器日志)。"""
 
-    output_dir = Path(resolve_param_path(base, output_dir_value or "output"))
+    output_dir = Path(resolve_param_path(base, output_dir_value or "output", fallback_bases=fallback_bases))
     output_dir.mkdir(parents=True, exist_ok=True)
     log_file = output_dir / "run.log"
     logger = logging.getLogger(LOGGER_NAME)
@@ -269,16 +418,18 @@ def _build_runtime_command(params_path: str | Path) -> list[str]:
     runtime 根据稳定 AnalysisRequest 协议调度。
     """
 
-    params, base = load_params(params_path)
-    logger = setup_adapter_logging(base, params.get("output_dir"))
+    params, params_base = load_params(params_path)
+    base = plugin_root()
+    fallback_bases = [params_base]
+    logger = setup_adapter_logging(base, params.get("output_dir"), fallback_bases=fallback_bases)
     logger.info("Loaded params.json: %s", params_path)
     runtime = runtime_executable()
     if not runtime.is_file():
         raise PluginError(f"GenomeLens runtime executable not found: {runtime}")
 
-    output_dir = Path(resolve_param_path(base, params.get("output_dir") or "output"))
+    output_dir = Path(resolve_param_path(base, params.get("output_dir") or "output", fallback_bases=fallback_bases))
     output_dir.mkdir(parents=True, exist_ok=True)
-    request_path = write_runtime_request(params, base)
+    request_path = write_runtime_request(params, base, fallback_bases=fallback_bases)
     argv = [str(runtime), "analyze", "run", str(request_path)]
 
     logger.info("Dispatching GenomeLens runtime: %s", argv)
@@ -301,6 +452,12 @@ def run_runtime(argv: list[str]) -> int:
     return int(completed.returncode)
 
 
+def is_runtime_cli_invocation(argv: list[str]) -> bool:
+    """判断参数是否应作为 runtime CLI 命令透传，而不是当作 params.json。"""
+
+    return bool(argv) and argv[0] in RUNTIME_PASSTHROUGH_ARGS
+
+
 def main(argv: list[str] | None = None) -> int:
     """plugin executable(插件可执行文件) 入口。"""
 
@@ -312,6 +469,10 @@ def main(argv: list[str] | None = None) -> int:
             if not runtime.is_file():
                 raise PluginError(f"GenomeLens runtime executable not found: {runtime}")
             return run_runtime([str(runtime)])
+        if is_runtime_cli_invocation(argv):
+            if not runtime.is_file():
+                raise PluginError(f"GenomeLens runtime executable not found: {runtime}")
+            return run_runtime([str(runtime), *argv])
         if len(argv) != 1:
             raise PluginError("Expected zero arguments or one params.json path")
         return run_runtime(build_runtime_command(argv[0]))
