@@ -1,164 +1,118 @@
-# HAIant 插件架构：一重型中心 + 多轻量子插件
+# HAIant 插件架构：完全独立的轻量插件
 
 > 本文件描述 GenomeLens 在智然体（HAIant）平台的新插件发布模型。
-> 旧模型是把完整 runtime 与单一入口全部打在一个 zip 包里；新模型拆分为：
-> - **重型中心 `gljcvimcscan`**：携带完整 GL platform 与工具链
-> - **轻量子插件**：每个 JCVI 小功能一个独立插件包，依赖重型中心运行
->
-> 旧单包插件仍保留为兼容入口，长期目标逐步迁移到分包模型。
+> GenomeLens 平台与工具链被视为外部软件；每个 HAIant 插件只携带自己的入口与配置，运行时通过 `genomelens_exe`（或 `GENOMELENS_EXE` 环境变量）调用外部 GenomeLens 可执行文件。
+> 旧单包插件与重型中心模型保留兼容入口，但新插件不再依赖它们。
 
 ---
 
-## 1. 为什么拆分
+## 1. 为什么独立
 
 智然体平台对每个插件包的大小、依赖和职责没有强制约束，但项目实际演进中遇到以下问题：
 
 - **单包过大**：一次更新任何小功能都需要重新上传整个 platform + 工具链。
-- **入口命令过于通用**：GL 主 CLI 的子命令（如 `analyze`）语义过于通用，直接在 PATH 中执行 `analyze run ...` 可能与其他应用冲突。平台级解决方案是增加一个 `genomelens` 前缀命令，统一使用 `genomelens analyze run ...`。
-- **runtime 路径不统一**：子插件无法方便地找到 GL runtime。
+- **插件互相耦合**：重型中心一旦变更，所有子插件都需要同步调整。
+- **runtime 路径不统一**：子插件需要搜索重型中心或依赖环境变量，部署复杂。
 
-拆分后：
+独立后：
 
-- 重型中心只需安装一次，小插件可以独立迭代。
-- 每个小插件的 `config.json` 只暴露与该功能相关的参数，UI 更精简。
-- `genomelens` 主命令与环境变量壳统一了入口语义，且该壳属于平台级通用组件，不局限于智然体插件。
+- 每个插件只携带自己的入口和配置，体积最小。
+- GenomeLens 本体与工具链只需在用户环境中安装一次，所有插件共享同一份外部可执行文件。
+- 插件之间互不干扰，可以独立迭代、独立打包、独立发布。
+- 所有插件统一使用 `<genomelens.exe> analyze run <request.json>` 调用 GenomeLens。
 
 ---
 
 ## 2. 组件定义
 
-### 2.1 重型中心：`gljcvimcscan`
+### 2.1 外部 GenomeLens 平台
 
-`gljcvimcscan` 是一个独立的 HAIant 插件包，主要职责：
+GenomeLens 平台（包含 `GenomeLens-runtime.exe` 或 `genomelens.cmd` / `genomelens.exe` 等入口）是外部软件，不由 HAIant 插件携带。用户需要在 `params.json` 中提供：
 
-- 携带完整 GL platform（原始主入口 `GenomeLens.exe` 及其依赖）。
-- 携带完整工具链（`blast/`、`jcvi-genomelens/`、`imagemagick/`）。
-- 携带平台级 `genomelens` 命令壳，设置环境变量后透传给原始主入口。
-- 自身暴露 **JCVI 局部共线性分析**工作流（`local_synteny`）。
-
-典型目录结构：
-
-```text
-gljcvimcscan/
-├── genomelens.cmd              # 平台级环境变量壳（透传入口）
-├── GenomeLens.exe              # 原始 GL 主入口
-├── config.json                 # HAIant UI 元数据（local_synteny）
-├── params.json                 # local_synteny 示例参数
-├── README.md
-├── input/                      # 示例输入
-├── output/                     # 结果输出
-├── resources/
-│   └── toolchain/
-│       ├── blast/
-│       ├── jcvi-genomelens/
-│       └── imagemagick/
-└── ...                         # runtime 依赖文件
+```json
+{
+  "genomelens_exe": "C:/GenomeLens/GenomeLens-runtime.exe"
+}
 ```
 
-> 当前 platform 打包产物中的原始主入口可能名为 `GenomeLens-runtime.exe`，文档中以 `GenomeLens.exe` 指代原始主入口；壳文件名必须与其可区分（Windows 大小写不敏感），详见 `docs/开发手册/CLI入口壳设计.md`。
+也可以通过环境变量指定：
 
-### 2.2 `genomelens` 命令壳
-
-`genomelens` 命令壳是**平台级通用组件**，由 platform 打包脚本生成，智然体重型中心只是把它打包进来。详细设计见 `docs/开发手册/CLI入口壳设计.md`。
-
-核心约定：
-
-- 只设置 `GENOMELENS_HOME` / `GENOMELENS_TOOLCHAIN_DIR` 环境变量。
-- **不解析任何子命令**（如 `analyze`、`check`、`workbench`），把所有参数原样透传给原始主入口。
-- 仅做传输与异常收集：stdout/stderr 直接透传；子进程退出码原样返回。
-- 壳本身**不携带业务逻辑**。
-
-调用示例：
-
-```text
-gljcvimcscan\genomelens.cmd analyze run output\genomelens_request.json
-gljcvimcscan\genomelens.cmd check --json
-gljcvimcscan\genomelens.cmd workbench
+```powershell
+$env:GENOMELENS_EXE = "C:\GenomeLens\GenomeLens-runtime.exe"
 ```
 
-### 2.3 轻量子插件
+插件优先读取 `params.json` 中的 `genomelens_exe`；未设置时回退到 `GENOMELENS_EXE` 环境变量。
 
-每个 JCVI 小功能对应一个插件包，例如：
+如果 `genomelens_exe` 指向 `.cmd` / `.bat` 文件，插件会自动通过 `cmd.exe /c` 分派，保证命令行参数正确传递。
 
-- `gljcvi-dotplot`
-- `gljcvi-synteny`
-- `gljcvi-karyotype`
-- `gljcvi-local-synteny`（可选，也可直接使用重型中心）
-- `gljcvi-catalog-ortholog`
+### 2.2 单功能插件
+
+每个 JCVI 小功能对应一个独立插件包：
+
+- `gljcvi-dotplot` — `workflow = graphics_dotplot`
+- `gljcvi-synteny` — `workflow = graphics_synteny`
+- `gljcvi-karyotype` — `workflow = graphics_karyotype`
+- `gljcvi-catalog-ortholog` — `workflow = catalog_ortholog`
+- `gljcvi-local-synteny` — `workflow = local_synteny`
 
 每个包只包含：
 
 ```text
 gljcvi-dotplot/
 ├── main.exe                    # 插件入口
-├── config.json                 # 该功能专用 UI 参数
+├── config.json                 # 该功能专用 HAIant UI 参数
 ├── params.json                 # 示例参数
 ├── README.md
-├── input/
-└── output/
+├── input/                      # 示例输入
+└── output/                     # 结果输出
 ```
 
-### 2.4 子插件定位重型中心的协议
+### 2.3 统一自动流插件
 
-子插件入口在运行时按以下顺序寻找 `gljcvimcscan`：
+`gljcvi-auto` 是一个统一的 MCscan 自动流插件。它通过 `params.json` 中的 `workflow` 字段选择要运行的子任务，从而用一个插件包覆盖上述所有单功能工作流。
 
-1. **环境变量 `GLJCVIMCSCAN_HOME`**：如果存在且指向有效目录，直接使用。
-2. **向上搜索 `gljcvimcscan/` 目录**：从子插件根目录开始，向父目录逐级搜索名为 `gljcvimcscan` 的目录，直到磁盘根或找到为止。
-3. **报错**：如果都没找到，抛出清晰错误：
-   ```text
-   未找到 gljcvimcscan 重型中心。请安装 gljcvimcscan 插件，或设置 GLJCVIMCSCAN_HOME 环境变量。
-   ```
+支持的 `workflow` 值：
 
-示例搜索路径（子插件位于 `plugins/gljcvi-dotplot/`）：
+- `graphics_synteny`
+- `graphics_dotplot`
+- `graphics_karyotype`
+- `catalog_ortholog`
+- `local_synteny`
+- `graphics_histogram`
 
-```text
-plugins/gljcvi-dotplot/                 <- 插件根目录
-plugins/gljcvi-dotplot/../gljcvimcscan  <- 先查同级
-plugins/gljcvi-dotplot/../../gljcvimcscan
-...
-```
+### 2.4 输入约定
+
+所有插件默认使用 `input_dir` 自动发现同名物种文件对（与 `analyze mcscan jcvi` CLI 行为一致）。
+如果需要显式指定每个物种的文件，仍可填写 `species` 列表和 `input_mode`（保留兼容）。
 
 ---
 
 ## 3. 运行流程
 
-### 3.1 重型中心自身运行
-
-1. HAIant 解压 `gljcvimcscan.zip`。
-2. 用户填写 `params.json`（local_synteny 参数）。
-3. HAIant 调用 `gljcvimcscan\main.exe params.json`。
-4. `main.exe` 内的插件 Python 逻辑把 `params.json` 转换为 `genomelens_request.json`。
-5. 调用 `gljcvimcscan\genomelens.cmd analyze run output\genomelens_request.json`（壳透传给 `GenomeLens.exe`）。
-6. 返回退出码。
-
-### 3.2 轻量子插件运行
-
-1. HAIant 解压 `gljcvi-dotplot.zip`。
-2. 用户填写 `params.json`（dotplot 专用参数）。
-3. HAIant 调用 `gljcvi-dotplot\main.exe params.json`。
+1. HAIant 解压插件 zip。
+2. 用户填写 `params.json`（至少设置 `genomelens_exe`）。
+3. HAIant 调用 `main.exe params.json`。
 4. `main.exe` 内的 Python 逻辑：
    - 解析 `params.json`
-   - 发现 `gljcvimcscan`（环境变量或父目录搜索）
-   - 生成 `genomelens_request.json`（`workflow=graphics_dotplot`）
-   - 调用 `gljcvimcscan\genomelens.cmd analyze run output\genomelens_request.json`
-5. 返回退出码。
+   - 从 `params.json` 或 `GENOMELENS_EXE` 环境变量解析外部 GenomeLens 可执行文件路径
+   - 生成 `output/genomelens_request.json`
+   - 调用 `<genomelens_exe> analyze run output\genomelens_request.json`
+5. 返回外部 GenomeLens 的退出码。
 
 ---
 
 ## 4. 请求 JSON 映射
 
-所有插件最终都生成 GenomeLens `AnalysisRequest` JSON，调用 `analyze run`。映射规则与现有插件一致，区别是按插件固定 `method_config.workflow`：
+所有插件最终都生成 GenomeLens `AnalysisRequest` JSON，调用 `analyze run`。映射规则参见 `PARAMETER_MAPPING.md`。各插件固定的 `method_config.workflow` 如下：
 
 | 插件 | workflow | 说明 |
 |---|---|---|
-| `gljcvimcscan` | `local_synteny` | 局部共线性分析 |
-| `gljcvi-dotplot` | `graphics_dotplot` | 独立点图 |
-| `gljcvi-synteny` | `graphics_synteny` | 共线性总图 |
-| `gljcvi-karyotype` | `graphics_karyotype` | 核型共线性图 |
-| `gljcvi-catalog-ortholog` | `catalog_ortholog` | 双向 ortholog |
-| `gljcvi-local-synteny` | `local_synteny` | 局部共线性（可选） |
-
-公共字段映射参见 `PARAMETER_MAPPING.md`。每个轻量子插件的 `config.json` 只暴露该 workflow 需要的字段。
+| `gljcvi-dotplot` | `graphics_dotplot` | 点图 |
+| `gljcvi-synteny` | `graphics_synteny` | 共线性图 |
+| `gljcvi-karyotype` | `graphics_karyotype` | 核型图 |
+| `gljcvi-catalog-ortholog` | `catalog_ortholog` | 双向 ortholog 目录 |
+| `gljcvi-local-synteny` | `local_synteny` | 局部共线性 |
+| `gljcvi-auto` | 由 `params.json` 的 `workflow` 决定 | 统一入口 |
 
 ---
 
@@ -166,58 +120,56 @@ plugins/gljcvi-dotplot/../../gljcvimcscan
 
 | 变量 | 设置者 | 使用者 | 说明 |
 |---|---|---|---|
-| `GENOMELENS_HOME` | `genomelens` 壳 | runtime | GL 安装根目录 |
-| `GENOMELENS_TOOLCHAIN_DIR` | `genomelens` 壳 | runtime | 工具链根目录 |
-| `GLJCVIMCSCAN_HOME` | 用户或 HAIant | 轻量子插件 | 显式指定重型中心位置 |
-
-> 旧插件使用的 `GENOMELENS_PLUGIN_RUNTIME` 在新模型中由 `genomelens` 壳替代，逐步废弃。
+| `GENOMELENS_EXE` | 用户或 HAIant | 所有新插件 | 外部 GenomeLens 可执行文件路径 |
+| `GENOMELENS_PLUGIN_RUNTIME` | 用户 | 旧单包插件 | 旧兼容入口，新插件不再使用 |
+| `GLJCVIMCSCAN_HOME` | 用户 | 旧重型中心插件 | 旧兼容入口，新插件不再使用 |
 
 ---
 
 ## 6. 构建与发布
 
-### 6.1 重型中心 `gljcvimcscan`
+### 6.1 单功能插件
 
-1. 先运行 `scripts/build_split_packages.ps1` 得到完整 `platform/dist/GenomeLens`（其中已包含平台级 `genomelens` 壳）。
-2. 把 `platform/dist/GenomeLens` 复制到 `gljcvimcscan/` 下作为 runtime。
-3. 把工具链复制到 `gljcvimcscan/resources/toolchain/`。
-4. 放入 `config.json`、`params.json`、`README.md`、示例输入。
-5. 打包为 `gljcvimcscan.zip`。
+```powershell
+scripts/build_gljcvi_feature_plugin.ps1 -Feature dotplot
+scripts/build_gljcvi_feature_plugin.ps1 -Feature synteny
+scripts/build_gljcvi_feature_plugin.ps1 -Feature karyotype
+scripts/build_gljcvi_feature_plugin.ps1 -Feature catalog_ortholog
+scripts/build_gljcvi_feature_plugin.ps1 -Feature local_synteny
+```
 
-### 6.2 轻量子插件
+### 6.2 统一自动流插件
 
-1. 为每个 workflow 写一个 `main.py` 入口，调用共享库 `_core.py`。
-2. PyInstaller 打包为 `main.exe`。
-3. 准备该 workflow 专用的 `config.json`、`params.json`、`README.md`。
-4. 不携带任何 runtime 或工具链。
-5. 打包为 `gljcvi-<feature>.zip`。
+```powershell
+scripts/build_gljcvi_feature_plugin.ps1 -Feature auto
+```
 
-### 6.3 推荐脚本
+构建产物位于 `app/gljcvi-<feature>.zip`。
 
-- `scripts/build_split_packages.ps1`：平台级构建，负责生成 `genomelens` 壳与原始主入口。
-- `scripts/build_gljcvimcscan_center.ps1`：构建重型中心（复用 platform 产物，不重复生成壳）。
-- `scripts/build_gljcvi_feature_plugin.ps1 -Feature dotplot`：构建单个子插件。
-- `scripts/build_haiant_plugin.ps1`：保留旧单包构建（兼容过渡期）。
+### 6.3 保留脚本
+
+- `scripts/build_haiant_plugin.ps1`：保留旧单包插件构建（兼容过渡期）。
+- `scripts/build_gljcvimcscan_center.ps1`：保留旧重型中心构建（兼容过渡期）。
 
 ---
 
 ## 7. 兼容性
 
-- 旧单包插件（`GenomeLens-HAIant-plugin-*.zip`）继续维护，直到所有用户迁移完成。
-- 旧插件中的 `GENOMELENS_PLUGIN_RUNTIME` 环境变量仍支持，但新插件优先使用 `genomelens` 壳。
-- 重型中心 `gljcvimcscan` 和旧单包插件可以共存，但用户不应同时依赖两套入口。
+- 旧单包插件（`GenomeLens-HAIant-plugin-*.zip`）和重型中心（`gljcvimcscan`）继续保留，直到所有用户迁移完成。
+- 新插件不再搜索重型中心，也不依赖 `GLJCVIMCSCAN_HOME`。
+- 新旧插件可以共存，但建议新部署直接使用独立插件或 `gljcvi-auto`。
 
 ---
 
 ## 8. 开发注意事项
 
 1. 所有插件入口必须接收 `params.json` 路径作为唯一命令行参数。
-2. 必须输出 `run.log` 到 `output_dir/run.log`。
-3. 必须使用 `try/except` 捕获异常并写入日志，退出码非 0 表示失败。
-4. PyInstaller 打包后使用 `sys._MEIPASS` 定位资源文件。
-5. 路径解析以 `params.json` 所在目录为基准，而不是插件 EXE 所在目录。
-6. 中英文 UI 字段都需要提供。
-7. `genomelens` 壳属于平台通用组件，不要在插件里重复实现其逻辑；插件只负责调用和错误提示。
+2. `params.json` 中必须提供 `genomelens_exe` 或预先设置 `GENOMELENS_EXE` 环境变量。
+3. 必须输出 `run.log` 到 `output_dir/run.log`。
+4. 必须使用 `try/except` 捕获异常并写入日志，退出码非 0 表示失败。
+5. PyInstaller 打包后使用 `sys._MEIPASS` 定位资源文件。
+6. 路径解析以 `params.json` 所在目录为基准，而不是插件 EXE 所在目录。
+7. 中英文 UI 字段都需要提供：`label` 为中文，`label_en` 为英文。
 
 ---
 
