@@ -53,10 +53,15 @@ def build_feature_runtime_command(
     workflow: str,
     plugin_root: Path,
     logger_name: str,
+    params: dict[str, object] | None = None,
+    base: Path | None = None,
 ) -> list[str]:
     """Translate feature params into a ``gljcvimcscan`` shell invocation."""
 
-    params, base = load_params(params_path)
+    if params is None or base is None:
+        params, base = load_params(params_path)
+    else:
+        base = Path(base)
     output_dir = Path(resolve_param_path(base, params.get("output_dir") or "output"))
     logger = setup_adapter_logging(output_dir, logger_name=logger_name)
     logger.info("Loaded params.json: %s", params_path)
@@ -75,6 +80,8 @@ def build_runtime_command(
     workflow: str,
     plugin_root: Path,
     logger_name: str,
+    params: dict[str, object] | None = None,
+    base: Path | None = None,
 ) -> list[str]:
     """Build the shell argv and release log handles."""
 
@@ -84,6 +91,8 @@ def build_runtime_command(
             workflow=workflow,
             plugin_root=plugin_root,
             logger_name=logger_name,
+            params=params,
+            base=base,
         )
     finally:
         close_adapter_logging(logger_name)

@@ -498,6 +498,7 @@ class OptionParser(ArgumentParser):
             GRAPHIC_FORMATS,
             ImageOptions,
             is_tex_available,
+            set_chinese_font,
             setup_theme,
         )
 
@@ -553,6 +554,12 @@ class OptionParser(ArgumentParser):
         group.add_argument(
             "--notex", default=False, action="store_true", help="Do not use tex"
         )
+        group.add_argument(
+            "--chinese",
+            default=False,
+            action="store_true",
+            help="Render Chinese labels: implies --notex and selects a CJK font",
+        )
         # https://github.com/tanghaibao/jcvi/issues/515#issuecomment-1327305211
         if (
             "--seed" not in self._option_string_actions
@@ -573,6 +580,11 @@ class OptionParser(ArgumentParser):
         assert opts.dpi > 0
         assert "x" in opts.figsize
 
+        # Chinese labels cannot be rendered through latex, so --chinese implies
+        # --notex and additionally selects a CJK-capable font below.
+        if opts.chinese:
+            opts.notex = True
+
         iopts = ImageOptions(opts)
 
         if opts.notex:
@@ -584,6 +596,9 @@ class OptionParser(ArgumentParser):
                 logger.info("`lp` not found. latex use is disabled.")
 
         setup_theme(style=opts.style, font=opts.font, usetex=iopts.usetex)
+
+        if opts.chinese:
+            set_chinese_font()
 
         return opts, args, iopts
 
@@ -1171,10 +1186,10 @@ def Popen(cmd, stdin=None, stdout=PIPE, debug=False, shell="/bin/bash"):
     """
     from subprocess import Popen as P
 
-    if debug:
-        logger.debug(cmd)
     if platform.system() == "Windows" and shell == "/bin/bash":
         shell = None
+    if debug:
+        logger.debug(cmd)
     # See: <https://blog.nelhage.com/2010/02/a-very-subtle-bug/>
     proc = P(cmd, bufsize=1, stdin=stdin, stdout=stdout, shell=True, executable=shell)
     return proc

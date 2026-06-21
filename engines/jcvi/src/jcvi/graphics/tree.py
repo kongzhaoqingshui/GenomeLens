@@ -7,8 +7,14 @@ import sys
 
 try:
     from ete4 import Tree
-except ImportError:
+
+    _TREE_FMT_KW = "parser"
+except ImportError:  # pragma: no cover
     from ete3 import Tree
+
+    _TREE_FMT_KW = "format"
+    if not hasattr(Tree, "common_ancestor"):
+        Tree.common_ancestor = Tree.get_common_ancestor
 
 from ..apps.base import OptionParser, glob, logger
 from ..formats.base import LineFile
@@ -173,6 +179,7 @@ def draw_tree(
     wgdinfo=None,
     geoscale=False,
     groups=[],
+    chinese=False,
 ):
     """
     main function for drawing phylogenetic tree
@@ -243,6 +250,11 @@ def draw_tree(
         xx = rescale(dist)
 
         if n.is_leaf:
+            # On a time-calibrated (geoscale) tree all extant tips sit at the
+            # present, so align leaf tips at max_dist (keeps the outgroup leaf,
+            # e.g. the rerooted outgroup, flush with the others).
+            if geoscale:
+                xx = rescale(max_dist)
             yy = ystart + i * yinterval
             i += 1
 
@@ -340,7 +352,13 @@ def draw_tree(
     # scale bar
     if geoscale:
         draw_geoscale(
-            ax, ytop, margin=margin, rmargin=rmargin, yy=ymargin, max_dist=max_dist
+            ax,
+            ytop,
+            margin=margin,
+            rmargin=rmargin,
+            yy=ymargin,
+            max_dist=max_dist,
+            chinese=chinese,
         )
     else:
         br = 0.1
@@ -440,7 +458,14 @@ def read_trees(tree):
 
 
 def draw_geoscale(
-    ax, ytop, margin=0.1, rmargin=0.2, yy=0.1, max_dist=3.0, contrast_epochs=True
+    ax,
+    ytop,
+    margin=0.1,
+    rmargin=0.2,
+    yy=0.1,
+    max_dist=3.0,
+    contrast_epochs=True,
+    chinese=False,
 ):
     """
     Draw geological epoch on million year ago (mya) scale.
@@ -465,7 +490,7 @@ def draw_geoscale(
     ax.text(
         (a + b) / 2,
         yy - 5 * tick,
-        "Time before present (million years)",
+        "距今时间（百万年）" if chinese else "Time before present (million years)",
         ha="center",
         va="center",
     )
@@ -481,6 +506,16 @@ def draw_geoscale(
         ("Permian", 252.17, 298.9),
         ("Carboniferous", 298.9, 358.9),
     )
+    # Chinese display names; English keys are kept for the contrast logic below
+    CN_ERA = {
+        "Neogene": "新近纪",
+        "Paleogene": "古近纪",
+        "Cretaceous": "白垩纪",
+        "Jurassic": "侏罗纪",
+        "Triassic": "三叠纪",
+        "Permian": "二叠纪",
+        "Carboniferous": "石炭纪",
+    }
     h = 0.05
     for (era, start, end), color in zip(Geo, set3_n(len(Geo))):
         if maxx - start < 10:  # not visible enough
@@ -491,7 +526,7 @@ def draw_geoscale(
         ax.text(
             (start + end) / 2,
             yy + (tick + h) / 2,
-            era,
+            CN_ERA.get(era, era) if chinese else era,
             ha="center",
             va="center",
             size=8,
@@ -546,7 +581,7 @@ def parse_tree(infile):
     if repl.hpd:
         print(repl.hpd, file=sys.stderr)
 
-    return (Tree(treedata, parser=1), repl.hpd) if changed else (Tree(treedata), None)
+    return (Tree(treedata, **{_TREE_FMT_KW: 1}), repl.hpd) if changed else (Tree(treedata), None)
 
 
 def main(args):
