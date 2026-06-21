@@ -44,8 +44,9 @@
 - 推断 `GENOMELENS_HOME` 为脚本/可执行文件所在目录。
 - 设置 `GENOMELENS_TOOLCHAIN_DIR=%GENOMELENS_HOME%\resources\toolchain`。
 - 找到同目录下的 `GenomeLens-runtime.exe`。
-- 转发所有命令行参数：`GenomeLens-runtime.exe <argv...>`。
-- 如果找不到 runtime，打印中文/英文错误并返回非 0 退出码。
+- **不解析任何子命令**（如 `analyze`、`check`、`workbench`），把所有参数原样透传给 `GenomeLens-runtime.exe <argv...>`。
+- 仅收集异常：子进程 stdout/stderr 直接透传；若 runtime 不存在或子进程非 0 退出，输出错误并返回对应退出码。
+- 本身不携带任何业务逻辑。
 
 ### 3. 实现重型中心入口 `gljcvimcscan`
 

@@ -14,7 +14,7 @@
 智然体平台对每个插件包的大小、依赖和职责没有强制约束，但项目实际演进中遇到以下问题：
 
 - **单包过大**：一次更新任何小功能都需要重新上传整个 platform + 工具链。
-- **入口语义单一**：旧入口 `GenomeLens.exe` 只做 `analyze run`，无法为不同 JCVI 能力提供专用 UI。
+- **入口命令过于通用**：旧入口 `GenomeLens-runtime.exe` 的子命令如 `analyze` 语义过于通用，直接在 PATH 中执行 `analyze run` 可能与其他应用冲突。新增 `genomelens` 前缀命令后，统一使用 `genomelens analyze run ...`，避免冲突且入口语义明确。
 - **环境变量冲突**：`GENOMELENS_PLUGIN_RUNTIME` 等命名过于通用，容易与其他环境变量混淆。
 - **runtime 路径不统一**：子插件无法方便地找到 GL runtime。
 
@@ -58,13 +58,22 @@ gljcvimcscan/
 
 ### 2.2 `genomelens` 命令壳
 
-`genomelens.exe`（或 `genomelens.cmd`）是 GL runtime 的**环境变量壳**：
+`genomelens.exe`（或 `genomelens.cmd`）是 GL runtime 的**纯透传环境变量壳**：
 
 1. 根据自身的绝对路径推断 `GENOMELENS_HOME`（即 `gljcvimcscan` 目录）。
 2. 设置 `GENOMELENS_TOOLCHAIN_DIR=%GENOMELENS_HOME%\resources\toolchain`。
-3. 转发所有参数给 `%GENOMELENS_HOME%\GenomeLens-runtime.exe`。
+3. **不解析任何子命令**，把所有参数原样转发给 `%GENOMELENS_HOME%\GenomeLens-runtime.exe`。
+4. 仅做异常收集：如果 runtime 不存在或子进程失败，把错误信息输出到 stderr 并返回非 0 退出码。
 
-这样小插件无需关心 runtime 具体位置，只需调用 `gljcvimcscan\genomelens ...`。
+> `genomelens` 壳本身**不携带业务逻辑**，也不识别 `analyze`、`check`、`workbench` 等子命令。所有命令语义由 `GenomeLens-runtime.exe` 解析。这样小插件只需调用 `gljcvimcscan\genomelens ...`，即可获得稳定、不会与其他应用冲突的入口。
+
+调用示例：
+
+```text
+gljcvimcscan\genomelens.exe analyze run output\genomelens_request.json
+gljcvimcscan\genomelens.exe check --json
+gljcvimcscan\genomelens.exe workbench
+```
 
 ### 2.3 轻量子插件
 
@@ -119,7 +128,7 @@ plugins/gljcvi-dotplot/../../gljcvimcscan
 3. HAIant 调用 `gljcvimcscan\genomelens.exe params.json`。
 4. `genomelens.exe` 设置 `GENOMELENS_HOME` / `GENOMELENS_TOOLCHAIN_DIR`。
 5. 插件 Python 逻辑把 `params.json` 转换为 `genomelens_request.json`。
-6. 调用 `GenomeLens-runtime.exe analyze run output\genomelens_request.json`。
+6. 调用 `genomelens.exe analyze run output\genomelens_request.json`（`genomelens` 壳透传给 `GenomeLens-runtime.exe`）。
 7. 返回退出码。
 
 ### 3.2 轻量子插件运行
