@@ -1,6 +1,6 @@
 param(
   [Parameter(Mandatory = $true)]
-  [ValidateSet("dotplot", "synteny", "karyotype", "catalog_ortholog")]
+  [ValidateSet("dotplot", "synteny", "karyotype", "catalog_ortholog", "local_synteny")]
   [string]$Feature
 )
 
@@ -27,6 +27,10 @@ $featureMap = @{
   catalog_ortholog = @{
     Package = "gljcvi-catalog-ortholog"
     Entry = "features\catalog_ortholog_entry.py"
+  }
+  local_synteny = @{
+    Package = "gljcvi-local-synteny"
+    Entry = "features\local_synteny_entry.py"
   }
 }
 

@@ -1,0 +1,107 @@
+{
+  "title": "GenomeLens Local Synteny",
+  "title_en": "GenomeLens Local Synteny",
+  "description": "Run the local_synteny workflow through the gljcvimcscan center.",
+  "description_en": "Run the local_synteny workflow through the gljcvimcscan center.",
+  "version": "v1.0.0",
+  "context": "Target-gene-centered local synteny visualization across species.",
+  "context_en": "Target-gene-centered local synteny visualization across species.",
+  "env": "Python",
+  "outputType": "dir",
+  "params": [
+    {
+      "label": "Input Mode",
+      "label_en": "Input Mode",
+      "key": "input_mode",
+      "valueType": "customer_selector",
+      "options": ["bed_cds", "gff_genome"],
+      "example_value": "bed_cds",
+      "description": "Choose BED+CDS or GFF+genome FASTA input mode.",
+      "description_en": "Choose BED+CDS or GFF+genome FASTA input mode."
+    },
+    {
+      "label": "Species",
+      "label_en": "Species",
+      "key": "species",
+      "valueType": "json",
+      "example_value": [
+        {"name": "query", "bed": "input/query.bed", "cds": "input/query.cds"},
+        {"name": "subject", "bed": "input/subject.bed", "cds": "input/subject.cds"}
+      ],
+      "description": "At least two species entries.",
+      "description_en": "At least two species entries."
+    },
+    {
+      "label": "Target Gene IDs",
+      "label_en": "Target Gene IDs",
+      "key": "target_gene_ids",
+      "valueType": "str",
+      "example_value": "Thhalv10024702m.v1.0",
+      "description": "Comma-separated target gene IDs for local synteny.",
+      "description_en": "Comma-separated target gene IDs for local synteny."
+    },
+    {
+      "label": "Reference",
+      "label_en": "Reference",
+      "key": "reference",
+      "valueType": "str",
+      "example_value": "1",
+      "description": "Reference species index (1-based) or name.",
+      "description_en": "Reference species index (1-based) or name."
+    },
+    {
+      "label": "Output Directory",
+      "label_en": "Output Directory",
+      "key": "output_dir",
+      "valueType": "dir_selector",
+      "example_value": "output",
+      "description": "Output directory for results.",
+      "description_en": "Output directory for results."
+    },
+    {
+      "label": "Threads",
+      "label_en": "Threads",
+      "key": "threads",
+      "valueType": "int",
+      "example_value": 4,
+      "description": "Number of worker threads.",
+      "description_en": "Number of worker threads."
+    },
+    {
+      "label": "Minimum Block Size",
+      "label_en": "Minimum Block Size",
+      "key": "min_block_size",
+      "valueType": "int",
+      "example_value": 1,
+      "description": "Minimum gene count for retained blocks.",
+      "description_en": "Minimum gene count for retained blocks."
+    },
+    {
+      "label": "Output Formats",
+      "label_en": "Output Formats",
+      "key": "formats",
+      "valueType": "str",
+      "example_value": "png",
+      "description": "Comma-separated output formats.",
+      "description_en": "Comma-separated output formats."
+    },
+    {
+      "label": "JCVI Layout File",
+      "label_en": "JCVI Layout File",
+      "key": "jcvi_layout",
+      "valueType": "file_selector",
+      "example_value": "",
+      "description": "Optional layout file for a curated local view.",
+      "description_en": "Optional layout file for a curated local view."
+    },
+    {
+      "label": "JCVI Seqids File",
+      "label_en": "JCVI Seqids File",
+      "key": "jcvi_seqids",
+      "valueType": "file_selector",
+      "example_value": "",
+      "description": "Optional seqids file paired with the layout.",
+      "description_en": "Optional seqids file paired with the layout."
+    }
+  ]
+}
