@@ -1,0 +1,127 @@
+{
+  "title": "GenomeLens Local Synteny Center",
+  "title_en": "GenomeLens Local Synteny Center",
+  "description": "Run the gljcvimcscan heavy center for target-gene local synteny analysis through the platform-level genomelens shell.",
+  "description_en": "Run the gljcvimcscan heavy center for target-gene local synteny analysis through the platform-level genomelens shell.",
+  "version": "v1.0.0",
+  "context": "Input BED+CDS or GFF+genome FASTA, provide target genes for the reference species, and output a structured local synteny result directory.",
+  "context_en": "Input BED+CDS or GFF+genome FASTA, provide target genes for the reference species, and output a structured local synteny result directory.",
+  "env": "Python",
+  "outputType": "dir",
+  "params": [
+    {
+      "label": "输入模式",
+      "label_en": "Input Mode",
+      "key": "input_mode",
+      "valueType": "customer_selector",
+      "options": ["bed_cds", "gff_genome"],
+      "example_value": "bed_cds",
+      "description": "选择 BED+CDS 或 GFF+基因组 FASTA 输入模式。",
+      "description_en": "Choose BED+CDS or GFF+genome FASTA input mode."
+    },
+    {
+      "label": "物种列表",
+      "label_en": "Species",
+      "key": "species",
+      "valueType": "json",
+      "example_value": [
+        {"name": "query", "bed": "input/query.bed", "cds": "input/query.cds"},
+        {"name": "subject", "bed": "input/subject.bed", "cds": "input/subject.cds"}
+      ],
+      "description": "至少两个物种。bed_cds 模式使用 name/bed/cds；gff_genome 模式使用 name/gff/genome。",
+      "description_en": "At least two species. Use name/bed/cds for bed_cds mode, or name/gff/genome for gff_genome mode."
+    },
+    {
+      "label": "输出目录",
+      "label_en": "Output Directory",
+      "key": "output_dir",
+      "valueType": "dir_selector",
+      "example_value": "output",
+      "description": "结果输出目录。",
+      "description_en": "Output directory for results."
+    },
+    {
+      "label": "参考物种",
+      "label_en": "Reference Species",
+      "key": "reference",
+      "valueType": "str",
+      "example_value": "query",
+      "description": "参考物种名称或 1-based 索引。",
+      "description_en": "Reference species name or 1-based index."
+    },
+    {
+      "label": "目标基因",
+      "label_en": "Target Genes",
+      "key": "target_gene_ids",
+      "valueType": "str",
+      "example_value": "qgene2,qgene3",
+      "description": "参考物种中的目标基因 ID，多个用逗号分隔。",
+      "description_en": "Target gene IDs in the reference species, comma-separated."
+    },
+    {
+      "label": "上游窗口",
+      "label_en": "Upstream Window",
+      "key": "up",
+      "valueType": "int",
+      "example_value": 20,
+      "description": "目标基因上游窗口大小。",
+      "description_en": "Upstream window size for each target gene."
+    },
+    {
+      "label": "下游窗口",
+      "label_en": "Downstream Window",
+      "key": "down",
+      "valueType": "int",
+      "example_value": 20,
+      "description": "目标基因下游窗口大小。",
+      "description_en": "Downstream window size for each target gene."
+    },
+    {
+      "label": "分别出图",
+      "label_en": "Split Targets",
+      "key": "split_targets",
+      "valueType": "customer_selector",
+      "options": ["false", "true"],
+      "example_value": "false",
+      "description": "多个目标基因时是否分别生成局部图。",
+      "description_en": "Whether to render separate local views for multiple target genes."
+    },
+    {
+      "label": "标注目标基因",
+      "label_en": "Label Targets",
+      "key": "label_targets",
+      "valueType": "customer_selector",
+      "options": ["false", "true"],
+      "example_value": "true",
+      "description": "是否在图中标注目标基因名称。",
+      "description_en": "Whether to label target genes in the figure."
+    },
+    {
+      "label": "线程数",
+      "label_en": "Threads",
+      "key": "threads",
+      "valueType": "int",
+      "example_value": 4,
+      "description": "运行线程数。",
+      "description_en": "Number of worker threads."
+    },
+    {
+      "label": "最小 block 大小",
+      "label_en": "Minimum Block Size",
+      "key": "min_block_size",
+      "valueType": "int",
+      "example_value": 5,
+      "description": "局部共线性 block 的最小基因数。",
+      "description_en": "Minimum gene count for local synteny blocks."
+    },
+    {
+      "label": "输出格式",
+      "label_en": "Output Formats",
+      "key": "formats",
+      "valueType": "str",
+      "example_value": "svg,png",
+      "description": "逗号分隔的输出格式。",
+      "description_en": "Comma-separated output formats."
+    }
+  ]
+}
