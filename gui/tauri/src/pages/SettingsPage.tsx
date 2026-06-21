@@ -51,7 +51,7 @@ export default function SettingsPage({ route, onNavigate }: SettingsPageProps) {
       <div className="grid content-start gap-6">
         <section className="rounded-[28px] border border-border bg-surface/80 p-6 shadow-card">
           <p className="text-sm font-semibold uppercase tracking-[0.24em] text-ice-600 dark:text-ice-300">
-            JCVI喵 · {route.description}
+            JCVI meow · {route.description}
           </p>
           <h1 className="mt-4 text-4xl font-semibold tracking-tight text-text-primary">环境诊断与设置</h1>
           <p className="mt-4 text-sm leading-8 text-text-secondary">
@@ -71,7 +71,7 @@ export default function SettingsPage({ route, onNavigate }: SettingsPageProps) {
               className="rounded-lg border border-border bg-surface-raised/80 px-4 py-2 text-sm font-semibold text-text-secondary transition hover:border-ice-200 hover:bg-ice-50 hover:text-ice-700 dark:hover:border-ice-800 dark:hover:bg-ice-900/30 dark:hover:text-ice-200"
               onClick={() => onNavigate("/")}
             >
-              返回 JCVI喵桌面
+              返回 JCVI meow桌面
             </button>
           </div>
         </section>

@@ -12,7 +12,7 @@ export const APP_ROUTES: AppRoute[] = [
     id: "home",
     path: "/",
     label: "桌面",
-    description: "JCVI喵桌面与能力入口",
+    description: "JCVI meow桌面与能力入口",
   },
   {
     id: "projects",

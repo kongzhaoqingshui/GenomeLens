@@ -50,10 +50,10 @@ export function AppShell({
             onClick={() => onNavigate("/")}
           >
             <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-ice-50 text-ice-500 shadow-lg shadow-ice-500/10 ring-1 ring-ice-100 dark:bg-ice-950/60 dark:ring-ice-900/60">
-              <JcviMeowIcon className="h-8 w-8" showLensText={false} />
+              <JcviMeowIcon className="h-8 w-8" />
             </span>
             <span>
-              <span className="jcvi-brand-title block text-xl font-semibold tracking-tight">JCVI喵</span>
+              <span className="jcvi-brand-title block text-xl font-semibold tracking-tight">JCVI meow</span>
               <span className="block text-xs text-text-secondary">Comparative genomics workbench · Powered by GenomeLens</span>
             </span>
           </button>

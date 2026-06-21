@@ -491,7 +491,7 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
       <aside className="grid content-start gap-4 xl:sticky xl:top-6">
         <section className={FIELD_GROUP_CLASS}>
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ice-600 dark:text-ice-300">
-            JCVI喵 Workbench
+            JCVI meow Workbench
           </p>
           <h2 className="mt-3 text-lg font-semibold text-text-primary">能力与任务栏</h2>
           <div className="mt-4 grid gap-2">
@@ -531,7 +531,7 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
       <section className="grid gap-5">
         <div>
           <p className="text-sm font-semibold uppercase tracking-[0.2em] text-ice-600 dark:text-ice-300">
-            JCVI喵 · {route.description}
+            JCVI meow · {route.description}
           </p>
           <div className="mt-4 flex flex-wrap items-end justify-between gap-4">
             <div>

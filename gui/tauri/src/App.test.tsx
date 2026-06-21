@@ -95,11 +95,11 @@ afterEach(() => {
 });
 
 describe("App", () => {
-  it("renders the JCVI喵 desktop and startup overlay", async () => {
+  it("renders the JCVI meow desktop and startup overlay", async () => {
     render(<App />);
 
-    expect(screen.getAllByText("JCVI喵").length).toBeGreaterThan(0);
-    expect(screen.getByRole("heading", { name: "JCVI喵" })).toBeInTheDocument();
+    expect(screen.getAllByText("JCVI meow").length).toBeGreaterThan(0);
+    expect(screen.getByRole("heading", { name: "JCVI meow" })).toBeInTheDocument();
     expect(await screen.findByRole("button", { name: /双物种共线性/ })).toBeInTheDocument();
   });
 

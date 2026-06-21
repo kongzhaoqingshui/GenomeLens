@@ -1,14 +1,14 @@
-# JCVI喵桌面体验设计增补
+﻿# JCVI meow桌面体验设计增补
 
-> 本增补定义 GUI 从 GenomeLens 通用桌面壳转向专门面向 JCVI 的「JCVI喵」桌面应用体验。底层仍通过 GenomeLens/Tauri command 对接已有 JCVI/GenomeLens 能力，前端品牌、启动体验、首页能力入口和工作台排版按本文件调整。
+> 本增补定义 GUI 从 GenomeLens 通用桌面壳转向专门面向 JCVI 的「JCVI meow」桌面应用体验。底层仍通过 GenomeLens/Tauri command 对接已有 JCVI/GenomeLens 能力，前端品牌、启动体验、首页能力入口和工作台排版按本文件调整。
 
 ---
 
 ## 1. 产品定位
 
-- 产品名：JCVI喵
+- 产品名：JCVI meow
 - 定位：面向 JCVI 工作流的桌面分析工作台，优先服务 MCSCAN / pairwise synteny / multi-species / local synteny 等已由 GenomeLens 接入的能力。
-- 后端关系：用户感知层称为 JCVI喵；运行层继续复用 GenomeLens CLI、AnalysisRequest、run_summary 和 run.log 契约。
+- 后端关系：用户感知层称为 JCVI meow；运行层继续复用 GenomeLens CLI、AnalysisRequest、run_summary 和 run.log 契约。
 - 设计关键词：冰蓝、轻快、桌面工作台、启动不卡顿、有生命感但不幼稚。
 
 ---
@@ -19,7 +19,7 @@
 
 后续 GUI 图标不再由 Codex/开发者临时自绘。图标来源按以下优先级执行：
 
-1. JCVI喵品牌 logo：只使用用户亲自提供、用户确认的 AI 生成图，或用户明确指定的最终资产。开发者不得自行重画品牌 logo。
+1. JCVI meow品牌 logo：只使用用户亲自提供、用户确认的 AI 生成图，或用户明确指定的最终资产。开发者不得自行重画品牌 logo。
 2. 功能、工具、设置、状态类图标：统一使用 Nieobie/Game-Icon-Pack 的 SVG/PNG 资产。
 3. 若 Game Icon Pack 中没有合适图标，先向 GUI lead 提出缺口，由 GUI lead 决定替代图标或等待用户指定；不得自行画新图标补位。
 
@@ -87,7 +87,7 @@ Nieobie/Game-Icon-Pack 采用 CC0 1.0 Universal，可修改和商用。项目内
 
 ### 4.1 布局目标
 
-加载完成后，不进入传统 landing hero，也不直接展示工作台。先进入简洁的「中心能力环」初始界面：中心是 JCVI喵图标，周围扩散出能力入口。能力入口围绕中心圆形/椭圆环绕，但位置有轻微不规则感，避免机械仪表盘。
+加载完成后，不进入传统 landing hero，也不直接展示工作台。先进入简洁的「中心能力环」初始界面：中心是 JCVI meow图标，周围扩散出能力入口。能力入口围绕中心圆形/椭圆环绕，但位置有轻微不规则感，避免机械仪表盘。
 
 ### 4.2 首批能力入口
 
@@ -113,7 +113,7 @@ Nieobie/Game-Icon-Pack 采用 CC0 1.0 Universal，可修改和商用。项目内
 
 ### 4.4 图标来源
 
-除 JCVI喵品牌 logo 外，其他能力、工具、设置类图标统一使用 Nieobie/Game-Icon-Pack 的 SVG 资产。不得自行绘制临时图标、手写新图标 SVG、或用文字圆点冒充图标。
+除 JCVI meow品牌 logo 外，其他能力、工具、设置类图标统一使用 Nieobie/Game-Icon-Pack 的 SVG 资产。不得自行绘制临时图标、手写新图标 SVG、或用文字圆点冒充图标。
 
 ---
 
@@ -121,11 +121,11 @@ Nieobie/Game-Icon-Pack 采用 CC0 1.0 Universal，可修改和商用。项目内
 
 ### 5.1 总体结构
 
-参考 Codex 的工作感：中间是主工作区，左侧是任务/能力导航，右侧是上下文面板。JCVI喵中间不是对话，而是当前选中 JCVI 任务的工作台。
+参考 Codex 的工作感：中间是主工作区，左侧是任务/能力导航，右侧是上下文面板。JCVI meow中间不是对话，而是当前选中 JCVI 任务的工作台。
 
 ```text
 ┌─────────────────────────────────────────────────────────────┐
-│ 顶栏：JCVI喵 / 当前任务名 / 运行状态 / 设置                  │
+│ 顶栏：JCVI meow / 当前任务名 / 运行状态 / 设置                  │
 ├───────────────┬─────────────────────────────┬───────────────┤
 │ 左侧能力栏     │ 中心任务工作台                │ 右侧上下文栏    │
 │ - 能力入口     │ - 参数表单 / Run 面板          │ - 后端状态      │
@@ -184,7 +184,7 @@ Nieobie/Game-Icon-Pack 采用 CC0 1.0 Universal，可修改和商用。项目内
 - 实现启动加载层：中心猫头落下、透镜展开、`JCVI` 打印、提示轮播、reduced motion 降级。
 - 重做 Home：加载完成后显示中心能力环，入口点击进入现有 `/analysis/new` 或 settings。
 - 重排 AppShell/NewAnalysisPage，使其向「左能力栏 + 中心工作台 + 右上下文栏」过渡；第一版可先在 new-analysis 页面落地，不要求一次全站完成。
-- 更新文案：用户可见品牌改为 `JCVI喵`，底层说明中可保留 `Powered by GenomeLens`。
+- 更新文案：用户可见品牌改为 `JCVI meow`，底层说明中可保留 `Powered by GenomeLens`。
 
 ### C：数据流与状态适配
 
@@ -208,7 +208,7 @@ Nieobie/Game-Icon-Pack 采用 CC0 1.0 Universal，可修改和商用。项目内
 
 ## 8. 验收标准
 
-- 应用首屏 300 ms 内出现 JCVI喵启动层，不再白屏等待后端探测。
+- 应用首屏 300 ms 内出现 JCVI meow启动层，不再白屏等待后端探测。
 - 动画完成后，如果后端未 ready，提示继续轮播且界面不冻结。
 - 加载完成后出现中心能力环，点击已接入能力能进入工作台。
 - 工作台中心区域能继续完成现有 Phase 2 Run flow。

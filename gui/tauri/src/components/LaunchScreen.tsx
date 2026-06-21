@@ -33,11 +33,11 @@ export function LaunchScreen({
 
       <div className="relative h-[36rem] w-full max-w-xl text-center">
         <div className="jcvi-launch-icon absolute left-1/2 top-0 flex h-44 w-44 -translate-x-1/2 items-center justify-center">
-          <JcviMeowIcon className="h-36 w-36 drop-shadow-[0_28px_56px_rgba(37,99,235,0.22)]" />
+          <JcviMeowIcon className="h-36 w-36" />
         </div>
 
         <div className="absolute left-0 right-0 top-48">
-          <h1 className="jcvi-brand-title text-4xl font-semibold tracking-tight text-text-primary">JCVI喵</h1>
+          <h1 className="jcvi-brand-title text-4xl font-semibold tracking-tight text-text-primary">JCVI meow</h1>
           <p className="mt-4 h-7 text-sm font-medium leading-7 text-text-secondary">{message}</p>
           <p className="mt-1 text-xs text-text-tertiary">Powered by GenomeLens</p>
         </div>

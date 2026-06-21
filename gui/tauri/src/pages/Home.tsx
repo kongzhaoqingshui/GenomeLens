@@ -95,8 +95,8 @@ export default function Home({ onNavigate }: HomeProps) {
           className="group absolute left-1/2 top-1/2 flex h-64 w-64 -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center rounded-full border border-white/70 bg-white/64 text-center shadow-2xl shadow-ice-500/12 backdrop-blur transition hover:bg-white/78 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ice-500 focus-visible:ring-offset-4 focus-visible:ring-offset-bg dark:border-white/10 dark:bg-slate-950/58 dark:hover:bg-slate-950/72"
           onClick={() => onNavigate("/analysis/new")}
         >
-          <JcviMeowIcon className="h-32 w-32 drop-shadow-[0_24px_48px_rgba(37,99,235,0.2)] transition group-hover:scale-[1.03]" />
-          <span className="jcvi-brand-title mt-4 text-4xl font-semibold tracking-tight text-text-primary">JCVI喵</span>
+          <JcviMeowIcon className="h-32 w-32" />
+          <span className="jcvi-brand-title mt-4 text-4xl font-semibold tracking-tight text-text-primary">JCVI meow</span>
           <span className="mt-2 text-xs font-medium text-text-tertiary">Powered by GenomeLens</span>
           <span className="sr-only">进入分析工作台</span>
         </button>
