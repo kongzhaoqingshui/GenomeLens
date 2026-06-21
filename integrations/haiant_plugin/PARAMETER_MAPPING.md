@@ -73,8 +73,10 @@ output/genomelens_request.json
 实际运行命令形如：
 
 ```text
-gljcvimcscan\genomelens.exe analyze run output\genomelens_request.json
+gljcvimcscan\genomelens.cmd analyze run output\genomelens_request.json
 ```
+
+> `genomelens.cmd`（或平台打包产物中的 `.exe`）是平台级环境变量壳，只负责透传参数；具体子命令由壳内部的原始主入口解析。
 
 旧单包插件仍使用：
 

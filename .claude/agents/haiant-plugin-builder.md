@@ -9,15 +9,16 @@
 
 开始前必须阅读：
 
-1. `integrations/haiant_plugin/ARCHITECTURE.md` — 新架构总述
-2. `integrations/haiant_plugin/PARAMETER_MAPPING.md` — 参数映射规则
-3. `integrations/haiant_plugin/assets/config.json` 与 `assets/params.json` — 旧单包插件配置示例
-4. `integrations/haiant_plugin/src/genomelens_haiant_plugin.py` — 当前插件源码
-5. `integrations/haiant_plugin/tests/test_genomelens_haiant_plugin.py` — 当前测试
-6. `references/upstream/haiant_plugin/开发手册.md` — 智然体平台约束
-7. `.work/decompile/samtools_filtering/reconstructed/alignment_filtering.py` — PyInstaller 插件入口参考实现
-8. `scripts/build_haiant_plugin.ps1` — 旧构建脚本
-9. `platform/packaging/pyinstaller/genomelens.spec` — GL runtime 打包 spec
+1. `docs/开发手册/CLI入口壳设计.md` — 平台级 `genomelens` 壳设计（本任务不复现壳逻辑，只复用）
+2. `integrations/haiant_plugin/ARCHITECTURE.md` — 新架构总述
+3. `integrations/haiant_plugin/PARAMETER_MAPPING.md` — 参数映射规则
+4. `integrations/haiant_plugin/assets/config.json` 与 `assets/params.json` — 旧单包插件配置示例
+5. `integrations/haiant_plugin/src/genomelens_haiant_plugin.py` — 当前插件源码
+6. `integrations/haiant_plugin/tests/test_genomelens_haiant_plugin.py` — 当前测试
+7. `references/upstream/haiant_plugin/开发手册.md` — 智然体平台约束
+8. `.work/decompile/samtools_filtering/reconstructed/alignment_filtering.py` — PyInstaller 插件入口参考实现
+9. `scripts/build_haiant_plugin.ps1` — 旧构建脚本
+10. `scripts/build_split_packages.ps1` — 平台级构建脚本（产物中包含 `genomelens` 壳）
 
 ---
 
@@ -34,28 +35,22 @@
 - `build_analysis_request(params, base, *, workflow) -> dict`
 - `setup_logging(output_dir) -> logging.Logger`
 - `resource_path(relative_path) -> str`（兼容 `sys._MEIPASS`）
+- `discover_mcscan_home(plugin_root: Path) -> Path`：按 `GLJCVIMCSCAN_HOME` -> 父目录搜索 `gljcvimcscan/` -> 报错
 
 保持旧 `genomelens_haiant_plugin.py` 的公开 API（`main`、`build_runtime_command`、`write_runtime_request` 等）继续可用，内部改为调用 `_core.py`。
 
-### 2. 实现 `genomelens` 命令壳
-
-创建 `integrations/haiant_plugin/src/genomelens_wrapper.py`：
-
-- 推断 `GENOMELENS_HOME` 为脚本/可执行文件所在目录。
-- 设置 `GENOMELENS_TOOLCHAIN_DIR=%GENOMELENS_HOME%\resources\toolchain`。
-- 找到同目录下的 `GenomeLens-runtime.exe`。
-- **不解析任何子命令**（如 `analyze`、`check`、`workbench`），把所有参数原样透传给 `GenomeLens-runtime.exe <argv...>`。
-- 仅收集异常：子进程 stdout/stderr 直接透传；若 runtime 不存在或子进程非 0 退出，输出错误并返回对应退出码。
-- 本身不携带任何业务逻辑。
-
-### 3. 实现重型中心入口 `gljcvimcscan`
+### 2. 实现重型中心入口 `gljcvimcscan`
 
 创建 `integrations/haiant_plugin/src/gljcvimcscan_entry.py`：
 
 - 接收 `params.json` 路径。
 - 使用 `_core.py` 解析参数。
 - 固定 `workflow="local_synteny"`，生成 `genomelens_request.json`。
-- 因为重型中心自身携带 runtime，直接调用 `genomelens_wrapper` 的函数或同目录 `genomelens.exe`。
+- 通过同目录下的平台级 `genomelens` 壳调用分析流程：
+  ```text
+  gljcvimcscan\genomelens.cmd analyze run output\genomelens_request.json
+  ```
+  如果平台产物中的壳是 `genomelens.exe`（名称可区分），则调用 `genomelens.exe`；插件代码应优先探测同目录下可用的壳文件名。
 - 输出 `run.log`，返回退出码。
 
 准备重型中心资源：
@@ -64,7 +59,7 @@
 - `integrations/haiant_plugin/assets/gljcvimcscan/params.json`：双物种局部共线性示例
 - `integrations/haiant_plugin/assets/gljcvimcscan/README.md`
 
-### 4. 实现轻量子插件入口
+### 3. 实现轻量子插件入口
 
 在 `integrations/haiant_plugin/src/features/` 下为每个 workflow 创建入口：
 
@@ -82,7 +77,11 @@
    - 再向上搜索 `gljcvimcscan/`
    - 找不到报错
 4. 生成对应 workflow 的 `genomelens_request.json`。
-5. 调用 `gljcvimcscan\genomelens.exe analyze run <request.json>`。
+5. 调用重型中心中的平台级 `genomelens` 壳：
+   ```text
+   gljcvimcscan\genomelens.cmd analyze run output\genomelens_request.json
+   ```
+   若壳文件为 `.exe`，则调用 `.exe`。不要自己实现壳逻辑。
 6. 输出日志并返回退出码。
 
 为每个轻量插件准备：
@@ -93,14 +92,15 @@
 
 对其他 workflow 同理。
 
-### 5. 新增构建脚本
+### 4. 新增构建脚本
 
 - `scripts/build_gljcvimcscan_center.ps1`：
-  - 复用 `scripts/build_split_packages.ps1` 的产物
+  - 复用 `scripts/build_split_packages.ps1` 的产物（其中已包含平台级 `genomelens` 壳与原始主入口）
   - 把 `platform/dist/GenomeLens` 复制到重型中心目录
   - 把 `toolchains/` 复制到 `resources/toolchain/`
-  - 用 PyInstaller 把 `genomelens_wrapper.py` 打成 `genomelens.exe`
+  - 用 PyInstaller 把 `gljcvimcscan_entry.py` 打成 `main.exe`
   - 把重型中心 `config.json`、`params.json`、`README.md`、示例输入打包成 `gljcvimcscan.zip`
+  - **不要在本脚本里重新生成 `genomelens` 壳**
 
 - `scripts/build_gljcvi_feature_plugin.ps1`：
   - 参数 `-Feature`（dotplot/synteny/karyotype/catalog_ortholog）
@@ -108,11 +108,11 @@
   - 放入对应 `config.json`、`params.json`、`README.md`、示例输入
   - 打包成 `gljcvi-<feature>.zip`
 
-### 6. 补充测试
+### 5. 补充测试
 
 在 `integrations/haiant_plugin/tests/` 新增：
 
-- `test_core.py`：测试 `_core.py` 的 `load_params`、`resolve_param_path`、`parse_bool`、`build_analysis_request`。
+- `test_core.py`：测试 `_core.py` 的 `load_params`、`resolve_param_path`、`parse_bool`、`build_analysis_request`、`discover_mcscan_home`。
 - `test_discovery.py`：测试 `discover_mcscan_home()` 的环境变量路径、父目录搜索、失败报错。
 - `test_gljcvimcscan_entry.py`：验证重型中心入口生成的 `genomelens_request.json` 中 `workflow == local_synteny`。
 - `test_feature_entries.py`：验证至少一个轻量入口能正确生成对应 workflow 的请求。
@@ -127,6 +127,7 @@ python -m pytest integrations/haiant_plugin/tests -q
 
 ## 约束与红线
 
+- `genomelens` 壳属于平台通用组件，**不要在本任务中重新实现它**；插件只负责调用和错误提示。
 - 不要修改 `platform/` 或 `engines/jcvi/` 的源码。
 - 不要删除旧单包插件 `genomelens_haiant_plugin.py` 的公开函数。
 - 所有新增 Python 文件必须写 `from __future__ import annotations`、类型提示、模块级 docstring。

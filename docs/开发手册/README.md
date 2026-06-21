@@ -31,6 +31,7 @@ python --version
 - `开发规范.md`：项目级总纲，覆盖代码、测试、协作、发布与文档。
 - `AGENTS.md`（仓库根目录）：子开发者 AI Agent 的简要工作流。
 - `CORE_AGENT.md`（仓库根目录）：核心 AI 助理的权限与职责说明。
+- `CLI入口壳设计.md`：平台级 `genomelens` 命令壳设计，用于环境变量隔离与避免子命令冲突。
 - `GUI先行开发/README.md`：Tauri GUI 先行开发计划、三人分工、视觉风格、Git 工作流与构建说明。
 
 当前代码实现的是：

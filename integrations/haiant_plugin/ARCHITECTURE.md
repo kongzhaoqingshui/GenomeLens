@@ -14,15 +14,14 @@
 智然体平台对每个插件包的大小、依赖和职责没有强制约束，但项目实际演进中遇到以下问题：
 
 - **单包过大**：一次更新任何小功能都需要重新上传整个 platform + 工具链。
-- **入口命令过于通用**：旧入口 `GenomeLens-runtime.exe` 的子命令如 `analyze` 语义过于通用，直接在 PATH 中执行 `analyze run` 可能与其他应用冲突。新增 `genomelens` 前缀命令后，统一使用 `genomelens analyze run ...`，避免冲突且入口语义明确。
-- **环境变量冲突**：`GENOMELENS_PLUGIN_RUNTIME` 等命名过于通用，容易与其他环境变量混淆。
+- **入口命令过于通用**：GL 主 CLI 的子命令（如 `analyze`）语义过于通用，直接在 PATH 中执行 `analyze run ...` 可能与其他应用冲突。平台级解决方案是增加一个 `genomelens` 前缀命令，统一使用 `genomelens analyze run ...`。
 - **runtime 路径不统一**：子插件无法方便地找到 GL runtime。
 
 拆分后：
 
 - 重型中心只需安装一次，小插件可以独立迭代。
 - 每个小插件的 `config.json` 只暴露与该功能相关的参数，UI 更精简。
-- `genomelens` 主命令与环境变量壳统一了入口语义。
+- `genomelens` 主命令与环境变量壳统一了入口语义，且该壳属于平台级通用组件，不局限于智然体插件。
 
 ---
 
@@ -32,22 +31,22 @@
 
 `gljcvimcscan` 是一个独立的 HAIant 插件包，主要职责：
 
-- 携带完整 GL platform（`GenomeLens-runtime.exe` 及其依赖）。
+- 携带完整 GL platform（原始主入口 `GenomeLens.exe` 及其依赖）。
 - 携带完整工具链（`blast/`、`jcvi-genomelens/`、`imagemagick/`）。
-- 提供 `genomelens` 命令壳，设置环境变量后调用 `GenomeLens-runtime.exe`。
+- 携带平台级 `genomelens` 命令壳，设置环境变量后透传给原始主入口。
 - 自身暴露 **JCVI 局部共线性分析**工作流（`local_synteny`）。
 
 典型目录结构：
 
 ```text
 gljcvimcscan/
-├── genomelens.exe              # 环境变量壳 + runtime 转发
+├── genomelens.cmd              # 平台级环境变量壳（透传入口）
+├── GenomeLens.exe              # 原始 GL 主入口
 ├── config.json                 # HAIant UI 元数据（local_synteny）
 ├── params.json                 # local_synteny 示例参数
 ├── README.md
 ├── input/                      # 示例输入
 ├── output/                     # 结果输出
-├── GenomeLens-runtime.exe      # 实际 GL runtime
 ├── resources/
 │   └── toolchain/
 │       ├── blast/
@@ -56,23 +55,25 @@ gljcvimcscan/
 └── ...                         # runtime 依赖文件
 ```
 
+> 当前 platform 打包产物中的原始主入口可能名为 `GenomeLens-runtime.exe`，文档中以 `GenomeLens.exe` 指代原始主入口；壳文件名必须与其可区分（Windows 大小写不敏感），详见 `docs/开发手册/CLI入口壳设计.md`。
+
 ### 2.2 `genomelens` 命令壳
 
-`genomelens.exe`（或 `genomelens.cmd`）是 GL runtime 的**纯透传环境变量壳**：
+`genomelens` 命令壳是**平台级通用组件**，由 platform 打包脚本生成，智然体重型中心只是把它打包进来。详细设计见 `docs/开发手册/CLI入口壳设计.md`。
 
-1. 根据自身的绝对路径推断 `GENOMELENS_HOME`（即 `gljcvimcscan` 目录）。
-2. 设置 `GENOMELENS_TOOLCHAIN_DIR=%GENOMELENS_HOME%\resources\toolchain`。
-3. **不解析任何子命令**，把所有参数原样转发给 `%GENOMELENS_HOME%\GenomeLens-runtime.exe`。
-4. 仅做异常收集：如果 runtime 不存在或子进程失败，把错误信息输出到 stderr 并返回非 0 退出码。
+核心约定：
 
-> `genomelens` 壳本身**不携带业务逻辑**，也不识别 `analyze`、`check`、`workbench` 等子命令。所有命令语义由 `GenomeLens-runtime.exe` 解析。这样小插件只需调用 `gljcvimcscan\genomelens ...`，即可获得稳定、不会与其他应用冲突的入口。
+- 只设置 `GENOMELENS_HOME` / `GENOMELENS_TOOLCHAIN_DIR` 环境变量。
+- **不解析任何子命令**（如 `analyze`、`check`、`workbench`），把所有参数原样透传给原始主入口。
+- 仅做传输与异常收集：stdout/stderr 直接透传；子进程退出码原样返回。
+- 壳本身**不携带业务逻辑**。
 
 调用示例：
 
 ```text
-gljcvimcscan\genomelens.exe analyze run output\genomelens_request.json
-gljcvimcscan\genomelens.exe check --json
-gljcvimcscan\genomelens.exe workbench
+gljcvimcscan\genomelens.cmd analyze run output\genomelens_request.json
+gljcvimcscan\genomelens.cmd check --json
+gljcvimcscan\genomelens.cmd workbench
 ```
 
 ### 2.3 轻量子插件
@@ -125,11 +126,10 @@ plugins/gljcvi-dotplot/../../gljcvimcscan
 
 1. HAIant 解压 `gljcvimcscan.zip`。
 2. 用户填写 `params.json`（local_synteny 参数）。
-3. HAIant 调用 `gljcvimcscan\genomelens.exe params.json`。
-4. `genomelens.exe` 设置 `GENOMELENS_HOME` / `GENOMELENS_TOOLCHAIN_DIR`。
-5. 插件 Python 逻辑把 `params.json` 转换为 `genomelens_request.json`。
-6. 调用 `genomelens.exe analyze run output\genomelens_request.json`（`genomelens` 壳透传给 `GenomeLens-runtime.exe`）。
-7. 返回退出码。
+3. HAIant 调用 `gljcvimcscan\main.exe params.json`。
+4. `main.exe` 内的插件 Python 逻辑把 `params.json` 转换为 `genomelens_request.json`。
+5. 调用 `gljcvimcscan\genomelens.cmd analyze run output\genomelens_request.json`（壳透传给 `GenomeLens.exe`）。
+6. 返回退出码。
 
 ### 3.2 轻量子插件运行
 
@@ -140,7 +140,7 @@ plugins/gljcvi-dotplot/../../gljcvimcscan
    - 解析 `params.json`
    - 发现 `gljcvimcscan`（环境变量或父目录搜索）
    - 生成 `genomelens_request.json`（`workflow=graphics_dotplot`）
-   - 调用 `gljcvimcscan\genomelens.exe analyze run output\genomelens_request.json`
+   - 调用 `gljcvimcscan\genomelens.cmd analyze run output\genomelens_request.json`
 5. 返回退出码。
 
 ---
@@ -166,8 +166,8 @@ plugins/gljcvi-dotplot/../../gljcvimcscan
 
 | 变量 | 设置者 | 使用者 | 说明 |
 |---|---|---|---|
-| `GENOMELENS_HOME` | `genomelens.exe` 壳 | runtime | GL 安装根目录 |
-| `GENOMELENS_TOOLCHAIN_DIR` | `genomelens.exe` 壳 | runtime | 工具链根目录 |
+| `GENOMELENS_HOME` | `genomelens` 壳 | runtime | GL 安装根目录 |
+| `GENOMELENS_TOOLCHAIN_DIR` | `genomelens` 壳 | runtime | 工具链根目录 |
 | `GLJCVIMCSCAN_HOME` | 用户或 HAIant | 轻量子插件 | 显式指定重型中心位置 |
 
 > 旧插件使用的 `GENOMELENS_PLUGIN_RUNTIME` 在新模型中由 `genomelens` 壳替代，逐步废弃。
@@ -178,12 +178,11 @@ plugins/gljcvi-dotplot/../../gljcvimcscan
 
 ### 6.1 重型中心 `gljcvimcscan`
 
-1. 先运行 `scripts/build_split_packages.ps1` 得到完整 `platform/dist/GenomeLens`。
+1. 先运行 `scripts/build_split_packages.ps1` 得到完整 `platform/dist/GenomeLens`（其中已包含平台级 `genomelens` 壳）。
 2. 把 `platform/dist/GenomeLens` 复制到 `gljcvimcscan/` 下作为 runtime。
 3. 把工具链复制到 `gljcvimcscan/resources/toolchain/`。
-4. 生成 `genomelens.exe`（PyInstaller 包装 `genomelens_wrapper.py`）。
-5. 放入 `config.json`、`params.json`、`README.md`、示例输入。
-6. 打包为 `gljcvimcscan.zip`。
+4. 放入 `config.json`、`params.json`、`README.md`、示例输入。
+5. 打包为 `gljcvimcscan.zip`。
 
 ### 6.2 轻量子插件
 
@@ -195,9 +194,10 @@ plugins/gljcvi-dotplot/../../gljcvimcscan
 
 ### 6.3 推荐脚本
 
-- `scripts/build_gljcvimcscan_center.ps1`：构建重型中心
-- `scripts/build_gljcvi_feature_plugin.ps1 -Feature dotplot`：构建单个子插件
-- `scripts/build_haiant_plugin.ps1`：保留旧单包构建（兼容过渡期）
+- `scripts/build_split_packages.ps1`：平台级构建，负责生成 `genomelens` 壳与原始主入口。
+- `scripts/build_gljcvimcscan_center.ps1`：构建重型中心（复用 platform 产物，不重复生成壳）。
+- `scripts/build_gljcvi_feature_plugin.ps1 -Feature dotplot`：构建单个子插件。
+- `scripts/build_haiant_plugin.ps1`：保留旧单包构建（兼容过渡期）。
 
 ---
 
@@ -217,6 +217,7 @@ plugins/gljcvi-dotplot/../../gljcvimcscan
 4. PyInstaller 打包后使用 `sys._MEIPASS` 定位资源文件。
 5. 路径解析以 `params.json` 所在目录为基准，而不是插件 EXE 所在目录。
 6. 中英文 UI 字段都需要提供。
+7. `genomelens` 壳属于平台通用组件，不要在插件里重复实现其逻辑；插件只负责调用和错误提示。
 
 ---
 
