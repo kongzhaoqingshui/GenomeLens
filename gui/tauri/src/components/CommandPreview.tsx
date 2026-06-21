@@ -44,8 +44,8 @@ export function CommandPreview<TData>({ title, command, description, load }: Com
         : "bg-slate-100 text-slate-600";
 
   return (
-    <section className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-      <div className="flex items-start justify-between gap-4 border-b border-slate-200/80 px-5 py-4">
+    <section className="border-t border-slate-200/80">
+      <div className="flex items-start justify-between gap-4 px-6 py-5">
         <div className="min-w-0">
           <h2 className="text-base font-semibold text-slate-900">{title}</h2>
           <p className="mt-1 text-sm leading-6 text-slate-500">{description}</p>
@@ -56,7 +56,7 @@ export function CommandPreview<TData>({ title, command, description, load }: Com
         </span>
       </div>
 
-      <pre className="max-h-80 overflow-auto bg-slate-50 px-5 py-4 font-mono text-xs leading-6 text-slate-600">
+      <pre className="max-h-80 overflow-auto border-t border-slate-200/80 bg-slate-50 px-6 py-5 font-mono text-xs leading-6 text-slate-600">
         {state.status === "ready"
           ? JSON.stringify(state.data, null, 2)
           : state.status === "error"

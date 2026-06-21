@@ -53,7 +53,6 @@ export function AppShell({
             <JcviMeowIcon className="h-8 w-8" />
             <span>
               <span className="jcvi-brand-title block text-sm font-semibold text-slate-900">JCVI meow</span>
-              <span className="block text-xs text-slate-500">Powered by GenomeLens</span>
             </span>
           </button>
 

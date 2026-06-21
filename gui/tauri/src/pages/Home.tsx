@@ -143,39 +143,39 @@ export default function Home({ onNavigate }: HomeProps) {
             </div>
 
             <div className="mt-8 grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
-              <section className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-                <div className="border-b border-slate-200/80 px-5 py-4">
+              <section>
+                <div className="border-b border-slate-200/80 pb-3">
                   <h3 className="text-sm font-semibold text-slate-900">Current surface</h3>
                   <p className="mt-1 text-sm text-slate-500">This is where the selected capability opens inside the workbench.</p>
                 </div>
-                <div className="divide-y divide-slate-200/80">
-                  <div className="grid grid-cols-[11rem_minmax(0,1fr)] gap-4 px-5 py-4 text-sm">
+                <div className="divide-y divide-slate-200/80 border-b border-slate-200/80">
+                  <div className="grid grid-cols-[11rem_minmax(0,1fr)] gap-4 py-4 text-sm">
                     <span className="text-slate-400">Route</span>
                     <span className="font-medium text-slate-900">{selected.route}</span>
                   </div>
-                  <div className="grid grid-cols-[11rem_minmax(0,1fr)] gap-4 px-5 py-4 text-sm">
+                  <div className="grid grid-cols-[11rem_minmax(0,1fr)] gap-4 py-4 text-sm">
                     <span className="text-slate-400">Workflow preset</span>
                     <span className="font-medium text-slate-900">{selected.workflowPreset ?? "None"}</span>
                   </div>
-                  <div className="grid grid-cols-[11rem_minmax(0,1fr)] gap-4 px-5 py-4 text-sm">
+                  <div className="grid grid-cols-[11rem_minmax(0,1fr)] gap-4 py-4 text-sm">
                     <span className="text-slate-400">Primary action</span>
                     <span className="font-medium text-slate-900">{actionLabel(selected)}</span>
                   </div>
                 </div>
               </section>
 
-              <section className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-                <div className="border-b border-slate-200/80 px-5 py-4">
+              <section>
+                <div className="border-b border-slate-200/80 pb-3">
                   <h3 className="text-sm font-semibold text-slate-900">What to expect</h3>
                   <p className="mt-1 text-sm text-slate-500">Keep the run flow predictable: configure, run, inspect logs, read summary.</p>
                 </div>
-                <div className="divide-y divide-slate-200/80">
+                <div className="divide-y divide-slate-200/80 border-b border-slate-200/80">
                   {[
                     "Use the workbench to prepare one task at a time or queue multiple tasks.",
                     "Open diagnostics whenever a local toolchain issue blocks execution.",
                     "Reserved capabilities stay visible, but they do not replace the current run flow.",
                   ].map((detail) => (
-                    <div key={detail} className="px-5 py-4 text-sm leading-7 text-slate-500">
+                    <div key={detail} className="py-4 text-sm leading-7 text-slate-500">
                       {detail}
                     </div>
                   ))}
@@ -186,10 +186,10 @@ export default function Home({ onNavigate }: HomeProps) {
         </div>
 
         <div className="border-t border-slate-200/80 bg-white px-10 py-5">
-          <div className="mx-auto flex max-w-5xl items-center gap-3 rounded-[1.25rem] border border-slate-200 bg-white px-4 py-3 shadow-[0_8px_30px_rgba(15,23,42,0.08)]">
+          <div className="mx-auto flex max-w-5xl items-center gap-3 border border-slate-200 bg-white px-4 py-3">
             <button
               type="button"
-              className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
+              className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
               onClick={() => onNavigate("/settings")}
             >
               Settings

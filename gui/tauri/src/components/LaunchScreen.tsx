@@ -33,7 +33,6 @@ export function LaunchScreen({
           </div>
           <h1 className="jcvi-brand-title mt-5 text-3xl font-semibold tracking-tight text-slate-900">JCVI meow</h1>
           <p className="mt-3 text-sm font-medium text-slate-500">{message}</p>
-          <p className="mt-1 text-xs text-slate-400">Powered by GenomeLens</p>
         </div>
 
         <div className="px-8 py-6">
