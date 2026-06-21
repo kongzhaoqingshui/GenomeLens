@@ -125,7 +125,7 @@ def test_build_analyze_run_command_dispatches_cmd_files() -> None:
 
 def test_build_analyze_run_command_dispatches_executables() -> None:
     request_path = Path("output/genomelens_request.json")
-    exe = Path("C:/GenomeLens/GenomeLens-runtime.exe")
+    exe = Path("C:/GenomeLens/GenomeLens.exe")
     argv = build_analyze_run_command(str(exe), request_path)
 
     assert argv == [str(exe), "analyze", "run", str(request_path)]

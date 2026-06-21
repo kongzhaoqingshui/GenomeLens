@@ -1,5 +1,5 @@
 {
-  "genomelens_exe": "C:/GenomeLens/GenomeLens-runtime.exe",
+  "genomelens_exe": "C:/GenomeLens/GenomeLens.exe",
   "input_dir": "../shell/bed_cds_minimal",
   "output_dir": "output",
   "threads": 2,

@@ -27,18 +27,18 @@
 
 ### 2.1 外部 GenomeLens 平台
 
-GenomeLens 平台（包含 `GenomeLens-runtime.exe` 或 `genomelens.cmd` / `genomelens.exe` 等入口）是外部软件，不由 HAIant 插件携带。用户需要在 `params.json` 中提供：
+GenomeLens 平台（包含 `GenomeLens.exe` 或 `genomelens.cmd` / `genomelens.exe` 等入口）是外部软件，不由 HAIant 插件携带。用户需要在 `params.json` 中提供：
 
 ```json
 {
-  "genomelens_exe": "C:/GenomeLens/GenomeLens-runtime.exe"
+  "genomelens_exe": "C:/GenomeLens/GenomeLens.exe"
 }
 ```
 
 也可以通过环境变量指定：
 
 ```powershell
-$env:GENOMELENS_EXE = "C:\GenomeLens\GenomeLens-runtime.exe"
+$env:GENOMELENS_EXE = "C:\GenomeLens\GenomeLens.exe"
 ```
 
 插件优先读取 `params.json` 中的 `genomelens_exe`；未设置时回退到 `GENOMELENS_EXE` 环境变量。

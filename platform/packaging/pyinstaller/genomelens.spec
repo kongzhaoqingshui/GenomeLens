@@ -23,7 +23,7 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name="GenomeLens-runtime",
+    name="GenomeLens",
     console=True,
 )
 coll = COLLECT(

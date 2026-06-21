@@ -49,4 +49,4 @@ def jcvi_engine_candidates() -> list[str]:
 
 
 def genomelens_runtime_candidates() -> list[str]:
-    return executable_candidates("GenomeLens-runtime")
+    return executable_candidates("GenomeLens")

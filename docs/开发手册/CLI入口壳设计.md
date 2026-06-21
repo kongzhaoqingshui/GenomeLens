@@ -22,7 +22,7 @@ genomelens workbench
 
 ## 设计原则
 
-1. **原始主入口不变**：原始 CLI 可执行文件（如 `GenomeLens.exe` 或 `GenomeLens-runtime.exe`）继续负责所有子命令解析和业务逻辑。
+1. **原始主入口不变**：原始 CLI 可执行文件 `GenomeLens.exe` 继续负责所有子命令解析和业务逻辑。
 2. **壳只负责透传与环境配置**：壳不解析 `analyze`、`check`、`workbench` 等任何子命令，也不携带业务逻辑。
 3. **命名避免冲突**：壳的文件名必须与原始主入口可区分，尤其在 Windows 大小写不敏感文件系统上。
 4. **异常收集**：壳把原始主进程的 stdout/stderr 直接透传；仅在其无法启动或返回非 0 时输出错误并返回退出码。
@@ -43,7 +43,7 @@ GenomeLens/
 ### 原始主入口
 
 - 由 `platform/packaging/pyinstaller/genomelens.spec` 构建。
-- 当前产物名为 `GenomeLens-runtime.exe`，打包目录为 `GenomeLens/`。
+- 当前产物名为 `GenomeLens.exe`，打包目录为 `GenomeLens/`。
 - 它解析所有子命令、执行分析、输出结果。
 
 ### 环境变量壳 `genomelens`
@@ -54,7 +54,6 @@ GenomeLens/
 
 | 原始主入口文件名 | 推荐壳文件名 | 原因 |
 |---|---|---|
-| `GenomeLens-runtime.exe` | `genomelens.exe` | 名称完全不同，无冲突 |
 | `GenomeLens.exe` | `genomelens.cmd` | Windows 大小写不敏感，`GenomeLens.exe` 与 `genomelens.exe` 会冲突，故用 `.cmd` |
 
 壳的行为：
@@ -76,7 +75,7 @@ GenomeLens/
 setlocal
 set "GENOMELENS_HOME=%~dp0"
 set "GENOMELENS_TOOLCHAIN_DIR=%GENOMELENS_HOME%resources\toolchain"
-"%GENOMELENS_HOME%GenomeLens-runtime.exe" %*
+"%GENOMELENS_HOME%GenomeLens.exe" %*
 exit /b %errorlevel%
 ```
 
@@ -93,7 +92,7 @@ def main() -> int:
     home = Path(sys.executable).resolve().parent
     os.environ["GENOMELENS_HOME"] = str(home)
     os.environ["GENOMELENS_TOOLCHAIN_DIR"] = str(home / "resources" / "toolchain")
-    runtime = home / "GenomeLens-runtime.exe"
+    runtime = home / "GenomeLens.exe"
     if not runtime.is_file():
         print("未找到 GenomeLens 主入口。", file=sys.stderr)
         return 1
@@ -121,13 +120,13 @@ if __name__ == "__main__":
 
 ## 构建要求
 
-- 平台打包脚本（`scripts/build_split_packages.ps1`）应在生成 `GenomeLens-runtime.exe` 后，额外生成 `genomelens.cmd`（或 `genomelens.exe`）。
+- 平台打包脚本（`scripts/build_split_packages.ps1`）应在生成 `GenomeLens.exe` 后，额外生成 `genomelens.cmd`（或 `genomelens.exe`）。
 - 壳必须和原始主入口放在同一输出目录（`platform/dist/GenomeLens/`）。
 - 壳文件应进入最终安装包/zip。
 
 ## 兼容性
 
-- 旧入口（直接调用 `GenomeLens-runtime.exe`）继续可用。
+- 旧入口（直接调用 `GenomeLens.exe`）继续可用。
 - 新文档、脚本、插件优先推荐 `genomelens` 入口。
 - 第三方集成可以选择继续使用原始入口，但需自行设置环境变量。
 

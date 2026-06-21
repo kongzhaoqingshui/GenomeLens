@@ -96,5 +96,5 @@ cmd.exe /c C:\GenomeLens\genomelens.cmd analyze run output\genomelens_request.js
 当 `genomelens_exe` 不是 `.cmd` / `.bat` 时，直接调用可执行文件：
 
 ```powershell
-C:\GenomeLens\GenomeLens-runtime.exe analyze run output\genomelens_request.json
+C:\GenomeLens\GenomeLens.exe analyze run output\genomelens_request.json
 ```

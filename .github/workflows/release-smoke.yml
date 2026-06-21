@@ -26,7 +26,7 @@ jobs:
         run: ./platform/packaging/scripts/build_windows.ps1
       - name: Smoke GenomeLens runtime
         shell: pwsh
-        run: ./platform/packaging/scripts/smoke_test_exe.ps1 -RuntimeExe ./platform/dist/GenomeLens/GenomeLens-runtime.exe
+        run: ./platform/packaging/scripts/smoke_test_exe.ps1 -RuntimeExe ./platform/dist/GenomeLens/GenomeLens.exe
       - name: Build split packages
         shell: pwsh
         run: ./scripts/build_split_packages.ps1
