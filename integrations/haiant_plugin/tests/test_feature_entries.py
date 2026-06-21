@@ -31,7 +31,9 @@ def _write_params_from_sample(tmp_path: Path) -> Path:
     genomelens_exe = tmp_path / "GenomeLens.cmd"
     genomelens_exe.write_text("@echo off\r\n", encoding="utf-8")
 
-    sample_input_dir = (sample_params.parent / payload.get("input_dir", "../shell/bed_cds_minimal")).resolve()
+    sample_input_dir = (
+        sample_params.parent / payload.get("input_dir", "../shell/bed_cds_minimal")
+    ).resolve()
     payload["genomelens_exe"] = str(genomelens_exe)
     payload["input_dir"] = str(sample_input_dir)
     payload["output_dir"] = str(tmp_path / "output")

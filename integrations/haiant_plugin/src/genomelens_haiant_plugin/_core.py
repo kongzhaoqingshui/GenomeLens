@@ -171,7 +171,9 @@ def _auto_optimization(params: Mapping[str, object]) -> dict[str, bool]:
     }
 
 
-def _discover_species_from_input_dir(base: Path, input_dir: object) -> list[dict[str, object]]:
+def _discover_species_from_input_dir(
+    base: Path, input_dir: object
+) -> list[dict[str, object]]:
     """Mirror the ``analyze mcscan jcvi`` auto-directory species discovery."""
 
     from genomelens.analysis.requests.normalization.input_resolver import (
@@ -249,7 +251,9 @@ def build_analysis_request(
 ) -> dict[str, object]:
     """Translate HAIant params into a stable GenomeLens AnalysisRequest payload."""
 
-    resolved_workflow = str(workflow or params.get("workflow") or "graphics_synteny").strip()
+    resolved_workflow = str(
+        workflow or params.get("workflow") or "graphics_synteny"
+    ).strip()
 
     mode = str(params.get("input_mode") or "bed_cds").strip()
     species = build_species_from_params(params, base, mode)
@@ -389,7 +393,9 @@ def close_adapter_logging(logger_name: str = LOGGER_NAME) -> None:
 def resolve_genomelens_exe(params: Mapping[str, object], base: Path) -> Path:
     """Locate the external GenomeLens executable from params or environment."""
 
-    raw = str(params.get("genomelens_exe") or os.environ.get(GENOMELENS_EXE_ENV, "")).strip()
+    raw = str(
+        params.get("genomelens_exe") or os.environ.get(GENOMELENS_EXE_ENV, "")
+    ).strip()
     if not raw:
         raise PluginError(
             "genomelens_exe is required: set it in params.json or via GENOMELENS_EXE environment variable"
