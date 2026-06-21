@@ -5,7 +5,12 @@ from typing import Any, Protocol, cast
 
 import pytest
 
-from features import catalog_ortholog_entry, dotplot_entry, karyotype_entry, synteny_entry
+from features import (
+    catalog_ortholog_entry,
+    dotplot_entry,
+    karyotype_entry,
+    synteny_entry,
+)
 from genomelens_haiant_plugin._core import PluginError, discover_mcscan_home
 
 
@@ -25,7 +30,9 @@ def _write_params_from_sample(tmp_path: Path) -> Path:
     for item in payload["species"]:
         for key in ("bed", "cds", "gff", "genome"):
             if item.get(key):
-                item[key] = str((sample_params.parent / item[key]).resolve(strict=False))
+                item[key] = str(
+                    (sample_params.parent / item[key]).resolve(strict=False)
+                )
 
     payload["output_dir"] = str(tmp_path / "output")
     payload["workflow"] = "should_be_ignored"
