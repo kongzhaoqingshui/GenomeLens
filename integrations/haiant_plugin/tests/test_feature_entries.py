@@ -13,7 +13,6 @@ from features import (
     local_synteny_entry,
     synteny_entry,
 )
-from genomelens_haiant_plugin._core import PluginError, discover_mcscan_home
 
 
 class FeatureEntryModule(Protocol):
@@ -103,22 +102,6 @@ def test_feature_entry_builds_request_and_command(
     assert request["options"]["threads"] == 2
     assert request["options"]["min_block_size"] == 1
     assert logging.getLogger(logger_name).handlers == []
-
-
-def test_feature_entry_discovers_center_from_parent_tree(tmp_path: Path) -> None:
-    plugins_root = tmp_path / "plugins"
-    feature_root = plugins_root / "gljcvi-dotplot"
-    center_root = plugins_root / "gljcvimcscan"
-    feature_root.mkdir(parents=True)
-    center_root.mkdir(parents=True)
-    (center_root / "genomelens.cmd").write_text("@echo off\r\n", encoding="utf-8")
-
-    assert discover_mcscan_home(feature_root) == center_root
-
-
-def test_feature_entry_reports_missing_center(tmp_path: Path) -> None:
-    with pytest.raises(PluginError, match="Unable to locate gljcvimcscan heavy center"):
-        discover_mcscan_home(tmp_path)
 
 
 @pytest.mark.parametrize(

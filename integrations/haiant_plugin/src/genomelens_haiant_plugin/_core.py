@@ -9,16 +9,11 @@ import subprocess
 import sys
 from dataclasses import asdict
 from pathlib import Path
-from typing import Collection, Mapping, Sequence, cast
+from typing import Mapping, Sequence, cast
 
 
 LOGGER_NAME = "genomelens_haiant_plugin"
-PLUGIN_RUNTIME_ENV = "GENOMELENS_PLUGIN_RUNTIME"
-GLJCVIMCSCAN_HOME_ENV = "GLJCVIMCSCAN_HOME"
 GENOMELENS_EXE_ENV = "GENOMELENS_EXE"
-SUPPORTED_WORKFLOWS = {"graphics_synteny"}
-_GENOMELENS_SHELL_CANDIDATES = ("genomelens.cmd", "genomelens.exe", "genomelens")
-_LEGACY_RUNTIME_CANDIDATE = "GenomeLens-runtime.exe"
 
 
 class PluginError(Exception):
@@ -36,21 +31,6 @@ def resource_path(*parts: str | Path) -> Path:
     else:
         base = Path(__file__).resolve().parents[2]
     return base.joinpath(*(str(part) for part in parts))
-
-
-def plugin_root() -> Path:
-    """Return the plugin root directory."""
-
-    return resource_path()
-
-
-def runtime_executable() -> Path:
-    """Locate the bundled legacy GenomeLens runtime executable."""
-
-    env = os.environ.get(PLUGIN_RUNTIME_ENV, "").strip()
-    if env:
-        return Path(env).expanduser().resolve(strict=False)
-    return plugin_root() / "runtime" / "GenomeLens" / _LEGACY_RUNTIME_CANDIDATE
 
 
 def load_params(path: str | Path) -> tuple[dict[str, object], Path]:
@@ -266,18 +246,10 @@ def build_analysis_request(
     base: Path,
     *,
     workflow: str | None = None,
-    supported_workflows: Collection[str] | None = None,
 ) -> dict[str, object]:
     """Translate HAIant params into a stable GenomeLens AnalysisRequest payload."""
 
-    resolved_workflow = str(
-        workflow or params.get("workflow") or "graphics_synteny"
-    ).strip()
-    if supported_workflows is not None and resolved_workflow not in supported_workflows:
-        allowed = ", ".join(sorted(supported_workflows))
-        raise PluginError(
-            f"Unsupported HAIant workflow: {resolved_workflow}. Supported workflow: {allowed}"
-        )
+    resolved_workflow = str(workflow or params.get("workflow") or "graphics_synteny").strip()
 
     mode = str(params.get("input_mode") or "bed_cds").strip()
     species = build_species_from_params(params, base, mode)
@@ -355,7 +327,6 @@ def write_analysis_request(
     base: Path,
     *,
     workflow: str | None = None,
-    supported_workflows: Collection[str] | None = None,
 ) -> Path:
     """Write genomelens_request.json for a plugin entry."""
 
@@ -363,7 +334,6 @@ def write_analysis_request(
         params,
         base,
         workflow=workflow,
-        supported_workflows=supported_workflows,
     )
     output = cast(dict[str, object], request["output"])
     output_dir = Path(str(output["directory"]))
@@ -373,21 +343,6 @@ def write_analysis_request(
         json.dumps(request, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
     )
     return target
-
-
-def write_runtime_request(params: Mapping[str, object], base: Path) -> Path:
-    """Write the legacy graphics_synteny request for the single-package plugin."""
-
-    return write_analysis_request(params, base, supported_workflows=SUPPORTED_WORKFLOWS)
-
-
-def setup_logging(
-    base: Path, output_dir_value: object, *, logger_name: str = LOGGER_NAME
-) -> logging.Logger:
-    """Set up adapter logging under output_dir/run.log."""
-
-    output_dir = Path(resolve_param_path(base, output_dir_value or "output"))
-    return setup_adapter_logging(output_dir, logger_name=logger_name)
 
 
 def setup_adapter_logging(
@@ -431,59 +386,6 @@ def close_adapter_logging(logger_name: str = LOGGER_NAME) -> None:
     close_logging(logger_name=logger_name)
 
 
-def _has_genomelens_shell(home: Path) -> bool:
-    return any(
-        (home / candidate).is_file() for candidate in _GENOMELENS_SHELL_CANDIDATES
-    )
-
-
-def genomelens_shell_path(home: str | Path) -> Path:
-    """Return the platform-level genomelens shell inside a gljcvimcscan home."""
-
-    base = Path(home).expanduser().resolve(strict=False)
-    for candidate in _GENOMELENS_SHELL_CANDIDATES:
-        path = base / candidate
-        if path.is_file():
-            return path
-    raise PluginError(f"genomelens shell not found in gljcvimcscan home: {base}")
-
-
-# Backward-compatible alias used by lightweight feature entries.
-discover_genomelens_shell = genomelens_shell_path
-
-
-def discover_mcscan_home(start: str | Path | None = None) -> Path:
-    """Locate the gljcvimcscan heavy center via env var or upward directory search."""
-
-    env = os.environ.get(GLJCVIMCSCAN_HOME_ENV, "").strip()
-    if env:
-        candidate = Path(env).expanduser().resolve(strict=False)
-        if not candidate.is_dir() or not _has_genomelens_shell(candidate):
-            raise PluginError(
-                f"{GLJCVIMCSCAN_HOME_ENV} does not point to a valid gljcvimcscan home: {candidate}"
-            )
-        return candidate
-
-    origin = (
-        Path(start).expanduser().resolve(strict=False)
-        if start is not None
-        else resource_path()
-    )
-    current = origin if origin.is_dir() else origin.parent
-    for directory in (current, *current.parents):
-        if directory.name.lower() == "gljcvimcscan" and _has_genomelens_shell(
-            directory
-        ):
-            return directory
-        sibling = directory / "gljcvimcscan"
-        if _has_genomelens_shell(sibling):
-            return sibling.resolve(strict=False)
-
-    raise PluginError(
-        "Unable to locate gljcvimcscan heavy center. Install gljcvimcscan or set GLJCVIMCSCAN_HOME."
-    )
-
-
 def resolve_genomelens_exe(params: Mapping[str, object], base: Path) -> Path:
     """Locate the external GenomeLens executable from params or environment."""
 
@@ -514,63 +416,8 @@ def build_analyze_run_command(
     return [str(exe), *args]
 
 
-def build_command_for_launcher(
-    launcher: Path,
-    request_path: Path | None = None,
-) -> list[str]:
-    """Build a transparent launcher argv for shells and executables."""
-
-    args = ["analyze", "run", str(request_path)] if request_path is not None else []
-    if launcher.suffix.lower() in {".cmd", ".bat"}:
-        return ["cmd.exe", "/c", str(launcher), *args]
-    return [str(launcher), *args]
-
-
 def run_process(argv: Sequence[str]) -> int:
     """Run a prepared command and return its exit code."""
 
     completed = subprocess.run(list(argv), shell=False, check=False)
     return int(completed.returncode)
-
-
-def _build_runtime_command(params_path: str | Path) -> list[str]:
-    params, base = load_params(params_path)
-    logger = setup_logging(base, params.get("output_dir"))
-    logger.info("Loaded params.json: %s", params_path)
-    runtime = runtime_executable()
-    if not runtime.is_file():
-        raise PluginError(f"GenomeLens runtime executable not found: {runtime}")
-    request_path = write_analysis_request(
-        params, base, supported_workflows=SUPPORTED_WORKFLOWS
-    )
-    argv = [str(runtime), "analyze", "run", str(request_path)]
-    logger.info("Dispatching GenomeLens runtime: %s", argv)
-    return argv
-
-
-def build_runtime_command(params_path: str | Path) -> list[str]:
-    """Build the legacy lightweight plugin runtime argv."""
-
-    try:
-        return _build_runtime_command(params_path)
-    finally:
-        close_logging()
-
-
-def main(argv: list[str] | None = None) -> int:
-    """Legacy single-package HAIant plugin entry."""
-
-    if argv is None:
-        argv = sys.argv[1:]
-    try:
-        runtime = runtime_executable()
-        if not argv:
-            if not runtime.is_file():
-                raise PluginError(f"GenomeLens runtime executable not found: {runtime}")
-            return run_process([str(runtime)])
-        if len(argv) != 1:
-            raise PluginError("Expected zero arguments or one params.json path")
-        return run_process(build_runtime_command(argv[0]))
-    except PluginError as exc:
-        print(f"GenomeLens HAIant plugin error: {exc}", file=sys.stderr)
-        return 2

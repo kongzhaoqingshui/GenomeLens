@@ -106,19 +106,18 @@ if __name__ == "__main__":
 
 ## 与智然体插件的关系
 
-智然体重型中心 `gljcvimcscan` 会整体打包 platform 产物，因此自然包含原始主入口和 `genomelens` 壳。
+当前 HAIant 插件采用**完全独立的轻量插件**模型：
 
-轻量子插件通过 `gljcvimcscan\genomelens ...` 调用分析流程，例如：
+- 每个 JCVI 小功能一个独立包（`gljcvi-dotplot`、`gljcvi-synteny` 等）。
+- 插件不携带 GenomeLens 平台或工具链，也不在运行时搜索重型中心。
+- 用户需要在 `params.json` 中提供 `genomelens_exe`（外部 GenomeLens 可执行文件路径），或预先设置 `GENOMELENS_EXE` 环境变量。
+- 插件直接调用外部 GenomeLens：
 
-```text
-gljcvimcscan\genomelens.cmd analyze run output\genomelens_request.json
-```
+  ```text
+  <genomelens_exe> analyze run output\genomelens_request.json
+  ```
 
-这样：
-
-- 子插件不需要知道原始主入口的确切文件名。
-- 环境变量由壳统一设置，避免子插件重复配置。
-- 命令前缀 `genomelens` 降低了与其他应用冲突的概率。
+如果用户把 GenomeLens 安装目录下的 `genomelens.cmd` 或 `genomelens.exe` 作为 `genomelens_exe`，那么实际上间接使用了本节描述的入口壳；但插件本身并不依赖壳的存在，任何能解析 `analyze run <request.json>` 的 GenomeLens 可执行文件都可以。
 
 ## 构建要求
 

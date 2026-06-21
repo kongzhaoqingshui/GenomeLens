@@ -1,133 +1,100 @@
-# HAIant parameter mapping(参数映射)
+# HAIant 参数映射
 
-插件把 HAIant 平台的 `params.json` 转换为 GenomeLens `AnalysisRequest` JSON，再调用 `genomelens analyze run <request.json>`。
+HAIant 插件把 `params.json` 转换为 GenomeLens `AnalysisRequest` JSON，然后调用外部 GenomeLens 可执行文件：
 
-插件不直接调用 JCVI，也不拼接旧版 `analyze mcscan` 手动参数。所有相对路径都按 `params.json` 所在目录解析。
+```powershell
+<genomelens_exe> analyze run output\genomelens_request.json
+```
+
+所有相对路径都按 `params.json` 所在目录解析。
 
 ## 架构说明
 
-本项目采用**一重型中心 + 多轻量子插件**架构，详见 `ARCHITECTURE.md`：
+当前插件体系为**完全独立的轻量插件**：
 
-- **重型中心 `gljcvimcscan`**：携带完整 GL platform 与工具链，提供 `genomelens` 命令壳，自身负责 `local_synteny` 工作流。
-- **轻量子插件**：每个 JCVI 小功能一个插件包（如 `gljcvi-dotplot`、`gljcvi-synteny`），只带入口，运行时通过 `GLJCVIMCSCAN_HOME` 或父目录搜索定位重型中心。
+- 每个 JCVI 小功能对应一个独立插件包（`gljcvi-dotplot`、`gljcvi-synteny`、`gljcvi-karyotype`、`gljcvi-catalog-ortholog`、`gljcvi-local-synteny`）。
+- `gljcvi-auto` 固定对应 `analyze mcscan jcvi` 一键自动流（`workflow = graphics_synteny`）。
+- 所有插件都不再依赖重型中心 `gljcvimcscan` 或 `GLJCVIMCSCAN_HOME`。
+- 用户需要在 `params.json` 中提供 `genomelens_exe`，或预先设置 `GENOMELENS_EXE` 环境变量。
 
-子插件定位重型中心的顺序：
+详见 `ARCHITECTURE.md`。
 
-1. 环境变量 `GLJCVIMCSCAN_HOME`
-2. 从插件根目录向上搜索 `gljcvimcscan/` 目录
-3. 找不到则报错提示安装重型中心
+## 公共字段
 
-## 推荐字段
+| 平台字段 | 类型 | 请求字段 | 必填 | 默认值 | 说明 |
+|---|---|---|---|---|---|
+| `genomelens_exe` | path | — | 是* | — | 外部 GenomeLens 可执行文件路径（`.exe` / `.cmd` / `.bat`） |
+| `input_dir` | dir | `input.species[]`（自动发现） | 是* | — | 自动发现同名物种文件对的输入目录 |
+| `species` | array | `input.species[]` | 是* | — | 显式物种列表（与 `input_dir` 二选一） |
+| `input_mode` | enum | `input.mode` / 每个物种的 `input_mode` | 否 | `bed_cds` | `bed_cds` 或 `gff_genome` |
+| `output_dir` | dir | `output.directory` | 否 | `output` | 结果输出目录 |
+| `reference` | str/int | `input.reference_index` | 否 | `1` | 参考物种名称或 1-based 索引 |
+| `threads` | int | `options.threads` | 否 | `4` | 运行时工作线程数 |
+| `min_block_size` | int | `options.min_block_size` | 否 | `5` | 保留 block 的最小基因数 |
+| `formats` | csv/list | `output.formats` | 否 | `png` | 输出格式，如 `png,svg,pdf` |
+| `align_soft` | enum | `method_config.align_soft` | 否 | `blast` | 比对后端：`blast` / `last` / `diamond_blastp` |
+| `dbtype` | enum | `method_config.dbtype` | 否 | `nucl` | 序列类型：`nucl` / `prot` |
+| `cscore` | float | `method_config.cscore` | 否 | `0.7` | 同源匹配过滤强度 |
+| `dist` | int | `method_config.dist` | 否 | `20` | 共线性锚点最大基因距离 |
+| `iter` | int | `method_config.iter` | 否 | `1` | Block 过滤迭代次数 |
+| `glyphstyle` | enum | `method_config.glyphstyle` | 否 | `""` | 基因形状：`box` / `arrow` |
+| `glyphcolor` | enum | `method_config.glyphcolor` | 否 | `""` | 基因着色：`orientation` / `orthogroup` |
+| `shadestyle` | enum | `method_config.shadestyle` | 否 | `""` | 连线样式：`curve` / `line` |
+| `figsize` | str | `method_config.figsize` | 否 | `""` | 画布尺寸，如 `10x5` |
+| `dpi` | int | `method_config.dpi` | 否 | `300` | 图片分辨率 |
+| `jcvi_engine` | path | `method_config.jcvi_engine` | 否 | `""` | 显式指定 jcvi-genomelens 引擎 |
+| `blastn` | path | `method_config.blastn` | 否 | `""` | 显式指定 blastn |
+| `makeblastdb` | path | `method_config.makeblastdb` | 否 | `""` | 显式指定 makeblastdb |
+| `jcvi_layout` | path | `method_config.jcvi_layout` | 否 | `""` | 可选 JCVI layout 文件 |
+| `jcvi_seqids` | path | `method_config.jcvi_seqids` | 否 | `""` | 可选 JCVI seqids 文件 |
+| `optimize_figsize` | bool | `method_config.auto_optimization.optimize_figsize` | 否 | `false` | 自动推导图件尺寸（GenomeLens 扩展） |
+| `rewrite_layout_links` | bool | `method_config.auto_optimization.rewrite_layout_links` | 否 | `false` | 改写跨轨道 layout 连线（GenomeLens 扩展） |
+| `optimize_karyotype_labels` | bool | `method_config.auto_optimization.optimize_karyotype_labels` | 否 | `false` | 优化全局核型标签（GenomeLens 扩展） |
+| `trim_cross_chromosome_blocks` | bool | `method_config.auto_optimization.trim_cross_chromosome_blocks` | 否 | `false` | 切除跨染色体 block 行（GenomeLens 扩展） |
+| `allow_simplified_fallback` | bool | `method_config.allow_simplified_fallback` | 否 | `false` | 诊断开关；正式流程保持关闭 |
 
-| Platform field(平台字段) | Type(类型) | Request field(请求字段) | Required(是否必填) | Default(默认值) |
-|---|---|---|---|---|
-| `input_mode` | enum | `input.mode` 与每个物种的 `input_mode` | yes | `bed_cds` |
-| `species` | array | `input.species[]` | yes | |
-| `output_dir` | path | `output.directory` | yes | `output` |
-| `workflow` | enum | `method_config.workflow` | no | `graphics_synteny` |
-| `threads` | integer | `options.threads` | no | `4` |
-| `min_block_size` | integer | `options.min_block_size` | no | `5` |
-| `formats` | csv/list | `output.formats` | no | `png` |
-| `jcvi_layout` | path | `method_config.jcvi_layout` | no | |
-| `jcvi_seqids` | path | `method_config.jcvi_seqids` | no | |
-| `allow_simplified_fallback` | boolean | `method_config.allow_simplified_fallback` | no | `false` |
+\* `genomelens_exe` 未设置时读取 `GENOMELENS_EXE` 环境变量；`input_dir` 与 `species` 至少提供一个。
 
-`species` 在 `bed_cds` 模式下使用：
+## 工作流固定映射
 
-```json
-[
-  {"name": "speciesA", "bed": "input/a.bed", "cds": "input/a.cds"},
-  {"name": "speciesB", "bed": "input/b.bed", "cds": "input/b.cds"}
-]
-```
+| 插件 | 固定 workflow | 说明 |
+|---|---|---|
+| `gljcvi-dotplot` | `graphics_dotplot` | 双物种点图 |
+| `gljcvi-synteny` | `graphics_synteny` | 双物种共线性图 |
+| `gljcvi-karyotype` | `graphics_karyotype` | 双物种核型图 |
+| `gljcvi-catalog-ortholog` | `catalog_ortholog` | 双向 ortholog 目录 |
+| `gljcvi-local-synteny` | `local_synteny` | 目标基因局部共线性 |
+| `gljcvi-auto` | `graphics_synteny` | `analyze mcscan jcvi` 一键自动流 |
 
-`species` 在 `gff_genome` 模式下使用：
+## 局部共线性专属字段
 
-```json
-[
-  {"name": "speciesA", "gff": "input/a.gff3", "genome": "input/a.fa"},
-  {"name": "speciesB", "gff": "input/b.gff3", "genome": "input/b.fa"}
-]
-```
+仅 `gljcvi-local-synteny` 与 `gljcvi-auto`（填写时）使用：
 
-## workflow(工作流)
+| 平台字段 | 请求字段 | 说明 |
+|---|---|---|
+| `target_gene_ids` | `method_config.target_gene_ids` | 目标基因 ID，多个用逗号分隔 |
+| `up` | `method_config.up` | 上游窗口基因数 |
+| `down` | `method_config.down` | 下游窗口基因数 |
+| `split_targets` | `method_config.split_targets` | 多个目标各自出图 |
+| `label_targets` | `method_config.label_targets` | 在图中标注目标基因 |
 
-旧单包插件仅暴露一站式 JCVI 出图入口，`workflow` 当前只支持 `graphics_synteny`。该 workflow 会输出 dotplot(点图) 与 synteny figure(共线性图)。
+## 输出约定
 
-新模型下，每个轻量子插件固定自己的 workflow，例如：
-
-| 插件 | workflow |
-|---|---|
-| `gljcvimcscan` | `local_synteny` |
-| `gljcvi-dotplot` | `graphics_dotplot` |
-| `gljcvi-synteny` | `graphics_synteny` |
-| `gljcvi-karyotype` | `graphics_karyotype` |
-| `gljcvi-catalog-ortholog` | `catalog_ortholog` |
-
-插件会在输出目录写入：
-
-```text
-output/genomelens_request.json
-```
-
-实际运行命令形如：
-
-```text
-gljcvimcscan\genomelens.cmd analyze run output\genomelens_request.json
-```
-
-> `genomelens.cmd`（或平台打包产物中的 `.exe`）是平台级环境变量壳，只负责透传参数；具体子命令由壳内部的原始主入口解析。
-
-旧单包插件仍使用：
-
-```text
-GenomeLens-runtime.exe analyze run output\genomelens_request.json
-```
-
-
-| Platform field(平台字段) | Type(类型) | Request field(请求字段) | Required(是否必填) | Default(默认值) |
-|---|---|---|---|---|
-| `input_mode` | enum | `input.mode` 与每个物种的 `input_mode` | yes | `bed_cds` |
-| `species` | array | `input.species[]` | yes | |
-| `output_dir` | path | `output.directory` | yes | `output` |
-| `workflow` | enum | `method_config.workflow` | no | `graphics_synteny` |
-| `threads` | integer | `options.threads` | no | `4` |
-| `min_block_size` | integer | `options.min_block_size` | no | `5` |
-| `formats` | csv/list | `output.formats` | no | `png` |
-| `jcvi_layout` | path | `method_config.jcvi_layout` | no | |
-| `jcvi_seqids` | path | `method_config.jcvi_seqids` | no | |
-| `allow_simplified_fallback` | boolean | `method_config.allow_simplified_fallback` | no | `false` |
-
-`species` 在 `bed_cds` 模式下使用：
-
-```json
-[
-  {"name": "speciesA", "bed": "input/a.bed", "cds": "input/a.cds"},
-  {"name": "speciesB", "bed": "input/b.bed", "cds": "input/b.cds"}
-]
-```
-
-`species` 在 `gff_genome` 模式下使用：
-
-```json
-[
-  {"name": "speciesA", "gff": "input/a.gff3", "genome": "input/a.fa"},
-  {"name": "speciesB", "gff": "input/b.gff3", "genome": "input/b.fa"}
-]
-```
-
-## workflow(工作流)
-
-智然体插件仅暴露一站式 JCVI 出图入口，`workflow` 当前只支持 `graphics_synteny`。该 workflow 会输出 dotplot(点图) 与 synteny figure(共线性图)。`graphics_dotplot`、`graphics_karyotype`、`mcscan_pairwise` 和 `catalog_ortholog` 暂不作为智然体插件入口暴露。
-
-插件会在输出目录写入：
+插件在 `output_dir` 下写入：
 
 ```text
 output/genomelens_request.json
+output/run.log
 ```
 
-实际运行命令形如：
+实际调用命令形如：
 
-```text
-GenomeLens-runtime.exe analyze run output/genomelens_request.json
+```powershell
+cmd.exe /c C:\GenomeLens\genomelens.cmd analyze run output\genomelens_request.json
+```
+
+当 `genomelens_exe` 不是 `.cmd` / `.bat` 时，直接调用可执行文件：
+
+```powershell
+C:\GenomeLens\GenomeLens-runtime.exe analyze run output\genomelens_request.json
 ```

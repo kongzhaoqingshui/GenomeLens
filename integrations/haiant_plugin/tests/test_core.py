@@ -1,6 +1,4 @@
-import json
 import logging
-import shutil
 from pathlib import Path
 from typing import cast
 
@@ -9,14 +7,12 @@ import pytest
 from genomelens_haiant_plugin import (
     PluginError,
     build_analysis_request,
-    build_runtime_command,
-    build_species_from_params,
+    build_analyze_run_command,
     close_adapter_logging,
     load_params,
     parse_bool,
     resolve_param_path,
-    setup_logging,
-    write_runtime_request,
+    setup_adapter_logging,
 )
 
 
@@ -71,6 +67,8 @@ def test_parse_bool_forms() -> None:
 def test_build_species_from_params_resolves_relative_files(tmp_path: Path) -> None:
     params = _write_species_files(tmp_path)
 
+    from genomelens_haiant_plugin._core import build_species_from_params
+
     species = build_species_from_params(params, tmp_path)
 
     assert species[0]["name"] == "query"
@@ -107,49 +105,27 @@ def test_build_analysis_request_for_local_synteny_supports_csv_target_ids(
 
 
 def test_setup_adapter_logging_closes_previous_file_handler(tmp_path: Path) -> None:
-    logger = setup_logging(tmp_path, "first")
+    logger = setup_adapter_logging(tmp_path)
     first_handler = _file_handler(logger)
 
-    setup_logging(tmp_path, "second")
+    setup_adapter_logging(tmp_path)
 
     assert first_handler.stream is None
-    shutil.rmtree(tmp_path / "first")
     close_adapter_logging()
 
 
-def test_build_runtime_command_keeps_legacy_graphics_synteny_flow(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    runtime = tmp_path / "GenomeLens-runtime.exe"
-    runtime.write_text("", encoding="utf-8")
-    monkeypatch.setenv("GENOMELENS_PLUGIN_RUNTIME", str(runtime))
-    params = _write_species_files(tmp_path)
-    params.update(
-        {
-            "workflow": "graphics_synteny",
-            "threads": 2,
-            "min_block_size": 1,
-        }
-    )
-    params_path = tmp_path / "params.json"
-    params_path.write_text(json.dumps(params, ensure_ascii=False), encoding="utf-8")
+def test_build_analyze_run_command_dispatches_cmd_files() -> None:
+    request_path = Path("output/genomelens_request.json")
+    exe = Path("C:/GenomeLens/genomelens.cmd")
+    argv = build_analyze_run_command(str(exe), request_path)
 
-    argv = build_runtime_command(params_path)
-
-    assert argv[:3] == [str(runtime), "analyze", "run"]
-    request = json.loads(Path(argv[3]).read_text(encoding="utf-8"))
-    options = cast(dict[str, object], request["options"])
-    method_config = cast(dict[str, object], request["method_config"])
-    assert request["method"] == "mcscan"
-    assert options["threads"] == 2
-    assert options["min_block_size"] == 1
-    assert method_config["workflow"] == "graphics_synteny"
-    assert logging.getLogger("genomelens_haiant_plugin").handlers == []
+    assert argv[:3] == ["cmd.exe", "/c", str(exe)]
+    assert argv[3:] == ["analyze", "run", str(request_path)]
 
 
-def test_write_runtime_request_rejects_non_plugin_workflows(tmp_path: Path) -> None:
-    params = _write_species_files(tmp_path)
-    params["workflow"] = "catalog_ortholog"
+def test_build_analyze_run_command_dispatches_executables() -> None:
+    request_path = Path("output/genomelens_request.json")
+    exe = Path("C:/GenomeLens/GenomeLens-runtime.exe")
+    argv = build_analyze_run_command(str(exe), request_path)
 
-    with pytest.raises(PluginError, match="Unsupported HAIant workflow"):
-        write_runtime_request(params, tmp_path)
+    assert argv == [str(exe), "analyze", "run", str(request_path)]

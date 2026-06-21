@@ -2,7 +2,7 @@
 
 > 本文件描述 GenomeLens 在智然体（HAIant）平台的新插件发布模型。
 > GenomeLens 平台与工具链被视为外部软件；每个 HAIant 插件只携带自己的入口与配置，运行时通过 `genomelens_exe`（或 `GENOMELENS_EXE` 环境变量）调用外部 GenomeLens 可执行文件。
-> 旧单包插件与重型中心模型保留兼容入口，但新插件不再依赖它们。
+> 旧单包插件与重型中心模型已被移除，当前所有插件均为独立外部 GenomeLens 调用模型。
 
 ---
 
@@ -12,7 +12,7 @@
 
 - **单包过大**：一次更新任何小功能都需要重新上传整个 platform + 工具链。
 - **插件互相耦合**：重型中心一旦变更，所有子插件都需要同步调整。
-- **runtime 路径不统一**：子插件需要搜索重型中心或依赖环境变量，部署复杂。
+- **runtime 路径不统一**：旧模型要求子插件搜索重型中心或依赖环境变量，部署复杂。
 
 独立后：
 
@@ -111,11 +111,9 @@ gljcvi-dotplot/
 
 | 变量 | 设置者 | 使用者 | 说明 |
 |---|---|---|---|
-| `GENOMELENS_EXE` | 用户或 HAIant | 所有新插件 | 外部 GenomeLens 可执行文件路径 |
-| `GENOMELENS_PLUGIN_RUNTIME` | 用户 | 旧单包插件 | 旧兼容入口，新插件不再使用 |
-| `GLJCVIMCSCAN_HOME` | 用户 | 旧重型中心插件 | 旧兼容入口，新插件不再使用 |
+| `GENOMELENS_EXE` | 用户或 HAIant | 所有插件 | 外部 GenomeLens 可执行文件路径；`params.json` 中的 `genomelens_exe` 优先级更高 |
 
----
+旧环境变量 `GENOMELENS_PLUGIN_RUNTIME`、`GLJCVIMCSCAN_HOME` 随重型中心与单包插件一起移除，新插件不再使用。
 
 ## 6. 构建与发布
 
@@ -137,22 +135,9 @@ scripts/build_gljcvi_feature_plugin.ps1 -Feature auto
 
 构建产物位于 `app/gljcvi-<feature>.zip`。
 
-### 6.3 保留脚本
-
-- `scripts/build_haiant_plugin.ps1`：保留旧单包插件构建（兼容过渡期）。
-- `scripts/build_gljcvimcscan_center.ps1`：保留旧重型中心构建（兼容过渡期）。
-
 ---
 
-## 7. 兼容性
-
-- 旧单包插件（`GenomeLens-HAIant-plugin-*.zip`）和重型中心（`gljcvimcscan`）继续保留，直到所有用户迁移完成。
-- 新插件不再搜索重型中心，也不依赖 `GLJCVIMCSCAN_HOME`。
-- 新旧插件可以共存，但建议新部署直接使用独立插件或 `gljcvi-auto`。
-
----
-
-## 8. 开发注意事项
+## 7. 开发注意事项
 
 1. 所有插件入口必须接收 `params.json` 路径作为唯一命令行参数。
 2. `params.json` 中必须提供 `genomelens_exe` 或预先设置 `GENOMELENS_EXE` 环境变量。

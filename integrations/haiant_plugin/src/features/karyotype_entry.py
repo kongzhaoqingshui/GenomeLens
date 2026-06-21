@@ -23,7 +23,7 @@ def plugin_root() -> Path:
 
 
 def build_runtime_command(params_path: str | Path) -> list[str]:
-    """Build the heavyweight shell command for karyotype."""
+    """Build the GenomeLens analyze run command for karyotype."""
 
     return shared_build_runtime_command(
         params_path,

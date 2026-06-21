@@ -23,7 +23,7 @@ def plugin_root() -> Path:
 
 
 def build_runtime_command(params_path: str | Path) -> list[str]:
-    """Build the heavyweight shell command for dotplot."""
+    """Build the GenomeLens analyze run command for dotplot."""
 
     return shared_build_runtime_command(
         params_path,

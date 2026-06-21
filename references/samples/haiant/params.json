@@ -2,7 +2,6 @@
   "genomelens_exe": "C:/GenomeLens/GenomeLens-runtime.exe",
   "input_dir": "../shell/bed_cds_minimal",
   "output_dir": "output",
-  "workflow": "graphics_synteny",
   "threads": 2,
   "min_block_size": 1,
   "formats": "png",
