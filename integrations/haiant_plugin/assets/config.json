@@ -3,7 +3,7 @@
   "title_en": "GenomeLens Synteny Analysis",
   "description": "基于 GenomeLens runtime 执行 2 到 n 个物种的一站式 JCVI 共线性出图并输出结构化结果目录。",
   "description_en": "Run GenomeLens runtime for 2-or-more-species one-stop JCVI synteny plotting and write a structured output directory.",
-  "version": "v1.0.0",
+  "version": "v1.0.0.post1",
   "context": "输入 BED+CDS 或 GFF+基因组 FASTA，输出 run_summary.json、engine_run_summary.json、anchors、blocks、dotplot 和共线性图。",
   "context_en": "Input BED+CDS or GFF+genome FASTA and output run_summary.json, engine_run_summary.json, anchors, blocks, dotplot, and synteny figures.",
   "env": "Python",

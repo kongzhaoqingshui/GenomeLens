@@ -4,6 +4,7 @@ import os
 import shutil
 from pathlib import Path
 
+import genomelens_haiant_plugin as plugin
 from genomelens_haiant_plugin import (
     PluginError,
     build_runtime_command,
@@ -70,6 +71,85 @@ def test_build_runtime_command_resolves_relative_paths(
     assert not (output_dir / ".genomelens_plugin_input").exists()
     assert logging.getLogger("genomelens_haiant_plugin").handlers == []
     os.environ.pop("GENOMELENS_PLUGIN_RUNTIME", None)
+
+
+def test_main_forwards_runtime_cli_invocations(tmp_path: Path, monkeypatch) -> None:
+    runtime = tmp_path / "GenomeLens-runtime.exe"
+    runtime.write_text("", encoding="utf-8")
+    monkeypatch.setenv("GENOMELENS_PLUGIN_RUNTIME", str(runtime))
+    captured: list[list[str]] = []
+    monkeypatch.setattr(plugin, "run_runtime", lambda argv: captured.append(argv) or 0)
+
+    assert plugin.main(["workbench"]) == 0
+    assert plugin.main(["check", "--json"]) == 0
+    assert plugin.main(["analyze", "template", "mcscan"]) == 0
+
+    assert captured == [
+        [str(runtime), "workbench"],
+        [str(runtime), "check", "--json"],
+        [str(runtime), "analyze", "template", "mcscan"],
+    ]
+
+
+def test_build_runtime_command_accepts_legacy_query_subject_fields(tmp_path: Path, monkeypatch) -> None:
+    runtime = tmp_path / "GenomeLens-runtime.exe"
+    runtime.write_text("", encoding="utf-8")
+    monkeypatch.setenv("GENOMELENS_PLUGIN_RUNTIME", str(runtime))
+    root = Path(__file__).resolve().parents[3]
+    sample_dir = root / "references" / "samples" / "shell" / "bed_cds_minimal"
+    params_payload = {
+        "input_mode": "bed_cds",
+        "query_name": "query",
+        "subject_name": "subject",
+        "query_bed": str(sample_dir / "query.bed"),
+        "query_cds": str(sample_dir / "query.cds"),
+        "subject_bed": str(sample_dir / "subject.bed"),
+        "subject_cds": str(sample_dir / "subject.cds"),
+        "output_dir": str(tmp_path / "legacy_output"),
+        "workflow": "graphics_synteny",
+    }
+    params = tmp_path / "legacy_params_for_test.json"
+    params.write_text(json.dumps(params_payload, ensure_ascii=False), encoding="utf-8")
+    argv = build_runtime_command(params)
+
+    request = json.loads(Path(argv[3]).read_text(encoding="utf-8"))
+    assert request["input"]["species"][0]["name"] == "query"
+    assert request["input"]["species"][1]["name"] == "subject"
+    assert Path(request["input"]["species"][0]["bed"]).is_file()
+
+
+def test_build_runtime_command_uses_plugin_root_for_installed_params(tmp_path: Path, monkeypatch) -> None:
+    plugin_dir = tmp_path / "installed_plugin"
+    input_dir = plugin_dir / "input"
+    runtime = plugin_dir / "runtime" / "GenomeLens" / "GenomeLens-runtime.exe"
+    input_dir.mkdir(parents=True)
+    runtime.parent.mkdir(parents=True)
+    runtime.write_text("", encoding="utf-8")
+    for name in ["query.bed", "query.cds", "subject.bed", "subject.cds"]:
+        (input_dir / name).write_text("x\n", encoding="utf-8")
+    execute_params = tmp_path / "execute_params"
+    execute_params.mkdir()
+    params = execute_params / "params.json"
+    params.write_text(
+        """{
+  "input_mode": "bed_cds",
+  "species": [
+    {"name": "query", "bed": "input/query.bed", "cds": "input/query.cds"},
+    {"name": "subject", "bed": "input/subject.bed", "cds": "input/subject.cds"}
+  ],
+  "output_dir": "output"
+}
+""",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(plugin, "plugin_root", lambda: plugin_dir)
+    monkeypatch.delenv("GENOMELENS_PLUGIN_RUNTIME", raising=False)
+    argv = build_runtime_command(params)
+    request = json.loads(Path(argv[3]).read_text(encoding="utf-8"))
+
+    assert argv[:3] == [str(runtime), "analyze", "run"]
+    assert Path(request["input"]["species"][0]["bed"]) == input_dir / "query.bed"
+    assert Path(request["output"]["directory"]) == plugin_dir / "output"
 
 
 def test_write_runtime_request_rejects_non_plugin_workflows(tmp_path: Path) -> None:

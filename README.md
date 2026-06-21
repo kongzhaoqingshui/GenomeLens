@@ -37,12 +37,11 @@ GenomeLens.exe help analyze mcscan local
 
 ## 模块边界
 
-目录布局朝《最终架构目标》演进：`platform/`（平台核心雏形）、`engines/`（引擎层）、`integrations/`（平台集成层），并预留 `gui/`、`agents/` 路线图位置。
+当前仓库保留与命令行产品、JCVI 引擎和 HAIant 插件交付直接相关的模块。
 
 - `platform/`：面向用户的 GenomeLens 平台核心雏形（包名仍为 `genomelens`），负责 CLI(命令行接口)、输入校验、预处理、工具链定位、manifest(清单) 写入、engine 调用和结果归档。
 - `engines/jcvi/`：当前唯一正式 engine(引擎)，独立 JCVI-backed，持有 vendored JCVI(随包 JCVI) 源码，只暴露 `probe` 和 `run` 两个稳定入口。后续新增引擎与它平级置于 `engines/` 下。
 - `integrations/haiant_plugin/`：HAIant adapter(智然体适配器)，读取 `params.json` 并转换为 GenomeLens CLI 参数。
-- `gui/`、`agents/`：路线图预留位置，当前仅含说明，不含实现。
 
 平台核心不直接 `import(导入)` 上游 `jcvi`。跨层通信只通过 `jcvi_engine_manifest.json` 与 `engine_run_summary.json`。
 
