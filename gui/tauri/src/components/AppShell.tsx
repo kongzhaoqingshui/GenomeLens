@@ -35,6 +35,10 @@ export function AppShell({
     );
   }
 
+  if (activeRoute.id === "new-analysis") {
+    return <div className="min-h-screen bg-[#f4fbfd] text-text-primary transition-colors duration-200">{children}</div>;
+  }
+
   return (
     <div className="min-h-screen bg-bg text-text-primary transition-colors duration-200">
       <div className="pointer-events-none fixed inset-0 overflow-hidden">

@@ -118,8 +118,12 @@ describe("App", () => {
     fireEvent.click(await screen.findByRole("button", { name: /双物种共线性/ }));
 
     expect(window.location.hash).toBe("#/analysis/new?capability=pairwise-synteny");
-    expect(screen.getByText(/JCVI 任务工作台/)).toBeInTheDocument();
-    expect(await screen.findByText("MCSCAN 分析工作台")).toBeInTheDocument();
-    expect(screen.getByText("validateAnalysisRequestDraft()")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Tasks" })).toBeInTheDocument();
+    expect(screen.getByDisplayValue("Pairwise Synteny #1")).toBeInTheDocument();
+    expect(screen.getByText("Inputs and output")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "run" }));
+    expect(screen.getByText("Run control")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Run active task" })).toBeInTheDocument();
+    expect(screen.getByText("Environment")).toBeInTheDocument();
   });
 });

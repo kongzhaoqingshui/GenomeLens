@@ -211,3 +211,29 @@ Nieobie/Game-Icon-Pack 采用 CC0 1.0 Universal，可修改和商用。项目内
 - 真实运行结束后能看到日志、状态、summary 和主要图件入口。
 - `corepack pnpm test`、`corepack pnpm run lint`、`corepack pnpm typecheck`、`corepack pnpm build:web` 通过。
 - Rust/Tauri 改动如有，则 `cargo check`、`cargo clippy -- -D warnings` 通过。
+
+---
+
+## 9. 多任务工作台增补
+
+本轮工作台改版以 Codex 的多线程工作方式为参考，但中心区不是对话，而是当前选中的 JCVI 分析任务。
+
+### 9.1 布局
+
+- 左侧是任务栏：展示当前会话中的多个分析任务，支持新建、切换、关闭、搜索，并提供已接入能力的快速创建入口。
+- 中间是当前任务工作台：顶部显示任务标题、workflow、运行状态；主体分为 `setup`、`run`、`results` 三个视图。
+- 右侧是上下文栏：展示当前任务的输入/输出路径、workflow、runId、最近日志、来源和 schema 摘要。
+- 视觉参考必须收紧到 Codex 桌面界面，而不是泛化三栏 dashboard：左侧为浅色会话列表式侧栏，中间为当前任务主线程式工作区，右侧为轻量环境/操作浮层。
+- 避免营销页、英雄区、大面积装饰渐变、厚重卡片墙和嵌套卡片；工作台应以留白、细边线、轻阴影、低对比辅助文本和固定底层操作入口建立层级。
+
+### 9.2 状态边界
+
+- 多任务状态先保持 GUI-local，不新增 SQLite、项目索引或持久化存储。
+- 每个任务独立保存 draft、run state、日志、summary view 和待确认 request JSON。
+- 后端契约不变：仍使用 `run_analysis`、`analysis:*`、`read_summary`、`read_run_log` 和当前 `outdir` 字段。
+- 事件订阅仍是全局 listener，但前端只把带有匹配 `runId` 的事件归并到对应任务。
+
+### 9.3 Phase 2/3 推进
+
+- Phase 2 验收仍聚焦单个真实任务端到端跑通；多任务只是让用户能在同一桌面并行准备多个 request。
+- Phase 3 可在 `results` 视图和右侧上下文栏继续扩展 artifact tree、figure preview、project scan 等能力，不需要再推翻工作台骨架。

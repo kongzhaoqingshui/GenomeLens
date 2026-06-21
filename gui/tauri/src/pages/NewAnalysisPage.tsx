@@ -2,6 +2,7 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { mkdir, writeTextFile } from "@tauri-apps/plugin-fs";
 import { useEffect, useMemo, useState } from "react";
 
+import { GameIcon, type GameIconName } from "../components/GameIcon";
 import type {
   AlignSoft,
   AnalysisInputMode,
@@ -9,15 +10,20 @@ import type {
   LogLevel,
   McscanWorkflow,
   OutputFormat,
-  SpeciesInputMode,
 } from "../models/analysis-request";
 import type { AnalysisRequestDraft, SpeciesInputDraft } from "../models/analysis-request-draft";
-import { createDraftForCapability, type JcviCapabilityId } from "../models";
+import {
+  createDraftForCapability,
+  getJcviCapabilityById,
+  listJcviCapabilities,
+  type JcviCapabilityId,
+} from "../models";
 import { draftToAnalysisRequest } from "../models/analysis-request-draft";
 import {
   appendRunLogLines,
   applyAnalysisEvent,
   createAnalysisRunState,
+  type AnalysisEvent,
   type AnalysisRunState,
 } from "../models/run-session";
 import { validateAnalysisRequestDraft, type ValidationIssue } from "../models/validation";
@@ -31,15 +37,36 @@ interface NewAnalysisPageProps {
   locationHash: string;
 }
 
+type RunPanelStatus = "idle" | "confirming" | "starting" | "running" | "finished" | "error";
+type WorkbenchView = "setup" | "run" | "results";
+type McscanNumberField = "cscore" | "dist" | "iter" | "up" | "down" | "dpi";
+
+interface WorkbenchTask {
+  id: string;
+  title: string;
+  capabilityId: JcviCapabilityId | null;
+  icon: GameIconName;
+  draft: AnalysisRequestDraft;
+  view: WorkbenchView;
+  runStatus: RunPanelStatus;
+  runState: AnalysisRunState | null;
+  runError: string | null;
+  pendingRequestJson: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 const FIELD_CLASS =
   "mt-2 w-full rounded-lg border border-border bg-bg px-3 py-2 text-sm text-text-primary shadow-sm outline-none transition focus:border-ice-400 focus:ring-2 focus:ring-ice-200 dark:focus:ring-ice-900/60";
 const LABEL_CLASS = "text-xs font-semibold uppercase tracking-[0.14em] text-text-tertiary";
 const CHECKBOX_CLASS = "h-4 w-4 rounded border-border text-ice-500 focus:ring-ice-500";
-const FIELD_GROUP_CLASS = "rounded-xl border border-border bg-surface/75 p-4 shadow-card";
+const PANEL_BODY_CLASS = "border-b border-slate-200/80 bg-white px-1 py-6 last:border-b-0";
 const SECONDARY_BUTTON_CLASS =
-  "rounded-lg border border-border bg-surface-raised/80 px-3 py-2 text-xs font-semibold text-text-secondary transition hover:border-ice-200 hover:bg-ice-50 hover:text-ice-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ice-500 dark:hover:border-ice-800 dark:hover:bg-ice-900/30 dark:hover:text-ice-200";
+  "rounded-lg border border-border bg-surface-raised/80 px-3 py-2 text-xs font-semibold text-text-secondary transition hover:border-ice-200 hover:bg-ice-50 hover:text-ice-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ice-500 dark:hover:border-ice-800 dark:hover:bg-ice-900/30 dark:hover:text-ice-200 disabled:cursor-not-allowed disabled:opacity-45";
+const PRIMARY_BUTTON_CLASS =
+  "rounded-lg bg-ice-500 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-ice-500/20 transition hover:bg-ice-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ice-500 focus-visible:ring-offset-2 focus-visible:ring-offset-bg disabled:cursor-not-allowed disabled:opacity-50";
 
-const WORKFLOW_OPTIONS = [
+const WORKFLOW_OPTIONS: McscanWorkflow[] = [
   "mcscan_pairwise",
   "graphics_synteny",
   "graphics_dotplot",
@@ -49,8 +76,6 @@ const WORKFLOW_OPTIONS = [
 ];
 const LOG_LEVELS: LogLevel[] = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"];
 const FORMAT_OPTIONS: OutputFormat[] = ["png", "pdf", "svg"];
-type RunPanelStatus = "idle" | "confirming" | "starting" | "running" | "finished" | "error";
-type McscanNumberField = "cscore" | "dist" | "iter" | "up" | "down" | "dpi";
 const MCSCAN_NUMBER_FIELDS: Array<{
   key: McscanNumberField;
   label: string;
@@ -65,12 +90,27 @@ const MCSCAN_NUMBER_FIELDS: Array<{
   { key: "down", label: "downstream", min: 0, step: 1 },
   { key: "dpi", label: "dpi", min: 1, step: 1 },
 ];
-const WORKBENCH_RAIL_ITEMS = [
-  { title: "双物种共线性", subtitle: "Pairwise Synteny", path: "/analysis/new?capability=pairwise-synteny", active: true },
-  { title: "多物种共线性", subtitle: "Multi-species", path: "/analysis/new?capability=multi-species-synteny", active: true },
-  { title: "局部共线性", subtitle: "Local Synteny", path: "/analysis/new?capability=local-synteny", active: true },
-  { title: "环境诊断", subtitle: "Environment Check", path: "/settings", active: false },
-];
+
+const CAPABILITY_ICON: Record<JcviCapabilityId, GameIconName> = {
+  "pairwise-synteny": "pairwise",
+  "multi-species-synteny": "multi-species",
+  "local-synteny": "local",
+  dotplot: "dotplot",
+  karyotype: "karyotype",
+  "ortholog-catalog": "ortholog",
+  "environment-check": "environment",
+};
+
+function nowIso(): string {
+  return new Date().toISOString();
+}
+
+function formatTime(value: string | undefined): string {
+  if (!value) {
+    return "--:--";
+  }
+  return new Date(value).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
 
 function issueFor(issues: ValidationIssue[], field: string): ValidationIssue | undefined {
   return issues.find((item) => item.field === field);
@@ -87,7 +127,7 @@ function IssueText({ issue }: { issue?: ValidationIssue }) {
 function SectionTitle({ title, subtitle }: { title: string; subtitle: string }) {
   return (
     <div>
-      <h2 className="text-lg font-semibold text-text-primary">{title}</h2>
+      <h2 className="text-base font-semibold text-text-primary">{title}</h2>
       <p className="mt-1 text-sm leading-6 text-text-secondary">{subtitle}</p>
     </div>
   );
@@ -101,10 +141,11 @@ function updateNumber(value: string): number | null {
   return Number.isFinite(next) ? next : null;
 }
 
-function emptySpecies(inputMode: SpeciesInputMode): SpeciesInputDraft {
+function emptySpecies(inputMode: AnalysisInputMode): SpeciesInputDraft {
+  const speciesMode = inputMode === "gff_genome" ? "gff_genome" : "bed_cds";
   return {
     name: "",
-    inputMode,
+    inputMode: speciesMode,
     bed: "",
     cds: "",
     gff: "",
@@ -168,15 +209,73 @@ function readCapabilityFromHash(locationHash: string): JcviCapabilityId | null {
   return null;
 }
 
+function createTaskFromTemplate(
+  templateDraft: AnalysisRequestDraft,
+  capabilityId: JcviCapabilityId | null,
+  index: number,
+): WorkbenchTask {
+  const capability = capabilityId ? getJcviCapabilityById(capabilityId) : undefined;
+  const draft = capabilityId ? createDraftForCapability(templateDraft, capabilityId) : templateDraft;
+  const title = capability ? `${capability.subtitle} #${index}` : `MCSCAN Task #${index}`;
+  const createdAt = nowIso();
+
+  return {
+    id: `task-${createdAt}-${index}`,
+    title,
+    capabilityId,
+    icon: capabilityId ? CAPABILITY_ICON[capabilityId] : "pairwise",
+    draft: {
+      ...draft,
+      species: draft.species.map((species) => ({ ...species })),
+      formats: [...draft.formats],
+      options: { ...draft.options },
+      mcscan: { ...draft.mcscan, targetGeneIds: [...draft.mcscan.targetGeneIds] },
+    },
+    view: "setup",
+    runStatus: "idle",
+    runState: null,
+    runError: null,
+    pendingRequestJson: "",
+    createdAt,
+    updatedAt: createdAt,
+  };
+}
+
+function statusTone(status: RunPanelStatus): string {
+  switch (status) {
+    case "running":
+    case "starting":
+      return "bg-sky-100 text-sky-700 dark:bg-sky-400/15 dark:text-sky-200";
+    case "finished":
+      return "bg-emerald-100 text-emerald-700 dark:bg-emerald-400/15 dark:text-emerald-200";
+    case "error":
+      return "bg-rose-100 text-rose-700 dark:bg-rose-400/15 dark:text-rose-200";
+    case "confirming":
+      return "bg-amber-100 text-amber-700 dark:bg-amber-400/15 dark:text-amber-200";
+    default:
+      return "bg-slate-100 text-slate-600 dark:bg-slate-700/50 dark:text-slate-300";
+  }
+}
+
+function applyEventStatus(currentStatus: RunPanelStatus, event: AnalysisEvent): RunPanelStatus {
+  if (event.name === "analysis:stdout" || event.name === "analysis:state") {
+    return currentStatus === "finished" || currentStatus === "error" ? currentStatus : "running";
+  }
+  if (event.name === "analysis:finished") {
+    return event.payload.status === "SUCCEEDED" ? "finished" : "error";
+  }
+  return "error";
+}
+
 export default function NewAnalysisPage({ route, onNavigate, locationHash }: NewAnalysisPageProps) {
-  const [draft, setDraft] = useState<AnalysisRequestDraft | null>(null);
+  const [templateDraft, setTemplateDraft] = useState<AnalysisRequestDraft | null>(null);
   const [schema, setSchema] = useState<JsonObject | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [runStatus, setRunStatus] = useState<RunPanelStatus>("idle");
-  const [runState, setRunState] = useState<AnalysisRunState | null>(null);
-  const [runError, setRunError] = useState<string | null>(null);
-  const [pendingRequestJson, setPendingRequestJson] = useState("");
+  const [tasks, setTasks] = useState<WorkbenchTask[]>([]);
+  const [activeTaskId, setActiveTaskId] = useState("");
+  const [taskCounter, setTaskCounter] = useState(1);
+  const [taskFilter, setTaskFilter] = useState("");
   const capabilityId = useMemo(() => readCapabilityFromHash(locationHash), [locationHash]);
 
   useEffect(() => {
@@ -185,11 +284,16 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
     setLoading(true);
     setLoadError(null);
     void Promise.all([getTemplateDraft("mcscan"), getAnalysisSchema()])
-      .then(([templateDraft, analysisSchema]) => {
-        if (!cancelled) {
-          setDraft(capabilityId ? createDraftForCapability(templateDraft, capabilityId) : templateDraft);
-          setSchema(analysisSchema);
+      .then(([nextTemplateDraft, analysisSchema]) => {
+        if (cancelled) {
+          return;
         }
+        const firstTask = createTaskFromTemplate(nextTemplateDraft, capabilityId, 1);
+        setTemplateDraft(nextTemplateDraft);
+        setSchema(analysisSchema);
+        setTasks([firstTask]);
+        setActiveTaskId(firstTask.id);
+        setTaskCounter(2);
       })
       .catch((error: unknown) => {
         if (!cancelled) {
@@ -207,12 +311,6 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
     };
   }, [capabilityId]);
 
-  const validation = useMemo(() => (draft ? validateAnalysisRequestDraft(draft) : null), [draft]);
-  const requestJson = useMemo(() => (draft ? stringifyJson(draftToAnalysisRequest(draft)) : ""), [draft]);
-  const schemaJson = useMemo(() => (schema ? stringifyJson(schema) : ""), [schema]);
-  const targetGeneText = draft?.mcscan.targetGeneIds.join("\n") ?? "";
-  const activeRunId = runState?.runId;
-
   useEffect(() => {
     let active = true;
     let stopListening: (() => void) | null = null;
@@ -222,24 +320,21 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
         return;
       }
 
-      if (activeRunId && event.payload.runId !== activeRunId) {
-        return;
-      }
+      setTasks((currentTasks) =>
+        currentTasks.map((task) => {
+          if (task.runState?.runId !== event.payload.runId) {
+            return task;
+          }
 
-      setRunState((current) => (current ? applyAnalysisEvent(current, event) : current));
-
-      if (event.name === "analysis:stdout") {
-        setRunStatus((current) =>
-          current === "idle" || current === "confirming" || current === "starting" ? "running" : current,
-        );
-      } else if (event.name === "analysis:state") {
-        setRunStatus((current) => (current === "finished" || current === "error" ? current : "running"));
-      } else if (event.name === "analysis:finished") {
-        setRunStatus(event.payload.status === "SUCCEEDED" ? "finished" : "error");
-      } else {
-        setRunStatus("error");
-        setRunError(event.payload.message);
-      }
+          return {
+            ...task,
+            runStatus: applyEventStatus(task.runStatus, event),
+            runError: event.name === "analysis:error" ? event.payload.message : task.runError,
+            runState: applyAnalysisEvent(task.runState, event),
+            updatedAt: nowIso(),
+          };
+        }),
+      );
     }).then((unlisten) => {
       if (active) {
         stopListening = unlisten;
@@ -252,69 +347,153 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
       active = false;
       stopListening?.();
     };
-  }, [activeRunId]);
+  }, []);
+
+  const activeTask = tasks.find((task) => task.id === activeTaskId) ?? tasks[0] ?? null;
+  const draft = activeTask?.draft ?? null;
+  const validation = useMemo(() => (draft ? validateAnalysisRequestDraft(draft) : null), [draft]);
+  const requestJson = useMemo(() => (draft ? stringifyJson(draftToAnalysisRequest(draft)) : ""), [draft]);
+  const schemaJson = useMemo(() => (schema ? stringifyJson(schema) : ""), [schema]);
+  const targetGeneText = draft?.mcscan.targetGeneIds.join("\n") ?? "";
 
   useEffect(() => {
-    if (!runState || !runState.finished || runState.summaryView !== undefined) {
+    if (!activeTask?.runState || !activeTask.runState.finished || activeTask.runState.summaryView !== undefined) {
       return;
     }
 
-    void readSummaryView({ outdir: runState.outdir })
+    const taskId = activeTask.id;
+    void readSummaryView({ outdir: activeTask.runState.outdir })
       .then((nextSummaryView) => {
-        setRunState((current) => (current ? { ...current, summaryView: nextSummaryView } : current));
+        setTasks((currentTasks) =>
+          currentTasks.map((task) =>
+            task.id === taskId && task.runState
+              ? {
+                  ...task,
+                  runState: {
+                    ...task.runState,
+                    summaryView: nextSummaryView,
+                    summaryPath: task.runState.summaryPath || nextSummaryView.runSummaryPath,
+                    logPath: task.runState.logPath || nextSummaryView.runLogPath,
+                  },
+                  updatedAt: nowIso(),
+                }
+              : task,
+          ),
+        );
       })
       .catch((error: unknown) => {
-        setRunError(error instanceof Error ? error.message : String(error));
+        setTasks((currentTasks) =>
+          currentTasks.map((task) =>
+            task.id === taskId
+              ? { ...task, runError: error instanceof Error ? error.message : String(error), updatedAt: nowIso() }
+              : task,
+          ),
+        );
       });
-  }, [runState]);
+  }, [activeTask]);
+
+  const visibleTasks = useMemo(() => {
+    const query = taskFilter.trim().toLowerCase();
+    if (!query) {
+      return tasks;
+    }
+    return tasks.filter((task) => {
+      const capability = task.capabilityId ? getJcviCapabilityById(task.capabilityId) : null;
+      return [task.title, task.draft.mcscan.workflow, capability?.title, capability?.subtitle]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(query));
+    });
+  }, [taskFilter, tasks]);
+
+  const capabilities = useMemo(() => listJcviCapabilities(), []);
+
+  function updateTask(taskId: string, updater: (task: WorkbenchTask) => WorkbenchTask) {
+    setTasks((currentTasks) =>
+      currentTasks.map((task) => (task.id === taskId ? { ...updater(task), updatedAt: nowIso() } : task)),
+    );
+  }
+
+  function updateActiveTask(updater: (task: WorkbenchTask) => WorkbenchTask) {
+    if (!activeTask) {
+      return;
+    }
+    updateTask(activeTask.id, updater);
+  }
 
   function patchDraft(patch: Partial<AnalysisRequestDraft>) {
-    setDraft((current) => (current ? { ...current, ...patch } : current));
+    updateActiveTask((task) => ({ ...task, draft: { ...task.draft, ...patch } }));
   }
 
   function patchOptions(patch: Partial<AnalysisRequestDraft["options"]>) {
-    setDraft((current) => (current ? { ...current, options: { ...current.options, ...patch } } : current));
+    updateActiveTask((task) => ({
+      ...task,
+      draft: { ...task.draft, options: { ...task.draft.options, ...patch } },
+    }));
   }
 
   function patchMcscan(patch: Partial<AnalysisRequestDraft["mcscan"]>) {
-    setDraft((current) => (current ? { ...current, mcscan: { ...current.mcscan, ...patch } } : current));
+    updateActiveTask((task) => ({
+      ...task,
+      draft: { ...task.draft, mcscan: { ...task.draft.mcscan, ...patch } },
+    }));
   }
 
   function updateSpecies(index: number, patch: Partial<SpeciesInputDraft>) {
-    setDraft((current) => {
-      if (!current) {
-        return current;
-      }
-      const species = current.species.map((item, itemIndex) => (itemIndex === index ? { ...item, ...patch } : item));
-      return { ...current, species };
+    updateActiveTask((task) => {
+      const species = task.draft.species.map((item, itemIndex) =>
+        itemIndex === index ? { ...item, ...patch } : item,
+      );
+      return { ...task, draft: { ...task.draft, species } };
     });
   }
 
   function addSpecies() {
-    setDraft((current) => {
-      if (!current) {
-        return current;
-      }
-      const inputMode: SpeciesInputMode = current.inputMode === "gff_genome" ? "gff_genome" : "bed_cds";
-      return { ...current, species: [...current.species, emptySpecies(inputMode)] };
-    });
+    updateActiveTask((task) => ({
+      ...task,
+      draft: { ...task.draft, species: [...task.draft.species, emptySpecies(task.draft.inputMode)] },
+    }));
   }
 
   function removeSpecies(index: number) {
-    setDraft((current) =>
-      current ? { ...current, species: current.species.filter((_, itemIndex) => itemIndex !== index) } : current,
-    );
+    updateActiveTask((task) => ({
+      ...task,
+      draft: { ...task.draft, species: task.draft.species.filter((_, itemIndex) => itemIndex !== index) },
+    }));
   }
 
   function toggleFormat(format: OutputFormat) {
-    setDraft((current) => {
-      if (!current) {
-        return current;
+    updateActiveTask((task) => {
+      const formats = task.draft.formats.includes(format)
+        ? task.draft.formats.filter((item) => item !== format)
+        : [...task.draft.formats, format];
+      return { ...task, draft: { ...task.draft, formats } };
+    });
+  }
+
+  function setTaskView(view: WorkbenchView) {
+    updateActiveTask((task) => ({ ...task, view }));
+  }
+
+  function createTask(capability: JcviCapabilityId | null = null) {
+    if (!templateDraft) {
+      return;
+    }
+    const nextTask = createTaskFromTemplate(templateDraft, capability, taskCounter);
+    setTaskCounter((current) => current + 1);
+    setTasks((currentTasks) => [nextTask, ...currentTasks]);
+    setActiveTaskId(nextTask.id);
+  }
+
+  function closeTask(taskId: string) {
+    setTasks((currentTasks) => {
+      if (currentTasks.length <= 1) {
+        return currentTasks;
       }
-      const formats = current.formats.includes(format)
-        ? current.formats.filter((item) => item !== format)
-        : [...current.formats, format];
-      return { ...current, formats };
+      const nextTasks = currentTasks.filter((task) => task.id !== taskId);
+      if (activeTaskId === taskId) {
+        setActiveTaskId(nextTasks[0]?.id ?? "");
+      }
+      return nextTasks;
     });
   }
 
@@ -333,116 +512,137 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
   }
 
   async function handlePrepareRun() {
-    if (!draft || !validation) {
+    if (!activeTask || !validation) {
       return;
     }
     if (!validation.ok) {
-      setRunStatus("error");
-      setRunError("请先处理校验结果中的错误，再启动分析。");
+      updateActiveTask((task) => ({
+        ...task,
+        runStatus: "error",
+        runError: "Please fix validation errors before running this task.",
+        view: "setup",
+      }));
       return;
     }
 
-    setRunError(null);
-    setPendingRequestJson(requestJson);
-    setRunStatus("confirming");
+    updateActiveTask((task) => ({
+      ...task,
+      runError: null,
+      pendingRequestJson: requestJson,
+      runStatus: "confirming",
+      view: "run",
+    }));
   }
 
   async function handleConfirmRun() {
-    if (!draft) {
+    if (!activeTask) {
       return;
     }
 
-    const request = draftToAnalysisRequest(draft);
+    const taskId = activeTask.id;
+    const request = draftToAnalysisRequest(activeTask.draft);
     const json = stringifyJson(request);
-    const requestPath = joinPath(draft.outputDirectory, `genomelens-request-${timestampForFilename()}.json`);
+    const requestPath = joinPath(activeTask.draft.outputDirectory, `genomelens-request-${timestampForFilename()}.json`);
 
-    setRunStatus("starting");
-    setRunError(null);
-    setRunState(null);
+    updateTask(taskId, (task) => ({ ...task, runStatus: "starting", runError: null, runState: null, view: "run" }));
 
     try {
-      await mkdir(draft.outputDirectory, { recursive: true });
+      await mkdir(activeTask.draft.outputDirectory, { recursive: true });
       await writeTextFile(requestPath, `${json}\n`);
-      const handle = await runAnalysis({ requestPath, outdir: draft.outputDirectory });
-      setRunState(createAnalysisRunState(handle));
-      setRunStatus("running");
-      setPendingRequestJson("");
+      const handle = await runAnalysis({ requestPath, outdir: activeTask.draft.outputDirectory });
+      updateTask(taskId, (task) => ({
+        ...task,
+        runState: createAnalysisRunState(handle),
+        runStatus: "running",
+        pendingRequestJson: "",
+        view: "run",
+      }));
     } catch (error: unknown) {
-      setRunStatus("error");
-      setRunError(error instanceof Error ? error.message : String(error));
+      updateTask(taskId, (task) => ({
+        ...task,
+        runStatus: "error",
+        runError: error instanceof Error ? error.message : String(error),
+      }));
     }
   }
 
   async function handleReadSummary() {
-    if (!draft && !runState) {
+    if (!activeTask) {
       return;
     }
-    const outdir = runState?.outdir ?? draft?.outputDirectory ?? "";
+    const outdir = activeTask.runState?.outdir ?? activeTask.draft.outputDirectory;
     if (!outdir) {
       return;
     }
     try {
       const nextSummaryView = await readSummaryView({ outdir });
-      setRunState((current) =>
-        current
+      updateTask(activeTask.id, (task) =>
+        task.runState
           ? {
-              ...current,
-              summaryView: nextSummaryView,
-              summaryPath: current.summaryPath || nextSummaryView.runSummaryPath,
-              logPath: current.logPath || nextSummaryView.runLogPath,
+              ...task,
+              view: "results",
+              runState: {
+                ...task.runState,
+                summaryView: nextSummaryView,
+                summaryPath: task.runState.summaryPath || nextSummaryView.runSummaryPath,
+                logPath: task.runState.logPath || nextSummaryView.runLogPath,
+              },
             }
-          : current,
+          : task,
       );
     } catch (error: unknown) {
-      setRunError(error instanceof Error ? error.message : String(error));
+      updateActiveTask((task) => ({ ...task, runError: error instanceof Error ? error.message : String(error) }));
     }
   }
 
   async function handleReadLog() {
-    if (!draft && !runState) {
+    if (!activeTask) {
       return;
     }
-    const outdir = runState?.outdir ?? draft?.outputDirectory ?? "";
+    const outdir = activeTask.runState?.outdir ?? activeTask.draft.outputDirectory;
     if (!outdir) {
       return;
     }
     try {
-      const snapshot = await readRunLog({ outdir, tailLines: 80 });
-      setRunState((current) => {
-        if (!current) {
-          return current;
-        }
-        return appendRunLogLines(
-          {
-            ...current,
-            logPath: snapshot.logPath,
-            logLines: [],
-            lastLogLine: undefined,
-          },
-          snapshot.lines,
-        );
-      });
+      const snapshot = await readRunLog({ outdir, tailLines: 100 });
+      updateTask(activeTask.id, (task) =>
+        task.runState
+          ? {
+              ...task,
+              view: "run",
+              runState: appendRunLogLines(
+                {
+                  ...task.runState,
+                  logPath: snapshot.logPath,
+                  logLines: [],
+                  lastLogLine: undefined,
+                },
+                snapshot.lines,
+              ),
+            }
+          : task,
+      );
     } catch (error: unknown) {
-      setRunError(error instanceof Error ? error.message : String(error));
+      updateActiveTask((task) => ({ ...task, runError: error instanceof Error ? error.message : String(error) }));
     }
   }
 
   async function handleOpenOutput() {
-    const outdir = runState?.outdir ?? draft?.outputDirectory ?? "";
+    const outdir = activeTask?.runState?.outdir ?? activeTask?.draft.outputDirectory ?? "";
     if (outdir) {
       await openPath({ path: outdir });
     }
   }
 
   async function handleOpenLog() {
-    const path = runState?.logPath ?? runState?.summaryView?.runLogPath ?? "";
+    const path = activeTask?.runState?.logPath ?? activeTask?.runState?.summaryView?.runLogPath ?? "";
     if (path) {
       await openPath({ path });
     }
   }
 
   async function handleOpenSummary() {
-    const path = runState?.summaryPath ?? runState?.summaryView?.runSummaryPath ?? "";
+    const path = activeTask?.runState?.summaryPath ?? activeTask?.runState?.summaryView?.runSummaryPath ?? "";
     if (path) {
       await openPath({ path });
     }
@@ -450,25 +650,25 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
 
   if (loading) {
     return (
-      <section className="grid w-full content-center gap-4">
-        <p className="text-sm font-semibold uppercase tracking-[0.2em] text-ice-600 dark:text-ice-300">
+      <section className="grid h-screen w-full content-center justify-center gap-4 bg-[#f4fbfd] text-center">
+        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
           JCVI meow · {route.description}
         </p>
-        <h1 className="text-3xl font-bold text-text-primary">正在读取 MCSCAN 模板</h1>
-        <p className="text-sm text-text-secondary">Tauri command: get_template(&quot;mcscan&quot;)</p>
+        <h1 className="text-2xl font-semibold text-slate-900">Preparing multi-task workbench</h1>
+        <p className="text-sm text-slate-500">Loading template and analysis schema...</p>
       </section>
     );
   }
 
-  if (loadError || draft === null || validation === null) {
+  if (loadError || !activeTask || !draft || validation === null) {
     return (
-      <section className="grid w-full content-center gap-4">
-        <p className="text-sm font-semibold uppercase tracking-[0.2em] text-ice-600 dark:text-ice-300">
+      <section className="grid h-screen w-full content-center justify-center gap-4 bg-[#f4fbfd] text-center">
+        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
           JCVI meow · {route.description}
         </p>
-        <h1 className="text-3xl font-bold text-text-primary">模板读取失败</h1>
-        <p className="max-w-2xl rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-200">
-          {loadError ?? "无法初始化 AnalysisRequestDraft"}
+        <h1 className="text-2xl font-semibold text-slate-900">Workbench failed to initialize</h1>
+        <p className="max-w-2xl rounded-[1.35rem] border border-rose-200 bg-rose-50 p-4 text-left text-sm text-rose-700">
+          {loadError ?? "Unable to initialize AnalysisRequestDraft."}
         </p>
       </section>
     );
@@ -478,675 +678,769 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
   const outputIssue = issueFor(validation.issues, "output.directory");
   const threadsIssue = issueFor(validation.issues, "options.threads");
   const minBlockIssue = issueFor(validation.issues, "options.min_block_size");
-  const workflowState = runState?.status ?? "PENDING";
-  const progress = toProgressPercent(runState?.progress ?? 0);
-  const logLines = runState?.logLines ?? [];
-  const summaryView = runState?.summaryView ?? null;
-  const resolvedLogPath = runState?.logPath ?? summaryView?.runLogPath ?? "";
-  const resolvedSummaryPath = runState?.summaryPath ?? summaryView?.runSummaryPath ?? "";
-  const recentEvents = logLines.slice(-5).reverse();
+  const workflowState = activeTask.runState?.status ?? "PENDING";
+  const progress = toProgressPercent(activeTask.runState?.progress ?? 0);
+  const logLines = activeTask.runState?.logLines ?? [];
+  const summaryView = activeTask.runState?.summaryView ?? null;
+  const resolvedLogPath = activeTask.runState?.logPath ?? summaryView?.runLogPath ?? "";
+  const resolvedSummaryPath = activeTask.runState?.summaryPath ?? summaryView?.runSummaryPath ?? "";
+  const recentEvents = logLines.slice(-6).reverse();
 
   return (
-    <div className="grid w-full gap-6 xl:grid-cols-[15rem_minmax(0,1fr)_minmax(20rem,24rem)]">
-      <aside className="grid content-start gap-4 xl:sticky xl:top-6">
-        <section className={FIELD_GROUP_CLASS}>
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ice-600 dark:text-ice-300">
-            JCVI meow Workbench
-          </p>
-          <h2 className="mt-3 text-lg font-semibold text-text-primary">能力与任务栏</h2>
-          <div className="mt-4 grid gap-2">
-            {WORKBENCH_RAIL_ITEMS.map((item) => (
-              <button
-                key={item.title}
-                type="button"
-                className={
-                  item.active
-                    ? "rounded-xl border border-ice-200 bg-ice-50/80 px-3 py-3 text-left transition hover:border-ice-300 hover:bg-ice-100/80 dark:border-ice-800 dark:bg-ice-900/30 dark:hover:border-ice-700 dark:hover:bg-ice-900/50"
-                    : "rounded-xl border border-border bg-bg px-3 py-3 text-left transition hover:border-ice-200 hover:bg-ice-50 dark:hover:border-ice-800 dark:hover:bg-ice-900/30"
-                }
-                onClick={() => onNavigate(item.path)}
-              >
-                <span className="block text-sm font-semibold text-text-primary">{item.title}</span>
-                <span className="mt-1 block text-xs text-text-tertiary">{item.subtitle}</span>
-              </button>
-            ))}
-          </div>
-        </section>
+    <div className="grid h-screen w-full grid-cols-[20rem_minmax(0,1fr)_23rem] overflow-hidden bg-white">
+      <aside className="flex min-h-0 flex-col overflow-hidden border-r border-slate-200/80 bg-[#eaf7fb] px-3 py-4">
+        <div className="flex items-center gap-3 px-2 pb-4 text-sm text-slate-500">
+          <span className="inline-flex h-5 w-5 items-center justify-center rounded-md border border-slate-300 text-xs">J</span>
+          <button type="button" className="rounded-md px-2 py-1 hover:bg-white/70" onClick={() => onNavigate("/")}>
+            ←
+          </button>
+          <span className="px-2">文件</span>
+          <span className="px-2">编辑</span>
+          <span className="px-2">视图</span>
+          <span className="px-2">帮助</span>
+        </div>
 
-        <section className={FIELD_GROUP_CLASS}>
-          <SectionTitle title="当前任务" subtitle="先让现有 MCSCAN 向导进入新的工作台骨架。" />
-          <div className="mt-4 grid gap-3 text-sm text-text-secondary">
-            <div className="rounded-xl border border-border bg-bg p-3">
-              <p className="font-semibold text-text-primary">MCSCAN Wizard</p>
-              <p className="mt-1 text-xs text-text-tertiary">参数表单、Run 流程和 summary 展示保持在同一任务上下文里。</p>
-            </div>
-            <div className="rounded-xl border border-border bg-bg p-3">
-              <p className="font-semibold text-text-primary">上下文栏</p>
-              <p className="mt-1 text-xs text-text-tertiary">右侧集中承接运行状态、日志片段、路径与结果入口。</p>
-            </div>
-          </div>
-        </section>
-      </aside>
+        <nav className="grid gap-1 px-1 pb-5 text-sm text-slate-700">
+          <button type="button" className="flex items-center gap-3 rounded-lg px-3 py-2 text-left hover:bg-white/75" onClick={() => createTask()}>
+            <GameIcon name="pairwise" className="h-4 w-4" />
+            新任务
+          </button>
+          <label className="flex items-center gap-3 rounded-lg px-3 py-2 hover:bg-white/75">
+            <GameIcon name="environment" className="h-4 w-4" />
+            <input
+              className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-slate-500"
+              placeholder="搜索"
+              value={taskFilter}
+              onChange={(event) => setTaskFilter(event.target.value)}
+            />
+          </label>
+          <button type="button" className="flex items-center gap-3 rounded-lg px-3 py-2 text-left text-slate-500 hover:bg-white/75">
+            <GameIcon name="karyotype" className="h-4 w-4" />
+            插件
+          </button>
+          <button type="button" className="flex items-center gap-3 rounded-lg px-3 py-2 text-left text-slate-500 hover:bg-white/75">
+            <GameIcon name="dotplot" className="h-4 w-4" />
+            自动化
+          </button>
+        </nav>
 
-      <section className="grid gap-5">
-        <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-ice-600 dark:text-ice-300">
-            JCVI meow · {route.description}
-          </p>
-          <div className="mt-4 flex flex-wrap items-end justify-between gap-4">
+        <div className="px-2 pb-3">
+          <div className="flex items-center justify-between gap-3">
             <div>
-              <h1 className="text-4xl font-bold text-text-primary">MCSCAN 分析工作台</h1>
-              <p className="mt-3 max-w-3xl text-sm leading-7 text-text-secondary">
-                当前阶段继续复用平台模板和统一校验器，把参数编辑、运行确认与状态反馈集中到一个可持续迭代的 JCVI 任务工作台里。
-              </p>
+              <p className="text-xs font-medium text-slate-400">置顶</p>
+              <h2 className="mt-4 text-sm font-semibold text-slate-500">Tasks</h2>
             </div>
-            <span
-              className={
-                validation.ok
-                  ? "rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-400/15 dark:text-emerald-200"
-                  : "rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700 dark:bg-amber-400/15 dark:text-amber-200"
-              }
-            >
-              {validation.ok ? "校验通过" : `${validation.issues.length} 个待处理项`}
-            </span>
+            <button type="button" className="rounded-lg px-2 py-1 text-lg leading-none text-slate-500 hover:bg-white/75" onClick={() => createTask()}>
+              +
+            </button>
           </div>
         </div>
 
-        <section className={FIELD_GROUP_CLASS}>
-          <SectionTitle title="输入模式" subtitle="自动目录模式用于读取规范化项目目录；显式模式用于逐物种填入输入文件。" />
-          <div className="mt-4 grid gap-4 md:grid-cols-3">
-            {(["auto_directory", "bed_cds", "gff_genome"] as AnalysisInputMode[]).map((mode) => (
-              <button
-                key={mode}
-                type="button"
-                className={
-                  draft.inputMode === mode
-                    ? "rounded-xl border border-ice-300 bg-ice-50 p-4 text-left text-sm font-semibold text-ice-800 shadow-card dark:border-ice-700 dark:bg-ice-900/30 dark:text-ice-100"
-                    : "rounded-xl border border-border bg-bg p-4 text-left text-sm font-semibold text-text-secondary transition hover:border-ice-200 hover:bg-ice-50 dark:hover:border-ice-800 dark:hover:bg-ice-900/20"
-                }
-                onClick={() => patchDraft({ inputMode: mode })}
-              >
-                {mode}
-              </button>
-            ))}
-          </div>
-
-          {draft.inputMode === "auto_directory" ? (
-            <div className="mt-5">
-              <span className={LABEL_CLASS}>输入目录</span>
-              <div className="mt-2 flex gap-2">
-                <input
-                  className="w-full rounded-lg border border-border bg-bg px-3 py-2 text-sm text-text-primary shadow-sm outline-none transition focus:border-ice-400 focus:ring-2 focus:ring-ice-200 dark:focus:ring-ice-900/60"
-                  value={draft.directory}
-                  onChange={(event) => patchDraft({ directory: event.target.value })}
-                  placeholder="选择包含 MCSCAN 输入文件的目录"
-                />
-                <button type="button" className={SECONDARY_BUTTON_CLASS} onClick={() => pickDirectory((path) => patchDraft({ directory: path }))}>
-                  选择
-                </button>
-              </div>
-              <IssueText issue={directoryIssue} />
-            </div>
-          ) : (
-            <div className="mt-5 grid gap-4">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <h3 className="text-sm font-semibold text-text-primary">物种输入</h3>
-                  <p className="mt-1 text-xs text-text-secondary">显式输入至少需要两个物种，参考物种索引从 0 开始。</p>
-                </div>
-                <button
-                  type="button"
-                  className="rounded-lg bg-ice-500 px-3 py-2 text-xs font-semibold text-white shadow-lg shadow-ice-500/20 transition hover:bg-ice-400"
-                  onClick={addSpecies}
-                >
-                  添加物种
-                </button>
-              </div>
-
-              {draft.species.map((species, index) => (
-                <article key={index} className="rounded-xl border border-border bg-bg p-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <h4 className="text-sm font-semibold text-text-primary">Species {index + 1}</h4>
-                    <button
-                      type="button"
-                      className="rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-text-secondary transition hover:border-rose-200 hover:text-rose-600"
-                      onClick={() => removeSpecies(index)}
-                    >
-                      移除
-                    </button>
-                  </div>
-                  <div className="mt-4 grid gap-4 md:grid-cols-2">
-                    <label>
-                      <span className={LABEL_CLASS}>名称</span>
-                      <input
-                        className={FIELD_CLASS}
-                        value={species.name}
-                        onChange={(event) => updateSpecies(index, { name: event.target.value })}
-                      />
-                      <IssueText issue={issueFor(validation.issues, `input.species[${index}].name`)} />
-                    </label>
-                    <label>
-                      <span className={LABEL_CLASS}>输入类型</span>
-                      <select
-                        className={FIELD_CLASS}
-                        value={species.inputMode}
-                        onChange={(event) =>
-                          updateSpecies(index, { inputMode: event.target.value as SpeciesInputMode })
-                        }
-                      >
-                        <option value="bed_cds">bed_cds</option>
-                        <option value="gff_genome">gff_genome</option>
-                      </select>
-                    </label>
-                    {species.inputMode === "bed_cds" ? (
-                      <>
-                        <label>
-                          <span className={LABEL_CLASS}>BED</span>
-                          <div className="mt-2 flex gap-2">
-                            <input
-                              className="w-full rounded-lg border border-border bg-bg px-3 py-2 text-sm text-text-primary shadow-sm outline-none transition focus:border-ice-400 focus:ring-2 focus:ring-ice-200 dark:focus:ring-ice-900/60"
-                              value={species.bed}
-                              onChange={(event) => updateSpecies(index, { bed: event.target.value })}
-                            />
-                            <button type="button" className={SECONDARY_BUTTON_CLASS} onClick={() => pickFile((path) => updateSpecies(index, { bed: path }))}>
-                              选择
-                            </button>
-                          </div>
-                          <IssueText issue={issueFor(validation.issues, `input.species[${index}].bed`)} />
-                        </label>
-                        <label>
-                          <span className={LABEL_CLASS}>CDS</span>
-                          <div className="mt-2 flex gap-2">
-                            <input
-                              className="w-full rounded-lg border border-border bg-bg px-3 py-2 text-sm text-text-primary shadow-sm outline-none transition focus:border-ice-400 focus:ring-2 focus:ring-ice-200 dark:focus:ring-ice-900/60"
-                              value={species.cds}
-                              onChange={(event) => updateSpecies(index, { cds: event.target.value })}
-                            />
-                            <button type="button" className={SECONDARY_BUTTON_CLASS} onClick={() => pickFile((path) => updateSpecies(index, { cds: path }))}>
-                              选择
-                            </button>
-                          </div>
-                          <IssueText issue={issueFor(validation.issues, `input.species[${index}].cds`)} />
-                        </label>
-                      </>
-                    ) : (
-                      <>
-                        <label>
-                          <span className={LABEL_CLASS}>GFF</span>
-                          <div className="mt-2 flex gap-2">
-                            <input
-                              className="w-full rounded-lg border border-border bg-bg px-3 py-2 text-sm text-text-primary shadow-sm outline-none transition focus:border-ice-400 focus:ring-2 focus:ring-ice-200 dark:focus:ring-ice-900/60"
-                              value={species.gff}
-                              onChange={(event) => updateSpecies(index, { gff: event.target.value })}
-                            />
-                            <button type="button" className={SECONDARY_BUTTON_CLASS} onClick={() => pickFile((path) => updateSpecies(index, { gff: path }))}>
-                              选择
-                            </button>
-                          </div>
-                          <IssueText issue={issueFor(validation.issues, `input.species[${index}].gff`)} />
-                        </label>
-                        <label>
-                          <span className={LABEL_CLASS}>Genome FASTA</span>
-                          <div className="mt-2 flex gap-2">
-                            <input
-                              className="w-full rounded-lg border border-border bg-bg px-3 py-2 text-sm text-text-primary shadow-sm outline-none transition focus:border-ice-400 focus:ring-2 focus:ring-ice-200 dark:focus:ring-ice-900/60"
-                              value={species.genome}
-                              onChange={(event) => updateSpecies(index, { genome: event.target.value })}
-                            />
-                            <button type="button" className={SECONDARY_BUTTON_CLASS} onClick={() => pickFile((path) => updateSpecies(index, { genome: path }))}>
-                              选择
-                            </button>
-                          </div>
-                          <IssueText issue={issueFor(validation.issues, `input.species[${index}].genome`)} />
-                        </label>
-                      </>
-                    )}
-                  </div>
-                </article>
-              ))}
-            </div>
-          )}
-        </section>
-
-        <section className={FIELD_GROUP_CLASS}>
-          <SectionTitle title="输出与运行选项" subtitle="这些字段会映射到 output、options 和 config，不在页面中展开私有路径。" />
-          <div className="mt-4 grid gap-4 md:grid-cols-2">
-            <label>
-              <span className={LABEL_CLASS}>输出目录</span>
-              <div className="mt-2 flex gap-2">
-                <input
-                  className="w-full rounded-lg border border-border bg-bg px-3 py-2 text-sm text-text-primary shadow-sm outline-none transition focus:border-ice-400 focus:ring-2 focus:ring-ice-200 dark:focus:ring-ice-900/60"
-                  value={draft.outputDirectory}
-                  onChange={(event) => patchDraft({ outputDirectory: event.target.value })}
-                />
-                <button type="button" className={SECONDARY_BUTTON_CLASS} onClick={() => pickDirectory((path) => patchDraft({ outputDirectory: path }))}>
-                  选择
-                </button>
-              </div>
-              <IssueText issue={outputIssue} />
-            </label>
-            <label>
-              <span className={LABEL_CLASS}>参考物种索引</span>
-              <input
-                className={FIELD_CLASS}
-                type="number"
-                min={0}
-                value={draft.referenceIndex}
-                onChange={(event) => patchDraft({ referenceIndex: Number(event.target.value) })}
-              />
-              <IssueText issue={issueFor(validation.issues, "input.reference_index")} />
-            </label>
-            <label>
-              <span className={LABEL_CLASS}>线程数</span>
-              <input
-                className={FIELD_CLASS}
-                type="number"
-                min={1}
-                value={draft.options.threads ?? ""}
-                onChange={(event) => patchOptions({ threads: updateNumber(event.target.value) })}
-              />
-              <IssueText issue={threadsIssue} />
-            </label>
-            <label>
-              <span className={LABEL_CLASS}>最小 block 大小</span>
-              <input
-                className={FIELD_CLASS}
-                type="number"
-                min={1}
-                value={draft.options.minBlockSize ?? ""}
-                onChange={(event) => patchOptions({ minBlockSize: updateNumber(event.target.value) })}
-              />
-              <IssueText issue={minBlockIssue} />
-            </label>
-            <label>
-              <span className={LABEL_CLASS}>日志级别</span>
-              <select
-                className={FIELD_CLASS}
-                value={draft.options.logLevel}
-                onChange={(event) => patchOptions({ logLevel: event.target.value as LogLevel })}
-              >
-                {LOG_LEVELS.map((level) => (
-                  <option key={level} value={level}>
-                    {level}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              <span className={LABEL_CLASS}>Preset</span>
-              <input
-                className={FIELD_CLASS}
-                value={draft.options.preset}
-                onChange={(event) => patchOptions({ preset: event.target.value })}
-              />
-            </label>
-          </div>
-
-          <div className="mt-5 flex flex-wrap gap-4">
-            {FORMAT_OPTIONS.map((format) => (
-              <label key={format} className="inline-flex items-center gap-2 text-sm font-medium text-text-secondary">
-                <input
-                  className={CHECKBOX_CLASS}
-                  type="checkbox"
-                  checked={draft.formats.includes(format)}
-                  onChange={() => toggleFormat(format)}
-                />
-                {format}
-              </label>
-            ))}
-            {[
-              ["forceOutput", "覆盖输出"],
-              ["verbose", "verbose"],
-              ["consoleLog", "console log"],
-            ].map(([key, label]) => (
-              <label key={key} className="inline-flex items-center gap-2 text-sm font-medium text-text-secondary">
-                <input
-                  className={CHECKBOX_CLASS}
-                  type="checkbox"
-                  checked={
-                    key === "forceOutput"
-                      ? draft.forceOutput
-                      : key === "verbose"
-                        ? draft.options.verbose
-                        : draft.options.consoleLog
-                  }
-                  onChange={(event) => {
-                    if (key === "forceOutput") {
-                      patchDraft({ forceOutput: event.target.checked });
-                    } else if (key === "verbose") {
-                      patchOptions({ verbose: event.target.checked });
-                    } else {
-                      patchOptions({ consoleLog: event.target.checked });
+        <div className="min-h-0 flex-1 overflow-auto px-1">
+          {visibleTasks.map((task) => (
+            <button
+              key={task.id}
+              type="button"
+              className={[
+                "mb-1 grid w-full grid-cols-[1.75rem_minmax(0,1fr)_auto] items-center gap-3 rounded-xl px-3 py-2.5 text-left transition",
+                task.id === activeTask.id
+                  ? "bg-white/75 text-slate-900 shadow-sm"
+                  : "bg-transparent text-slate-600 hover:bg-white/55",
+              ].join(" ")}
+              onClick={() => setActiveTaskId(task.id)}
+            >
+              <span className="flex h-7 w-7 items-center justify-center text-slate-500">
+                <GameIcon name={task.icon} className="h-4 w-4" />
+              </span>
+              <span className="min-w-0">
+                <span className="block truncate text-sm font-medium">{task.title}</span>
+                <span className="mt-0.5 block truncate text-xs text-slate-400">{task.draft.mcscan.workflow}</span>
+              </span>
+              {tasks.length > 1 ? (
+                <span
+                  role="button"
+                  tabIndex={0}
+                  className="rounded-md px-2 py-1 text-xs text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    closeTask(task.id);
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      closeTask(task.id);
                     }
                   }}
-                />
-                {label}
-              </label>
-            ))}
-          </div>
-        </section>
+                >
+                  x
+                </span>
+              ) : null}
+            </button>
+          ))}
+        </div>
 
-        <section className={FIELD_GROUP_CLASS}>
-          <SectionTitle title="MCSCAN 参数" subtitle="字段名保持和平台契约一致，默认值来自模板转换后的 draft。" />
-          <div className="mt-4 grid gap-4 md:grid-cols-3">
-            <label>
-              <span className={LABEL_CLASS}>workflow</span>
-              <select
-                className={FIELD_CLASS}
-                value={draft.mcscan.workflow}
-                onChange={(event) => patchMcscan({ workflow: event.target.value as McscanWorkflow })}
-              >
-                {WORKFLOW_OPTIONS.map((workflow) => (
-                  <option key={workflow} value={workflow}>
-                    {workflow}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              <span className={LABEL_CLASS}>align_soft</span>
-              <select
-                className={FIELD_CLASS}
-                value={draft.mcscan.alignSoft}
-                onChange={(event) => patchMcscan({ alignSoft: event.target.value as AlignSoft })}
-              >
-                <option value="blast">blast</option>
-                <option value="last">last</option>
-                <option value="diamond_blastp">diamond_blastp</option>
-              </select>
-            </label>
-            <label>
-              <span className={LABEL_CLASS}>dbtype</span>
-              <select
-                className={FIELD_CLASS}
-                value={draft.mcscan.dbtype}
-                onChange={(event) => patchMcscan({ dbtype: event.target.value as DbType })}
-              >
-                <option value="nucl">nucl</option>
-                <option value="prot">prot</option>
-              </select>
-            </label>
-            {MCSCAN_NUMBER_FIELDS.map(({ key, label, min, max, step }) => (
-              <label key={key}>
-                <span className={LABEL_CLASS}>{label}</span>
-                <input
-                  className={FIELD_CLASS}
-                  type="number"
-                  min={min}
-                  max={max}
-                  step={step}
-                  value={draft.mcscan[key]}
-                  onChange={(event) => patchMcscan({ [key]: Number(event.target.value) })}
-                />
-              </label>
-            ))}
-            <label>
-              <span className={LABEL_CLASS}>figsize</span>
-              <input
-                className={FIELD_CLASS}
-                value={draft.mcscan.figsize}
-                onChange={(event) => patchMcscan({ figsize: event.target.value })}
-              />
-            </label>
-            <label>
-              <span className={LABEL_CLASS}>glyphstyle</span>
-              <input
-                className={FIELD_CLASS}
-                value={draft.mcscan.glyphstyle}
-                onChange={(event) => patchMcscan({ glyphstyle: event.target.value })}
-              />
-            </label>
-            <label>
-              <span className={LABEL_CLASS}>glyphcolor</span>
-              <input
-                className={FIELD_CLASS}
-                value={draft.mcscan.glyphcolor}
-                onChange={(event) => patchMcscan({ glyphcolor: event.target.value })}
-              />
-            </label>
+        <div className="border-t border-slate-200/80 px-1 py-3">
+          <p className="px-3 text-xs font-medium text-slate-400">项目</p>
+          <div className="mt-2 grid gap-1">
+            {capabilities.map((capability) => {
+              const disabled = capability.status !== "connected" || capability.id === "environment-check";
+              return (
+                <button
+                  key={capability.id}
+                  type="button"
+                  disabled={disabled}
+                  className="flex items-center gap-3 rounded-lg px-3 py-2 text-left text-sm font-medium text-slate-600 transition hover:bg-white/75 disabled:cursor-not-allowed disabled:opacity-45"
+                  onClick={() => createTask(capability.id)}
+                  title={capability.description}
+                >
+                  <GameIcon name={CAPABILITY_ICON[capability.id]} className="h-4 w-4" />
+                  <span className="truncate">{capability.subtitle}</span>
+                </button>
+              );
+            })}
           </div>
+          <button
+            type="button"
+            className="mt-4 flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm text-slate-600 hover:bg-white/75"
+            onClick={() => onNavigate("/settings")}
+          >
+            <GameIcon name="environment" className="h-4 w-4" />
+            设置
+          </button>
+        </div>
+      </aside>
 
-          <label className="mt-4 block">
-            <span className={LABEL_CLASS}>target_gene_ids</span>
-            <textarea
-              className={`${FIELD_CLASS} min-h-28`}
-              value={targetGeneText}
-              onChange={(event) => patchMcscan({ targetGeneIds: splitTargets(event.target.value) })}
-              placeholder="每行或逗号分隔一个目标基因 ID"
+      <main className="flex min-w-0 flex-col overflow-hidden bg-white">
+        <header className="flex h-16 shrink-0 items-center justify-between border-b border-slate-200/80 px-6">
+          <div className="min-w-0">
+            <input
+              className="w-full min-w-0 bg-transparent text-base font-semibold tracking-tight text-slate-900 outline-none"
+              value={activeTask.title}
+              onChange={(event) => updateActiveTask((task) => ({ ...task, title: event.target.value }))}
             />
-            <IssueText issue={issueFor(validation.issues, "method_config.target_gene_ids")} />
-          </label>
-
-          <div className="mt-5 grid gap-3 md:grid-cols-2">
-            {[
-              ["allowSimplifiedFallback", "allow_simplified_fallback"],
-              ["splitTargets", "split_targets"],
-              ["labelTargets", "label_targets"],
-              ["optimizeFigsize", "optimize_figsize"],
-              ["rewriteLayoutLinks", "rewrite_layout_links"],
-              ["trimCrossChromosomeBlocks", "trim_cross_chromosome_blocks"],
-            ].map(([key, label]) => (
-              <label key={key} className="inline-flex items-center gap-2 text-sm font-medium text-text-secondary">
-                <input
-                  className={CHECKBOX_CLASS}
-                  type="checkbox"
-                  checked={draft.mcscan[key as keyof AnalysisRequestDraft["mcscan"]] as boolean}
-                  onChange={(event) => patchMcscan({ [key]: event.target.checked })}
-                />
-                {label}
-              </label>
-            ))}
+            <p className="mt-1 text-xs text-slate-500">
+              Created {formatTime(activeTask.createdAt)} · Updated {formatTime(activeTask.updatedAt)}
+            </p>
           </div>
-        </section>
-      </section>
-
-      <aside className="grid content-start gap-5 xl:sticky xl:top-6">
-        <section className={FIELD_GROUP_CLASS}>
-          <SectionTitle title="上下文栏" subtitle="后端状态、路径快照与最近事件。" />
-          <div className="mt-4 grid gap-3 rounded-xl border border-border bg-bg p-4 text-sm text-text-secondary">
-            <div className="flex items-center justify-between gap-3">
-              <span>当前工作流</span>
-              <span className="font-semibold text-text-primary">{draft.mcscan.workflow}</span>
-            </div>
-            <div className="flex items-center justify-between gap-3">
-              <span>输出目录</span>
-              <span className="truncate font-mono text-[11px] text-text-tertiary">{draft.outputDirectory || "-"}</span>
-            </div>
-            <div className="flex items-center justify-between gap-3">
-              <span>最近事件</span>
-              <span className="rounded-full bg-ice-100 px-2 py-1 text-[11px] font-semibold text-ice-700 dark:bg-ice-900/40 dark:text-ice-200">
-                {recentEvents.length}
-              </span>
+          <div className="flex shrink-0 items-center gap-3">
+            <button
+              type="button"
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 shadow-sm"
+              onClick={handleOpenOutput}
+            >
+              打开位置
+            </button>
+            <div className="flex items-center gap-1 rounded-xl bg-slate-100 p-1">
+              {(["setup", "run", "results"] satisfies WorkbenchView[]).map((view) => (
+                <button
+                  key={view}
+                  type="button"
+                  className={
+                    activeTask.view === view
+                      ? "rounded-lg bg-white px-3 py-1.5 text-xs font-semibold uppercase text-slate-900 shadow-sm"
+                      : "rounded-lg px-3 py-1.5 text-xs font-semibold uppercase text-slate-500 hover:text-slate-900"
+                  }
+                  onClick={() => setTaskView(view)}
+                >
+                  {view}
+                </button>
+              ))}
             </div>
           </div>
-          <div className="mt-4 grid gap-2">
-            {recentEvents.length > 0 ? (
-              recentEvents.map((line, index) => (
-                <div key={`${index}-${line}`} className="rounded-lg border border-border bg-bg px-3 py-2 font-mono text-[11px] leading-5 text-text-tertiary">
-                  {line}
-                </div>
-              ))
-            ) : (
-              <p className="rounded-lg border border-border bg-bg p-3 text-sm text-text-secondary">
-                运行开始后，这里会保留最近 5 条事件快照。
+          <div className="hidden" aria-hidden="true">
+            <div className="min-w-0">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-ice-600 dark:text-ice-300">
+                JCVI meow · {route.description}
               </p>
-            )}
-          </div>
-        </section>
-
-        <section className={FIELD_GROUP_CLASS}>
-          <SectionTitle title="运行面板" subtitle="runAnalysis() + listenToAnalysisEvents()" />
-          <div className="mt-4 flex flex-wrap items-center gap-3">
-            <button
-              type="button"
-              className="rounded-lg bg-ice-500 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-ice-500/20 transition hover:bg-ice-400 disabled:cursor-not-allowed disabled:opacity-50"
-              disabled={runStatus === "starting" || runStatus === "running"}
-              onClick={handlePrepareRun}
-            >
-              Run
-            </button>
-            <button type="button" className={SECONDARY_BUTTON_CLASS} onClick={handleReadSummary}>
-              读取 summary
-            </button>
-            <button type="button" className={SECONDARY_BUTTON_CLASS} onClick={handleReadLog}>
-              读取日志
-            </button>
-            <button
-              type="button"
-              className={SECONDARY_BUTTON_CLASS}
-              disabled={!resolvedLogPath}
-              onClick={handleOpenLog}
-            >
-              打开日志
-            </button>
-            <button
-              type="button"
-              className={SECONDARY_BUTTON_CLASS}
-              disabled={!resolvedSummaryPath}
-              onClick={handleOpenSummary}
-            >
-              打开 summary
-            </button>
-            <button type="button" className={SECONDARY_BUTTON_CLASS} onClick={handleOpenOutput}>
-              打开输出目录
-            </button>
-          </div>
-
-          <div className="mt-4 grid gap-3 rounded-xl border border-border bg-bg p-4">
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-xs font-semibold uppercase tracking-[0.14em] text-text-tertiary">当前状态</span>
-              <span className="rounded-full bg-ice-100 px-3 py-1 text-xs font-semibold text-ice-700 dark:bg-ice-900/40 dark:text-ice-200">
-                {runStatus} / {workflowState}
-              </span>
+              <input
+                className="mt-2 w-full min-w-0 bg-transparent text-2xl font-semibold tracking-tight text-text-primary outline-none"
+                value=""
+                onChange={(event) => updateActiveTask((task) => ({ ...task, title: event.target.value }))}
+              />
+              <p className="mt-1 text-sm text-text-secondary">
+                Created {formatTime(activeTask.createdAt)} · Updated {formatTime(activeTask.updatedAt)}
+              </p>
             </div>
-            <div className="h-2 overflow-hidden rounded-full bg-ice-100 dark:bg-ice-900/40">
-              <div className="h-full rounded-full bg-ice-500 transition-all" style={{ width: `${Math.max(0, Math.min(progress, 100))}%` }} />
+            <div className="flex shrink-0 items-center gap-2">
+              {(["setup", "run", "results"] satisfies WorkbenchView[]).map((view) => (
+                <button
+                  key={view}
+                  type="button"
+                  className={
+                    activeTask.view === view
+                      ? "rounded-lg bg-ice-500 px-3 py-2 text-xs font-semibold uppercase text-white"
+                      : SECONDARY_BUTTON_CLASS
+                  }
+                  onClick={() => setTaskView(view)}
+                >
+                  {view}
+                </button>
+              ))}
             </div>
-            {runState ? (
-              <div className="grid gap-2 font-mono text-xs text-text-tertiary">
-                <span>runId: {runState.runId}</span>
-                <span>pid: {runState.pid ?? "-"}</span>
-                <span>outdir: {runState.outdir}</span>
-                <span>exitCode: {runState.exitCode ?? "-"}</span>
-                <span>logPath: {resolvedLogPath || "-"}</span>
-                <span>summaryPath: {resolvedSummaryPath || "-"}</span>
-                <span>startedAt: {runState.startedAt ?? "-"}</span>
-                <span>finishedAt: {runState.finishedAt ?? "-"}</span>
-              </div>
-            ) : null}
-            {runError ? <p className="text-sm font-medium text-rose-600 dark:text-rose-300">{runError}</p> : null}
           </div>
+        </header>
 
-          {runStatus === "confirming" ? (
-            <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-900/40 dark:bg-amber-950/20">
-              <h3 className="text-sm font-semibold text-text-primary">确认 AnalysisRequest JSON</h3>
-              <pre className="mt-3 max-h-64 overflow-auto rounded-lg border border-border bg-bg p-3 font-mono text-xs leading-6 text-text-secondary">
-                {pendingRequestJson}
-              </pre>
-              <div className="mt-3 flex gap-2">
-                <button type="button" className="rounded-lg bg-ice-500 px-3 py-2 text-xs font-semibold text-white" onClick={handleConfirmRun}>
-                  确认运行
-                </button>
-                <button type="button" className={SECONDARY_BUTTON_CLASS} onClick={() => setRunStatus("idle")}>
-                  取消
-                </button>
-              </div>
+        <div className="min-h-0 flex-1 overflow-auto px-14 py-8">
+          {activeTask.view === "setup" ? (
+            <div className="mx-auto grid w-full max-w-4xl gap-6">
+              <section className={PANEL_BODY_CLASS}>
+                <SectionTitle
+                  title="Inputs and output"
+                  subtitle="Choose the data source, output directory, and task-level options for the active task."
+                />
+                <div className="mt-4 grid gap-4 lg:grid-cols-2">
+                  <label>
+                    <span className={LABEL_CLASS}>input mode</span>
+                    <select
+                      className={FIELD_CLASS}
+                      value={draft.inputMode}
+                      onChange={(event) => patchDraft({ inputMode: event.target.value as AnalysisInputMode })}
+                    >
+                      <option value="auto_directory">auto_directory</option>
+                      <option value="bed_cds">bed_cds</option>
+                      <option value="gff_genome">gff_genome</option>
+                    </select>
+                  </label>
+                  <label>
+                    <span className={LABEL_CLASS}>workflow</span>
+                    <select
+                      className={FIELD_CLASS}
+                      value={draft.mcscan.workflow}
+                      onChange={(event) => patchMcscan({ workflow: event.target.value as McscanWorkflow })}
+                    >
+                      {WORKFLOW_OPTIONS.map((workflow) => (
+                        <option key={workflow} value={workflow}>
+                          {workflow}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+
+                <div className="mt-4 grid gap-4">
+                  <label>
+                    <span className={LABEL_CLASS}>input directory</span>
+                    <div className="mt-2 flex gap-2">
+                      <input
+                        className="min-w-0 flex-1 rounded-lg border border-border bg-bg px-3 py-2 text-sm text-text-primary shadow-sm outline-none transition focus:border-ice-400 focus:ring-2 focus:ring-ice-200 dark:focus:ring-ice-900/60"
+                        value={draft.directory}
+                        onChange={(event) => patchDraft({ directory: event.target.value })}
+                        placeholder="Select a workspace or request input directory"
+                      />
+                      <button type="button" className={SECONDARY_BUTTON_CLASS} onClick={() => pickDirectory((path) => patchDraft({ directory: path }))}>
+                        Browse
+                      </button>
+                    </div>
+                    <IssueText issue={directoryIssue} />
+                  </label>
+
+                  <label>
+                    <span className={LABEL_CLASS}>output directory</span>
+                    <div className="mt-2 flex gap-2">
+                      <input
+                        className="min-w-0 flex-1 rounded-lg border border-border bg-bg px-3 py-2 text-sm text-text-primary shadow-sm outline-none transition focus:border-ice-400 focus:ring-2 focus:ring-ice-200 dark:focus:ring-ice-900/60"
+                        value={draft.outputDirectory}
+                        onChange={(event) => patchDraft({ outputDirectory: event.target.value })}
+                        placeholder="Select where this task should write outputs"
+                      />
+                      <button
+                        type="button"
+                        className={SECONDARY_BUTTON_CLASS}
+                        onClick={() => pickDirectory((path) => patchDraft({ outputDirectory: path }))}
+                      >
+                        Browse
+                      </button>
+                    </div>
+                    <IssueText issue={outputIssue} />
+                  </label>
+                </div>
+              </section>
+
+              {draft.inputMode !== "auto_directory" ? (
+                <section className={PANEL_BODY_CLASS}>
+                  <div className="flex items-start justify-between gap-3">
+                    <SectionTitle
+                      title="Species inputs"
+                      subtitle="Explicit species mode is available for workflows that do not use auto_directory."
+                    />
+                    <button type="button" className={SECONDARY_BUTTON_CLASS} onClick={addSpecies}>
+                      Add species
+                    </button>
+                  </div>
+                  <div className="mt-4 grid gap-3">
+                    {draft.species.map((species, index) => (
+                      <div key={index} className="rounded-lg border border-border bg-bg p-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <label className="min-w-0 flex-1">
+                            <span className={LABEL_CLASS}>species name</span>
+                            <input
+                              className={FIELD_CLASS}
+                              value={species.name}
+                              onChange={(event) => updateSpecies(index, { name: event.target.value })}
+                            />
+                          </label>
+                          <button type="button" className={SECONDARY_BUTTON_CLASS} onClick={() => removeSpecies(index)}>
+                            Remove
+                          </button>
+                        </div>
+                        {species.inputMode === "bed_cds" ? (
+                          <div className="mt-3 grid gap-3 lg:grid-cols-2">
+                            <PathField label="BED" value={species.bed} onChange={(path) => updateSpecies(index, { bed: path })} pickFile={pickFile} />
+                            <PathField label="CDS" value={species.cds} onChange={(path) => updateSpecies(index, { cds: path })} pickFile={pickFile} />
+                          </div>
+                        ) : (
+                          <div className="mt-3 grid gap-3 lg:grid-cols-2">
+                            <PathField label="GFF" value={species.gff} onChange={(path) => updateSpecies(index, { gff: path })} pickFile={pickFile} />
+                            <PathField
+                              label="Genome"
+                              value={species.genome}
+                              onChange={(path) => updateSpecies(index, { genome: path })}
+                              pickFile={pickFile}
+                            />
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              ) : null}
+
+              <section className={PANEL_BODY_CLASS}>
+                <SectionTitle title="Analysis options" subtitle="Keep transport fields aligned with the GenomeLens request contract." />
+                <div className="mt-4 grid gap-4 lg:grid-cols-3">
+                  <label>
+                    <span className={LABEL_CLASS}>threads</span>
+                    <input
+                      className={FIELD_CLASS}
+                      type="number"
+                      min={1}
+                      value={draft.options.threads ?? ""}
+                      onChange={(event) => patchOptions({ threads: updateNumber(event.target.value) })}
+                    />
+                    <IssueText issue={threadsIssue} />
+                  </label>
+                  <label>
+                    <span className={LABEL_CLASS}>min block size</span>
+                    <input
+                      className={FIELD_CLASS}
+                      type="number"
+                      min={1}
+                      value={draft.options.minBlockSize ?? ""}
+                      onChange={(event) => patchOptions({ minBlockSize: updateNumber(event.target.value) })}
+                    />
+                    <IssueText issue={minBlockIssue} />
+                  </label>
+                  <label>
+                    <span className={LABEL_CLASS}>log level</span>
+                    <select
+                      className={FIELD_CLASS}
+                      value={draft.options.logLevel}
+                      onChange={(event) => patchOptions({ logLevel: event.target.value as LogLevel })}
+                    >
+                      {LOG_LEVELS.map((level) => (
+                        <option key={level} value={level}>
+                          {level}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+
+                <div className="mt-5 flex flex-wrap gap-4">
+                  {FORMAT_OPTIONS.map((format) => (
+                    <label key={format} className="inline-flex items-center gap-2 text-sm font-medium text-text-secondary">
+                      <input
+                        className={CHECKBOX_CLASS}
+                        type="checkbox"
+                        checked={draft.formats.includes(format)}
+                        onChange={() => toggleFormat(format)}
+                      />
+                      {format}
+                    </label>
+                  ))}
+                  {[
+                    ["forceOutput", "force output"],
+                    ["verbose", "verbose"],
+                    ["consoleLog", "console log"],
+                  ].map(([key, label]) => (
+                    <label key={key} className="inline-flex items-center gap-2 text-sm font-medium text-text-secondary">
+                      <input
+                        className={CHECKBOX_CLASS}
+                        type="checkbox"
+                        checked={
+                          key === "forceOutput"
+                            ? draft.forceOutput
+                            : key === "verbose"
+                              ? draft.options.verbose
+                              : draft.options.consoleLog
+                        }
+                        onChange={(event) => {
+                          if (key === "forceOutput") {
+                            patchDraft({ forceOutput: event.target.checked });
+                          } else if (key === "verbose") {
+                            patchOptions({ verbose: event.target.checked });
+                          } else {
+                            patchOptions({ consoleLog: event.target.checked });
+                          }
+                        }}
+                      />
+                      {label}
+                    </label>
+                  ))}
+                </div>
+              </section>
+
+              <section className={PANEL_BODY_CLASS}>
+                <SectionTitle title="MCSCAN parameters" subtitle="Advanced options remain task-local and can diverge per task." />
+                <div className="mt-4 grid gap-4 lg:grid-cols-3">
+                  <label>
+                    <span className={LABEL_CLASS}>align_soft</span>
+                    <select
+                      className={FIELD_CLASS}
+                      value={draft.mcscan.alignSoft}
+                      onChange={(event) => patchMcscan({ alignSoft: event.target.value as AlignSoft })}
+                    >
+                      <option value="blast">blast</option>
+                      <option value="last">last</option>
+                      <option value="diamond_blastp">diamond_blastp</option>
+                    </select>
+                  </label>
+                  <label>
+                    <span className={LABEL_CLASS}>dbtype</span>
+                    <select
+                      className={FIELD_CLASS}
+                      value={draft.mcscan.dbtype}
+                      onChange={(event) => patchMcscan({ dbtype: event.target.value as DbType })}
+                    >
+                      <option value="nucl">nucl</option>
+                      <option value="prot">prot</option>
+                    </select>
+                  </label>
+                  <label>
+                    <span className={LABEL_CLASS}>figsize</span>
+                    <input className={FIELD_CLASS} value={draft.mcscan.figsize} onChange={(event) => patchMcscan({ figsize: event.target.value })} />
+                  </label>
+                  {MCSCAN_NUMBER_FIELDS.map(({ key, label, min, max, step }) => (
+                    <label key={key}>
+                      <span className={LABEL_CLASS}>{label}</span>
+                      <input
+                        className={FIELD_CLASS}
+                        type="number"
+                        min={min}
+                        max={max}
+                        step={step}
+                        value={draft.mcscan[key]}
+                        onChange={(event) => patchMcscan({ [key]: Number(event.target.value) })}
+                      />
+                    </label>
+                  ))}
+                </div>
+
+                <label className="mt-4 block">
+                  <span className={LABEL_CLASS}>target_gene_ids</span>
+                  <textarea
+                    className={`${FIELD_CLASS} min-h-24`}
+                    value={targetGeneText}
+                    onChange={(event) => patchMcscan({ targetGeneIds: splitTargets(event.target.value) })}
+                    placeholder="One gene id per line, or comma-separated"
+                  />
+                  <IssueText issue={issueFor(validation.issues, "method_config.target_gene_ids")} />
+                </label>
+
+                <div className="mt-5 grid gap-3 lg:grid-cols-2">
+                  {[
+                    ["allowSimplifiedFallback", "allow_simplified_fallback"],
+                    ["splitTargets", "split_targets"],
+                    ["labelTargets", "label_targets"],
+                    ["optimizeFigsize", "optimize_figsize"],
+                    ["rewriteLayoutLinks", "rewrite_layout_links"],
+                    ["trimCrossChromosomeBlocks", "trim_cross_chromosome_blocks"],
+                  ].map(([key, label]) => (
+                    <label key={key} className="inline-flex items-center gap-2 text-sm font-medium text-text-secondary">
+                      <input
+                        className={CHECKBOX_CLASS}
+                        type="checkbox"
+                        checked={draft.mcscan[key as keyof AnalysisRequestDraft["mcscan"]] as boolean}
+                        onChange={(event) => patchMcscan({ [key]: event.target.checked } as Partial<AnalysisRequestDraft["mcscan"]>)}
+                      />
+                      {label}
+                    </label>
+                  ))}
+                </div>
+              </section>
             </div>
           ) : null}
 
-          <div className="mt-4">
-            <h3 className="text-sm font-semibold text-text-primary">最近日志</h3>
-            <pre className="mt-3 max-h-56 overflow-auto rounded-xl border border-border bg-bg p-4 font-mono text-xs leading-6 text-text-secondary">
-              {logLines.length > 0 ? logLines.join("\n") : "等待 analysis:stdout 或 read_run_log()"}
-            </pre>
-          </div>
-        </section>
+          {activeTask.view === "run" ? (
+            <div className="mx-auto grid w-full max-w-4xl gap-6">
+              <section className={PANEL_BODY_CLASS}>
+                <SectionTitle title="Run control" subtitle="One task maps to one request file and one GenomeLens run." />
+                <div className="mt-4 flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    className={PRIMARY_BUTTON_CLASS}
+                    disabled={activeTask.runStatus === "starting" || activeTask.runStatus === "running"}
+                    onClick={handlePrepareRun}
+                  >
+                    Run active task
+                  </button>
+                  <button type="button" className={SECONDARY_BUTTON_CLASS} onClick={handleReadLog}>
+                    Refresh log
+                  </button>
+                  <button type="button" className={SECONDARY_BUTTON_CLASS} onClick={handleReadSummary}>
+                    Read summary
+                  </button>
+                  <button type="button" className={SECONDARY_BUTTON_CLASS} disabled={!resolvedLogPath} onClick={handleOpenLog}>
+                    Open log
+                  </button>
+                  <button
+                    type="button"
+                    className={SECONDARY_BUTTON_CLASS}
+                    disabled={!resolvedSummaryPath}
+                    onClick={handleOpenSummary}
+                  >
+                    Open summary
+                  </button>
+                  <button type="button" className={SECONDARY_BUTTON_CLASS} onClick={handleOpenOutput}>
+                    Open output
+                  </button>
+                </div>
 
-        <section className={FIELD_GROUP_CLASS}>
-          <SectionTitle title="结果轻展示" subtitle="read_summary() -> RunSummaryViewModel" />
-          {summaryView ? (
-            <div className="mt-4 grid gap-4">
-              <div className="grid gap-2 rounded-xl border border-border bg-bg p-4 text-sm text-text-secondary">
-                <div className="flex justify-between gap-3">
-                  <span>status</span>
-                  <span className="font-semibold text-text-primary">{summaryView.status}</span>
+                <div className="mt-5 grid gap-3 rounded-lg border border-border bg-bg p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-xs font-semibold uppercase tracking-[0.14em] text-text-tertiary">status</span>
+                    <span className={`rounded-full px-3 py-1 text-xs font-semibold uppercase ${statusTone(activeTask.runStatus)}`}>
+                      {activeTask.runStatus} / {workflowState}
+                    </span>
+                  </div>
+                  <div className="h-2 overflow-hidden rounded-full bg-ice-100 dark:bg-ice-900/40">
+                    <div className="h-full rounded-full bg-ice-500 transition-all" style={{ width: `${Math.max(0, Math.min(progress, 100))}%` }} />
+                  </div>
+                  {activeTask.runState ? (
+                    <div className="grid gap-2 font-mono text-xs text-text-tertiary">
+                      <span>runId: {activeTask.runState.runId}</span>
+                      <span>pid: {activeTask.runState.pid ?? "-"}</span>
+                      <span>outdir: {activeTask.runState.outdir}</span>
+                      <span>exitCode: {activeTask.runState.exitCode ?? "-"}</span>
+                      <span>logPath: {resolvedLogPath || "-"}</span>
+                      <span>summaryPath: {resolvedSummaryPath || "-"}</span>
+                    </div>
+                  ) : null}
+                  {activeTask.runError ? (
+                    <p className="text-sm font-medium text-rose-600 dark:text-rose-300">{activeTask.runError}</p>
+                  ) : null}
                 </div>
-                <div className="flex justify-between gap-3">
-                  <span>workflow</span>
-                  <span className="font-semibold text-text-primary">{summaryView.workflow}</span>
-                </div>
-                <div className="flex justify-between gap-3">
-                  <span>progress</span>
-                  <span className="font-semibold text-text-primary">{toProgressPercent(summaryView.progress)}%</span>
-                </div>
-                <div className="flex justify-between gap-3">
-                  <span>summary path</span>
-                  <span className="break-all font-mono text-[11px] text-text-tertiary">
-                    {resolvedSummaryPath || "-"}
-                  </span>
-                </div>
-                <div className="flex justify-between gap-3">
-                  <span>log path</span>
-                  <span className="break-all font-mono text-[11px] text-text-tertiary">
-                    {resolvedLogPath || "-"}
-                  </span>
-                </div>
-              </div>
-              <div>
-                <h3 className="text-sm font-semibold text-text-primary">主要图件</h3>
-                <div className="mt-3 grid gap-2">
-                  {summaryView.figureAssets.length > 0 ? (
-                    summaryView.figureAssets.slice(0, 8).map((asset) => (
-                      <div key={asset.path} className="rounded-lg border border-border bg-bg p-3">
-                        <p className="text-sm font-semibold text-text-primary">{asset.name}</p>
-                        <p className="mt-1 break-all font-mono text-xs text-text-tertiary">{asset.path}</p>
+              </section>
+
+              {activeTask.runStatus === "confirming" ? (
+                <section className="rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-900/40 dark:bg-amber-950/20">
+                  <h3 className="text-sm font-semibold text-text-primary">Confirm AnalysisRequest JSON</h3>
+                  <pre className="mt-3 max-h-72 overflow-auto rounded-lg border border-border bg-bg p-3 font-mono text-xs leading-6 text-text-secondary">
+                    {activeTask.pendingRequestJson}
+                  </pre>
+                  <div className="mt-3 flex gap-2">
+                    <button type="button" className={PRIMARY_BUTTON_CLASS} onClick={handleConfirmRun}>
+                      Confirm run
+                    </button>
+                    <button type="button" className={SECONDARY_BUTTON_CLASS} onClick={() => updateActiveTask((task) => ({ ...task, runStatus: "idle" }))}>
+                      Cancel
+                    </button>
+                  </div>
+                </section>
+              ) : null}
+
+              <section className={PANEL_BODY_CLASS}>
+                <SectionTitle title="Live log" subtitle="Stable run.log lines are streamed into this task context." />
+                <pre className="mt-4 max-h-[30rem] overflow-auto rounded-lg border border-border bg-bg p-4 font-mono text-xs leading-6 text-text-secondary">
+                  {logLines.length > 0 ? logLines.join("\n") : "Waiting for analysis:stdout or read_run_log()."}
+                </pre>
+              </section>
+            </div>
+          ) : null}
+
+          {activeTask.view === "results" ? (
+            <div className="mx-auto grid w-full max-w-4xl gap-6">
+              <section className={PANEL_BODY_CLASS}>
+                <SectionTitle title="Results" subtitle="Read run_summary.json for the active task." />
+                {summaryView ? (
+                  <div className="mt-4 grid gap-4">
+                    <div className="grid gap-2 rounded-lg border border-border bg-bg p-4 text-sm text-text-secondary">
+                      <div className="flex justify-between gap-3">
+                        <span>status</span>
+                        <span className="font-semibold text-text-primary">{summaryView.status}</span>
                       </div>
-                    ))
-                  ) : (
-                    <p className="rounded-lg border border-border bg-bg p-3 text-sm text-text-secondary">summary 暂无图件索引。</p>
-                  )}
-                </div>
-              </div>
+                      <div className="flex justify-between gap-3">
+                        <span>workflow</span>
+                        <span className="font-semibold text-text-primary">{summaryView.workflow}</span>
+                      </div>
+                      <div className="flex justify-between gap-3">
+                        <span>progress</span>
+                        <span className="font-semibold text-text-primary">{toProgressPercent(summaryView.progress)}%</span>
+                      </div>
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-semibold text-text-primary">Figure assets</h3>
+                      <div className="mt-3 grid gap-2">
+                        {summaryView.figureAssets.length > 0 ? (
+                          summaryView.figureAssets.slice(0, 12).map((asset) => (
+                            <div key={asset.path} className="rounded-lg border border-border bg-bg p-3">
+                              <p className="text-sm font-semibold text-text-primary">{asset.name}</p>
+                              <p className="mt-1 break-all font-mono text-xs text-text-tertiary">{asset.path}</p>
+                            </div>
+                          ))
+                        ) : (
+                          <p className="rounded-lg border border-border bg-bg p-3 text-sm text-text-secondary">
+                            No figure assets listed in summary yet.
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="mt-4 rounded-lg border border-border bg-bg p-4">
+                    <p className="text-sm text-text-secondary">No summary loaded for this task.</p>
+                    <button type="button" className={`${PRIMARY_BUTTON_CLASS} mt-4`} onClick={handleReadSummary}>
+                      Read summary
+                    </button>
+                  </div>
+                )}
+              </section>
+
+              <section className={PANEL_BODY_CLASS}>
+                <SectionTitle title="Request JSON" subtitle="Current task request preview." />
+                <pre className="mt-4 max-h-[28rem] overflow-auto rounded-lg border border-border bg-bg p-4 font-mono text-xs leading-6 text-text-secondary">
+                  {requestJson}
+                </pre>
+              </section>
             </div>
-          ) : (
-            <p className="mt-4 rounded-lg border border-border bg-bg p-3 text-sm text-text-secondary">
-              运行结束后会自动读取 summary，也可以手动点击“读取 summary”。
-            </p>
-          )}
-        </section>
+          ) : null}
+        </div>
+      </main>
 
-        <section className={FIELD_GROUP_CLASS}>
-          <SectionTitle title="校验结果" subtitle="validateAnalysisRequestDraft()" />
-          {validation.issues.length === 0 ? (
-            <p className="mt-4 rounded-lg bg-emerald-50 p-3 text-sm font-medium text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-200">
-              当前 draft 可以转换为 AnalysisRequest。
-            </p>
-          ) : (
-            <div className="mt-4 grid gap-2">
-              {validation.issues.map((item) => (
-                <div key={`${item.field}-${item.code}`} className="rounded-lg border border-border bg-bg p-3">
-                  <p className="font-mono text-[11px] text-text-tertiary">{item.field}</p>
-                  <p className="mt-1 text-sm font-medium text-text-primary">{item.message}</p>
-                </div>
-              ))}
+      <aside className="min-h-0 overflow-hidden border-l border-slate-100 bg-white px-5 py-20">
+        <div className="max-h-[calc(100vh-7rem)] overflow-hidden rounded-[1.35rem] border border-slate-200 bg-white shadow-[0_10px_35px_rgba(15,23,42,0.10)]">
+        <div className="border-b border-slate-100 p-5">
+          <p className="text-base font-medium text-slate-500">环境信息</p>
+          <h2 className="sr-only">Environment</h2>
+        </div>
+        <div className="max-h-[calc(100vh-12rem)] overflow-auto p-5">
+          <section>
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="text-sm font-medium text-slate-900">变更</h3>
+              <button type="button" className="rounded-lg px-2 py-1 text-xl leading-none text-slate-400 hover:bg-slate-100 hover:text-slate-700" onClick={() => onNavigate("/settings")}>
+                +
+              </button>
             </div>
-          )}
-        </section>
+            <button type="button" className="mt-3 flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left text-sm text-slate-700 hover:bg-slate-50" onClick={() => onNavigate("/settings")}>
+              <GameIcon name="environment" className="h-4 w-4" />
+              环境诊断
+            </button>
+            <button type="button" className="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left text-sm text-slate-700 hover:bg-slate-50" onClick={handleOpenOutput}>
+              <GameIcon name="local" className="h-4 w-4" />
+              工作树
+            </button>
+            <button type="button" className="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left text-sm text-slate-700 hover:bg-slate-50" onClick={handlePrepareRun}>
+              <GameIcon name="pairwise" className="h-4 w-4" />
+              提交或推送
+            </button>
+            <div className="mt-3 hidden">
+              <button type="button" className={SECONDARY_BUTTON_CLASS} onClick={() => onNavigate("/settings")}>
+                Check
+              </button>
+            </div>
+            <div className="mt-4 grid gap-2 text-sm text-text-secondary">
+              <InfoRow label="workflow" value={draft.mcscan.workflow} />
+              <InfoRow label="input" value={draft.directory || "-"} />
+              <InfoRow label="output" value={draft.outputDirectory || "-"} />
+              <InfoRow label="issues" value={String(validation.issues.length)} />
+            </div>
+          </section>
 
-        <section className={FIELD_GROUP_CLASS}>
-          <SectionTitle title="请求预览" subtitle="draftToAnalysisRequest()" />
-          <pre className="mt-4 max-h-[26rem] overflow-auto rounded-xl border border-border bg-bg p-4 font-mono text-xs leading-6 text-text-secondary">
-            {requestJson}
-          </pre>
-        </section>
+          <section className="mt-5 border-t border-slate-100 pt-5">
+            <h3 className="text-sm font-medium text-slate-900">工作树</h3>
+            <div className="mt-3 grid gap-2 text-sm text-text-secondary">
+              <InfoRow label="status" value={activeTask.runStatus} />
+              <InfoRow label="state" value={workflowState} />
+              <InfoRow label="progress" value={`${Math.round(progress)}%`} />
+              <InfoRow label="runId" value={activeTask.runState?.runId ?? "-"} />
+            </div>
+          </section>
 
-        <section className={FIELD_GROUP_CLASS}>
-          <SectionTitle title="Schema 参考" subtitle="get_analysis_schema()" />
-          <pre className="mt-4 max-h-72 overflow-auto rounded-xl border border-border bg-bg p-4 font-mono text-xs leading-6 text-text-secondary">
-            {schemaJson || "Schema 未返回"}
-          </pre>
-        </section>
+          <section className="mt-5 border-t border-slate-100 pt-5">
+            <h3 className="text-sm font-medium text-slate-900">最近日志</h3>
+            <div className="mt-3 grid gap-2">
+              {recentEvents.length > 0 ? (
+                recentEvents.map((line, index) => (
+                  <div key={`${index}-${line}`} className="rounded-lg border border-border bg-bg px-3 py-2 font-mono text-[11px] leading-5 text-text-tertiary">
+                    {line}
+                  </div>
+                ))
+              ) : (
+                <p className="rounded-lg border border-border bg-bg p-3 text-sm text-text-secondary">
+                  Run events will appear here.
+                </p>
+              )}
+            </div>
+          </section>
+
+          <section className="mt-5 border-t border-slate-100 pt-5">
+            <h3 className="text-sm font-medium text-slate-900">来源</h3>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <span className="rounded-full border border-border bg-bg px-3 py-1 text-xs text-text-secondary">GenomeLens CLI</span>
+              <span className="rounded-full border border-border bg-bg px-3 py-1 text-xs text-text-secondary">JCVI engine</span>
+              <span className="rounded-full border border-border bg-bg px-3 py-1 text-xs text-text-secondary">run.log</span>
+            </div>
+          </section>
+
+          <section className="mt-5 border-t border-slate-100 pt-5">
+            <SectionTitle title="Schema" subtitle="get_analysis_schema()" />
+            <pre className="mt-3 max-h-64 overflow-auto rounded-lg border border-border bg-bg p-3 font-mono text-[11px] leading-5 text-text-tertiary">
+              {schemaJson || "Schema not loaded."}
+            </pre>
+          </section>
+        </div>
+        </div>
       </aside>
     </div>
+  );
+}
+
+function InfoRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="grid grid-cols-[5rem_minmax(0,1fr)] gap-3 rounded-lg px-2 py-1.5">
+      <span className="text-xs font-medium text-slate-400">{label}</span>
+      <span className="truncate font-mono text-xs text-slate-600" title={value}>
+        {value}
+      </span>
+    </div>
+  );
+}
+
+function PathField({
+  label,
+  value,
+  onChange,
+  pickFile,
+}: {
+  label: string;
+  value: string;
+  onChange: (path: string) => void;
+  pickFile: (onSelect: (path: string) => void) => Promise<void>;
+}) {
+  return (
+    <label>
+      <span className={LABEL_CLASS}>{label}</span>
+      <div className="mt-2 flex gap-2">
+        <input
+          className="min-w-0 flex-1 rounded-lg border border-border bg-bg px-3 py-2 text-sm text-text-primary shadow-sm outline-none transition focus:border-ice-400 focus:ring-2 focus:ring-ice-200 dark:focus:ring-ice-900/60"
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+        />
+        <button type="button" className={SECONDARY_BUTTON_CLASS} onClick={() => void pickFile(onChange)}>
+          Browse
+        </button>
+      </div>
+    </label>
   );
 }
