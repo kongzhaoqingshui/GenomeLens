@@ -1,9 +1,12 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::collections::HashSet;
+use std::env;
+use std::ffi::OsString;
 use std::fs::File;
 use std::io::{BufReader, Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
+use std::process::{Child, Command, Stdio};
 use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Emitter};
@@ -133,27 +136,50 @@ struct RunEventContext {
     summary_path: String,
 }
 
+#[derive(Debug, Clone, Copy)]
+enum CliTool {
+    Platform,
+    Engine,
+}
+
+#[derive(Debug, Clone)]
+struct ResolvedCliCommand {
+    program: OsString,
+    display: String,
+}
+
+#[derive(Debug)]
+struct CommandOutputResult {
+    command_text: String,
+    output: std::process::Output,
+}
+
+#[derive(Debug)]
+struct SpawnedCliProcess {
+    child: Child,
+}
+
 #[tauri::command]
 pub fn get_version() -> VersionInfo {
     VersionInfo {
-        platform: command_version("genomelens", &["--version"]),
-        engine: command_version("jcvi-genomelens", &["probe"]),
+        platform: command_version(CliTool::Platform, &["--version"]),
+        engine: command_version(CliTool::Engine, &["probe"]),
     }
 }
 
 #[tauri::command]
 pub fn get_template(method: String) -> Result<Value, String> {
-    run_json_command("genomelens", &["analyze", "template", &method])
+    run_json_command(CliTool::Platform, &["analyze", "template", &method])
 }
 
 #[tauri::command]
 pub fn get_analysis_schema() -> Result<Value, String> {
-    run_json_command("genomelens", &["analyze", "schema"])
+    run_json_command(CliTool::Platform, &["analyze", "schema"])
 }
 
 #[tauri::command]
 pub fn check_environment() -> Result<Value, String> {
-    run_json_command("genomelens", &["check", "-j"])
+    run_json_command(CliTool::Platform, &["check", "-j"])
 }
 
 #[tauri::command]
@@ -262,13 +288,9 @@ pub fn run_analysis(app: AppHandle, input: RunAnalysisInput) -> Result<RunHandle
         .to_string_lossy()
         .to_string();
 
-    let mut child = Command::new("genomelens")
-        .args(["analyze", "run", &request_path])
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .spawn()
+    let spawned = spawn_cli_process(CliTool::Platform, &["analyze", "run", &request_path])
         .map_err(|error| {
-            let message = format!("genomelens analyze run {}: {}", request_path, error);
+            let message = format!("run analysis {}: {}", request_path, error);
             let _ = app.emit(
                 "analysis:error",
                 AnalysisErrorEventPayload {
@@ -287,6 +309,7 @@ pub fn run_analysis(app: AppHandle, input: RunAnalysisInput) -> Result<RunHandle
             );
             message
         })?;
+    let mut child = spawned.child;
     let pid = child.id();
 
     let app_handle = app.clone();
@@ -617,54 +640,306 @@ fn workflow_progress(state: &str) -> f64 {
     }
 }
 
-fn command_version(program: &str, args: &[&str]) -> CommandVersion {
-    let command_text = std::iter::once(program)
-        .chain(args.iter().copied())
-        .collect::<Vec<_>>()
-        .join(" ");
+impl CliTool {
+    fn command_name(self) -> &'static str {
+        match self {
+            Self::Platform => "genomelens",
+            Self::Engine => "jcvi-genomelens",
+        }
+    }
 
-    match Command::new(program).args(args).output() {
-        Ok(output) if output.status.success() => CommandVersion {
+    fn override_env_var(self) -> &'static str {
+        match self {
+            Self::Platform => "GENOMELENS_CLI",
+            Self::Engine => "JCVI_GENOMELENS_CLI",
+        }
+    }
+}
+
+fn command_version(tool: CliTool, args: &[&str]) -> CommandVersion {
+    match run_cli_output(tool, args) {
+        Ok(result) if result.output.status.success() => CommandVersion {
             ok: true,
-            command: command_text,
-            version: String::from_utf8_lossy(&output.stdout).trim().to_string(),
+            command: result.command_text,
+            version: String::from_utf8_lossy(&result.output.stdout)
+                .trim()
+                .to_string(),
             error: None,
         },
-        Ok(output) => CommandVersion {
+        Ok(result) => CommandVersion {
             ok: false,
-            command: command_text,
-            version: String::from_utf8_lossy(&output.stdout).trim().to_string(),
-            error: Some(String::from_utf8_lossy(&output.stderr).trim().to_string()),
+            command: result.command_text,
+            version: String::from_utf8_lossy(&result.output.stdout)
+                .trim()
+                .to_string(),
+            error: Some(
+                String::from_utf8_lossy(&result.output.stderr)
+                    .trim()
+                    .to_string(),
+            ),
         },
         Err(error) => CommandVersion {
             ok: false,
-            command: command_text,
+            command: render_logical_command(tool, args),
             version: String::new(),
             error: Some(error.to_string()),
         },
     }
 }
 
-fn run_json_command(program: &str, args: &[&str]) -> Result<Value, String> {
-    let command_text = std::iter::once(program)
-        .chain(args.iter().copied())
-        .collect::<Vec<_>>()
-        .join(" ");
+fn run_json_command(tool: CliTool, args: &[&str]) -> Result<Value, String> {
+    let output = run_cli_output(tool, args)?;
 
-    let output = Command::new(program)
-        .args(args)
-        .output()
-        .map_err(|error| format!("{command_text}: {error}"))?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
-        let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    if !output.output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.output.stderr)
+            .trim()
+            .to_string();
+        let stdout = String::from_utf8_lossy(&output.output.stdout)
+            .trim()
+            .to_string();
         let message = if stderr.is_empty() { stdout } else { stderr };
-        return Err(format!("{command_text}: {message}"));
+        return Err(format!("{}: {}", output.command_text, message));
     }
 
-    serde_json::from_slice(&output.stdout)
-        .map_err(|error| format!("{command_text}: invalid JSON: {error}"))
+    serde_json::from_slice(&output.output.stdout)
+        .map_err(|error| format!("{}: invalid JSON: {}", output.command_text, error))
+}
+
+fn run_cli_output(tool: CliTool, args: &[&str]) -> Result<CommandOutputResult, String> {
+    let candidates = resolve_cli_candidates(tool);
+    let mut attempt_texts = Vec::with_capacity(candidates.len());
+    let mut errors = Vec::new();
+
+    for candidate in candidates {
+        let command_text = render_command_text(&candidate.display, args);
+        attempt_texts.push(command_text.clone());
+
+        match Command::new(&candidate.program).args(args).output() {
+            Ok(output) => {
+                return Ok(CommandOutputResult {
+                    command_text,
+                    output,
+                });
+            }
+            Err(error) if is_not_found_error(&error) => {
+                errors.push(format!("{command_text}: {error}"));
+            }
+            Err(error) => {
+                return Err(format!("{}: {}", command_text, error));
+            }
+        }
+    }
+
+    Err(render_resolution_error(
+        tool.command_name(),
+        &attempt_texts,
+        &errors,
+    ))
+}
+
+fn spawn_cli_process(tool: CliTool, args: &[&str]) -> Result<SpawnedCliProcess, String> {
+    let candidates = resolve_cli_candidates(tool);
+    let mut attempt_texts = Vec::with_capacity(candidates.len());
+    let mut errors = Vec::new();
+
+    for candidate in candidates {
+        let command_text = render_command_text(&candidate.display, args);
+        attempt_texts.push(command_text.clone());
+
+        let mut command = Command::new(&candidate.program);
+        command
+            .args(args)
+            .stdout(Stdio::null())
+            .stderr(Stdio::null());
+
+        match command.spawn() {
+            Ok(child) => {
+                return Ok(SpawnedCliProcess { child });
+            }
+            Err(error) if is_not_found_error(&error) => {
+                errors.push(format!("{command_text}: {error}"));
+            }
+            Err(error) => {
+                return Err(format!("{}: {}", command_text, error));
+            }
+        }
+    }
+
+    Err(render_resolution_error(
+        tool.command_name(),
+        &attempt_texts,
+        &errors,
+    ))
+}
+
+fn resolve_cli_candidates(tool: CliTool) -> Vec<ResolvedCliCommand> {
+    let mut candidates = Vec::new();
+    let mut seen = HashSet::new();
+    let explicit_override = env::var(tool.override_env_var()).ok();
+    let conda_prefix = env::var_os("CONDA_PREFIX").map(PathBuf::from);
+    let home_dir = resolve_home_dir();
+
+    if let Some(override_value) = explicit_override.as_deref() {
+        push_override_candidates(override_value, &mut candidates, &mut seen);
+    }
+
+    if let Some(prefix) = conda_prefix.as_deref() {
+        push_conda_env_candidates(prefix, tool.command_name(), &mut candidates, &mut seen);
+    }
+
+    for env_root in common_conda_env_roots(home_dir.as_deref()) {
+        push_conda_env_candidates(&env_root, tool.command_name(), &mut candidates, &mut seen);
+    }
+
+    push_named_candidate(tool.command_name(), &mut candidates, &mut seen);
+    candidates
+}
+
+fn push_override_candidates(
+    value: &str,
+    candidates: &mut Vec<ResolvedCliCommand>,
+    seen: &mut HashSet<String>,
+) {
+    if looks_like_path(value) {
+        push_program_path_candidates(Path::new(value), candidates, seen);
+    } else {
+        push_named_candidate(value, candidates, seen);
+    }
+}
+
+fn push_conda_env_candidates(
+    env_root: &Path,
+    program_name: &str,
+    candidates: &mut Vec<ResolvedCliCommand>,
+    seen: &mut HashSet<String>,
+) {
+    #[cfg(target_os = "windows")]
+    {
+        push_program_path_candidates(
+            &env_root.join("Scripts").join(program_name),
+            candidates,
+            seen,
+        );
+        push_program_path_candidates(
+            &env_root.join("Library").join("bin").join(program_name),
+            candidates,
+            seen,
+        );
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        push_program_path_candidates(&env_root.join("bin").join(program_name), candidates, seen);
+    }
+}
+
+fn push_program_path_candidates(
+    base_path: &Path,
+    candidates: &mut Vec<ResolvedCliCommand>,
+    seen: &mut HashSet<String>,
+) {
+    for candidate_path in command_path_variants(base_path) {
+        let display = candidate_path.display().to_string();
+        if seen.insert(display.clone()) {
+            candidates.push(ResolvedCliCommand {
+                program: candidate_path.into_os_string(),
+                display,
+            });
+        }
+    }
+}
+
+fn push_named_candidate(
+    program_name: &str,
+    candidates: &mut Vec<ResolvedCliCommand>,
+    seen: &mut HashSet<String>,
+) {
+    let display = program_name.to_string();
+    if seen.insert(display.clone()) {
+        candidates.push(ResolvedCliCommand {
+            program: OsString::from(program_name),
+            display,
+        });
+    }
+}
+
+fn command_path_variants(base_path: &Path) -> Vec<PathBuf> {
+    let mut variants = Vec::new();
+
+    #[cfg(target_os = "windows")]
+    if base_path.extension().is_none() {
+        for extension in ["exe", "cmd", "bat"] {
+            variants.push(base_path.with_extension(extension));
+        }
+    }
+
+    variants.push(base_path.to_path_buf());
+    variants
+}
+
+fn common_conda_env_roots(home_dir: Option<&Path>) -> Vec<PathBuf> {
+    let Some(home_dir) = home_dir else {
+        return Vec::new();
+    };
+
+    let mut roots = Vec::new();
+    let mut seen = HashSet::new();
+    for env_root in [
+        home_dir.join(".conda").join("envs").join("genomelens"),
+        home_dir.join("miniconda3").join("envs").join("genomelens"),
+        home_dir.join("Miniconda3").join("envs").join("genomelens"),
+        home_dir.join("anaconda3").join("envs").join("genomelens"),
+        home_dir.join("Anaconda3").join("envs").join("genomelens"),
+        home_dir.join("miniforge3").join("envs").join("genomelens"),
+        home_dir.join("mambaforge").join("envs").join("genomelens"),
+    ] {
+        let display = env_root.display().to_string();
+        if seen.insert(display) {
+            roots.push(env_root);
+        }
+    }
+    roots
+}
+
+fn resolve_home_dir() -> Option<PathBuf> {
+    env::var_os("USERPROFILE")
+        .or_else(|| env::var_os("HOME"))
+        .map(PathBuf::from)
+}
+
+fn looks_like_path(value: &str) -> bool {
+    value.contains('/') || value.contains('\\') || Path::new(value).is_absolute()
+}
+
+fn render_logical_command(tool: CliTool, args: &[&str]) -> String {
+    render_command_text(tool.command_name(), args)
+}
+
+fn render_command_text(program: &str, args: &[&str]) -> String {
+    std::iter::once(program)
+        .chain(args.iter().copied())
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+fn render_resolution_error(
+    command_name: &str,
+    attempt_texts: &[String],
+    errors: &[String],
+) -> String {
+    if errors.is_empty() {
+        return format!("{command_name} not found");
+    }
+
+    format!(
+        "{command_name} not found. attempted: {}. errors: {}",
+        attempt_texts.join(" | "),
+        errors.join(" | ")
+    )
+}
+
+fn is_not_found_error(error: &std::io::Error) -> bool {
+    error.kind() == std::io::ErrorKind::NotFound
 }
 
 fn read_json_file(path: &Path) -> Result<Value, String> {
@@ -690,7 +965,11 @@ fn system_time_to_iso_like(time: SystemTime) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{drain_buffered_log_lines, map_log_line_to_state};
+    use super::{
+        command_path_variants, common_conda_env_roots, drain_buffered_log_lines, looks_like_path,
+        map_log_line_to_state,
+    };
+    use std::path::Path;
 
     #[test]
     fn drains_complete_lines_without_flushing_partial_tail() {
@@ -754,5 +1033,51 @@ mod tests {
             assert!(progress >= previous_progress);
             previous_progress = progress;
         }
+    }
+
+    #[test]
+    fn detects_path_like_cli_overrides() {
+        assert!(looks_like_path(
+            r"C:\Users\demo\miniconda3\envs\genomelens\Scripts\genomelens.exe"
+        ));
+        assert!(looks_like_path("./genomelens"));
+        assert!(!looks_like_path("genomelens"));
+    }
+
+    #[test]
+    fn includes_common_conda_env_roots() {
+        let home = Path::new(r"C:\Users\demo");
+        let roots = common_conda_env_roots(Some(home));
+        let rendered = roots
+            .iter()
+            .map(|path| path.display().to_string())
+            .collect::<Vec<_>>();
+
+        assert!(rendered
+            .iter()
+            .any(|path| path.ends_with(r".conda\envs\genomelens")));
+        assert!(rendered
+            .iter()
+            .any(|path| path.ends_with(r"miniconda3\envs\genomelens")));
+        assert!(rendered
+            .iter()
+            .any(|path| path.ends_with(r"anaconda3\envs\genomelens")));
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn expands_windows_cli_path_variants() {
+        let variants = command_path_variants(Path::new(
+            r"C:\Users\demo\miniconda3\envs\genomelens\Scripts\genomelens",
+        ))
+        .into_iter()
+        .map(|path| path.display().to_string())
+        .collect::<Vec<_>>();
+
+        assert_eq!(variants.len(), 4);
+        assert!(variants[0].ends_with("genomelens.exe"));
+        assert!(variants[1].ends_with("genomelens.cmd"));
+        assert!(variants[2].ends_with("genomelens.bat"));
+        assert!(variants[3].ends_with("genomelens"));
     }
 }

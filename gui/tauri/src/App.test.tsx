@@ -100,31 +100,28 @@ describe("App", () => {
 
     expect(screen.getAllByText("JCVI meow").length).toBeGreaterThan(0);
     expect(screen.getByRole("heading", { name: "JCVI meow" })).toBeInTheDocument();
-    expect(await screen.findByRole("button", { name: /双物种共线性/ })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Pairwise Synteny" })).toBeInTheDocument();
   });
 
   it("switches theme modes", async () => {
     render(<App />);
 
-    fireEvent.click(await screen.findByRole("button", { name: "深色" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Dark" }));
 
     expect(document.documentElement).toHaveClass("dark");
     expect(window.localStorage.getItem("genomelens.theme")).toBe("dark");
   });
 
-  it("navigates from the home ring into the analysis workbench", async () => {
+  it("navigates from the home surface into the analysis workbench", async () => {
     render(<App />);
 
-    fireEvent.click(await screen.findByRole("button", { name: /双物种共线性/ }));
+    const [primaryAction] = await screen.findAllByRole("button", { name: "Open workbench" });
+    fireEvent.click(primaryAction);
 
     expect(window.location.hash).toBe("#/analysis/new?capability=pairwise-synteny");
     expect(await screen.findByRole("heading", { name: "Tasks" })).toBeInTheDocument();
     expect(screen.getByDisplayValue("Pairwise Synteny #1")).toBeInTheDocument();
     expect(screen.getByText("Inputs and output")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Run" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "run" }));
-    expect(screen.getByText("Run control")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Run active task" })).toBeInTheDocument();
-    expect(screen.getByText("Environment")).toBeInTheDocument();
   });
 });

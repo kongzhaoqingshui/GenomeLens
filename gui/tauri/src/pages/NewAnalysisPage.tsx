@@ -1313,8 +1313,8 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
           ) : null}
         </div>
 
-        <div className="pointer-events-none border-t border-slate-100 bg-gradient-to-t from-white via-white to-white/80 px-14 py-5">
-          <div className="pointer-events-auto mx-auto flex max-w-4xl items-center gap-3 rounded-[1.35rem] border border-slate-200 bg-white px-4 py-3 shadow-[0_8px_30px_rgba(15,23,42,0.10)]">
+        <div className="pointer-events-none border-t border-slate-200/80 bg-white px-14 py-5">
+          <div className="pointer-events-auto mx-auto flex max-w-4xl items-center gap-3 rounded-[1.1rem] border border-slate-200 bg-white px-4 py-3 shadow-[0_6px_20px_rgba(15,23,42,0.06)]">
             <button type="button" className="text-2xl leading-none text-slate-400 hover:text-slate-700" onClick={() => createTask()}>
               +
             </button>

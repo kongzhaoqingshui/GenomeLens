@@ -9,24 +9,32 @@ interface PlaceholderPageProps {
 
 export default function PlaceholderPage({ route, title, subtitle, details }: PlaceholderPageProps) {
   return (
-    <section className="grid w-full content-center gap-6">
-      <div className="max-w-3xl">
-        <p className="text-sm font-semibold uppercase tracking-[0.2em] text-ice-600 dark:text-ice-300">
-          JCVI meow · {route.description}
-        </p>
-        <h1 className="mt-5 text-4xl font-bold text-text-primary">{title}</h1>
-        <p className="mt-4 text-base leading-8 text-text-secondary">{subtitle}</p>
-      </div>
+    <section className="grid w-full gap-8 xl:grid-cols-[18rem_minmax(0,1fr)]">
+      <aside className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
+        <div className="border-b border-slate-200/80 px-5 py-4">
+          <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-400">{route.label}</p>
+          <h1 className="mt-2 text-xl font-semibold text-slate-900">{title}</h1>
+          <p className="mt-2 text-sm leading-6 text-slate-500">{subtitle}</p>
+        </div>
+        <div className="px-5 py-4 text-sm leading-6 text-slate-500">{route.description}</div>
+      </aside>
 
-      <div className="grid gap-4 md:grid-cols-3">
-        {details.map((detail) => (
-          <article key={detail} className="rounded-xl border border-border bg-surface/80 p-4 shadow-card">
-            <div className="mb-4 h-1 w-12 rounded-full bg-ice-400" />
-            <p className="text-sm leading-6 text-text-secondary">{detail}</p>
-          </article>
-        ))}
-      </div>
+      <section className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+        <div className="border-b border-slate-200/80 px-5 py-4">
+          <h2 className="text-base font-semibold text-slate-900">Queued work</h2>
+          <p className="mt-1 text-sm text-slate-500">This surface has been flattened to match the current Codex-like desktop language.</p>
+        </div>
+        <div className="divide-y divide-slate-200/80">
+          {details.map((detail, index) => (
+            <article key={detail} className="flex gap-4 px-5 py-4">
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-semibold text-slate-600">
+                {index + 1}
+              </span>
+              <p className="text-sm leading-7 text-slate-500">{detail}</p>
+            </article>
+          ))}
+        </div>
+      </section>
     </section>
   );
 }
-

@@ -66,7 +66,7 @@ describe("jcvi meow startup state", () => {
     const loading = deriveWorkbenchStartupState(createLoadingWorkbenchStartupResources());
     expect(loading.status).toBe("loading");
     expect(loading.pending).toEqual(["version", "template", "schema"]);
-    expect(loading.activeHint).toBe("正在检查 GenomeLens 与 JCVI 引擎...");
+    expect(loading.activeHint).toBe("Checking GenomeLens and JCVI engine availability...");
 
     const ready = deriveWorkbenchStartupState({
       version: { status: "ready", data: { platform: { ok: true, command: "", version: "" }, engine: { ok: true, command: "", version: "" } } },
@@ -77,7 +77,7 @@ describe("jcvi meow startup state", () => {
     expect(ready.status).toBe("ready");
     expect(ready.readyCount).toBe(3);
     expect(ready.pending).toEqual([]);
-    expect(ready.activeHint).toBe("工作台已就绪。");
+    expect(ready.activeHint).toBe("Workbench resources are ready.");
   });
 
   it("enters error state when any warmup resource fails", () => {
@@ -108,10 +108,12 @@ describe("jcvi meow capability registry", () => {
     expect(getJcviCapabilityById("environment-check")).toMatchObject({
       route: "/settings",
       status: "connected",
+      statusLabel: "Connected",
     });
     expect(getJcviCapabilityById("dotplot")).toMatchObject({
       route: "/analysis/new",
       status: "reserved",
+      statusLabel: "Reserved",
       workflowPreset: "graphics_dotplot",
     });
   });

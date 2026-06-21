@@ -36,26 +36,27 @@ export function CommandPreview<TData>({ title, command, description, load }: Com
     };
   }, [load]);
 
+  const statusClass =
+    state.status === "ready"
+      ? "bg-emerald-50 text-emerald-700"
+      : state.status === "error"
+        ? "bg-rose-50 text-rose-700"
+        : "bg-slate-100 text-slate-600";
+
   return (
-    <section className="rounded-2xl border border-border bg-surface/80 p-5 shadow-card">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h2 className="text-lg font-semibold text-text-primary">{title}</h2>
-          <p className="mt-1 text-sm leading-6 text-text-secondary">{description}</p>
-          <p className="mt-2 font-mono text-xs text-text-tertiary">{command}</p>
+    <section className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+      <div className="flex items-start justify-between gap-4 border-b border-slate-200/80 px-5 py-4">
+        <div className="min-w-0">
+          <h2 className="text-base font-semibold text-slate-900">{title}</h2>
+          <p className="mt-1 text-sm leading-6 text-slate-500">{description}</p>
+          <p className="mt-2 font-mono text-xs text-slate-400">{command}</p>
         </div>
-        <span
-          className={
-            state.status === "ready"
-              ? "rounded-full bg-emerald-100 px-3 py-1 text-[11px] font-semibold text-emerald-700 dark:bg-emerald-400/15 dark:text-emerald-200"
-              : "rounded-full bg-ice-100 px-3 py-1 text-[11px] font-semibold text-ice-700 dark:bg-ice-900/40 dark:text-ice-200"
-          }
-        >
-          {state.status === "ready" ? "READY" : state.status === "error" ? "ERROR" : "LOADING"}
+        <span className={`rounded-full px-3 py-1 text-[11px] font-semibold uppercase ${statusClass}`}>
+          {state.status}
         </span>
       </div>
 
-      <pre className="mt-4 max-h-56 overflow-auto rounded-xl border border-border bg-bg p-4 font-mono text-xs leading-6 text-text-secondary">
+      <pre className="max-h-80 overflow-auto bg-slate-50 px-5 py-4 font-mono text-xs leading-6 text-slate-600">
         {state.status === "ready"
           ? JSON.stringify(state.data, null, 2)
           : state.status === "error"
@@ -65,4 +66,3 @@ export function CommandPreview<TData>({ title, command, description, load }: Com
     </section>
   );
 }
-

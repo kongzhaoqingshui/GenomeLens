@@ -1,106 +1,273 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 
-import { GameIcon } from "../components/GameIcon";
+import { GameIcon, type GameIconName } from "../components/GameIcon";
 import { JcviMeowIcon } from "../components/JcviMeowIcon";
-import { listJcviCapabilities } from "../models";
+import {
+  listJcviCapabilities,
+  type JcviCapabilityEntry,
+  type JcviCapabilityId,
+} from "../models";
 import type { AppRoute } from "../routes/routes";
 
-const CAPABILITY_LAYOUT = {
-  "pairwise-synteny": { offsetX: -184, offsetY: -92, icon: "pairwise" },
-  "multi-species-synteny": { offsetX: 166, offsetY: -118, icon: "multi-species" },
-  "local-synteny": { offsetX: -206, offsetY: 54, icon: "local" },
-  dotplot: { offsetX: 202, offsetY: 38, icon: "dotplot" },
-  karyotype: { offsetX: -118, offsetY: 164, icon: "karyotype" },
-  "ortholog-catalog": { offsetX: 132, offsetY: 166, icon: "ortholog" },
-  "environment-check": { offsetX: 4, offsetY: -198, icon: "environment" },
-} as const;
+const CAPABILITY_ICON: Record<JcviCapabilityId, GameIconName> = {
+  "pairwise-synteny": "pairwise",
+  "multi-species-synteny": "multi-species",
+  "local-synteny": "local",
+  dotplot: "dotplot",
+  karyotype: "karyotype",
+  "ortholog-catalog": "ortholog",
+  "environment-check": "environment",
+};
 
 interface HomeProps {
   route: AppRoute;
   onNavigate: (path: string) => void;
 }
 
-export default function Home({ onNavigate }: HomeProps) {
-  const capabilities = useMemo(
-    () =>
-      listJcviCapabilities().map((capability) => ({
-        ...capability,
-        ...CAPABILITY_LAYOUT[capability.id],
-      })),
-    [],
-  );
+function actionLabel(entry: JcviCapabilityEntry): string {
+  if (entry.route === "/settings") {
+    return "Open diagnostics";
+  }
+  return entry.status === "connected" ? "Open workbench" : "Preview capability";
+}
 
-  function handleCapabilityClick(path: string, capabilityId: string, status: "connected" | "reserved") {
-    if (status === "reserved") {
+export default function Home({ onNavigate }: HomeProps) {
+  const capabilities = useMemo(() => listJcviCapabilities(), []);
+  const [selectedId, setSelectedId] = useState<JcviCapabilityId>("pairwise-synteny");
+  const selected =
+    capabilities.find((entry) => entry.id === selectedId) ??
+    capabilities.find((entry) => entry.status === "connected") ??
+    capabilities[0];
+  if (!selected) {
+    return null;
+  }
+  const connected = capabilities.filter((entry) => entry.status === "connected");
+  const reserved = capabilities.filter((entry) => entry.status === "reserved");
+
+  function openCapability(entry: JcviCapabilityEntry) {
+    if (entry.status === "reserved") {
+      setSelectedId(entry.id);
       return;
     }
-    if (path === "/analysis/new") {
-      onNavigate(`${path}?capability=${capabilityId}`);
+
+    if (entry.route === "/analysis/new") {
+      onNavigate(`${entry.route}?capability=${entry.id}`);
       return;
     }
-    onNavigate(path);
+
+    onNavigate(entry.route);
   }
 
   return (
-    <div className="relative flex min-h-[calc(100vh-4rem)] w-full items-center justify-center overflow-hidden rounded-[36px] bg-[radial-gradient(circle_at_50%_45%,rgba(186,230,253,0.58),rgba(248,250,252,0.88)_44%,rgba(255,255,255,0.96)_75%)] px-6 py-16 dark:bg-[radial-gradient(circle_at_50%_45%,rgba(14,165,233,0.18),rgba(15,23,42,0.86)_52%,rgba(2,6,23,0.96)_82%)]">
-      <div className="pointer-events-none absolute left-1/2 top-1/2 h-[42rem] w-[42rem] -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/70 dark:border-white/5" />
-      <div className="pointer-events-none absolute left-1/2 top-1/2 h-[30rem] w-[30rem] -translate-x-1/2 -translate-y-1/2 rounded-full border border-ice-200/70 dark:border-ice-500/15" />
-      <div className="pointer-events-none absolute left-1/2 top-1/2 h-[18rem] w-[18rem] -translate-x-1/2 -translate-y-1/2 rounded-full border border-dashed border-ice-200/70 dark:border-ice-500/15" />
-
-      <div className="relative h-[38rem] w-[46rem] max-w-full">
-        {capabilities.map((entry) => {
-          const isConnected = entry.status === "connected";
-          const tooltip = `${entry.title} / ${entry.subtitle}。${entry.description}`;
-
-          return (
-            <button
-              key={entry.id}
-              type="button"
-              aria-label={tooltip}
-              title={tooltip}
-              className={[
-                "group absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-2 text-center transition duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ice-500 focus-visible:ring-offset-4 focus-visible:ring-offset-bg",
-                isConnected ? "cursor-pointer" : "cursor-default opacity-50",
-              ].join(" ")}
-              style={{
-                transform: `translate(calc(-50% + ${entry.offsetX}px), calc(-50% + ${entry.offsetY}px))`,
-              }}
-              onClick={() => handleCapabilityClick(entry.route, entry.id, entry.status)}
-            >
-              <span
-                className={[
-                  "relative flex h-20 w-20 items-center justify-center rounded-full shadow-lg transition duration-200",
-                  isConnected
-                    ? "bg-white/88 text-ice-600 shadow-ice-500/10 ring-1 ring-ice-200/80 group-hover:scale-105 group-hover:bg-white group-hover:text-ice-500 group-hover:shadow-ice-500/20 dark:bg-slate-950/72 dark:text-ice-200 dark:ring-ice-700/40"
-                    : "bg-white/48 text-text-tertiary ring-1 ring-border/60 dark:bg-slate-950/42",
-                ].join(" ")}
-              >
-                <GameIcon name={entry.icon} className="h-9 w-9" />
-                <span className="absolute -right-1 -top-1 h-3 w-3 rounded-full bg-ice-400 opacity-0 transition group-hover:opacity-100" />
-              </span>
-              <span className="text-xs font-semibold text-text-secondary">{entry.title}</span>
-              <span className="pointer-events-none absolute left-1/2 top-full z-20 mt-3 w-64 -translate-x-1/2 rounded-2xl border border-border bg-white/92 p-3 text-left text-xs leading-5 text-text-secondary opacity-0 shadow-xl shadow-slate-900/8 backdrop-blur transition duration-150 group-hover:translate-y-1 group-hover:opacity-100 group-focus-visible:translate-y-1 group-focus-visible:opacity-100 dark:bg-slate-950/90">
-                <span className="block font-semibold text-text-primary">{entry.subtitle}</span>
-                <span className="mt-1 block">{entry.description}</span>
-                <span className="mt-2 block text-[10px] font-semibold uppercase tracking-[0.14em] text-ice-600 dark:text-ice-300">
-                  {entry.statusLabel}
-                </span>
-              </span>
-            </button>
-          );
-        })}
+    <div className="grid h-screen w-full grid-cols-[18rem_minmax(0,1fr)_20rem] overflow-hidden bg-white">
+      <aside className="flex min-h-0 flex-col border-r border-slate-200/80 bg-[#eef6f8] px-3 py-4">
+        <div className="flex items-center gap-3 rounded-xl px-3 py-2">
+          <JcviMeowIcon className="h-9 w-9" />
+          <span>
+            <span className="jcvi-brand-title block text-sm font-semibold text-slate-900">JCVI meow</span>
+            <span className="block text-xs text-slate-500">Desktop workbench</span>
+          </span>
+        </div>
 
         <button
           type="button"
-          className="group absolute left-1/2 top-1/2 flex h-64 w-64 -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center rounded-full border border-white/70 bg-white/64 text-center shadow-2xl shadow-ice-500/12 backdrop-blur transition hover:bg-white/78 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ice-500 focus-visible:ring-offset-4 focus-visible:ring-offset-bg dark:border-white/10 dark:bg-slate-950/58 dark:hover:bg-slate-950/72"
-          onClick={() => onNavigate("/analysis/new")}
+          className="mt-4 rounded-lg bg-slate-900 px-3 py-2 text-left text-sm font-semibold text-white transition hover:bg-slate-700"
+          onClick={() => openCapability(selected)}
         >
-          <JcviMeowIcon className="h-32 w-32" />
-          <span className="jcvi-brand-title mt-4 text-4xl font-semibold tracking-tight text-text-primary">JCVI meow</span>
-          <span className="mt-2 text-xs font-medium text-text-tertiary">Powered by GenomeLens</span>
-          <span className="sr-only">进入分析工作台</span>
+          {actionLabel(selected)}
         </button>
-      </div>
+
+        <div className="mt-6 px-3 text-[11px] font-medium uppercase tracking-[0.18em] text-slate-400">Capabilities</div>
+        <div className="mt-2 min-h-0 flex-1 overflow-auto">
+          {capabilities.map((entry) => (
+            <button
+              key={entry.id}
+              type="button"
+              className={
+                entry.id === selected.id
+                  ? "mb-1 flex w-full items-center gap-3 rounded-lg bg-white px-3 py-2 text-left shadow-sm"
+                  : "mb-1 flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-slate-600 transition hover:bg-white/70 hover:text-slate-900"
+              }
+              onClick={() => setSelectedId(entry.id)}
+            >
+              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-slate-600">
+                <GameIcon name={CAPABILITY_ICON[entry.id]} className="h-4 w-4" />
+              </span>
+              <span className="min-w-0">
+                <span className="block truncate text-sm font-medium text-slate-900">{entry.subtitle}</span>
+                <span className="block truncate text-xs text-slate-400">{entry.statusLabel}</span>
+              </span>
+            </button>
+          ))}
+        </div>
+
+        <div className="border-t border-slate-200/80 pt-3">
+          <button
+            type="button"
+            className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm text-slate-600 transition hover:bg-white/70 hover:text-slate-900"
+            onClick={() => onNavigate("/settings")}
+          >
+            <GameIcon name="environment" className="h-4 w-4" />
+            Settings and diagnostics
+          </button>
+        </div>
+      </aside>
+
+      <main className="flex min-w-0 flex-col bg-white">
+        <header className="flex h-16 items-center justify-between border-b border-slate-200/80 px-8">
+          <div>
+            <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-400">Home</p>
+            <h1 className="mt-1 text-base font-semibold text-slate-900">{selected.subtitle}</h1>
+          </div>
+          <span
+            className={
+              selected.status === "connected"
+                ? "rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700"
+                : "rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600"
+            }
+          >
+            {selected.statusLabel}
+          </span>
+        </header>
+
+        <div className="min-h-0 flex-1 overflow-auto px-10 py-8">
+          <div className="mx-auto max-w-5xl">
+            <div className="flex items-start gap-5">
+              <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50">
+                <GameIcon name={CAPABILITY_ICON[selected.id]} className="h-7 w-7" />
+              </div>
+              <div className="min-w-0">
+                <h2 className="text-3xl font-semibold tracking-tight text-slate-900">{selected.subtitle}</h2>
+                <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-500">{selected.description}</p>
+              </div>
+            </div>
+
+            <div className="mt-8 grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
+              <section className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+                <div className="border-b border-slate-200/80 px-5 py-4">
+                  <h3 className="text-sm font-semibold text-slate-900">Current surface</h3>
+                  <p className="mt-1 text-sm text-slate-500">This is where the selected capability opens inside the workbench.</p>
+                </div>
+                <div className="divide-y divide-slate-200/80">
+                  <div className="grid grid-cols-[11rem_minmax(0,1fr)] gap-4 px-5 py-4 text-sm">
+                    <span className="text-slate-400">Route</span>
+                    <span className="font-medium text-slate-900">{selected.route}</span>
+                  </div>
+                  <div className="grid grid-cols-[11rem_minmax(0,1fr)] gap-4 px-5 py-4 text-sm">
+                    <span className="text-slate-400">Workflow preset</span>
+                    <span className="font-medium text-slate-900">{selected.workflowPreset ?? "None"}</span>
+                  </div>
+                  <div className="grid grid-cols-[11rem_minmax(0,1fr)] gap-4 px-5 py-4 text-sm">
+                    <span className="text-slate-400">Primary action</span>
+                    <span className="font-medium text-slate-900">{actionLabel(selected)}</span>
+                  </div>
+                </div>
+              </section>
+
+              <section className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+                <div className="border-b border-slate-200/80 px-5 py-4">
+                  <h3 className="text-sm font-semibold text-slate-900">What to expect</h3>
+                  <p className="mt-1 text-sm text-slate-500">Keep the run flow predictable: configure, run, inspect logs, read summary.</p>
+                </div>
+                <div className="divide-y divide-slate-200/80">
+                  {[
+                    "Use the workbench to prepare one task at a time or queue multiple tasks.",
+                    "Open diagnostics whenever a local toolchain issue blocks execution.",
+                    "Reserved capabilities stay visible, but they do not replace the current run flow.",
+                  ].map((detail) => (
+                    <div key={detail} className="px-5 py-4 text-sm leading-7 text-slate-500">
+                      {detail}
+                    </div>
+                  ))}
+                </div>
+              </section>
+            </div>
+          </div>
+        </div>
+
+        <div className="border-t border-slate-200/80 bg-white px-10 py-5">
+          <div className="mx-auto flex max-w-5xl items-center gap-3 rounded-[1.25rem] border border-slate-200 bg-white px-4 py-3 shadow-[0_8px_30px_rgba(15,23,42,0.08)]">
+            <button
+              type="button"
+              className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
+              onClick={() => onNavigate("/settings")}
+            >
+              Settings
+            </button>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm text-slate-500">
+                {selected.subtitle} - {selected.statusLabel} - {selected.route === "/analysis/new" ? "Ready for the workbench" : "Opens diagnostics"}
+              </p>
+            </div>
+            <button
+              type="button"
+              className={
+                selected.status === "connected"
+                  ? "rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-700"
+                  : "rounded-full bg-slate-200 px-4 py-2 text-sm font-semibold text-slate-500"
+              }
+              disabled={selected.status !== "connected"}
+              onClick={() => openCapability(selected)}
+            >
+              {actionLabel(selected)}
+            </button>
+          </div>
+        </div>
+      </main>
+
+      <aside className="min-h-0 overflow-auto border-l border-slate-200/80 bg-white px-5 py-6">
+        <section>
+          <h2 className="text-sm font-semibold text-slate-900">Connected now</h2>
+          <div className="mt-3 grid gap-2">
+            {connected.map((entry) => (
+              <button
+                key={entry.id}
+                type="button"
+                className="flex items-center gap-3 rounded-lg px-2 py-2 text-left text-sm text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
+                onClick={() => setSelectedId(entry.id)}
+              >
+                <GameIcon name={CAPABILITY_ICON[entry.id]} className="h-4 w-4" />
+                <span className="truncate">{entry.subtitle}</span>
+              </button>
+            ))}
+          </div>
+        </section>
+
+        <section className="mt-6 border-t border-slate-200/80 pt-6">
+          <h2 className="text-sm font-semibold text-slate-900">Reserved</h2>
+          <div className="mt-3 grid gap-2">
+            {reserved.map((entry) => (
+              <button
+                key={entry.id}
+                type="button"
+                className="flex items-center gap-3 rounded-lg px-2 py-2 text-left text-sm text-slate-500 transition hover:bg-slate-50 hover:text-slate-900"
+                onClick={() => setSelectedId(entry.id)}
+              >
+                <GameIcon name={CAPABILITY_ICON[entry.id]} className="h-4 w-4" />
+                <span className="truncate">{entry.subtitle}</span>
+              </button>
+            ))}
+          </div>
+        </section>
+
+        <section className="mt-6 border-t border-slate-200/80 pt-6">
+          <h2 className="text-sm font-semibold text-slate-900">Action</h2>
+          <div className="mt-3 grid gap-2 text-sm text-slate-500">
+            <div className="grid grid-cols-[6rem_minmax(0,1fr)] gap-3">
+              <span className="text-slate-400">Route</span>
+              <span className="truncate text-slate-900">{selected.route}</span>
+            </div>
+            <div className="grid grid-cols-[6rem_minmax(0,1fr)] gap-3">
+              <span className="text-slate-400">Preset</span>
+              <span className="truncate text-slate-900">{selected.workflowPreset ?? "None"}</span>
+            </div>
+            <div className="grid grid-cols-[6rem_minmax(0,1fr)] gap-3">
+              <span className="text-slate-400">Status</span>
+              <span className="truncate text-slate-900">{selected.statusLabel}</span>
+            </div>
+          </div>
+        </section>
+      </aside>
     </div>
   );
 }

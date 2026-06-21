@@ -26,51 +26,46 @@ export function AppShell({
 }: AppShellProps) {
   if (activeRoute.id === "home") {
     return (
-      <div className="min-h-screen bg-bg text-text-primary transition-colors duration-200">
+      <div className="min-h-screen bg-[#f4f7f8] text-text-primary transition-colors duration-200">
         <div className="fixed right-5 top-5 z-10">
           <ThemeToggle mode={themeMode} resolvedTheme={resolvedTheme} onChange={onThemeChange} />
         </div>
-        <main className="min-h-screen p-5">{children}</main>
+        <main className="min-h-screen">{children}</main>
       </div>
     );
   }
 
   if (activeRoute.id === "new-analysis") {
-    return <div className="min-h-screen bg-[#f4fbfd] text-text-primary transition-colors duration-200">{children}</div>;
+    return <div className="min-h-screen bg-[#f4f7f8] text-text-primary transition-colors duration-200">{children}</div>;
   }
 
-  return (
-    <div className="min-h-screen bg-bg text-text-primary transition-colors duration-200">
-      <div className="pointer-events-none fixed inset-0 overflow-hidden">
-        <div className="absolute inset-x-0 top-0 h-72 bg-gradient-to-b from-ice-100/80 via-ice-50/40 to-transparent dark:from-ice-900/30 dark:via-ice-800/10" />
-        <div className="absolute left-1/2 top-16 h-64 w-[42rem] -translate-x-1/2 rounded-full border border-ice-200/50 opacity-50 blur-3xl dark:border-ice-700/30" />
-      </div>
+  const sidebarRoutes = routes.filter((route) => route.id !== "new-analysis");
 
-      <div className="relative mx-auto flex min-h-screen w-full max-w-[1600px] flex-col px-6 py-5 lg:px-8">
-        <header className="flex flex-wrap items-center justify-between gap-4 border-b border-border/80 pb-4">
+  return (
+    <div className="min-h-screen bg-[#f4f7f8] text-text-primary transition-colors duration-200">
+      <div className="mx-auto grid min-h-screen w-full max-w-[1600px] grid-cols-[15rem_minmax(0,1fr)] overflow-hidden">
+        <aside className="flex min-h-0 flex-col border-r border-slate-200/80 bg-[#eef6f8] px-3 py-4">
           <button
             type="button"
-            className="flex items-center gap-3 rounded-xl text-left outline-none transition focus-visible:ring-2 focus-visible:ring-ice-500 focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
+            className="flex items-center gap-3 rounded-xl px-3 py-2 text-left transition hover:bg-white/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ice-500"
             onClick={() => onNavigate("/")}
           >
-            <span className="flex h-11 w-11 items-center justify-center">
-              <JcviMeowIcon className="h-9 w-9" />
-            </span>
+            <JcviMeowIcon className="h-8 w-8" />
             <span>
-              <span className="jcvi-brand-title block text-xl font-semibold tracking-tight">JCVI meow</span>
-              <span className="block text-xs text-text-secondary">Comparative genomics workbench · Powered by GenomeLens</span>
+              <span className="jcvi-brand-title block text-sm font-semibold text-slate-900">JCVI meow</span>
+              <span className="block text-xs text-slate-500">Powered by GenomeLens</span>
             </span>
           </button>
 
-          <nav className="hidden items-center gap-1 rounded-full border border-border bg-surface/80 p-1 shadow-card backdrop-blur lg:flex">
-            {routes.map((route) => (
+          <nav className="mt-6 grid gap-1">
+            {sidebarRoutes.map((route) => (
               <button
                 key={route.id}
                 type="button"
                 className={
                   route.id === activeRoute.id
-                    ? "rounded-full bg-ice-500 px-4 py-2 text-xs font-semibold text-white shadow-sm transition"
-                    : "rounded-full px-4 py-2 text-xs font-semibold text-text-secondary transition hover:bg-ice-50 hover:text-ice-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ice-500 dark:hover:bg-ice-900/30 dark:hover:text-ice-200"
+                    ? "flex items-center rounded-lg bg-white px-3 py-2 text-left text-sm font-medium text-slate-900 shadow-sm"
+                    : "flex items-center rounded-lg px-3 py-2 text-left text-sm text-slate-600 transition hover:bg-white/70 hover:text-slate-900"
                 }
                 onClick={() => onNavigate(route.path)}
               >
@@ -79,15 +74,31 @@ export function AppShell({
             ))}
           </nav>
 
-          <div className="flex items-center gap-3">
-            <span className="hidden rounded-full border border-border bg-surface/80 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-text-tertiary lg:inline-flex">
-              {activeRoute.label}
-            </span>
-            <ThemeToggle mode={themeMode} resolvedTheme={resolvedTheme} onChange={onThemeChange} />
+          <div className="mt-auto border-t border-slate-200/80 pt-4">
+            <div className="px-3 text-[11px] font-medium uppercase tracking-[0.18em] text-slate-400">Appearance</div>
+            <div className="mt-3 px-1">
+              <ThemeToggle mode={themeMode} resolvedTheme={resolvedTheme} onChange={onThemeChange} />
+            </div>
           </div>
-        </header>
+        </aside>
 
-        <main className="flex flex-1 py-8">{children}</main>
+        <div className="flex min-w-0 flex-col bg-white">
+          <header className="flex h-14 items-center justify-between border-b border-slate-200/80 bg-white px-6">
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-slate-900">{activeRoute.label}</p>
+              <p className="truncate text-xs text-slate-500">{activeRoute.description}</p>
+            </div>
+            <button
+              type="button"
+              className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
+              onClick={() => onNavigate("/analysis/new")}
+            >
+              Open workbench
+            </button>
+          </header>
+
+          <main className="min-h-0 flex-1 overflow-auto bg-white px-8 py-8">{children}</main>
+        </div>
       </div>
     </div>
   );
