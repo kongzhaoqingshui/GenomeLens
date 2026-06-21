@@ -121,6 +121,7 @@ describe("App", () => {
     expect(await screen.findByRole("heading", { name: "Tasks" })).toBeInTheDocument();
     expect(screen.getByDisplayValue("Pairwise Synteny #1")).toBeInTheDocument();
     expect(screen.getByText("Inputs and output")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Run" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "run" }));
     expect(screen.getByText("Run control")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Run active task" })).toBeInTheDocument();
