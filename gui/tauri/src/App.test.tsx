@@ -199,6 +199,12 @@ describe("App", () => {
     expect(screen.getAllByRole("button", { name: "运行" }).length).toBeGreaterThan(0);
     expect(screen.getByText("运行事件会显示在这里。")).toBeInTheDocument();
     expect(screen.getByText("分析 schema")).toBeInTheDocument();
+    const leftResizeHandle = screen.getByTestId("workbench-left-resize-handle");
+    expect(leftResizeHandle).toHaveAttribute("role", "separator");
+    expect(screen.getByTestId("workbench-right-resize-handle")).toHaveAttribute("role", "separator");
+    expect(leftResizeHandle).toHaveAttribute("aria-valuenow", "320");
+    fireEvent.keyDown(leftResizeHandle, { key: "ArrowRight" });
+    expect(leftResizeHandle).toHaveAttribute("aria-valuenow", "336");
     expect(screen.queryByText("Run events will appear here.")).not.toBeInTheDocument();
     expect(screen.queryByText("Schema not loaded.")).not.toBeInTheDocument();
   });

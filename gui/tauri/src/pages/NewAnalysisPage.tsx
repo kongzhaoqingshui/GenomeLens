@@ -1,6 +1,13 @@
 import { open } from "@tauri-apps/plugin-dialog";
 import { mkdir, writeTextFile } from "@tauri-apps/plugin-fs";
-import { useEffect, useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 
 import { GameIcon, type GameIconName } from "../components/GameIcon";
 import { useLanguage } from "../i18n/useLanguage";
@@ -41,7 +48,15 @@ interface NewAnalysisPageProps {
 
 type RunPanelStatus = "idle" | "confirming" | "starting" | "running" | "finished" | "error";
 type WorkbenchView = "setup" | "run" | "results";
+type ResizeSide = "left" | "right";
 type McscanNumberField = "cscore" | "dist" | "iter" | "up" | "down" | "dpi";
+
+interface ResizeDragState {
+  side: ResizeSide;
+  startX: number;
+  startLeftWidth: number;
+  startRightWidth: number;
+}
 
 interface WorkbenchTask {
   id: string;
@@ -85,7 +100,17 @@ const PRIMARY_BUTTON_CLASS =
   "ui-pressable rounded-lg bg-ice-500 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-ice-500/20 transition hover:bg-ice-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ice-500 focus-visible:ring-offset-2 focus-visible:ring-offset-bg disabled:cursor-not-allowed disabled:opacity-50";
 const RECENT_OUTDIRS_KEY = "genomelens.gui.recentOutdirs";
 const RECENT_REQUESTS_KEY = "genomelens.gui.recentRequests";
+const WORKBENCH_LEFT_WIDTH_KEY = "genomelens.gui.workbench.leftWidth";
+const WORKBENCH_RIGHT_WIDTH_KEY = "genomelens.gui.workbench.rightWidth";
 const RECENT_HINT_LIMIT = 4;
+const WORKBENCH_DEFAULT_LEFT_WIDTH = 320;
+const WORKBENCH_DEFAULT_RIGHT_WIDTH = 368;
+const WORKBENCH_MIN_LEFT_WIDTH = 248;
+const WORKBENCH_MAX_LEFT_WIDTH = 480;
+const WORKBENCH_MIN_RIGHT_WIDTH = 280;
+const WORKBENCH_MAX_RIGHT_WIDTH = 520;
+const WORKBENCH_MIN_CENTER_WIDTH = 300;
+const WORKBENCH_RESIZER_WIDTH = 6;
 
 const WORKFLOW_OPTIONS: McscanWorkflow[] = [
   "mcscan_pairwise",
@@ -258,6 +283,43 @@ function writeStoredJson(key: string, value: unknown) {
   } catch {
     // Ignore local-only persistence failures.
   }
+}
+
+function readStoredNumber(key: string, fallback: number): number {
+  try {
+    const raw = window.localStorage.getItem(key);
+    if (!raw) {
+      return fallback;
+    }
+    const value = Number(raw);
+    return Number.isFinite(value) ? value : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function writeStoredNumber(key: string, value: number) {
+  try {
+    window.localStorage.setItem(key, String(Math.round(value)));
+  } catch {
+    // Ignore local-only persistence failures.
+  }
+}
+
+function clampNumber(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), Math.max(min, max));
+}
+
+function viewportWidth(): number {
+  return typeof window === "undefined" ? 1440 : window.innerWidth;
+}
+
+function clampSidebarWidth(side: ResizeSide, nextWidth: number, otherWidth: number): number {
+  const minWidth = side === "left" ? WORKBENCH_MIN_LEFT_WIDTH : WORKBENCH_MIN_RIGHT_WIDTH;
+  const maxWidth = side === "left" ? WORKBENCH_MAX_LEFT_WIDTH : WORKBENCH_MAX_RIGHT_WIDTH;
+  const viewportMax =
+    viewportWidth() - otherWidth - WORKBENCH_MIN_CENTER_WIDTH - WORKBENCH_RESIZER_WIDTH * 2;
+  return clampNumber(Math.round(nextWidth), minWidth, Math.min(maxWidth, viewportMax));
 }
 
 function rememberRecentText(items: string[], nextValue: string): string[] {
@@ -441,6 +503,21 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
   const [recentRequests, setRecentRequests] = useState<RecentRequestHint[]>(() =>
     readStoredJson<RecentRequestHint[]>(RECENT_REQUESTS_KEY, []),
   );
+  const [leftSidebarWidth, setLeftSidebarWidth] = useState(() =>
+    clampNumber(
+      readStoredNumber(WORKBENCH_LEFT_WIDTH_KEY, WORKBENCH_DEFAULT_LEFT_WIDTH),
+      WORKBENCH_MIN_LEFT_WIDTH,
+      WORKBENCH_MAX_LEFT_WIDTH,
+    ),
+  );
+  const [rightSidebarWidth, setRightSidebarWidth] = useState(() =>
+    clampNumber(
+      readStoredNumber(WORKBENCH_RIGHT_WIDTH_KEY, WORKBENCH_DEFAULT_RIGHT_WIDTH),
+      WORKBENCH_MIN_RIGHT_WIDTH,
+      WORKBENCH_MAX_RIGHT_WIDTH,
+    ),
+  );
+  const [activeResize, setActiveResize] = useState<ResizeDragState | null>(null);
   const capabilityId = useMemo(() => readCapabilityFromHash(locationHash), [locationHash]);
 
   useEffect(() => {
@@ -450,6 +527,108 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
   useEffect(() => {
     writeStoredJson(RECENT_REQUESTS_KEY, recentRequests);
   }, [recentRequests]);
+
+  useEffect(() => {
+    writeStoredNumber(WORKBENCH_LEFT_WIDTH_KEY, leftSidebarWidth);
+  }, [leftSidebarWidth]);
+
+  useEffect(() => {
+    writeStoredNumber(WORKBENCH_RIGHT_WIDTH_KEY, rightSidebarWidth);
+  }, [rightSidebarWidth]);
+
+  const resizeSidebar = useCallback(
+    (side: ResizeSide, nextWidth: number) => {
+      if (side === "left") {
+        setLeftSidebarWidth(clampSidebarWidth("left", nextWidth, rightSidebarWidth));
+        return;
+      }
+      setRightSidebarWidth(clampSidebarWidth("right", nextWidth, leftSidebarWidth));
+    },
+    [leftSidebarWidth, rightSidebarWidth],
+  );
+
+  const handleResizeKeyDown = useCallback(
+    (side: ResizeSide, event: ReactKeyboardEvent<HTMLDivElement>) => {
+      const step = event.shiftKey ? 40 : 16;
+      if (event.key === "Home") {
+        event.preventDefault();
+        resizeSidebar(side, side === "left" ? WORKBENCH_MIN_LEFT_WIDTH : WORKBENCH_MIN_RIGHT_WIDTH);
+        return;
+      }
+      if (event.key === "End") {
+        event.preventDefault();
+        resizeSidebar(side, side === "left" ? WORKBENCH_MAX_LEFT_WIDTH : WORKBENCH_MAX_RIGHT_WIDTH);
+        return;
+      }
+      if (event.key === "Enter") {
+        event.preventDefault();
+        resizeSidebar(side, side === "left" ? WORKBENCH_DEFAULT_LEFT_WIDTH : WORKBENCH_DEFAULT_RIGHT_WIDTH);
+        return;
+      }
+      if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") {
+        return;
+      }
+
+      event.preventDefault();
+      const direction = event.key === "ArrowRight" ? 1 : -1;
+      const currentWidth = side === "left" ? leftSidebarWidth : rightSidebarWidth;
+      const nextWidth = side === "left" ? currentWidth + direction * step : currentWidth - direction * step;
+      resizeSidebar(side, nextWidth);
+    },
+    [leftSidebarWidth, resizeSidebar, rightSidebarWidth],
+  );
+
+  const handleResizePointerDown = useCallback(
+    (side: ResizeSide, event: ReactPointerEvent<HTMLDivElement>) => {
+      event.preventDefault();
+      event.currentTarget.setPointerCapture(event.pointerId);
+      setActiveResize({
+        side,
+        startX: event.clientX,
+        startLeftWidth: leftSidebarWidth,
+        startRightWidth: rightSidebarWidth,
+      });
+    },
+    [leftSidebarWidth, rightSidebarWidth],
+  );
+
+  useEffect(() => {
+    if (!activeResize) {
+      return;
+    }
+
+    const previousCursor = document.body.style.cursor;
+    const previousUserSelect = document.body.style.userSelect;
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+
+    const handlePointerMove = (event: PointerEvent) => {
+      const delta = event.clientX - activeResize.startX;
+      if (activeResize.side === "left") {
+        setLeftSidebarWidth(
+          clampSidebarWidth("left", activeResize.startLeftWidth + delta, activeResize.startRightWidth),
+        );
+        return;
+      }
+      setRightSidebarWidth(
+        clampSidebarWidth("right", activeResize.startRightWidth - delta, activeResize.startLeftWidth),
+      );
+    };
+
+    const handlePointerUp = () => {
+      setActiveResize(null);
+    };
+
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", handlePointerUp);
+
+    return () => {
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerUp);
+      document.body.style.cursor = previousCursor;
+      document.body.style.userSelect = previousUserSelect;
+    };
+  }, [activeResize]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1041,9 +1220,12 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
               : `${validation.issues.length} validation issue(s) still need attention before generating a request.`;
   const summaryFigureCount = summaryView?.figureAssets.length ?? 0;
   const summaryArtifactCount = summaryView?.artifactIndex.length ?? 0;
+  const workbenchGridStyle = {
+    gridTemplateColumns: `${leftSidebarWidth}px ${WORKBENCH_RESIZER_WIDTH}px minmax(0, 1fr) ${WORKBENCH_RESIZER_WIDTH}px ${rightSidebarWidth}px`,
+  };
 
   return (
-    <div className="ui-page-enter grid h-screen w-full grid-cols-[20rem_minmax(0,1fr)_23rem] overflow-hidden bg-white">
+    <div className="ui-page-enter grid h-screen w-full overflow-hidden bg-white" style={workbenchGridStyle}>
       <aside className="flex min-h-0 flex-col overflow-hidden border-r border-slate-200/80 bg-[#eaf7fb] px-3 py-4">
         <div className="flex items-center gap-3 px-3 pb-4">
           <button type="button" className="ui-pressable text-sm text-slate-500 hover:text-slate-900" onClick={() => onNavigate("/")}>
@@ -1154,6 +1336,17 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
           </button>
         </div>
       </aside>
+
+      <WorkbenchResizeHandle
+        side="left"
+        isActive={activeResize?.side === "left"}
+        label={isZh ? "调整左侧栏宽度" : "Resize left sidebar"}
+        value={leftSidebarWidth}
+        min={WORKBENCH_MIN_LEFT_WIDTH}
+        max={WORKBENCH_MAX_LEFT_WIDTH}
+        onPointerDown={handleResizePointerDown}
+        onKeyDown={handleResizeKeyDown}
+      />
 
       <main className="flex min-w-0 flex-col overflow-hidden bg-white">
         <header className="flex h-16 shrink-0 items-center justify-between border-b border-slate-200/80 px-6">
@@ -1913,6 +2106,17 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
         </div>
       </main>
 
+      <WorkbenchResizeHandle
+        side="right"
+        isActive={activeResize?.side === "right"}
+        label={isZh ? "调整右侧栏宽度" : "Resize right sidebar"}
+        value={rightSidebarWidth}
+        min={WORKBENCH_MIN_RIGHT_WIDTH}
+        max={WORKBENCH_MAX_RIGHT_WIDTH}
+        onPointerDown={handleResizePointerDown}
+        onKeyDown={handleResizeKeyDown}
+      />
+
       <aside className="min-h-0 overflow-hidden border-l border-slate-100 bg-white px-5 py-16">
         <div className="max-h-[calc(100vh-6rem)] overflow-auto">
         <div className="border-b border-slate-100 pb-5">
@@ -2009,6 +2213,53 @@ function InfoRow({ label, value }: { label: string; value: string }) {
       <span className="truncate font-mono text-xs text-slate-600" title={value}>
         {value}
       </span>
+    </div>
+  );
+}
+
+function WorkbenchResizeHandle({
+  side,
+  isActive,
+  label,
+  value,
+  min,
+  max,
+  onPointerDown,
+  onKeyDown,
+}: {
+  side: ResizeSide;
+  isActive: boolean;
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  onPointerDown: (side: ResizeSide, event: ReactPointerEvent<HTMLDivElement>) => void;
+  onKeyDown: (side: ResizeSide, event: ReactKeyboardEvent<HTMLDivElement>) => void;
+}) {
+  return (
+    <div
+      role="separator"
+      aria-label={label}
+      aria-orientation="vertical"
+      aria-valuemin={min}
+      aria-valuemax={max}
+      aria-valuenow={Math.round(value)}
+      tabIndex={0}
+      data-testid={`workbench-${side}-resize-handle`}
+      className={[
+        "group relative z-20 flex h-full cursor-col-resize items-center justify-center outline-none transition-colors",
+        isActive ? "bg-ice-100" : "bg-transparent hover:bg-ice-50 focus-visible:bg-ice-50",
+      ].join(" ")}
+      title={label}
+      onPointerDown={(event) => onPointerDown(side, event)}
+      onKeyDown={(event) => onKeyDown(side, event)}
+    >
+      <span
+        className={[
+          "h-12 w-px rounded-full transition-colors",
+          isActive ? "bg-ice-500" : "bg-slate-200 group-hover:bg-ice-300 group-focus-visible:bg-ice-400",
+        ].join(" ")}
+      />
     </div>
   );
 }
