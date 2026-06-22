@@ -141,6 +141,7 @@ def _map_method_config_to_request(
         "figsize": method_config.figsize,
         "dpi": method_config.dpi,
         "auto_optimization": dict(method_config.auto_optimization),
+        "use_native_local_synteny_renderer": method_config.use_native_local_synteny_renderer,
     }
     return mapped
 

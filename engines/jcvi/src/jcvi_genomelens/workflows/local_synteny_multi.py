@@ -6,6 +6,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from jcvi.graphics.synteny import main as jcvi_graphics_synteny
+from jcvi_genomelens.graphics.local_synteny_renderer import render_local_synteny
 from jcvi_genomelens.manifest_models import EngineRunManifest
 from jcvi_genomelens.runtime.command_runner import CommandAudit, run_python_step
 from jcvi_genomelens.workflows.common import _assert_ok
@@ -48,7 +49,9 @@ def run(manifest: EngineRunManifest, outdir: str | Path) -> tuple[list[CommandAu
     root = Path(outdir).expanduser().resolve(strict=False)
     root.mkdir(parents=True, exist_ok=True)
 
-    if manifest.options.layout is None:
+    use_native = manifest.options.use_native_local_synteny_renderer
+
+    if manifest.options.layout is None and not use_native:
         layout = _write_multi_local_layout(root / "local_multi.layout", manifest)
         plot_inputs = copy_plot_inputs(
             prepare_synteny_plot_inputs(
@@ -62,11 +65,23 @@ def run(manifest: EngineRunManifest, outdir: str | Path) -> tuple[list[CommandAu
             blocks=manifest.blocks,
             layout=layout,
         )
-    else:
+    elif manifest.options.layout is not None and not use_native:
         plot_inputs = prepare_synteny_plot_inputs(
             blocks=manifest.blocks,
             bed=manifest.bed,
             layout=manifest.options.layout,
+            root=root,
+            stem="local_multi",
+            options=manifest.options,
+        )
+    else:
+        # Native renderer does not need a JCVI layout for drawing, but the
+        # figsize optimization helper still expects one to count tracks.
+        layout = _write_multi_local_layout(root / "local_multi.layout", manifest)
+        plot_inputs = prepare_synteny_plot_inputs(
+            blocks=manifest.blocks,
+            bed=manifest.bed,
+            layout=layout,
             root=root,
             stem="local_multi",
             options=manifest.options,
@@ -87,24 +102,57 @@ def run(manifest: EngineRunManifest, outdir: str | Path) -> tuple[list[CommandAu
     figures: list[str] = []
     output_prefix = root / "local_synteny_multi"
     for fmt in formats:
-        command = run_python_step(
-            "jcvi.graphics.synteny",
-            jcvi_graphics_synteny,
-            [
+        figure = Path(f"{output_prefix}.{fmt}")
+
+        if use_native:
+            track_names = [track.name for track in manifest.tracks]
+            argv = [
                 str(plot_inputs.blocks),
                 str(plot_inputs.bed),
-                str(plot_inputs.layout),
-                *_figure_options(plot_options, fmt),
-                "--outputprefix",
-                str(output_prefix),
-            ],
-            cwd=root,
-        )
+                str(figure),
+                "--track-names",
+                *track_names,
+                "--target-gene-ids",
+                *manifest.options.target_gene_ids,
+            ]
+            if plot_inputs.figsize:
+                argv.extend(["--figsize", plot_inputs.figsize])
+            render_local_synteny(
+                blocks_path=plot_inputs.blocks,
+                bed_path=plot_inputs.bed,
+                output_path=figure,
+                track_names=track_names,
+                target_gene_ids=list(manifest.options.target_gene_ids),
+                label_targets=bool(plot_options.get("label_targets")),
+                figsize=plot_inputs.figsize,
+                dpi=manifest.options.dpi,
+                fmt=fmt,
+            )
+            command = CommandAudit(
+                name="local_synteny_renderer",
+                argv=argv,
+                returncode=0,
+                cwd=str(root),
+            )
+        else:
+            command = run_python_step(
+                "jcvi.graphics.synteny",
+                jcvi_graphics_synteny,
+                [
+                    str(plot_inputs.blocks),
+                    str(plot_inputs.bed),
+                    str(plot_inputs.layout),
+                    *_figure_options(plot_options, fmt),
+                    "--outputprefix",
+                    str(output_prefix),
+                ],
+                cwd=root,
+            )
+
         commands.append(command)
         _assert_ok(command)
-        figure = Path(f"{output_prefix}.{fmt}")
         if not figure.is_file() or figure.stat().st_size == 0:
-            raise RuntimeError(f"JCVI multi-species local synteny figure was not created: {figure}")
+            raise RuntimeError(f"Multi-species local synteny figure was not created: {figure}")
         figures.append(str(figure))
 
     artifacts = {
@@ -116,7 +164,7 @@ def run(manifest: EngineRunManifest, outdir: str | Path) -> tuple[list[CommandAu
         "track_count": len(manifest.tracks),
         "target_count": len(manifest.options.target_gene_ids),
         "simplified_fallback": False,
-        "backend": "jcvi.graphics.synteny",
+        "backend": "local_synteny_renderer" if use_native else "jcvi.graphics.synteny",
     }
     artifacts.update(plot_inputs.artifacts)
     artifacts.setdefault("rewritten_layout_edges", 0)

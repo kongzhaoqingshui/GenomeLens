@@ -57,6 +57,7 @@ class McscanRequest:
     verbose: bool = False
     auto_optimization: dict[str, bool] = field(default_factory=dict)
     console_log: bool = False
+    use_native_local_synteny_renderer: bool = False
 
     @property
     def species(self) -> list[GenomeInputSpec]:

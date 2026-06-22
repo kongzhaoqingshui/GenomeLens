@@ -22,5 +22,6 @@
   "figsize": "",
   "dpi": 300,
   "optimize_auto": false,
+  "use_native_local_synteny_renderer": false,
   "allow_simplified_fallback": false
 }

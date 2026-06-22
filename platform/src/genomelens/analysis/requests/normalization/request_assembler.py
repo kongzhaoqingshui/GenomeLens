@@ -32,6 +32,7 @@ from genomelens.analysis.requests.normalization.option_merger import (
     _target_gene_ids,
     _threads,
     _up,
+    _use_native_local_synteny_renderer,
     _workflow,
 )
 from genomelens.analysis.requests.normalization.reference_resolver import (
@@ -106,6 +107,7 @@ def _build_mcscan_method_config(args: argparse.Namespace, config: ConfigModel | 
         figsize=_style_arg(args, config, "figsize"),
         dpi=_dpi(args, config),
         auto_optimization=_auto_optimization_dict(args, config),
+        use_native_local_synteny_renderer=_use_native_local_synteny_renderer(args, config),
         histogram_inputs=_histogram_inputs(args),
         histogram_columns=_histogram_columns(args),
         histogram_skip=int(getattr(args, "histogram_skip", 0) or 0),

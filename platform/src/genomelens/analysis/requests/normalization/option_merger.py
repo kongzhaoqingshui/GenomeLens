@@ -171,8 +171,17 @@ def _auto_optimization_dict(args: argparse.Namespace, config: ConfigModel | None
         "optimize_figsize": _auto_optimization_flag(args, config, "optimize_figsize"),
         "rewrite_layout_links": _auto_optimization_flag(args, config, "rewrite_layout_links"),
         "optimize_karyotype_labels": _auto_optimization_flag(args, config, "optimize_karyotype_labels"),
-        "trim_cross_chromosome_blocks": _auto_optimization_flag(args, config, "trim_cross_chromosome_blocks"),
     }
+
+
+def _use_native_local_synteny_renderer(
+    args: argparse.Namespace, config: ConfigModel | None
+) -> bool:
+    if bool(getattr(args, "use_native_local_synteny_renderer", False)):
+        return True
+    if config:
+        return bool(getattr(config.local_synteny, "use_native_local_synteny_renderer", False))
+    return False
 
 
 def _style_arg(args: argparse.Namespace, config: ConfigModel | None, name: str) -> str:

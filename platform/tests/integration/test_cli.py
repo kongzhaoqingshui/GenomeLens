@@ -1335,7 +1335,6 @@ def test_analyze_mcscan_config_defaults_exposed_in_init(tmp_path: Path) -> None:
     assert jcvi_config["local_synteny"]["auto_optimization"]["optimize_karyotype_labels"] is False
     assert jcvi_config["local_synteny"]["auto_optimization"]["optimize_figsize"] is False
     assert jcvi_config["local_synteny"]["auto_optimization"]["rewrite_layout_links"] is False
-    assert jcvi_config["local_synteny"]["auto_optimization"]["trim_cross_chromosome_blocks"] is False
 
     root = Path(__file__).resolve().parents[3]
     sample = root / "references" / "samples" / "shell" / "bed_cds_minimal"

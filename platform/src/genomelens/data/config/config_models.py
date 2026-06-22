@@ -63,7 +63,6 @@ class AutoOptimizationDefaults:
     optimize_figsize: bool = False
     rewrite_layout_links: bool = False
     optimize_karyotype_labels: bool = False
-    trim_cross_chromosome_blocks: bool = False
 
 
 @dataclass
@@ -81,6 +80,7 @@ class LocalSyntenyDefaults:
     figsize: str = ""
     dpi: int = 300
     auto_optimization: AutoOptimizationDefaults = field(default_factory=AutoOptimizationDefaults)
+    use_native_local_synteny_renderer: bool = False
 
 
 @dataclass
@@ -153,8 +153,8 @@ class ConfigModel:
                     "optimize_figsize": self.local_synteny.auto_optimization.optimize_figsize,
                     "rewrite_layout_links": self.local_synteny.auto_optimization.rewrite_layout_links,
                     "optimize_karyotype_labels": self.local_synteny.auto_optimization.optimize_karyotype_labels,
-                    "trim_cross_chromosome_blocks": self.local_synteny.auto_optimization.trim_cross_chromosome_blocks,
                 },
+                "use_native_local_synteny_renderer": self.local_synteny.use_native_local_synteny_renderer,
             },
         }
 
@@ -208,7 +208,6 @@ class ConfigModel:
             optimize_figsize=_bool(auto_opt_raw.get("optimize_figsize"), default=False),
             rewrite_layout_links=_bool(auto_opt_raw.get("rewrite_layout_links"), default=False),
             optimize_karyotype_labels=_bool(auto_opt_raw.get("optimize_karyotype_labels"), default=False),
-            trim_cross_chromosome_blocks=_bool(auto_opt_raw.get("trim_cross_chromosome_blocks"), default=False),
         )
         local_synteny = LocalSyntenyDefaults(
             # 目标基因必须保持 list 语义，避免字符串被拆成字符列表
@@ -223,6 +222,9 @@ class ConfigModel:
             figsize=_str(local_raw.get("figsize")),
             dpi=_int(local_raw.get("dpi"), default=300),
             auto_optimization=auto_optimization,
+            use_native_local_synteny_renderer=_bool(
+                local_raw.get("use_native_local_synteny_renderer"), default=False
+            ),
         )
 
         return cls(

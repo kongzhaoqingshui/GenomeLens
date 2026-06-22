@@ -55,7 +55,6 @@ def test_map_method_config_to_request_field_names() -> None:
             "optimize_figsize": True,
             "rewrite_layout_links": True,
             "optimize_karyotype_labels": True,
-            "trim_cross_chromosome_blocks": True,
         },
     )
     config = ConfigModel(
@@ -101,7 +100,6 @@ def test_map_method_config_to_request_field_names() -> None:
         "optimize_figsize": True,
         "rewrite_layout_links": True,
         "optimize_karyotype_labels": True,
-        "trim_cross_chromosome_blocks": True,
     }
 
 

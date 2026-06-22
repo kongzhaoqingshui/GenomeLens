@@ -213,6 +213,7 @@ class McscanMethodConfig:
     dpi: int = 300
     # GenomeLens 自动优化开关（嵌套，便于区分原生 JCVI 参数）
     auto_optimization: dict[str, bool] = field(default_factory=dict)
+    use_native_local_synteny_renderer: bool = False
     # 直方图 workflow 参数
     histogram_inputs: list[str] = field(default_factory=list)
     histogram_columns: list[int] = field(default_factory=lambda: [0])
@@ -251,6 +252,7 @@ class McscanMethodConfig:
             "figsize": self.figsize,
             "dpi": self.dpi,
             "auto_optimization": dict(self.auto_optimization),
+            "use_native_local_synteny_renderer": self.use_native_local_synteny_renderer,
             "histogram_inputs": list(self.histogram_inputs),
             "histogram_columns": list(self.histogram_columns),
             "histogram_skip": self.histogram_skip,
@@ -291,6 +293,9 @@ class McscanMethodConfig:
             figsize=_str(data.get("figsize")),
             dpi=_int(data.get("dpi"), default=300),
             auto_optimization=_bool_dict(data.get("auto_optimization")),
+            use_native_local_synteny_renderer=_bool(
+                data.get("use_native_local_synteny_renderer"), default=False
+            ),
             histogram_inputs=_str_list(data.get("histogram_inputs")),
             histogram_columns=[_int(item, default=0) for item in raw_histogram_columns]
             if isinstance(raw_histogram_columns, list) and raw_histogram_columns

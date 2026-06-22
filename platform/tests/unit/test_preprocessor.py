@@ -278,7 +278,6 @@ def test_request_normalizer_resolves_new_options_from_defaults() -> None:
         optimize_figsize=False,
         rewrite_layout_links=False,
         optimize_karyotype_labels=False,
-        trim_cross_chromosome_blocks=False,
     )
     assert _align_soft(ns, None) == "blast"
     assert _dbtype(ns, None) == "nucl"
@@ -291,7 +290,6 @@ def test_request_normalizer_resolves_new_options_from_defaults() -> None:
     assert _auto_optimization_flag(ns, None, "optimize_figsize") is False
     assert _auto_optimization_flag(ns, None, "rewrite_layout_links") is False
     assert _auto_optimization_flag(ns, None, "optimize_karyotype_labels") is False
-    assert _auto_optimization_flag(ns, None, "trim_cross_chromosome_blocks") is False
 
 
 def test_request_normalizer_uses_cli_overrides() -> None:
@@ -332,7 +330,6 @@ def test_request_normalizer_uses_cli_overrides() -> None:
         optimize_figsize=True,
         rewrite_layout_links=True,
         optimize_karyotype_labels=True,
-        trim_cross_chromosome_blocks=True,
     )
     assert _align_soft(ns, None) == "last"
     assert _dbtype(ns, None) == "prot"
@@ -346,7 +343,6 @@ def test_request_normalizer_uses_cli_overrides() -> None:
     assert _auto_optimization_flag(ns, None, "optimize_figsize") is True
     assert _auto_optimization_flag(ns, None, "rewrite_layout_links") is True
     assert _auto_optimization_flag(ns, None, "optimize_karyotype_labels") is True
-    assert _auto_optimization_flag(ns, None, "trim_cross_chromosome_blocks") is True
 
 
 def test_mcscan_auto_request_from_cli_includes_local_synteny_options(tmp_path: Path) -> None:
@@ -394,7 +390,6 @@ def test_mcscan_auto_request_from_cli_includes_local_synteny_options(tmp_path: P
         optimize_figsize=True,
         rewrite_layout_links=True,
         optimize_karyotype_labels=True,
-        trim_cross_chromosome_blocks=True,
     )
     request = mcscan_auto_request_from_cli(ns)
     method_config = request.method_config
@@ -417,7 +412,6 @@ def test_mcscan_auto_request_from_cli_includes_local_synteny_options(tmp_path: P
         "optimize_figsize": True,
         "rewrite_layout_links": True,
         "optimize_karyotype_labels": True,
-        "trim_cross_chromosome_blocks": True,
     }
     assert request.output.formats == ["png", "pdf"]
 

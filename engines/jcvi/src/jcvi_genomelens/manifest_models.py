@@ -65,6 +65,7 @@ class WorkflowOptions:
     log_level: str = "INFO"
     verbose: bool = False
     auto_optimization: dict[str, bool] = field(default_factory=dict)
+    use_native_local_synteny_renderer: bool = False
     histogram_inputs: list[Path] = field(default_factory=list)
     histogram_columns: list[int] = field(default_factory=lambda: [0])
     histogram_skip: int = 0

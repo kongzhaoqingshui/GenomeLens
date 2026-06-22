@@ -47,7 +47,6 @@ def test_split_config_roundtrip(tmp_path: Path) -> None:
     assert loaded.local_synteny.auto_optimization.optimize_figsize is False
     assert loaded.local_synteny.auto_optimization.rewrite_layout_links is False
     assert loaded.local_synteny.auto_optimization.optimize_karyotype_labels is False
-    assert loaded.local_synteny.auto_optimization.trim_cross_chromosome_blocks is False
 
     assert loaded.toolchain.lastal_path == ""
     assert loaded.toolchain.lastdb_path == ""
@@ -89,7 +88,6 @@ def test_jcvi_config_reads_v2_grouped_keys(tmp_path: Path) -> None:
                         "optimize_figsize": True,
                         "rewrite_layout_links": True,
                         "optimize_karyotype_labels": True,
-                        "trim_cross_chromosome_blocks": True,
                     },
                 },
             }
@@ -119,4 +117,3 @@ def test_jcvi_config_reads_v2_grouped_keys(tmp_path: Path) -> None:
     assert loaded.local_synteny.auto_optimization.optimize_figsize is True
     assert loaded.local_synteny.auto_optimization.rewrite_layout_links is True
     assert loaded.local_synteny.auto_optimization.optimize_karyotype_labels is True
-    assert loaded.local_synteny.auto_optimization.trim_cross_chromosome_blocks is True

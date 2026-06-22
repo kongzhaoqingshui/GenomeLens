@@ -127,8 +127,7 @@ GenomeLens.exe analyze schema > analysis-request.schema.json
     "auto_optimization": {
       "optimize_figsize": true,
       "rewrite_layout_links": true,
-      "optimize_karyotype_labels": true,
-      "trim_cross_chromosome_blocks": true
+      "optimize_karyotype_labels": true
     }
   }
 }
@@ -137,7 +136,6 @@ GenomeLens.exe analyze schema > analysis-request.schema.json
 - `optimize_figsize`：自动推导合适画布尺寸。
 - `rewrite_layout_links`：全局核型/多物种局部图按链式关系重写 edges。
 - `optimize_karyotype_labels`：镜像分布全局核型标签，避免重叠。
-- `trim_cross_chromosome_blocks`：渲染前裁切跨染色体 block。
 
 ### Histogram 纯绘图请求
 

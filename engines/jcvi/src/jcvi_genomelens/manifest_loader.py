@@ -291,6 +291,7 @@ def load_manifest(path: str | Path) -> EngineRunManifest:
             log_level=_string(options_raw.get("log_level"), "INFO"),
             verbose=_bool(options_raw.get("verbose", False)),
             auto_optimization=_bool_dict(options_raw.get("auto_optimization")),
+            use_native_local_synteny_renderer=_bool(options_raw.get("use_native_local_synteny_renderer", False)),
             histogram_inputs=histogram_inputs,
             histogram_columns=_histogram_columns(options_raw.get("histogram_columns")),
             histogram_skip=_int(options_raw.get("histogram_skip"), 0),

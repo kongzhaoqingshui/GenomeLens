@@ -210,8 +210,17 @@
       "key": "optimize_auto",
       "valueType": "bool",
       "example_value": false,
-      "description": "采用 GenomeLens 添加的自动优化算法优化最终图件效果，包含：\n- 自动推导 synteny 图件尺寸\n- 将跨轨道 layout 连线改写为邻接轨道链\n- 自动优化全局核型图轨道标签位置\n- 切除 blocks 中跨染色体的基因行",
-      "description_en": "Enable GenomeLens auto-optimization for the final figure, including: auto-inferred synteny figure size, rewriting cross-track layout links as adjacent track chains, auto-optimized global karyotype track label placement, and trimming gene rows that cross chromosomes within blocks."
+      "description": "采用 GenomeLens 添加的自动优化算法优化最终图件效果，包含：\n- 自动推导 synteny 图件尺寸\n- 将跨轨道 layout 连线改写为邻接轨道链\n- 自动优化全局核型图轨道标签位置",
+      "description_en": "Enable GenomeLens auto-optimization for the final figure, including: auto-inferred synteny figure size, rewriting cross-track layout links as adjacent track chains, and auto-optimized global karyotype track label placement."
+    },
+    {
+      "label": "使用原生局部共线性渲染器 (GenomeLens)",
+      "label_en": "Use Native Local Synteny Renderer (GenomeLens)",
+      "key": "use_native_local_synteny_renderer",
+      "valueType": "bool",
+      "example_value": false,
+      "description": "使用 GenomeLens 自实现渲染器绘制局部共线性图，支持跨染色体展示。",
+      "description_en": "Use the GenomeLens native renderer for local synteny figures with cross-chromosome support."
     },
     {
       "label": "允许简化降级",

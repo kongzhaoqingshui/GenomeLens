@@ -73,8 +73,8 @@ def _mcscan_request_to_analysis(request: McscanRequest) -> AnalysisRequest:
             "optimize_figsize": request.auto_optimization.get("optimize_figsize", False),
             "rewrite_layout_links": request.auto_optimization.get("rewrite_layout_links", False),
             "optimize_karyotype_labels": request.auto_optimization.get("optimize_karyotype_labels", False),
-            "trim_cross_chromosome_blocks": request.auto_optimization.get("trim_cross_chromosome_blocks", False),
         },
+        use_native_local_synteny_renderer=request.use_native_local_synteny_renderer,
     )
 
     return AnalysisRequest(

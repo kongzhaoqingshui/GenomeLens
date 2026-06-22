@@ -263,13 +263,13 @@
       "description_en": "Automatically optimize global karyotype track label placement."
     },
     {
-      "label": "切除跨染色体 block (GenomeLens)",
-      "label_en": "Trim Cross-Chromosome Blocks (GenomeLens)",
-      "key": "trim_cross_chromosome_blocks",
+      "label": "使用原生局部共线性渲染器 (GenomeLens)",
+      "label_en": "Use Native Local Synteny Renderer (GenomeLens)",
+      "key": "use_native_local_synteny_renderer",
       "valueType": "bool",
       "example_value": false,
-      "description": "切除 blocks 中跨染色体的基因行。",
-      "description_en": "Trim gene rows that cross chromosomes within blocks."
+      "description": "使用 GenomeLens 自实现渲染器绘制局部共线性图，支持跨染色体展示。",
+      "description_en": "Use the GenomeLens native renderer for local synteny figures with cross-chromosome support."
     },
     {
       "label": "允许简化降级",

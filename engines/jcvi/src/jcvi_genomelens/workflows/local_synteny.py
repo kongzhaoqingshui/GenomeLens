@@ -237,10 +237,11 @@ def run(manifest: EngineRunManifest, outdir: str | Path) -> tuple[list[CommandAu
     1. 运行 pairwise MCscan 得到全基因组 blocks。
     2. 按目标基因上下游窗口截取局部 blocks。
     3. 生成局部 layout。
-    4. 调用 JCVI graphics.synteny 出图。
+    4. 调用 JCVI graphics.synteny 或自实现渲染器出图。
     """
 
     from jcvi.graphics.synteny import main as jcvi_graphics_synteny
+    from jcvi_genomelens.graphics.local_synteny_renderer import render_local_synteny
     from jcvi_genomelens.workflows.mcscan_pairwise import run as run_pairwise
 
     root = Path(outdir).expanduser().resolve(strict=False)
@@ -252,6 +253,8 @@ def run(manifest: EngineRunManifest, outdir: str | Path) -> tuple[list[CommandAu
     target_gene_ids = manifest.options.target_gene_ids
     if not target_gene_ids:
         raise ValueError("local_synteny workflow requires target_gene_ids")
+
+    use_native = manifest.options.use_native_local_synteny_renderer
 
     # local_synteny 的上游依赖就是完整 pairwise 结果，局部图只是在 blocks 上二次裁切。
     commands, pairwise_artifacts = run_pairwise(manifest, root)
@@ -309,24 +312,58 @@ def run(manifest: EngineRunManifest, outdir: str | Path) -> tuple[list[CommandAu
 
         for fmt in formats:
             output_prefix = local_dir / f"{key}.local"
-            command = run_python_step(
-                "jcvi.graphics.synteny",
-                jcvi_graphics_synteny,
-                [
+            figure = Path(f"{output_prefix}.{fmt}")
+
+            if use_native:
+                # Use the native matplotlib renderer for cross-chromosome support.
+                argv = [
                     str(plot_inputs.blocks),
                     str(plot_inputs.bed),
-                    str(plot_inputs.layout),
-                    *_figure_options(plot_options, fmt, plot_inputs.figsize),
-                    "--outputprefix",
-                    str(output_prefix),
-                ],
-                cwd=root,
-            )
+                    str(figure),
+                    "--track-names",
+                    manifest.query.name,
+                    manifest.subject.name,
+                    "--target-gene-ids",
+                    *target_gene_ids,
+                ]
+                if plot_inputs.figsize:
+                    argv.extend(["--figsize", plot_inputs.figsize])
+                render_local_synteny(
+                    blocks_path=plot_inputs.blocks,
+                    bed_path=plot_inputs.bed,
+                    output_path=figure,
+                    track_names=[manifest.query.name, manifest.subject.name],
+                    target_gene_ids=list(target_gene_ids),
+                    label_targets=bool(plot_options.get("label_targets")),
+                    figsize=plot_inputs.figsize,
+                    dpi=manifest.options.dpi,
+                    fmt=fmt,
+                )
+                command = CommandAudit(
+                    name="local_synteny_renderer",
+                    argv=argv,
+                    returncode=0,
+                    cwd=str(root),
+                )
+            else:
+                command = run_python_step(
+                    "jcvi.graphics.synteny",
+                    jcvi_graphics_synteny,
+                    [
+                        str(plot_inputs.blocks),
+                        str(plot_inputs.bed),
+                        str(plot_inputs.layout),
+                        *_figure_options(plot_options, fmt, plot_inputs.figsize),
+                        "--outputprefix",
+                        str(output_prefix),
+                    ],
+                    cwd=root,
+                )
+
             commands.append(command)
             _assert_ok(command)
-            figure = Path(f"{output_prefix}.{fmt}")
             if not figure.is_file() or figure.stat().st_size == 0:
-                raise RuntimeError(f"JCVI local synteny figure was not created: {figure}")
+                raise RuntimeError(f"Local synteny figure was not created: {figure}")
             local_figures.append(str(figure))
 
         local_artifacts.append(

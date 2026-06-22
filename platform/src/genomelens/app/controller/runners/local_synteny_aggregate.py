@@ -250,6 +250,7 @@ def build_multi_species_local_synteny(
             figsize=request.figsize,
             dpi=request.dpi,
             auto_optimization=request.auto_optimization,
+            use_native_local_synteny_renderer=request.use_native_local_synteny_renderer,
             task={"workflow": "local_synteny_multi", "task_type": "multi_species_local_synteny"},
             species=species_summary(request),
         )

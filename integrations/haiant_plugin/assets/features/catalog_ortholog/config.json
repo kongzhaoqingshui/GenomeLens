@@ -206,15 +206,6 @@
       "description_en": "Automatically optimize global karyotype track label placement."
     },
     {
-      "label": "切除跨染色体 block (GenomeLens)",
-      "label_en": "Trim Cross-Chromosome Blocks (GenomeLens)",
-      "key": "trim_cross_chromosome_blocks",
-      "valueType": "bool",
-      "example_value": false,
-      "description": "切除 blocks 中跨染色体的基因行。",
-      "description_en": "Trim gene rows that cross chromosomes within blocks."
-    },
-    {
       "label": "允许简化降级",
       "label_en": "Allow Simplified Fallback",
       "key": "allow_simplified_fallback",

@@ -24,6 +24,5 @@
   "optimize_figsize": false,
   "rewrite_layout_links": false,
   "optimize_karyotype_labels": false,
-  "trim_cross_chromosome_blocks": false,
   "allow_simplified_fallback": false
 }

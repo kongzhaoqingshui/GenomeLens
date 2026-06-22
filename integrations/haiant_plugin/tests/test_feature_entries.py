@@ -151,7 +151,6 @@ def test_auto_entry_optimize_auto_maps_all_flags(tmp_path: Path) -> None:
     assert auto_opt["optimize_figsize"] is True
     assert auto_opt["rewrite_layout_links"] is True
     assert auto_opt["optimize_karyotype_labels"] is True
-    assert auto_opt["trim_cross_chromosome_blocks"] is True
 
 
 def test_auto_entry_uses_genomelens_path(tmp_path: Path) -> None:

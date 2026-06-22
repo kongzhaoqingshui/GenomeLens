@@ -58,8 +58,7 @@ HAIant 插件把 `params.json` 转换为 GenomeLens 调用：
 | `optimize_figsize` | bool | `method_config.auto_optimization.optimize_figsize` | 否 | `false` | 自动推导图件尺寸（GenomeLens 扩展） |
 | `rewrite_layout_links` | bool | `method_config.auto_optimization.rewrite_layout_links` | 否 | `false` | 改写跨轨道 layout 连线（GenomeLens 扩展） |
 | `optimize_karyotype_labels` | bool | `method_config.auto_optimization.optimize_karyotype_labels` | 否 | `false` | 优化全局核型标签（GenomeLens 扩展） |
-| `trim_cross_chromosome_blocks` | bool | `method_config.auto_optimization.trim_cross_chromosome_blocks` | 否 | `false` | 切除跨染色体 block 行（GenomeLens 扩展） |
-| `optimize_auto` | bool | `method_config.auto_optimization.*` | 否 | `false` | `gljcvi-auto` 专用：一键开启上述四项出图自动优化 |
+| `optimize_auto` | bool | `method_config.auto_optimization.*` | 否 | `false` | `gljcvi-auto` 专用：一键开启上述三项出图自动优化 |
 | `allow_simplified_fallback` | bool | `method_config.allow_simplified_fallback` | 否 | `false` | 诊断开关；正式流程保持关闭 |
 
 \* `genomelens_exe` 未设置时读取 `GENOMELENS_EXE` 环境变量；`input_dir` 与 `species` 至少提供一个。

@@ -163,12 +163,6 @@ def _auto_optimization(params: Mapping[str, object]) -> dict[str, bool]:
                 params.get("optimize_karyotype_labels", False),
             )
         ),
-        "trim_cross_chromosome_blocks": parse_bool(
-            nested.get(
-                "trim_cross_chromosome_blocks",
-                params.get("trim_cross_chromosome_blocks", False),
-            )
-        ),
     }
 
 
@@ -322,6 +316,9 @@ def build_analysis_request(
             "figsize": str(params.get("figsize") or ""),
             "dpi": _int_value(params.get("dpi"), default=300, label="dpi", minimum=1),
             "auto_optimization": _auto_optimization(params),
+            "use_native_local_synteny_renderer": parse_bool(
+                params.get("use_native_local_synteny_renderer", False)
+            ),
         },
     }
     return request
@@ -514,8 +511,10 @@ def build_auto_jcvi_config(
                 "optimize_figsize": optimize_auto,
                 "rewrite_layout_links": optimize_auto,
                 "optimize_karyotype_labels": optimize_auto,
-                "trim_cross_chromosome_blocks": optimize_auto,
             },
+            "use_native_local_synteny_renderer": parse_bool(
+                params.get("use_native_local_synteny_renderer", False)
+            ),
         },
     }
 

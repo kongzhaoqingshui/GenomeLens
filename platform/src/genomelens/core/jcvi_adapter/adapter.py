@@ -123,6 +123,7 @@ class JcviEngineAdapter:
             "log_level": request.log_level,
             "verbose": request.verbose,
             "auto_optimization": dict(request.auto_optimization),
+            "use_native_local_synteny_renderer": request.use_native_local_synteny_renderer,
         }
         return {
             "schema_version": 2,
@@ -268,6 +269,7 @@ class JcviEngineAdapter:
         figsize: str,
         dpi: int,
         auto_optimization: dict[str, bool] | None = None,
+        use_native_local_synteny_renderer: bool = False,
         task: dict[str, object] | None = None,
         species: list[dict[str, object]] | None = None,
     ) -> dict[str, object]:
@@ -292,6 +294,7 @@ class JcviEngineAdapter:
                 "figsize": figsize,
                 "dpi": dpi,
                 "auto_optimization": dict(auto_optimization or {}),
+                "use_native_local_synteny_renderer": use_native_local_synteny_renderer,
             },
             "expected_outputs": ["multi_species_local_figures"],
             "meta": {
