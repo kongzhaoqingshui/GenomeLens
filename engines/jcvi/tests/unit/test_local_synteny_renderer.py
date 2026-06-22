@@ -347,6 +347,77 @@ def test_compute_layout_maps_reference_by_bed_coordinates(tmp_path: Path) -> Non
     assert second_gap > first_gap * 20
 
 
+def test_compute_layout_scales_subject_chromosome_segments_by_bed_span(tmp_path: Path) -> None:
+    bed = tmp_path / "all.bed"
+    bed.write_text(
+        "\n".join(
+            [
+                "qchr\t0\t10\tq1\t0\t+",
+                "qchr\t1000\t1010\tq2\t0\t+",
+                "short\t0\t10\ts1\t0\t+",
+                "long\t0\t1000\ts2\t0\t+",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    blocks = tmp_path / "blocks.txt"
+    blocks.write_text("q1\ts1\nq2\ts2\n", encoding="utf-8")
+
+    layout = _compute_layout(blocks, bed, ["Ref", "Sub"], [])
+
+    widths = {segment.chromosome: segment.visual_end - segment.visual_start for segment in layout.tracks[1].segments}
+    assert widths["long"] > widths["short"] * 5
+
+
+def test_compute_layout_scales_track_lengths_across_species_by_bed_span(tmp_path: Path) -> None:
+    bed = tmp_path / "all.bed"
+    bed.write_text(
+        "\n".join(
+            [
+                "qchr\t0\t10\tq1\t0\t+",
+                "qchr\t1000\t1010\tq2\t0\t+",
+                "schr\t0\t10\ts1\t0\t+",
+                "schr\t100\t110\ts2\t0\t+",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    blocks = tmp_path / "blocks.txt"
+    blocks.write_text("q1\ts1\nq2\ts2\n", encoding="utf-8")
+
+    layout = _compute_layout(blocks, bed, ["Ref", "Sub"], [])
+
+    reference_width = layout.tracks[0].segments[0].visual_end - layout.tracks[0].segments[0].visual_start
+    subject_width = layout.tracks[1].segments[0].visual_end - layout.tracks[1].segments[0].visual_start
+    assert subject_width < reference_width * 0.35
+
+
+def test_compressed_background_gaps_do_not_expand_track_length(tmp_path: Path) -> None:
+    bed = tmp_path / "all.bed"
+    subject_genes = [f"schr\t{i * 10000}\t{i * 10000 + 20}\ts{i}\t0\t+" for i in range(80)]
+    bed.write_text(
+        "\n".join(
+            [
+                "qchr\t0\t20\tq1\t0\t+",
+                "qchr\t2000000\t2000020\tq2\t0\t+",
+                *subject_genes,
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    blocks = tmp_path / "blocks.txt"
+    blocks.write_text("q1\ts0\nq2\ts79\n", encoding="utf-8")
+
+    layout = _compute_layout(blocks, bed, ["Ref", "Sub"], [])
+
+    reference_width = layout.tracks[0].segments[0].visual_end - layout.tracks[0].segments[0].visual_start
+    subject_width = layout.tracks[1].segments[0].visual_end - layout.tracks[1].segments[0].visual_start
+    assert subject_width < reference_width * 0.50
+
+
 def test_compute_layout_keeps_multiple_chromosomes_on_one_row(tmp_path: Path) -> None:
     bed = tmp_path / "all.bed"
     bed_lines = [f"qchr\t{i * 10}\t{i * 10 + 5}\tq{i}\t0\t+" for i in range(24)]

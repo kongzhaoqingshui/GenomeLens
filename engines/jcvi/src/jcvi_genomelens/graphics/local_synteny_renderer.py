@@ -9,6 +9,7 @@ compressed so cross-chromosome local windows remain readable.
 
 from __future__ import annotations
 
+import re
 from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -20,6 +21,7 @@ matplotlib.use("Agg")  # noqa: E402
 matplotlib.rcParams["svg.fonttype"] = "none"
 import matplotlib.pyplot as plt  # noqa: E402
 from matplotlib.axes import Axes  # noqa: E402
+from matplotlib.collections import LineCollection  # noqa: E402
 from matplotlib.patches import FancyBboxPatch, PathPatch, Rectangle  # noqa: E402
 from matplotlib.path import Path as MplPath  # noqa: E402
 
@@ -38,6 +40,7 @@ _CHROMOSOME_COLOR_PALETTE = (
 )
 
 HIGHLIGHT_COLOR = "#000000"
+HIGHLIGHT_LINK_COLOR = "#c94a4f"
 BAR_COLOR = "#49a6b2"
 TICK_COLOR = "#2f3a45"
 GENE_FORWARD_COLOR = "#5f9f81"
@@ -46,6 +49,7 @@ LABEL_BG_COLOR = "#fff8dc"
 LABEL_TEXT_COLOR = "#30363d"
 BACKGROUND_LINK_COLOR = "#b9b9b9"
 LABEL_BOX_HEIGHT = 0.028
+RANGE_LABEL_HEIGHT = 0.018
 
 AXIS_LEFT = 0.08
 AXIS_RIGHT = 0.88
@@ -200,6 +204,9 @@ class LocalSyntenyLayoutSolver:
     def solve(self, scene: LocalSyntenyScene, *, figsize: str = "", dpi: int = 300) -> LocalSyntenyLayout:
         del dpi
         track_items = _collect_track_gene_rows(scene.genes, scene.block_rows, len(scene.track_names))
+        track_spans = [_total_track_span(items) for items in track_items]
+        max_track_span = max(track_spans, default=1.0)
+        track_widths = [_track_visual_width_for_span(span, max_track_span) for span in track_spans]
 
         tracks: list[TrackWindow] = []
         if scene.track_names:
@@ -209,6 +216,8 @@ class LocalSyntenyLayoutSolver:
                 0,
                 reference_color,
                 track_items[0],
+                scene.genes,
+                max_visual_width=track_widths[0],
             )
             tracks.append(reference_track)
         else:
@@ -216,7 +225,15 @@ class LocalSyntenyLayoutSolver:
 
         for index, name in enumerate(scene.track_names[1:], start=1):
             color = DEFAULT_TRACK_COLORS[index % len(DEFAULT_TRACK_COLORS)]
-            track = _build_target_track(name, index, color, track_items[index], row_x)
+            track = _build_target_track(
+                name,
+                index,
+                color,
+                track_items[index],
+                row_x,
+                scene.genes,
+                max_visual_width=track_widths[index],
+            )
             tracks.append(track)
 
         width, height = _derive_figsize(len(tracks), len(scene.block_rows), figsize, tracks)
@@ -302,7 +319,11 @@ class MatplotlibLocalSyntenyRenderer:
             color = BACKGROUND_LINK_COLOR
             alpha = LINK_ALPHA
             lw = LINK_LW
-            if link.left_gene in layout.target_gene_ids or link.right_gene in layout.target_gene_ids:
+            if layout.block_rows[link.row_index].highlighted:
+                color = HIGHLIGHT_LINK_COLOR
+                alpha = 0.90
+                lw = 1.45
+            elif link.left_gene in layout.target_gene_ids or link.right_gene in layout.target_gene_ids:
                 color = "#6b7280"
                 alpha = 0.72
                 lw = 0.85
@@ -375,6 +396,19 @@ def _scope_of(accn: str) -> tuple[str, str]:
     return "", accn
 
 
+def _safe_prefix(value: str) -> str:
+    """Return the scoped-ID prefix used by multi-species local BED files."""
+
+    text = re.sub(r"[^0-9A-Za-z_.-]+", "_", value.strip())
+    return text or "species"
+
+
+def _track_prefix(track_name: str) -> str:
+    """Return the expected scoped-ID prefix for a track name."""
+
+    return _safe_prefix(track_name)
+
+
 def _display_accn(accn: str) -> str:
     """Return the human-readable part of an accn."""
 
@@ -418,6 +452,58 @@ def _dedupe_gene_rows(items: list[tuple[GeneRecord, int]]) -> list[tuple[GeneRec
     return unique
 
 
+def _genes_in_track_interval(
+    genes: dict[str, GeneRecord],
+    *,
+    track_name: str,
+    chromosome: str,
+    start_bp: float,
+    end_bp: float,
+    anchors: list[tuple[GeneRecord, int]],
+) -> list[tuple[GeneRecord, int]]:
+    """Return all BED genes from one track interval, preserving anchor rows."""
+
+    anchor_rows = {gene.accn: row_index for gene, row_index in anchors}
+    prefix = _track_prefix(track_name)
+    scoped_matches = [
+        gene
+        for gene in genes.values()
+        if _scope_of(gene.accn)[0] == prefix
+        and gene.chromosome == chromosome
+        and gene.end >= start_bp
+        and gene.start <= end_bp
+    ]
+    candidates = scoped_matches
+    if not candidates:
+        candidates = [
+            gene
+            for gene in genes.values()
+            if gene.chromosome == chromosome and gene.end >= start_bp and gene.start <= end_bp
+        ]
+
+    merged = {gene.accn: (gene, anchor_rows.get(gene.accn, -1)) for gene in candidates}
+    for gene, row_index in anchors:
+        merged[gene.accn] = (gene, row_index)
+    return sorted(merged.values(), key=lambda item: (item[0].start, item[0].end, item[0].accn))
+
+
+def _total_track_span(items: list[tuple[GeneRecord, int]]) -> float:
+    """Return total BED span across chromosome segments in one track."""
+
+    total = 0.0
+    for _chromosome, group in _chromosome_ordered_groups(_dedupe_gene_rows(items)):
+        total += max(1.0, float(max(gene.end for gene, _ in group) - min(gene.start for gene, _ in group)))
+    return max(1.0, total)
+
+
+def _track_visual_width_for_span(span: float, max_span: float) -> float:
+    """Scale a track's total visual width against the longest local window."""
+
+    if max_span <= 0:
+        return MAX_TRACK_WIDTH
+    return max(MIN_SEGMENT_WIDTH, MAX_TRACK_WIDTH * max(1.0, span) / max_span)
+
+
 def _estimate_segment_width(genes: list[GeneRecord]) -> float:
     """Estimate a compact segment width before gap-compressed mapping."""
 
@@ -427,6 +513,46 @@ def _estimate_segment_width(genes: list[GeneRecord]) -> float:
     gene_component = max(MIN_SEGMENT_WIDTH, min(0.24, len(genes) * 0.022))
     span_component = min(MAX_SEGMENT_WIDTH, max(MIN_SEGMENT_WIDTH, raw_span / 5_000_000 * 0.18))
     return min(MAX_SEGMENT_WIDTH, max(gene_component, span_component))
+
+
+def _allocate_segment_widths_by_span(spans: list[float], available_width: float) -> list[float]:
+    """Allocate same-row chromosome widths proportionally to real BED spans."""
+
+    if not spans:
+        return []
+    if available_width <= 0:
+        return [MIN_SEGMENT_WIDTH for _ in spans]
+
+    min_width = min(MIN_SEGMENT_WIDTH, available_width / len(spans))
+    if min_width * len(spans) >= available_width:
+        return [available_width / len(spans) for _ in spans]
+
+    widths = [0.0 for _ in spans]
+    remaining = set(range(len(spans)))
+    remaining_width = available_width
+    while remaining:
+        total_span = sum(max(1.0, spans[index]) for index in remaining)
+        below_min: list[int] = []
+        proposed: dict[int, float] = {}
+        for index in remaining:
+            width = remaining_width * max(1.0, spans[index]) / total_span
+            proposed[index] = width
+            if width < min_width:
+                below_min.append(index)
+        if not below_min:
+            for index, width in proposed.items():
+                widths[index] = width
+            break
+        for index in below_min:
+            widths[index] = min_width
+            remaining.remove(index)
+            remaining_width -= min_width
+        if remaining_width <= 0:
+            for index in remaining:
+                widths[index] = min_width
+            break
+
+    return widths
 
 
 def _map_segment_genes(
@@ -465,7 +591,38 @@ def _map_segment_genes(
         mapped.append(MappedGene(gene=gene, x=x + width / 2.0, width=width, row_index=row_index))
         x += width
 
+    _cap_mapped_segment_width(mapped, gap_markers, start_x=start_x, max_width=target_width)
     return mapped, gap_markers, compressed
+
+
+def _cap_mapped_segment_width(
+    mapped: list[MappedGene],
+    gap_markers: list[float],
+    *,
+    start_x: float,
+    max_width: float,
+) -> None:
+    """Keep compressed gap glyphs from expanding a segment beyond its real-width allocation."""
+
+    if not mapped:
+        return
+    left = min(item.x - item.width / 2.0 for item in mapped)
+    right = max(item.x + item.width / 2.0 for item in mapped)
+    span = right - left
+    if span <= max_width:
+        shift = start_x - left
+        for item in mapped:
+            item.x += shift
+        for index, marker in enumerate(gap_markers):
+            gap_markers[index] = marker + shift
+        return
+
+    factor = max_width / max(1e-9, span)
+    for item in mapped:
+        item.x = start_x + (item.x - left) * factor
+        item.width = max(MIN_GENE_WIDTH, item.width * factor)
+    for index, marker in enumerate(gap_markers):
+        gap_markers[index] = start_x + (marker - left) * factor
 
 
 def _map_reference_segment_genes(
@@ -558,6 +715,9 @@ def _build_reference_track(
     index: int,
     color: str,
     items: list[tuple[GeneRecord, int]],
+    genes: dict[str, GeneRecord],
+    *,
+    max_visual_width: float = MAX_TRACK_WIDTH,
 ) -> tuple[TrackWindow, dict[int, float]]:
     """Build the reference track on true BED coordinates."""
 
@@ -566,22 +726,33 @@ def _build_reference_track(
     row_x: dict[int, float] = {}
     groups = _chromosome_ordered_groups(_dedupe_gene_rows(items))
     spans = [max(1, max(gene.end for gene, _ in group) - min(gene.start for gene, _ in group)) for _, group in groups]
-    available_width = MAX_TRACK_WIDTH - INTER_SEGMENT_GAP * max(0, len(groups) - 1)
+    available_width = max(MIN_SEGMENT_WIDTH, max_visual_width - INTER_SEGMENT_GAP * max(0, len(groups) - 1))
     total_span = max(1, sum(spans))
     x = AXIS_LEFT
 
     for (chromosome, group), span in zip(groups, spans, strict=False):
+        start_bp = min(gene.start for gene, _ in group)
+        end_bp = max(gene.end for gene, _ in group)
+        interval_items = _genes_in_track_interval(
+            genes,
+            track_name=name,
+            chromosome=chromosome,
+            start_bp=start_bp,
+            end_bp=end_bp,
+            anchors=group,
+        )
         visual_width = max(MIN_SEGMENT_WIDTH, available_width * span / total_span)
         if x + visual_width > AXIS_RIGHT:
             visual_width = max(MIN_SEGMENT_WIDTH, AXIS_RIGHT - x)
         mapped, start_bp, end_bp = _map_reference_segment_genes(
-            group,
+            interval_items,
             visual_start=x,
             visual_width=visual_width,
         )
         all_mapped.extend(mapped)
         for mapped_gene in mapped:
-            row_x[mapped_gene.row_index] = mapped_gene.x
+            if mapped_gene.row_index >= 0:
+                row_x[mapped_gene.row_index] = mapped_gene.x
         segments.append(
             ChromosomeSegment(
                 chromosome=chromosome,
@@ -604,7 +775,7 @@ def _build_reference_track(
             color=color,
             segments=segments,
             all_genes=all_mapped,
-            visual_width=MAX_TRACK_WIDTH,
+            visual_width=max_visual_width,
             range_label=range_label,
         ),
         row_x,
@@ -617,19 +788,62 @@ def _build_target_track(
     color: str,
     items: list[tuple[GeneRecord, int]],
     row_x: dict[int, float],
+    genes: dict[str, GeneRecord],
+    *,
+    max_visual_width: float = MAX_TRACK_WIDTH,
 ) -> TrackWindow:
     """Build a non-reference track and align segments to reference anchors."""
 
     segments: list[ChromosomeSegment] = []
     all_mapped: list[MappedGene] = []
+    segment_specs: list[
+        tuple[str, list[tuple[GeneRecord, int]], list[tuple[GeneRecord, int]], float, float, float]
+    ] = []
     for chromosome, group in _chromosome_ordered_groups(_dedupe_gene_rows(items)):
-        genes = [gene for gene, _ in group]
-        target_width = _estimate_segment_width(genes)
-        mapped, gap_markers, compressed = _map_segment_genes(group, start_x=0.0, target_width=target_width)
+        start_bp = min(gene.start for gene, _ in group)
+        end_bp = max(gene.end for gene, _ in group)
+        interval_items = _genes_in_track_interval(
+            genes,
+            track_name=name,
+            chromosome=chromosome,
+            start_bp=start_bp,
+            end_bp=end_bp,
+            anchors=group,
+        )
+        if not interval_items:
+            continue
+        interval_start = min(gene.start for gene, _ in interval_items)
+        interval_end = max(gene.end for gene, _ in interval_items)
+        segment_specs.append(
+            (
+                chromosome,
+                group,
+                interval_items,
+                float(interval_start),
+                float(interval_end),
+                max(1.0, float(interval_end - interval_start)),
+            )
+        )
+
+    available_width = max(MIN_SEGMENT_WIDTH, max_visual_width - INTER_SEGMENT_GAP * max(0, len(segment_specs) - 1))
+    target_widths = _allocate_segment_widths_by_span(
+        [span for *_prefix, span in segment_specs],
+        max(MIN_SEGMENT_WIDTH, available_width),
+    )
+
+    for (chromosome, _group, interval_items, start_bp, end_bp, _span), target_width in zip(
+        segment_specs,
+        target_widths,
+        strict=False,
+    ):
+        mapped, gap_markers, compressed = _map_segment_genes(interval_items, start_x=0.0, target_width=target_width)
         if not mapped:
             continue
-        desired = median(row_x[item.row_index] for item in mapped if item.row_index in row_x)
-        current = median(item.x for item in mapped)
+        anchor_mapped = [item for item in mapped if item.row_index in row_x]
+        if not anchor_mapped:
+            continue
+        desired = median(row_x[item.row_index] for item in anchor_mapped)
+        current = median(item.x for item in anchor_mapped)
         shift = desired - current
         left = min(item.x - item.width / 2.0 for item in mapped)
         right = max(item.x + item.width / 2.0 for item in mapped)
@@ -648,8 +862,8 @@ def _build_target_track(
             ChromosomeSegment(
                 chromosome=chromosome,
                 genes=mapped,
-                start_bp=min(gene.start for gene, _ in group),
-                end_bp=max(gene.end for gene, _ in group),
+                start_bp=start_bp,
+                end_bp=end_bp,
                 visual_start=min(item.x - item.width / 2.0 for item in mapped),
                 visual_end=max(item.x + item.width / 2.0 for item in mapped),
                 has_compressed_gaps=compressed,
@@ -669,7 +883,7 @@ def _build_target_track(
         color=color,
         segments=segments,
         all_genes=all_mapped,
-        visual_width=MAX_TRACK_WIDTH,
+        visual_width=max_visual_width,
         range_label=range_label,
         lane_count=max(1, lane_count),
     )
@@ -861,6 +1075,12 @@ def _estimate_label_box_width(text: str) -> float:
     return max(0.038, len(text) * 0.0078 + 0.012)
 
 
+def _estimate_range_label_width(text: str) -> float:
+    """Estimate axes-width of a compact range label."""
+
+    return max(0.046, len(text) * 0.0054 + 0.010)
+
+
 def _draw_label_box(ax: Axes, text: str, x: float, y: float, fontsize: int = 7) -> None:
     """Draw a rounded label box."""
 
@@ -896,6 +1116,12 @@ def _label_rect(x: float, y: float, width: float) -> tuple[float, float, float, 
     return (x, x + width, y - LABEL_BOX_HEIGHT / 2.0, y + LABEL_BOX_HEIGHT / 2.0)
 
 
+def _centered_rect(x: float, y: float, width: float, height: float) -> tuple[float, float, float, float]:
+    """Return a center-anchored rectangle."""
+
+    return (x - width / 2.0, x + width / 2.0, y - height / 2.0, y + height / 2.0)
+
+
 def _rects_overlap(a: tuple[float, float, float, float], b: tuple[float, float, float, float]) -> bool:
     """Return True when two axes-coordinate rectangles overlap."""
 
@@ -922,6 +1148,62 @@ def _label_overlaps_segment_bar(
         y + TRACK_BAR_HEIGHT * 0.9,
     )
     return _rects_overlap(rect, bar_rect)
+
+
+def _label_overlaps_track_bar(rect: tuple[float, float, float, float], track: TrackWindow) -> bool:
+    """Detect whether a label box covers any chromosome bar in the track."""
+
+    return any(_label_overlaps_segment_bar(rect, segment, _segment_y(track, segment)) for segment in track.segments)
+
+
+def _draw_range_label(
+    ax: Axes,
+    text: str,
+    track: TrackWindow,
+    segment: ChromosomeSegment,
+    y: float,
+    occupied: list[tuple[float, float, float, float]],
+) -> None:
+    """Draw a range label at the nearest non-overlapping location."""
+
+    width = _estimate_range_label_width(text)
+    center = (segment.visual_start + segment.visual_end) / 2.0
+    candidates = [
+        (center, y + 0.034),
+        (center, y - 0.034),
+        (center, y + 0.064),
+        (center, y - 0.064),
+        (segment.visual_end + width / 2.0 + 0.010, y + 0.026),
+        (segment.visual_start - width / 2.0 - 0.010, y - 0.026),
+    ]
+    label_x = _clamp(center, -0.22 + width / 2.0, AXIS_RIGHT - width / 2.0)
+    label_y = y + 0.034
+    label_rect = _centered_rect(label_x, label_y, width, RANGE_LABEL_HEIGHT)
+    for raw_x, raw_y in candidates:
+        x = _clamp(raw_x, -0.22 + width / 2.0, AXIS_RIGHT - width / 2.0)
+        rect = _centered_rect(x, raw_y, width, RANGE_LABEL_HEIGHT)
+        if _label_overlaps_track_bar(rect, track):
+            continue
+        if any(_rects_overlap(rect, other) for other in occupied):
+            continue
+        label_x = x
+        label_y = raw_y
+        label_rect = rect
+        break
+    occupied.append(label_rect)
+    ax.text(
+        label_x,
+        label_y,
+        text,
+        fontsize=5.4,
+        ha="center",
+        va="center",
+        color="#64748b",
+        alpha=0.90,
+        zorder=7,
+        clip_on=False,
+        bbox={"facecolor": "white", "edgecolor": "none", "alpha": 0.68, "pad": 0.35},
+    )
 
 
 def _target_star_rects(track: TrackWindow, target_gene_ids: set[str]) -> list[tuple[float, float, float, float]]:
@@ -961,7 +1243,7 @@ def _label_positions_for_segments(
         for raw_x, raw_y in candidates:
             x = _clamp(raw_x, -0.22, AXIS_RIGHT - width)
             rect = _label_rect(x, raw_y, width)
-            if _label_overlaps_segment_bar(rect, segment, y):
+            if _label_overlaps_track_bar(rect, track):
                 continue
             if any(_rects_overlap(rect, other) for other in occupied):
                 continue
@@ -975,7 +1257,7 @@ def _label_positions_for_segments(
     return positions
 
 
-def _draw_star(ax: Axes, x: float, y: float, color: str = HIGHLIGHT_COLOR) -> None:
+def _draw_star(ax: Axes, x: float, y: float, color: str = HIGHLIGHT_LINK_COLOR) -> None:
     """Draw a target gene marker."""
 
     ax.plot(
@@ -983,8 +1265,9 @@ def _draw_star(ax: Axes, x: float, y: float, color: str = HIGHLIGHT_COLOR) -> No
         y,
         marker="*",
         markersize=13,
-        markeredgecolor=color,
+        markeredgecolor=HIGHLIGHT_COLOR,
         markerfacecolor=color,
+        markeredgewidth=0.55,
         zorder=11,
         clip_on=False,
     )
@@ -1053,6 +1336,10 @@ def _draw_track(
 
     gene_positions: dict[str, tuple[float, float]] = {}
     label_positions = _label_positions_for_segments(track, target_gene_ids)
+    occupied_text_rects = _target_star_rects(track, target_gene_ids)
+    for segment_index, (label_x, label_y) in label_positions.items():
+        segment = track.segments[segment_index]
+        occupied_text_rects.append(_label_rect(label_x, label_y, _estimate_label_box_width(segment.chromosome)))
 
     ax.text(
         -0.235,
@@ -1087,18 +1374,36 @@ def _draw_track(
 
         tick_top = y + 0.021
         tick_bottom = y - 0.021
+        background_ticks = [
+            [(mapped.x, tick_bottom), (mapped.x, tick_top)] for mapped in segment.genes if mapped.row_index < 0
+        ]
+        if background_ticks:
+            ax.add_collection(
+                LineCollection(
+                    background_ticks,
+                    colors=TICK_COLOR,
+                    linewidths=0.20,
+                    alpha=0.105,
+                    zorder=4,
+                    clip_on=False,
+                )
+            )
         for mapped in segment.genes:
+            is_anchor = mapped.row_index >= 0
+            if not is_anchor:
+                continue
             gene_width = max(MIN_VISIBLE_GENE_WIDTH, mapped.width)
             gene_left = mapped.x - gene_width / 2.0
             gene_color = GENE_REVERSE_COLOR if mapped.gene.strand == "-" else GENE_FORWARD_COLOR
+            gene_height = TRACK_BAR_HEIGHT * 0.96
             ax.add_patch(
                 Rectangle(
-                    (gene_left, y - TRACK_BAR_HEIGHT * 0.48),
+                    (gene_left, y - gene_height / 2.0),
                     gene_width,
-                    TRACK_BAR_HEIGHT * 0.96,
+                    gene_height,
                     facecolor=gene_color,
                     edgecolor="none",
-                    alpha=0.78,
+                    alpha=0.52,
                     zorder=5,
                     clip_on=False,
                 )
@@ -1107,8 +1412,8 @@ def _draw_track(
                 [mapped.x, mapped.x],
                 [tick_bottom, tick_top],
                 color=TICK_COLOR,
-                lw=0.42,
-                alpha=0.58,
+                lw=0.44,
+                alpha=0.64,
                 zorder=6,
             )
             gene_positions[mapped.gene.accn] = (mapped.x, y)
@@ -1119,16 +1424,13 @@ def _draw_track(
 
         label_x, label_y = label_positions.get(segment_index, (-0.18, y))
         _draw_label_box(ax, segment.chromosome, label_x, label_y)
-        ax.text(
-            (segment.visual_start + segment.visual_end) / 2.0,
-            y + 0.030,
+        _draw_range_label(
+            ax,
             _format_bp_range(segment.start_bp, segment.end_bp),
-            fontsize=6,
-            ha="center",
-            va="bottom",
-            color="#64748b",
-            zorder=6,
-            clip_on=False,
+            track,
+            segment,
+            y,
+            occupied_text_rects,
         )
 
     return gene_positions
