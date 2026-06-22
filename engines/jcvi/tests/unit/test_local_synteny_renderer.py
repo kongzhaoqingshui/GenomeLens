@@ -3,18 +3,15 @@ from pathlib import Path
 import pytest
 
 from jcvi_genomelens.graphics.local_synteny_renderer import (
-    AnchorLink,
     GeneRecord,
     MappedGene,
     PositionedGene,
     _build_track_window,
     _compute_layout,
     _effective_dpi,
-    _focused_link_path_vertices,
     _format_bp_range,
     _label_positions_for_segments,
     _layout_visual_audit,
-    _link_focus_points,
     _read_bed,
     _read_blocks,
     _ribbon_endpoint_pairs,
@@ -634,25 +631,6 @@ def test_ribbon_endpoint_pairs_reverse_inversions() -> None:
 
     assert right_a[0] < right_b[0]
     assert inv_right_a[0] > inv_right_b[0]
-
-
-def test_ribbon_links_share_pair_focus_point() -> None:
-    left_a = PositionedGene(MappedGene(GeneRecord("a", "chr", 0, 100, "+"), x=0.20, width=0.04), y=0.8)
-    right_a = PositionedGene(MappedGene(GeneRecord("b", "chr", 0, 100, "+"), x=0.80, width=0.04), y=0.6)
-    left_b = PositionedGene(MappedGene(GeneRecord("c", "chr", 0, 100, "+"), x=0.40, width=0.04), y=0.8)
-    right_b = PositionedGene(MappedGene(GeneRecord("d", "chr", 0, 100, "+"), x=0.60, width=0.04), y=0.6)
-    links = [
-        (AnchorLink(0, 0, 1, "a", "b"), left_a, right_a),
-        (AnchorLink(1, 0, 1, "c", "d"), left_b, right_b),
-    ]
-
-    focus_points = _link_focus_points(links)
-    focus = focus_points[(0, 1)]
-    verts, codes = _focused_link_path_vertices((0.20, 0.8), (0.80, 0.6), focus)
-
-    assert focus == (0.5, 0.7)
-    assert verts.count(focus) == 1
-    assert len(verts) == len(codes)
 
 
 def test_render_uses_target_legend_and_no_pair_cloud(fixture_dir: Path) -> None:

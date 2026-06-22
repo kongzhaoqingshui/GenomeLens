@@ -363,7 +363,6 @@ class MatplotlibLocalSyntenyRenderer:
             drawable_links.append((link, left, right))
 
         target_colors = _target_color_by_gene(layout)
-        focus_points = _link_focus_points(drawable_links)
         for link, left, right in drawable_links:
             color = BACKGROUND_LINK_COLOR
             alpha = LINK_ALPHA
@@ -376,31 +375,8 @@ class MatplotlibLocalSyntenyRenderer:
                 color = target_colors.get(link.left_gene) or target_colors.get(link.right_gene) or "#6b7280"
                 alpha = 1.0
                 zorder = 2
-            _draw_ribbon_link(
-                ax,
-                left,
-                right,
-                color=color,
-                alpha=alpha,
-                zorder=zorder,
-                focus=focus_points[(link.left_track, link.right_track)],
-            )
-
-
-def _link_focus_points(
-    drawable_links: list[tuple[AnchorLink, PositionedGene, PositionedGene]],
-) -> dict[tuple[int, int], tuple[float, float]]:
-    """Return one shared convergence point for each adjacent track pair."""
-
-    grouped: dict[tuple[int, int], list[tuple[float, float]]] = {}
-    for link, left, right in drawable_links:
-        grouped.setdefault((link.left_track, link.right_track), []).append(
-            ((left.mapped.x + right.mapped.x) / 2.0, (left.y + right.y) / 2.0)
-        )
-    return {
-        pair: (median(point[0] for point in points), median(point[1] for point in points))
-        for pair, points in grouped.items()
-    }
+            focus_y = (left.y + right.y) / 2.0
+            _draw_ribbon_link(ax, left, right, color=color, alpha=alpha, zorder=zorder, focus_y=focus_y)
 
 
 def _strip_highlight_prefix(value: str) -> tuple[bool, str]:
@@ -1811,32 +1787,14 @@ def _draw_ribbon_link(
     color: str,
     alpha: float,
     zorder: int,
-    focus: tuple[float, float] | None = None,
+    focus_y: float | None = None,
 ) -> None:
     """Draw a JCVI-style synteny ribbon using gene interval endpoints."""
 
     left_a, left_b, right_a, right_b = _ribbon_endpoint_pairs(left, right)
 
-    if focus is not None:
-        left_center = ((left_a[0] + left_b[0]) / 2.0, left.y)
-        right_center = ((right_a[0] + right_b[0]) / 2.0, right.y)
-        verts, codes = _focused_link_path_vertices(left_center, right_center, focus)
-        line_width = _focused_link_linewidth(left, right)
-        ax.add_patch(
-            PathPatch(
-                MplPath(verts, codes),
-                facecolor="none",
-                edgecolor=color,
-                lw=line_width,
-                alpha=alpha,
-                zorder=zorder,
-                clip_on=False,
-            )
-        )
-        return
-
-    mid_y1 = (left_a[1] + right_a[1]) / 2.0
-    mid_y2 = (left_b[1] + right_b[1]) / 2.0
+    mid_y1 = focus_y if focus_y is not None else (left_a[1] + right_a[1]) / 2.0
+    mid_y2 = focus_y if focus_y is not None else (left_b[1] + right_b[1]) / 2.0
     left_ctrl_x1 = left_a[0] * 0.78 + right_a[0] * 0.22
     right_ctrl_x1 = left_a[0] * 0.22 + right_a[0] * 0.78
     right_ctrl_x2 = left_b[0] * 0.22 + right_b[0] * 0.78
@@ -1874,45 +1832,6 @@ def _draw_ribbon_link(
             clip_on=False,
         )
     )
-
-
-def _focused_link_path_vertices(
-    start: tuple[float, float],
-    end: tuple[float, float],
-    focus: tuple[float, float],
-) -> tuple[list[tuple[float, float]], list[int]]:
-    """Build a centreline path that passes through a shared convergence point."""
-
-    def controls_to_focus(start: tuple[float, float], end: tuple[float, float]) -> tuple[tuple[float, float], ...]:
-        dy = end[1] - start[1]
-        return (
-            (start[0] * 0.78 + end[0] * 0.22, start[1] + dy * 0.52),
-            (start[0] * 0.22 + end[0] * 0.78, end[1] - dy * 0.24),
-            end,
-        )
-
-    verts = [
-        start,
-        *controls_to_focus(start, focus),
-        *controls_to_focus(focus, end),
-    ]
-    codes = [
-        MplPath.MOVETO,
-        MplPath.CURVE4,
-        MplPath.CURVE4,
-        MplPath.CURVE4,
-        MplPath.CURVE4,
-        MplPath.CURVE4,
-        MplPath.CURVE4,
-    ]
-    return verts, codes
-
-
-def _focused_link_linewidth(left: PositionedGene, right: PositionedGene) -> float:
-    """Return a subtle point-width for focused JCVI-like link strokes."""
-
-    width = (left.mapped.width + right.mapped.width) / 2.0
-    return max(0.18, min(0.95, width * 95.0))
 
 
 def _draw_target_legend(ax: Axes, entries: list[TargetLegendEntry], *, y_base: float = LEGEND_Y) -> None:
