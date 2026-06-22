@@ -117,8 +117,8 @@ export default function Home({ onNavigate }: HomeProps) {
   }
 
   return (
-    <div className="ui-page-enter grid h-screen w-full grid-cols-[18rem_minmax(0,1fr)_20rem] overflow-hidden bg-white">
-      <aside className="flex min-h-0 flex-col border-r border-slate-200/80 bg-[#eef6f8] px-3 py-4">
+    <div className="ui-page-enter grid h-screen w-full grid-cols-[18rem_minmax(0,1fr)_20rem] overflow-hidden bg-surface-raised">
+      <aside className="flex min-h-0 flex-col overflow-hidden border-r border-border bg-surface px-3 py-4">
         <div className="flex items-center gap-3 rounded-xl px-3 py-2">
           <JcviMeowIcon className="h-9 w-9" />
           <span>
@@ -136,7 +136,7 @@ export default function Home({ onNavigate }: HomeProps) {
         </button>
 
         <div className="mt-6 px-3 text-[11px] font-medium uppercase tracking-[0.18em] text-slate-400">{isZh ? "能力" : "Capabilities"}</div>
-        <div className="mt-2 min-h-0 flex-1 overflow-auto">
+        <div className="mt-2 min-h-0 flex-1 overflow-y-auto overflow-x-hidden pr-1">
           {capabilities.map((entry) => (
             <button
               key={entry.id}
@@ -171,8 +171,8 @@ export default function Home({ onNavigate }: HomeProps) {
         </div>
       </aside>
 
-      <main className="flex min-w-0 flex-col bg-white">
-        <header className="flex h-16 items-center justify-between border-b border-slate-200/80 px-8">
+      <main className="flex min-w-0 flex-col bg-surface-raised">
+        <header className="flex h-16 items-center justify-between border-b border-border px-8">
           <div>
             <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-400">{isZh ? "首页" : "Home"}</p>
             <h1 className="mt-1 text-base font-semibold text-slate-900">{capabilitySubtitle(selected, isZh)}</h1>
@@ -279,7 +279,7 @@ export default function Home({ onNavigate }: HomeProps) {
         </div>
       </main>
 
-      <aside className="min-h-0 overflow-auto border-l border-slate-200/80 bg-white px-5 py-6">
+      <aside className="min-h-0 overflow-y-auto overflow-x-hidden border-l border-border bg-surface-raised px-5 py-6">
         <section>
           <h2 className="text-sm font-semibold text-slate-900">{isZh ? "已接入" : "Connected now"}</h2>
           <div className="mt-3 grid gap-2">

@@ -30,8 +30,8 @@ export function AppShell({
 
   if (activeRoute.id === "home") {
     return (
-      <div className="min-h-screen bg-[#f4f7f8] text-text-primary transition-colors duration-200">
-        <div className="fixed right-5 top-5 z-10">
+      <div className="min-h-screen bg-bg text-text-primary transition-colors duration-200">
+        <div className="fixed bottom-5 right-5 z-30 w-[17rem] max-w-[calc(100vw-2.5rem)]">
           <ThemeToggle mode={themeMode} resolvedTheme={resolvedTheme} onChange={onThemeChange} />
         </div>
         <main className="ui-page-enter min-h-screen">{children}</main>
