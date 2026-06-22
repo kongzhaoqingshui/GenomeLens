@@ -397,6 +397,35 @@ function localizeWorkflowState(state: WorkflowState, language: "zh-CN" | "en"): 
   }
 }
 
+function localizeRunPrompt(
+  key: "importedRequestOutdir" | "draftOutdir" | "validationErrors",
+  language: "zh-CN" | "en",
+): string {
+  if (language === "en") {
+    switch (key) {
+      case "importedRequestOutdir":
+        return "Choose an output directory before running an imported request.";
+      case "draftOutdir":
+        return "Choose an output directory before generating a request JSON.";
+      case "validationErrors":
+        return "Please fix validation errors before running this task.";
+      default:
+        return "";
+    }
+  }
+
+  switch (key) {
+    case "importedRequestOutdir":
+      return "运行导入的 request 前，请先选择输出目录。";
+    case "draftOutdir":
+      return "生成 request JSON 前，请先选择输出目录。";
+    case "validationErrors":
+      return "运行当前任务前，请先修复校验问题。";
+    default:
+      return "";
+  }
+}
+
 export default function NewAnalysisPage({ route, onNavigate, locationHash }: NewAnalysisPageProps) {
   const { language } = useLanguage();
   const isZh = language === "zh-CN";
@@ -733,7 +762,7 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
         updateActiveTask((task) => ({
           ...task,
           runStatus: "error",
-          runError: "Choose an output directory before running an imported request.",
+          runError: localizeRunPrompt("importedRequestOutdir", language),
           view: "setup",
         }));
         return;
@@ -757,7 +786,7 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
       updateActiveTask((task) => ({
         ...task,
         runStatus: "error",
-        runError: "Please fix validation errors before running this task.",
+        runError: localizeRunPrompt("validationErrors", language),
         view: "setup",
       }));
       return;
@@ -786,8 +815,8 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
         ...task,
         runStatus: "error",
         runError: imported
-          ? "Choose an output directory before running an imported request."
-          : "Choose an output directory before generating a request JSON.",
+          ? localizeRunPrompt("importedRequestOutdir", language)
+          : localizeRunPrompt("draftOutdir", language),
         view: "setup",
       }));
       return;
@@ -1920,7 +1949,7 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
               <InfoRow label="input" value={draft.directory || "-"} />
               <InfoRow label="output" value={draft.outputDirectory || "-"} />
               <InfoRow label="request" value={usesImportedRequest ? "imported" : "draft"} />
-              <InfoRow label="issues" value={String(validation.issues.length)} />
+              <InfoRow label={isZh ? "问题" : "issues"} value={String(validation.issues.length)} />
             </div>
           </section>
 

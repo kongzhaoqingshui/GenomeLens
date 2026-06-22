@@ -267,4 +267,27 @@ describe("App", () => {
     });
     expect(writeTextFileMock).not.toHaveBeenCalled();
   });
+
+  it("shows Chinese guidance when an imported request is missing an outdir", async () => {
+    dialogOpenMock.mockResolvedValueOnce("/imports/request.json");
+
+    render(<App />);
+
+    const [primaryAction] = await screen.findAllByRole("button", { name: "打开工作台" });
+    fireEvent.click(primaryAction);
+
+    expect(await screen.findByText("输入与输出")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "导入 request JSON" }));
+    expect((await screen.findAllByText("/imports/request.json")).length).toBeGreaterThan(0);
+
+    fireEvent.change(screen.getByPlaceholderText("选择当前任务的输出位置"), {
+      target: { value: "" },
+    });
+
+    const runButtons = screen.getAllByRole("button", { name: "运行" });
+    fireEvent.click(runButtons[runButtons.length - 1]!);
+
+    expect(await screen.findByText("输出目录不能为空")).toBeInTheDocument();
+    expect(screen.queryByText("Choose an output directory before running an imported request.")).not.toBeInTheDocument();
+  });
 });
