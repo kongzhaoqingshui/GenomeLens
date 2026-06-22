@@ -43,6 +43,9 @@ chromosome segments.
 - Target chromosome segments are automatically reversed when anchor order
   descends relative to the reference, with descending range labels such as
   `18.33-7.50Mb`.
+- Multi-chromosome target tracks use the leftmost chromosome segment as the
+  orientation authority so one species row does not mix forward and reverse
+  segment directions.
 - Synteny links are JCVI-style interval ribbons based on gene widths, with
   inversion ribbons drawn by reversed endpoints.
 - Very short chromosome segments include up to 20 same-chromosome flanking genes
@@ -58,6 +61,8 @@ chromosome segments.
 - Upper chromosome labels sit close to the track, roughly matching the range
   label spacing, and use a subtle semi-transparent white cushion rather than a
   framed box.
+- Raster output uses a higher default minimum resolution while vector output
+  remains SVG/PDF-native.
 - Existing `render_local_synteny(...)` call signature remains stable.
 - `use_native_local_synteny_renderer=true` uses V2, while `false` keeps the JCVI
   fallback path.

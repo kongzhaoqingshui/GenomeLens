@@ -503,6 +503,35 @@ def test_target_segment_reverses_when_anchor_order_is_descending(tmp_path: Path)
     assert positions["s1"].display_strand == "-"
 
 
+def test_target_track_segments_follow_leftmost_orientation(tmp_path: Path) -> None:
+    bed = tmp_path / "all.bed"
+    bed.write_text(
+        "\n".join(
+            [
+                "qchr\t0\t20\tq1\t0\t+",
+                "qchr\t100\t120\tq2\t0\t+",
+                "qchr\t1000\t1020\tq3\t0\t+",
+                "qchr\t1100\t1120\tq4\t0\t+",
+                "schrA\t0\t20\ts1\t0\t+",
+                "schrA\t100\t120\ts2\t0\t+",
+                "schrB\t0\t20\ts4\t0\t+",
+                "schrB\t100\t120\ts3\t0\t+",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    blocks = tmp_path / "blocks.txt"
+    blocks.write_text("q1\ts1\nq2\ts2\nq3\ts3\nq4\ts4\n", encoding="utf-8")
+
+    layout = _compute_layout(blocks, bed, ["Ref", "Sub"], [])
+    subject = layout.tracks[1]
+
+    assert len(subject.segments) == 2
+    assert [segment.reversed for segment in subject.segments] == [False, False]
+    assert all(segment.start_bp < segment.end_bp for segment in subject.segments)
+
+
 def test_compute_layout_keeps_multiple_chromosomes_on_one_row(tmp_path: Path) -> None:
     bed = tmp_path / "all.bed"
     bed_lines = [f"qchr\t{i * 10}\t{i * 10 + 5}\tq{i}\t0\t+" for i in range(24)]
@@ -621,6 +650,6 @@ def test_render_uses_target_legend_and_no_pair_cloud(fixture_dir: Path) -> None:
 
 
 def test_effective_dpi_doubles_default_raster_quality() -> None:
-    assert _effective_dpi(300, "png") == 600
+    assert _effective_dpi(300, "png") == 900
     assert _effective_dpi(900, "png") == 900
     assert _effective_dpi(300, "svg") == 300

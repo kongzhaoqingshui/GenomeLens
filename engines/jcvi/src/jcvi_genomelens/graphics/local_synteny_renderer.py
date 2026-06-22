@@ -307,7 +307,7 @@ class MatplotlibLocalSyntenyRenderer:
         output_path: Path,
         *,
         label_targets: bool = False,
-        dpi: int = 600,
+        dpi: int = 900,
         fmt: str = "svg",
     ) -> Path:
         fig, ax = plt.subplots(figsize=layout.figsize)
@@ -759,6 +759,31 @@ def _reverse_mapped_segment(
         gap_markers[index] = start_x + width - (marker - start_x)
 
 
+def _set_segment_orientation(segment: ChromosomeSegment, *, reversed_orientation: bool) -> None:
+    """Mirror a solved segment when enforcing same-track visual orientation."""
+
+    if segment.reversed == reversed_orientation:
+        return
+    start_x = segment.visual_start
+    width = segment.visual_end - segment.visual_start
+    for item in segment.genes:
+        item.x = start_x + width - (item.x - start_x)
+        item.visual_strand = _flip_strand(item.gene.strand) if reversed_orientation else None
+    segment.gap_markers = [start_x + width - (marker - start_x) for marker in segment.gap_markers]
+    segment.start_bp, segment.end_bp = segment.end_bp, segment.start_bp
+    segment.reversed = reversed_orientation
+
+
+def _unify_track_segment_orientations(segments: list[ChromosomeSegment]) -> None:
+    """Keep all chromosome segments in one track oriented like the leftmost segment."""
+
+    if len(segments) <= 1:
+        return
+    leftmost = min(segments, key=lambda segment: segment.visual_start)
+    for segment in segments:
+        _set_segment_orientation(segment, reversed_orientation=leftmost.reversed)
+
+
 def _cap_mapped_segment_width(
     mapped: list[MappedGene],
     gap_markers: list[float],
@@ -1045,6 +1070,7 @@ def _build_target_track(
 
     _assign_segment_lanes(segments)
     _pack_segments_same_row(segments)
+    _unify_track_segment_orientations(segments)
     range_label = " | ".join(
         f"{segment.chromosome} {_format_bp_range(segment.start_bp, segment.end_bp)}" for segment in segments
     )
@@ -1175,7 +1201,7 @@ def _compute_layout(
     track_names: list[str],
     target_gene_ids: list[str],
     figsize: str = "",
-    dpi: int = 600,
+    dpi: int = 900,
 ) -> LocalSyntenyLayout:
     """Build the chromosome-aware scene from blocks + BED."""
 
@@ -1187,7 +1213,7 @@ def _effective_dpi(dpi: int, fmt: str) -> int:
     """Return at least 2x raster DPI while leaving vector output unaffected."""
 
     if fmt.lower() in {"png", "jpg", "jpeg", "tif", "tiff", "webp"}:
-        return max(600, dpi)
+        return max(900, dpi)
     return max(1, dpi)
 
 
@@ -1266,7 +1292,7 @@ def _draw_segment_truncation_markers(ax: Axes, segment: ChromosomeSegment, y: fl
     """Draw compact break markers when a context-expanded segment is still clipped."""
 
     if segment.left_truncated:
-        _draw_terminal_break_marker(ax, segment.visual_start - 0.0062, y, side="left")
+        _draw_terminal_break_marker(ax, segment.visual_start - 0.0040, y, side="left")
     if segment.right_truncated:
         _draw_terminal_break_marker(ax, segment.visual_end + 0.0018, y, side="right")
 
@@ -1696,8 +1722,8 @@ def _draw_track(
             for mapped in segment.genes
             if mapped.row_index < 0 and mapped.display_strand == "-"
         ]
-        _draw_gene_tick_collection(ax, background_forward, GENE_FORWARD_COLOR, alpha=0.88, linewidth=0.07)
-        _draw_gene_tick_collection(ax, background_reverse, GENE_REVERSE_COLOR, alpha=0.88, linewidth=0.07)
+        _draw_gene_tick_collection(ax, background_forward, GENE_FORWARD_COLOR, alpha=0.88, linewidth=0.035)
+        _draw_gene_tick_collection(ax, background_reverse, GENE_REVERSE_COLOR, alpha=0.88, linewidth=0.035)
         for mapped in segment.genes:
             is_anchor = mapped.row_index >= 0
             if not is_anchor:
@@ -1707,7 +1733,7 @@ def _draw_track(
                 [mapped.x, mapped.x],
                 [tick_bottom, tick_top],
                 color=gene_color,
-                lw=max(0.16, min(0.34, mapped.width * 180.0)),
+                lw=max(0.08, min(0.17, mapped.width * 90.0)),
                 alpha=0.96,
                 zorder=6,
                 solid_capstyle="butt",
@@ -1913,7 +1939,7 @@ def render_local_synteny(
     target_gene_ids: list[str] | None = None,
     label_targets: bool = False,
     figsize: str = "",
-    dpi: int = 600,
+    dpi: int = 900,
     fmt: str = "svg",
 ) -> Path:
     """Render a chromosome-aware local synteny figure."""
