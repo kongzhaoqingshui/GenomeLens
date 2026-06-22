@@ -48,6 +48,9 @@ chromosome segments.
   segment directions.
 - Synteny links are JCVI-style interval ribbons based on gene widths, with
   inversion ribbons drawn by reversed endpoints.
+- Adjacent-track ribbons share one convergence focus point per track pair so
+  crossing links form a compact JCVI-like intersection instead of scattered
+  independent crossings.
 - Very short chromosome segments include up to 20 same-chromosome flanking genes
   on each side and show compact terminal break marks when the BED context
   continues.
