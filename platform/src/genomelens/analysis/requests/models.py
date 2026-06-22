@@ -293,9 +293,7 @@ class McscanMethodConfig:
             figsize=_str(data.get("figsize")),
             dpi=_int(data.get("dpi"), default=300),
             auto_optimization=_bool_dict(data.get("auto_optimization")),
-            use_native_local_synteny_renderer=_bool(
-                data.get("use_native_local_synteny_renderer"), default=False
-            ),
+            use_native_local_synteny_renderer=_bool(data.get("use_native_local_synteny_renderer"), default=False),
             histogram_inputs=_str_list(data.get("histogram_inputs")),
             histogram_columns=[_int(item, default=0) for item in raw_histogram_columns]
             if isinstance(raw_histogram_columns, list) and raw_histogram_columns

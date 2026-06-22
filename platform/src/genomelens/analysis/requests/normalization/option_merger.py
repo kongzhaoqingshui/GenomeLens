@@ -174,9 +174,7 @@ def _auto_optimization_dict(args: argparse.Namespace, config: ConfigModel | None
     }
 
 
-def _use_native_local_synteny_renderer(
-    args: argparse.Namespace, config: ConfigModel | None
-) -> bool:
+def _use_native_local_synteny_renderer(args: argparse.Namespace, config: ConfigModel | None) -> bool:
     if bool(getattr(args, "use_native_local_synteny_renderer", False)):
         return True
     if config:

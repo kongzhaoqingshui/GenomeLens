@@ -222,9 +222,7 @@ class ConfigModel:
             figsize=_str(local_raw.get("figsize")),
             dpi=_int(local_raw.get("dpi"), default=300),
             auto_optimization=auto_optimization,
-            use_native_local_synteny_renderer=_bool(
-                local_raw.get("use_native_local_synteny_renderer"), default=False
-            ),
+            use_native_local_synteny_renderer=_bool(local_raw.get("use_native_local_synteny_renderer"), default=False),
         )
 
         return cls(
