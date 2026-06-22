@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 
+import { useLanguage } from "../i18n/useLanguage";
 import type { AppRoute } from "../routes/routes";
 import type { ThemeMode } from "../theme/theme";
 import { JcviMeowIcon } from "./JcviMeowIcon";
@@ -24,6 +25,9 @@ export function AppShell({
   onThemeChange,
   children,
 }: AppShellProps) {
+  const { language } = useLanguage();
+  const isZh = language === "zh-CN";
+
   if (activeRoute.id === "home") {
     return (
       <div className="min-h-screen bg-[#f4f7f8] text-text-primary transition-colors duration-200">
@@ -74,7 +78,9 @@ export function AppShell({
           </nav>
 
           <div className="mt-auto border-t border-slate-200/80 pt-4">
-            <div className="px-3 text-[11px] font-medium uppercase tracking-[0.18em] text-slate-400">Appearance</div>
+            <div className="px-3 text-[11px] font-medium uppercase tracking-[0.18em] text-slate-400">
+              {isZh ? "外观" : "Appearance"}
+            </div>
             <div className="mt-3 px-1">
               <ThemeToggle mode={themeMode} resolvedTheme={resolvedTheme} onChange={onThemeChange} />
             </div>
@@ -92,7 +98,7 @@ export function AppShell({
               className="ui-pressable rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
               onClick={() => onNavigate("/analysis/new")}
             >
-              Open workbench
+              {isZh ? "打开工作台" : "Open workbench"}
             </button>
           </header>
 

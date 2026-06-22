@@ -1,4 +1,5 @@
 import { JcviMeowIcon } from "./JcviMeowIcon";
+import { useLanguage } from "../i18n/useLanguage";
 
 interface LaunchScreenProps {
   message: string;
@@ -17,6 +18,8 @@ export function LaunchScreen({
   onRetry,
   onOpenDiagnostics,
 }: LaunchScreenProps) {
+  const { language } = useLanguage();
+  const isZh = language === "zh-CN";
   const isError = typeof error === "string" && error.length > 0;
 
   return (
@@ -47,7 +50,7 @@ export function LaunchScreen({
         <div className="min-h-[8.75rem] px-8 py-6">
           {isError ? (
             <div className="ui-message-enter rounded-xl border border-rose-200 bg-rose-50 px-4 py-4 text-left text-sm text-rose-700">
-              <p className="font-semibold">Startup warmup failed</p>
+              <p className="font-semibold">{isZh ? "启动预热失败" : "Startup warmup failed"}</p>
               <p className="mt-2 max-h-24 overflow-auto leading-6">{error}</p>
               <div className="mt-4 flex flex-wrap gap-3">
                 <button
@@ -55,33 +58,39 @@ export function LaunchScreen({
                   className="ui-pressable rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-700"
                   onClick={onRetry}
                 >
-                  Retry
+                  {isZh ? "重试" : "Retry"}
                 </button>
                 <button
                   type="button"
                   className="ui-pressable rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
                   onClick={onOpenDiagnostics}
                 >
-                  Open diagnostics
+                  {isZh ? "打开诊断" : "Open diagnostics"}
                 </button>
               </div>
             </div>
           ) : slow ? (
             <div className="ui-message-enter flex items-center justify-between gap-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-left">
               <div>
-                <p className="text-sm font-medium text-slate-700">Warmup is taking longer than usual.</p>
-                <p className="mt-1 text-xs leading-5 text-slate-500">The workbench will continue loading in the background.</p>
+                <p className="text-sm font-medium text-slate-700">
+                  {isZh ? "启动时间比平时更久一些。" : "Warmup is taking longer than usual."}
+                </p>
+                <p className="mt-1 text-xs leading-5 text-slate-500">
+                  {isZh ? "工作台会继续在后台加载。" : "The workbench will continue loading in the background."}
+                </p>
               </div>
               <button
                 type="button"
                 className="ui-pressable shrink-0 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
                 onClick={onOpenDiagnostics}
               >
-                Diagnostics
+                {isZh ? "诊断" : "Diagnostics"}
               </button>
             </div>
           ) : (
-            <div className="ui-message-enter text-sm text-slate-500">Loading the workbench surface and environment context.</div>
+            <div className="ui-message-enter text-sm text-slate-500">
+              {isZh ? "正在加载工作台界面与环境上下文。" : "Loading the workbench surface and environment context."}
+            </div>
           )}
         </div>
       </div>

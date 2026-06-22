@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 
+import { useLanguage } from "../i18n/useLanguage";
 import type { ArtifactRecord, ArtifactSummary, FigureAsset, RunSummaryViewModel } from "../models";
 import type { AppRoute } from "../routes/routes";
 import { listArtifacts, openPath, readSummaryView } from "../services/workbench";
@@ -37,8 +38,10 @@ function ResultAssetRow({
   asset: FigureAsset;
   onOpen: (path: string) => void;
 }) {
+  const { language } = useLanguage();
+  const isZh = language === "zh-CN";
   return (
-    <article className="grid gap-3 px-6 py-4 lg:grid-cols-[8rem_minmax(0,1fr)_auto]">
+    <article className="ui-row-item grid gap-3 px-6 py-4 lg:grid-cols-[8rem_minmax(0,1fr)_auto]">
       <div className="text-sm text-slate-400">{label}</div>
       <div className="min-w-0">
         <p className="truncate text-sm font-medium text-slate-900">{asset.name}</p>
@@ -53,7 +56,7 @@ function ResultAssetRow({
           className="ui-pressable rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
           onClick={() => onOpen(asset.path)}
         >
-          Open
+          {isZh ? "打开" : "Open"}
         </button>
       </div>
     </article>
@@ -67,8 +70,10 @@ function ArtifactRow({
   artifact: ArtifactRecord;
   onOpen: (path: string) => void;
 }) {
+  const { language } = useLanguage();
+  const isZh = language === "zh-CN";
   return (
-    <article className="grid gap-3 px-6 py-4 lg:grid-cols-[10rem_minmax(0,1fr)_auto]">
+    <article className="ui-row-item grid gap-3 px-6 py-4 lg:grid-cols-[10rem_minmax(0,1fr)_auto]">
       <div className="grid gap-1 text-sm">
         <span className="font-medium text-slate-900">{artifact.artifact_type}</span>
         <span className="text-slate-400">{artifact.artifact_id}</span>
@@ -86,7 +91,7 @@ function ArtifactRow({
           className="ui-pressable rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
           onClick={() => onOpen(artifact.path)}
         >
-          Open
+          {isZh ? "打开" : "Open"}
         </button>
       </div>
     </article>
@@ -100,15 +105,17 @@ function ArtifactSummaryRow({
   artifact: ArtifactSummary;
   onOpen: (path: string) => void;
 }) {
+  const { language } = useLanguage();
+  const isZh = language === "zh-CN";
   return (
-    <article className="grid gap-3 px-6 py-4 lg:grid-cols-[10rem_minmax(0,1fr)_auto]">
+    <article className="ui-row-item grid gap-3 px-6 py-4 lg:grid-cols-[10rem_minmax(0,1fr)_auto]">
       <div className="grid gap-1 text-sm">
         <span className="font-medium text-slate-900">{artifact.name}</span>
         <span className="text-slate-400">{artifact.source}</span>
       </div>
       <div className="min-w-0">
         <p className="break-all text-sm text-slate-500">{artifact.path}</p>
-        <p className="mt-1 text-xs text-slate-400">{artifact.preview ? "Preview-ready result" : "Run output artifact"}</p>
+        <p className="mt-1 text-xs text-slate-400">{artifact.preview ? (isZh ? "可预览结果" : "Preview-ready result") : isZh ? "运行输出产物" : "Run output artifact"}</p>
       </div>
       <div className="flex items-center gap-2">
         <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold uppercase text-slate-600">
@@ -119,7 +126,7 @@ function ArtifactSummaryRow({
           className="ui-pressable rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
           onClick={() => onOpen(artifact.path)}
         >
-          Open
+          {isZh ? "打开" : "Open"}
         </button>
       </div>
     </article>
@@ -127,6 +134,8 @@ function ArtifactSummaryRow({
 }
 
 export default function ResultsPage({ route, onNavigate }: ResultsPageProps) {
+  const { language } = useLanguage();
+  const isZh = language === "zh-CN";
   const [outdir, setOutdir] = useState("");
   const [queryState, setQueryState] = useState<QueryState>("idle");
   const [summary, setSummary] = useState<RunSummaryViewModel | null>(null);
@@ -192,19 +201,19 @@ export default function ResultsPage({ route, onNavigate }: ResultsPageProps) {
       <aside className="border-r border-slate-200/80 bg-[#f6f8f9]">
         <div className="border-b border-slate-200/80 px-5 py-5">
           <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-400">{route.label}</p>
-          <h1 className="mt-2 text-lg font-semibold text-slate-900">Run summary browser</h1>
+          <h1 className="mt-2 text-lg font-semibold text-slate-900">{isZh ? "运行摘要浏览器" : "Run summary browser"}</h1>
           <p className="mt-2 text-sm leading-6 text-slate-500">{route.description}</p>
         </div>
 
         <div className="px-5 py-4">
           <label className="text-xs font-medium uppercase tracking-[0.18em] text-slate-400" htmlFor="results-outdir">
-            Output directory
+            {isZh ? "输出目录" : "Output directory"}
           </label>
           <input
             id="results-outdir"
             type="text"
             value={outdir}
-            placeholder="Enter an analysis outdir"
+            placeholder={isZh ? "输入分析输出目录" : "Enter an analysis outdir"}
             className="mt-3 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-ice-400 focus:ring-2 focus:ring-ice-100"
             onChange={(event) => setOutdir(event.target.value)}
           />
@@ -215,7 +224,7 @@ export default function ResultsPage({ route, onNavigate }: ResultsPageProps) {
               disabled={queryState === "loading"}
               onClick={() => void loadSummary()}
             >
-              {queryState === "loading" ? "Loading..." : "Load summary"}
+              {queryState === "loading" ? (isZh ? "加载中..." : "Loading...") : isZh ? "加载摘要" : "Load summary"}
             </button>
             <button
               type="button"
@@ -223,31 +232,31 @@ export default function ResultsPage({ route, onNavigate }: ResultsPageProps) {
               disabled={!trimmedOutdir}
               onClick={() => void handleOpenPath(trimmedOutdir)}
             >
-              Open output
+              {isZh ? "打开输出目录" : "Open output"}
             </button>
             <button
               type="button"
               className="ui-pressable rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-600 transition hover:bg-white hover:text-slate-900"
               onClick={() => onNavigate("/analysis/new")}
             >
-              Back to workbench
+              {isZh ? "返回工作台" : "Back to workbench"}
             </button>
           </div>
         </div>
 
         <div className="border-t border-slate-200/80 px-5 py-4">
-          <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-slate-400">State</div>
+          <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-slate-400">{isZh ? "状态" : "State"}</div>
           <div className="mt-3 divide-y divide-slate-200/80 border-y border-slate-200/80">
             <div className="flex items-center justify-between py-3 text-sm">
-              <span className="text-slate-400">Query</span>
+              <span className="text-slate-400">{isZh ? "查询" : "Query"}</span>
               <span className="font-medium capitalize text-slate-900">{queryState}</span>
             </div>
             <div className="flex items-center justify-between py-3 text-sm">
-              <span className="text-slate-400">Figures</span>
+              <span className="text-slate-400">{isZh ? "图件" : "Figures"}</span>
               <span className="font-medium text-slate-900">{summary?.figureAssets.length ?? 0}</span>
             </div>
             <div className="flex items-center justify-between py-3 text-sm">
-              <span className="text-slate-400">Artifacts</span>
+              <span className="text-slate-400">{isZh ? "产物" : "Artifacts"}</span>
               <span className="font-medium text-slate-900">{artifacts.length || summary?.artifactIndex.length || 0}</span>
             </div>
           </div>
@@ -258,10 +267,10 @@ export default function ResultsPage({ route, onNavigate }: ResultsPageProps) {
         <div className="border-b border-slate-200/80 px-6 py-5">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-400">Results</p>
-              <h2 className="mt-1 text-lg font-semibold text-slate-900">Status, figures, and artifacts</h2>
+              <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-400">{isZh ? "结果" : "Results"}</p>
+              <h2 className="mt-1 text-lg font-semibold text-slate-900">{isZh ? "状态、图件与产物" : "Status, figures, and artifacts"}</h2>
               <p className="mt-2 text-sm leading-6 text-slate-500">
-                Inspect the run summary and the lightweight artifact index generated for the selected output directory.
+                {isZh ? "查看所选输出目录的运行摘要与轻量 artifact 索引。" : "Inspect the run summary and the lightweight artifact index generated for the selected output directory."}
               </p>
             </div>
             <span
@@ -277,14 +286,14 @@ export default function ResultsPage({ route, onNavigate }: ResultsPageProps) {
         {queryError ? <div className="border-b border-slate-200/80 bg-rose-50 px-6 py-4 text-sm text-rose-700">{queryError}</div> : null}
         {artifactError ? (
           <div className="border-b border-slate-200/80 bg-amber-50 px-6 py-4 text-sm text-amber-700">
-            Artifact listing is unavailable: {artifactError}
+            {isZh ? "产物列表暂不可用：" : "Artifact listing is unavailable: "} {artifactError}
           </div>
         ) : null}
         {openError ? <div className="border-b border-slate-200/80 bg-rose-50 px-6 py-4 text-sm text-rose-700">{openError}</div> : null}
 
         {!trimmedOutdir && queryState === "idle" ? (
           <div className="border-b border-slate-200/80 px-6 py-10 text-sm text-slate-500">
-            Enter an output directory to inspect a run summary and its result files.
+            {isZh ? "输入输出目录后即可查看运行摘要与结果文件。" : "Enter an output directory to inspect a run summary and its result files."}
           </div>
         ) : null}
 
@@ -292,23 +301,23 @@ export default function ResultsPage({ route, onNavigate }: ResultsPageProps) {
           <>
             <section>
               <div className="px-6 py-4">
-                <h3 className="text-sm font-semibold text-slate-900">Overview</h3>
+                <h3 className="text-sm font-semibold text-slate-900">{isZh ? "概览" : "Overview"}</h3>
               </div>
               <div className="divide-y divide-slate-200/80 border-y border-slate-200/80">
                 <div className="grid grid-cols-[12rem_minmax(0,1fr)] gap-4 px-6 py-4 text-sm">
-                  <span className="text-slate-400">Workflow</span>
+                  <span className="text-slate-400">{isZh ? "工作流" : "Workflow"}</span>
                   <span className="font-medium text-slate-900">{summary.workflow}</span>
                 </div>
                 <div className="grid grid-cols-[12rem_minmax(0,1fr)] gap-4 px-6 py-4 text-sm">
-                  <span className="text-slate-400">Method</span>
+                  <span className="text-slate-400">{isZh ? "方法" : "Method"}</span>
                   <span className="font-medium text-slate-900">{summary.method || "Unavailable"}</span>
                 </div>
                 <div className="grid grid-cols-[12rem_minmax(0,1fr)] gap-4 px-6 py-4 text-sm">
-                  <span className="text-slate-400">Progress</span>
+                  <span className="text-slate-400">{isZh ? "进度" : "Progress"}</span>
                   <span className="font-medium text-slate-900">{summary.progress}%</span>
                 </div>
                 <div className="grid grid-cols-[12rem_minmax(0,1fr)] gap-4 px-6 py-4 text-sm">
-                  <span className="text-slate-400">Summary path</span>
+                  <span className="text-slate-400">{isZh ? "摘要路径" : "Summary path"}</span>
                   <button
                     type="button"
                     className="ui-pressable truncate text-left font-medium text-ice-700 transition hover:text-ice-900"
@@ -318,7 +327,7 @@ export default function ResultsPage({ route, onNavigate }: ResultsPageProps) {
                   </button>
                 </div>
                 <div className="grid grid-cols-[12rem_minmax(0,1fr)] gap-4 px-6 py-4 text-sm">
-                  <span className="text-slate-400">Run log</span>
+                  <span className="text-slate-400">{isZh ? "运行日志" : "Run log"}</span>
                   <button
                     type="button"
                     className="ui-pressable truncate text-left font-medium text-ice-700 transition hover:text-ice-900"
@@ -332,7 +341,7 @@ export default function ResultsPage({ route, onNavigate }: ResultsPageProps) {
 
             <section>
               <div className="px-6 py-4">
-                <h3 className="text-sm font-semibold text-slate-900">Primary figures</h3>
+                <h3 className="text-sm font-semibold text-slate-900">{isZh ? "主要图件" : "Primary figures"}</h3>
                 <p className="mt-1 text-sm text-slate-500">Figure shortcuts come from the run summary primary figure set.</p>
               </div>
 
@@ -349,7 +358,7 @@ export default function ResultsPage({ route, onNavigate }: ResultsPageProps) {
 
             <section>
               <div className="px-6 py-4">
-                <h3 className="text-sm font-semibold text-slate-900">Artifacts</h3>
+                <h3 className="text-sm font-semibold text-slate-900">{isZh ? "产物" : "Artifacts"}</h3>
                 <p className="mt-1 text-sm text-slate-500">Artifact rows come from the GUI artifact command, with summary records as fallback context.</p>
               </div>
 

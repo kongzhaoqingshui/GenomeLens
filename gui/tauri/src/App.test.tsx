@@ -163,59 +163,70 @@ describe("App", () => {
 
     expect(screen.getAllByText("JCVI meow").length).toBeGreaterThan(0);
     expect(screen.getByRole("heading", { name: "JCVI meow" })).toBeInTheDocument();
-    expect(await screen.findByRole("button", { name: "Pairwise Synteny" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "双物种共线性" })).toBeInTheDocument();
   });
 
   it("switches theme modes", async () => {
     render(<App />);
 
-    fireEvent.click(await screen.findByRole("button", { name: "Dark" }));
+    fireEvent.click(await screen.findByRole("button", { name: "深色" }));
 
     expect(document.documentElement).toHaveClass("dark");
     expect(window.localStorage.getItem("genomelens.theme")).toBe("dark");
   });
 
+  it("defaults to Chinese and can switch language to English in settings", async () => {
+    window.location.hash = "#/settings";
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: "环境与参考" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "English" }));
+
+    expect(window.localStorage.getItem("genomelens.language")).toBe("en");
+    expect(await screen.findByRole("heading", { name: "Environment and references" })).toBeInTheDocument();
+  });
+
   it("navigates from the home surface into the analysis workbench", async () => {
     render(<App />);
 
-    const [primaryAction] = await screen.findAllByRole("button", { name: "Open workbench" });
+    const [primaryAction] = await screen.findAllByRole("button", { name: "打开工作台" });
     fireEvent.click(primaryAction);
 
     expect(window.location.hash).toBe("#/analysis/new?capability=pairwise-synteny");
-    expect(await screen.findByRole("heading", { name: "Tasks" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "任务" })).toBeInTheDocument();
     expect(screen.getByDisplayValue("Pairwise Synteny #1")).toBeInTheDocument();
-    expect(screen.getByText("Inputs and output")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Run" })).toBeInTheDocument();
+    expect(screen.getByText("输入与输出")).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "运行" }).length).toBeGreaterThan(0);
   });
 
   it("renders the projects page with workspace controls and project rows", async () => {
     window.location.hash = "#/projects";
     render(<App />);
 
-    expect(await screen.findByRole("heading", { name: "Workspace projects" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "工作区项目" })).toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText("Workspace path"), {
+    fireEvent.change(screen.getByLabelText("工作区路径"), {
       target: { value: "/workspace" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Refresh projects" }));
+    fireEvent.click(screen.getByRole("button", { name: "刷新项目" }));
 
     expect(await screen.findByText("Demo Project")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Create project" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "创建项目" })).toBeInTheDocument();
   });
 
   it("renders the results page with summary loading controls", async () => {
     window.location.hash = "#/results";
     render(<App />);
 
-    expect(await screen.findByRole("heading", { name: "Run summary browser" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "运行摘要浏览器" })).toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText("Output directory"), {
+    fireEvent.change(screen.getByLabelText("输出目录"), {
       target: { value: "/runs/demo" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Load summary" }));
+    fireEvent.click(screen.getByRole("button", { name: "加载摘要" }));
 
-    expect(await screen.findByText("Primary figures")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Artifacts" })).toBeInTheDocument();
+    expect(await screen.findByText("主要图件")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "产物" })).toBeInTheDocument();
     expect(await screen.findByText("pairwise.png")).toBeInTheDocument();
   });
 
@@ -224,20 +235,22 @@ describe("App", () => {
 
     render(<App />);
 
-    const [primaryAction] = await screen.findAllByRole("button", { name: "Open workbench" });
+    const [primaryAction] = await screen.findAllByRole("button", { name: "打开工作台" });
     fireEvent.click(primaryAction);
 
-    expect(await screen.findByText("Inputs and output")).toBeInTheDocument();
-    fireEvent.change(screen.getByPlaceholderText("Select where this task should write outputs"), {
+    expect(await screen.findByText("输入与输出")).toBeInTheDocument();
+    fireEvent.change(screen.getByPlaceholderText("选择当前任务的输出位置"), {
       target: { value: "/runs/out" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Import request JSON" }));
+    fireEvent.click(screen.getByRole("button", { name: "导入 request JSON" }));
 
-    expect(await screen.findByText("/imports/request.json")).toBeInTheDocument();
+    expect((await screen.findAllByText("/imports/request.json")).length).toBeGreaterThan(0);
     expect(screen.getAllByText("mcscan_pairwise").length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: "运行" }).length).toBeGreaterThan(0);
 
-    fireEvent.click(screen.getByRole("button", { name: "Run" }));
-    fireEvent.click(await screen.findByRole("button", { name: "Confirm run" }));
+    const runButtons = screen.getAllByRole("button", { name: "运行" });
+    fireEvent.click(runButtons[runButtons.length - 1]!);
+    fireEvent.click(await screen.findByRole("button", { name: "确认运行" }));
 
     await waitFor(() => {
       const runAnalysisCall = invokeMock.mock.calls.find(([command]) => command === "run_analysis");

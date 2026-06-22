@@ -3,12 +3,14 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { AppShell } from "./components/AppShell";
 import { LaunchScreen } from "./components/LaunchScreen";
 import { useWorkbenchStartup } from "./hooks/useWorkbenchStartup";
+import { LanguageProvider, useLanguage } from "./i18n/useLanguage";
 import Home from "./pages/Home";
 import NewAnalysisPage from "./pages/NewAnalysisPage";
 import PlaceholderPage from "./pages/PlaceholderPage";
 import ProjectsPage from "./pages/ProjectsPage";
 import ResultsPage from "./pages/ResultsPage";
 import SettingsPage from "./pages/SettingsPage";
+import { localizeRoute, localizeRoutes } from "./routes/routes";
 import { useHashRouter } from "./routes/useHashRouter";
 import { useTheme } from "./theme/useTheme";
 
@@ -140,10 +142,41 @@ function useLaunchOverlay(startupStatus: "loading" | "ready" | "error", hintCoun
 }
 
 export default function App() {
+  return (
+    <LanguageProvider>
+      <AppContent />
+    </LanguageProvider>
+  );
+}
+
+function startupHint(key: "version" | "template" | "schema", language: "zh-CN" | "en"): string {
+  if (language === "en") {
+    if (key === "version") {
+      return "Checking GenomeLens and JCVI engine availability...";
+    }
+    if (key === "template") {
+      return "Loading the MCSCAN template...";
+    }
+    return "Preparing the workbench schema...";
+  }
+
+  if (key === "version") {
+    return "正在检查 GenomeLens 与 JCVI 引擎...";
+  }
+  if (key === "template") {
+    return "正在读取 MCSCAN 模板...";
+  }
+  return "正在准备工作台 schema...";
+}
+
+function AppContent() {
   const { hash, route, routes, navigate } = useHashRouter();
   const { mode, resolvedTheme, setMode } = useTheme();
+  const { language } = useLanguage();
   const startup = useWorkbenchStartup();
   const overlay = useLaunchOverlay(startup.status, startup.hints.length);
+  const localizedRoute = useMemo(() => localizeRoute(route, language), [language, route]);
+  const localizedRoutes = useMemo(() => localizeRoutes(routes, language), [language, routes]);
   const startupError =
     startup.failed.length > 0
       ? startup.failed
@@ -152,23 +185,25 @@ export default function App() {
           .join(" ")
       : null;
   const launchMessage =
-    startup.hints.length > 0
-      ? startup.hints[Math.min(overlay.hintIndex, Math.max(0, startup.hints.length - 1))]
-      : startup.activeHint;
+    startup.pending.length > 0
+      ? startupHint(startup.pending[Math.min(overlay.hintIndex, Math.max(0, startup.pending.length - 1))], language)
+      : language === "zh-CN"
+        ? "工作台资源已就绪。"
+        : "Workbench resources are ready.";
   const shouldRenderShell = !overlay.showOverlay || overlay.ready;
 
   return (
     <>
       {shouldRenderShell ? (
         <AppShell
-          activeRoute={route}
-          routes={routes}
+          activeRoute={localizedRoute}
+          routes={localizedRoutes}
           themeMode={mode}
           resolvedTheme={resolvedTheme}
           onNavigate={navigate}
           onThemeChange={setMode}
         >
-          {renderRoute(route, navigate, hash)}
+          {renderRoute(localizedRoute, navigate, hash)}
         </AppShell>
       ) : null}
 

@@ -3,6 +3,7 @@ import { mkdir, writeTextFile } from "@tauri-apps/plugin-fs";
 import { useEffect, useMemo, useState } from "react";
 
 import { GameIcon, type GameIconName } from "../components/GameIcon";
+import { useLanguage } from "../i18n/useLanguage";
 import type {
   AlignSoft,
   AnalysisInputMode,
@@ -66,6 +67,12 @@ interface ImportedRequestState {
   requestOutputDirectory: string;
 }
 
+interface RecentRequestHint {
+  path: string;
+  method?: string;
+  workflow?: string;
+}
+
 const FIELD_CLASS =
   "mt-2 w-full rounded-lg border border-border bg-bg px-3 py-2 text-sm text-text-primary shadow-sm outline-none transition focus:border-ice-400 focus:ring-2 focus:ring-ice-200 dark:focus:ring-ice-900/60";
 const LABEL_CLASS = "text-xs font-semibold uppercase tracking-[0.14em] text-text-tertiary";
@@ -75,6 +82,9 @@ const SECONDARY_BUTTON_CLASS =
   "ui-pressable rounded-lg border border-border bg-surface-raised/80 px-3 py-2 text-xs font-semibold text-text-secondary transition hover:border-ice-200 hover:bg-ice-50 hover:text-ice-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ice-500 dark:hover:border-ice-800 dark:hover:bg-ice-900/30 dark:hover:text-ice-200 disabled:cursor-not-allowed disabled:opacity-45";
 const PRIMARY_BUTTON_CLASS =
   "ui-pressable rounded-lg bg-ice-500 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-ice-500/20 transition hover:bg-ice-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ice-500 focus-visible:ring-offset-2 focus-visible:ring-offset-bg disabled:cursor-not-allowed disabled:opacity-50";
+const RECENT_OUTDIRS_KEY = "genomelens.gui.recentOutdirs";
+const RECENT_REQUESTS_KEY = "genomelens.gui.recentRequests";
+const RECENT_HINT_LIMIT = 4;
 
 const WORKFLOW_OPTIONS: McscanWorkflow[] = [
   "mcscan_pairwise",
@@ -229,6 +239,43 @@ function coerceDialogPath(value: string | string[] | null): string | null {
   return value;
 }
 
+function readStoredJson<T>(key: string, fallback: T): T {
+  try {
+    const raw = window.localStorage.getItem(key);
+    if (!raw) {
+      return fallback;
+    }
+    return JSON.parse(raw) as T;
+  } catch {
+    return fallback;
+  }
+}
+
+function writeStoredJson(key: string, value: unknown) {
+  try {
+    window.localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    // Ignore local-only persistence failures.
+  }
+}
+
+function rememberRecentText(items: string[], nextValue: string): string[] {
+  const value = nextValue.trim();
+  if (!value) {
+    return items;
+  }
+  return [value, ...items.filter((item) => item !== value)].slice(0, RECENT_HINT_LIMIT);
+}
+
+function rememberRecentRequest(items: RecentRequestHint[], nextValue: RecentRequestHint): RecentRequestHint[] {
+  const path = nextValue.path.trim();
+  if (!path) {
+    return items;
+  }
+
+  return [{ ...nextValue, path }, ...items.filter((item) => item.path !== path)].slice(0, RECENT_HINT_LIMIT);
+}
+
 function readCapabilityFromHash(locationHash: string): JcviCapabilityId | null {
   const queryIndex = locationHash.indexOf("?");
   if (queryIndex < 0) {
@@ -315,6 +362,8 @@ function canCloseTask(task: WorkbenchTask): boolean {
 }
 
 export default function NewAnalysisPage({ route, onNavigate, locationHash }: NewAnalysisPageProps) {
+  const { language } = useLanguage();
+  const isZh = language === "zh-CN";
   const [templateDraft, setTemplateDraft] = useState<AnalysisRequestDraft | null>(null);
   const [schema, setSchema] = useState<JsonObject | null>(null);
   const [loading, setLoading] = useState(true);
@@ -323,7 +372,19 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
   const [activeTaskId, setActiveTaskId] = useState("");
   const [taskCounter, setTaskCounter] = useState(1);
   const [taskFilter, setTaskFilter] = useState("");
+  const [recentOutdirs, setRecentOutdirs] = useState<string[]>(() => readStoredJson<string[]>(RECENT_OUTDIRS_KEY, []));
+  const [recentRequests, setRecentRequests] = useState<RecentRequestHint[]>(() =>
+    readStoredJson<RecentRequestHint[]>(RECENT_REQUESTS_KEY, []),
+  );
   const capabilityId = useMemo(() => readCapabilityFromHash(locationHash), [locationHash]);
+
+  useEffect(() => {
+    writeStoredJson(RECENT_OUTDIRS_KEY, recentOutdirs);
+  }, [recentOutdirs]);
+
+  useEffect(() => {
+    writeStoredJson(RECENT_REQUESTS_KEY, recentRequests);
+  }, [recentRequests]);
 
   useEffect(() => {
     let cancelled = false;
@@ -564,6 +625,29 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
     }
   }
 
+  async function attachImportedRequest(requestPath: string) {
+    const preview = await readRequestPreview({ requestPath });
+    const nextImportedRequest = parseImportedRequest(preview);
+    setRecentRequests((current) =>
+      rememberRecentRequest(current, {
+        path: nextImportedRequest.path,
+        method: nextImportedRequest.method,
+        workflow: nextImportedRequest.workflow,
+      }),
+    );
+    updateActiveTask((task) => ({
+      ...task,
+      runStatus: task.runStatus === "confirming" ? "idle" : task.runStatus,
+      runError: null,
+      pendingRequestJson: "",
+      importedRequest: nextImportedRequest,
+      draft:
+        task.draft.outputDirectory.trim().length === 0 && nextImportedRequest.requestOutputDirectory
+          ? { ...task.draft, outputDirectory: nextImportedRequest.requestOutputDirectory }
+          : task.draft,
+    }));
+  }
+
   async function handleImportRequestJson() {
     if (!activeTask) {
       return;
@@ -582,19 +666,7 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
     }
 
     try {
-      const preview = await readRequestPreview({ requestPath: selected });
-      const nextImportedRequest = parseImportedRequest(preview);
-      updateActiveTask((task) => ({
-        ...task,
-        runStatus: task.runStatus === "confirming" ? "idle" : task.runStatus,
-        runError: null,
-        pendingRequestJson: "",
-        importedRequest: nextImportedRequest,
-        draft:
-          task.draft.outputDirectory.trim().length === 0 && nextImportedRequest.requestOutputDirectory
-            ? { ...task.draft, outputDirectory: nextImportedRequest.requestOutputDirectory }
-            : task.draft,
-      }));
+      await attachImportedRequest(selected);
     } catch (error: unknown) {
       updateActiveTask((task) => ({
         ...task,
@@ -692,6 +764,16 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
     updateTask(taskId, (task) => ({ ...task, runStatus: "starting", runError: null, runState: null, view: "run" }));
 
     try {
+      setRecentOutdirs((current) => rememberRecentText(current, outdir));
+      if (imported) {
+        setRecentRequests((current) =>
+          rememberRecentRequest(current, {
+            path: imported.path,
+            method: imported.method,
+            workflow: imported.workflow,
+          }),
+        );
+      }
       await mkdir(outdir, { recursive: true });
       if (!imported) {
         await writeTextFile(requestPath, `${json}\n`);
@@ -801,8 +883,8 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
           JCVI meow · {route.description}
         </p>
-        <h1 className="text-2xl font-semibold text-slate-900">Preparing multi-task workbench</h1>
-        <p className="text-sm text-slate-500">Loading template and analysis schema...</p>
+        <h1 className="text-2xl font-semibold text-slate-900">{isZh ? "正在准备多任务工作台" : "Preparing multi-task workbench"}</h1>
+        <p className="text-sm text-slate-500">{isZh ? "正在加载模板与分析 schema..." : "Loading template and analysis schema..."}</p>
       </section>
     );
   }
@@ -813,9 +895,9 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
           JCVI meow · {route.description}
         </p>
-        <h1 className="text-2xl font-semibold text-slate-900">Workbench failed to initialize</h1>
+        <h1 className="text-2xl font-semibold text-slate-900">{isZh ? "工作台初始化失败" : "Workbench failed to initialize"}</h1>
         <p className="max-w-2xl rounded-[1.35rem] border border-rose-200 bg-rose-50 p-4 text-left text-sm text-rose-700">
-          {loadError ?? "Unable to initialize AnalysisRequestDraft."}
+          {loadError ?? (isZh ? "无法初始化 AnalysisRequestDraft。" : "Unable to initialize AnalysisRequestDraft.")}
         </p>
       </section>
     );
@@ -833,6 +915,66 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
   const resolvedSummaryPath = activeTask.runState?.summaryPath ?? summaryView?.runSummaryPath ?? "";
   const recentEvents = logLines.slice(-6).reverse();
   const usesImportedRequest = importedRequest !== null;
+  const requestWorkflow = usesImportedRequest ? importedRequest?.workflow ?? draft.mcscan.workflow : draft.mcscan.workflow;
+  const requestMode = usesImportedRequest ? importedRequest?.inputMode ?? draft.inputMode : draft.inputMode;
+  const requestSourceLabel = usesImportedRequest
+    ? isZh
+      ? "导入的请求 JSON"
+      : "Imported request JSON"
+    : isZh
+      ? "当前草稿生成"
+      : "Generated draft";
+  const requestSourcePath = usesImportedRequest
+    ? importedRequest?.path ?? "-"
+    : isZh
+      ? "会写入所选输出目录"
+      : "Will be written into the selected outdir";
+  const runStatusLabel =
+    activeTask.runStatus === "starting"
+      ? isZh
+        ? "正在启动"
+        : "Starting run"
+      : activeTask.runStatus === "running"
+        ? isZh
+          ? "运行中"
+          : "Running analysis"
+        : activeTask.runStatus === "finished"
+          ? isZh
+            ? "运行完成"
+            : "Run finished"
+          : activeTask.runStatus === "error"
+            ? isZh
+              ? "需要处理"
+              : "Attention needed"
+            : activeTask.runStatus === "confirming"
+              ? isZh
+                ? "确认请求"
+                : "Confirm request"
+              : isZh
+                ? "准备运行"
+                : "Ready to run";
+  const runHint =
+    activeTask.runStatus === "starting" || activeTask.runStatus === "running"
+      ? isZh
+        ? "GenomeLens 正在把 run.log 更新持续写入当前任务。"
+        : "GenomeLens is streaming run.log updates into this task."
+      : activeTask.runStatus === "finished"
+        ? isZh
+          ? "下方与结果页都可以继续查看 summary 元数据。"
+          : "Summary metadata is available below and in Results."
+        : usesImportedRequest
+          ? isZh
+            ? "本次运行会直接使用导入的 request 路径，并配合当前任务的输出目录。"
+            : "Run uses the imported request path plus the current task output directory."
+          : validation.issues.length === 0
+            ? isZh
+              ? "草稿校验已通过，确认请求预览后即可运行。"
+              : "Draft validation is clean. Review the request preview, then run."
+            : isZh
+              ? `仍有 ${validation.issues.length} 个校验问题，生成 request 前需要先处理。`
+              : `${validation.issues.length} validation issue(s) still need attention before generating a request.`;
+  const summaryFigureCount = summaryView?.figureAssets.length ?? 0;
+  const summaryArtifactCount = summaryView?.artifactIndex.length ?? 0;
 
   return (
     <div className="ui-page-enter grid h-screen w-full grid-cols-[20rem_minmax(0,1fr)_23rem] overflow-hidden bg-white">
@@ -864,7 +1006,7 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-xs font-medium text-slate-400">置顶</p>
-              <h2 className="mt-4 text-sm font-semibold text-slate-500">Tasks</h2>
+              <h2 className="mt-4 text-sm font-semibold text-slate-500">{isZh ? "任务" : "Tasks"}</h2>
             </div>
             <button type="button" className="ui-pressable rounded-lg px-2 py-1 text-lg leading-none text-slate-500 hover:bg-white/75" onClick={() => createTask()}>
               +
@@ -956,7 +1098,7 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
               onChange={(event) => updateActiveTask((task) => ({ ...task, title: event.target.value }))}
             />
             <p className="mt-1 text-xs text-slate-500">
-              Created {formatTime(activeTask.createdAt)} · Updated {formatTime(activeTask.updatedAt)}
+              {isZh ? "创建于" : "Created"} {formatTime(activeTask.createdAt)} · {isZh ? "更新于" : "Updated"} {formatTime(activeTask.updatedAt)}
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-3">
@@ -979,7 +1121,7 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
                   }
                   onClick={() => setTaskView(view)}
                 >
-                  {view}
+                  {view === "setup" ? (isZh ? "配置" : "setup") : view === "run" ? (isZh ? "运行" : "run") : isZh ? "结果" : "results"}
                 </button>
               ))}
             </div>
@@ -1022,8 +1164,12 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
             <div className="mx-auto grid w-full max-w-4xl gap-6">
               <section className={PANEL_BODY_CLASS}>
                 <SectionTitle
-                  title="Inputs and output"
-                  subtitle="Choose the data source, output directory, and task-level options for the active task."
+                  title={isZh ? "输入与输出" : "Inputs and output"}
+                  subtitle={
+                    isZh
+                      ? "为当前任务选择数据来源、输出目录和任务级选项。"
+                      : "Choose the data source, output directory, and task-level options for the active task."
+                  }
                 />
                 <div className="mt-4 grid gap-4 lg:grid-cols-2">
                   <label>
@@ -1056,13 +1202,13 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
 
                 <div className="mt-4 grid gap-4">
                   <label>
-                    <span className={LABEL_CLASS}>input directory</span>
+                    <span className={LABEL_CLASS}>{isZh ? "输入目录" : "input directory"}</span>
                     <div className="mt-2 flex gap-2">
                       <input
                         className="min-w-0 flex-1 rounded-lg border border-border bg-bg px-3 py-2 text-sm text-text-primary shadow-sm outline-none transition focus:border-ice-400 focus:ring-2 focus:ring-ice-200 dark:focus:ring-ice-900/60"
                         value={draft.directory}
                         onChange={(event) => patchDraft({ directory: event.target.value })}
-                        placeholder="Select a workspace or request input directory"
+                        placeholder={isZh ? "选择工作区或 request 输入目录" : "Select a workspace or request input directory"}
                       />
                       <button type="button" className={SECONDARY_BUTTON_CLASS} onClick={() => pickDirectory((path) => patchDraft({ directory: path }))}>
                         Browse
@@ -1072,22 +1218,38 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
                   </label>
 
                   <label>
-                    <span className={LABEL_CLASS}>output directory</span>
+                    <span className={LABEL_CLASS}>{isZh ? "输出目录" : "output directory"}</span>
                     <div className="mt-2 flex gap-2">
                       <input
                         className="min-w-0 flex-1 rounded-lg border border-border bg-bg px-3 py-2 text-sm text-text-primary shadow-sm outline-none transition focus:border-ice-400 focus:ring-2 focus:ring-ice-200 dark:focus:ring-ice-900/60"
                         value={draft.outputDirectory}
                         onChange={(event) => patchDraft({ outputDirectory: event.target.value })}
-                        placeholder="Select where this task should write outputs"
+                        placeholder={isZh ? "选择当前任务的输出位置" : "Select where this task should write outputs"}
                       />
                       <button
                         type="button"
                         className={SECONDARY_BUTTON_CLASS}
                         onClick={() => pickDirectory((path) => patchDraft({ outputDirectory: path }))}
                       >
-                        Browse
+                        {isZh ? "浏览" : "Browse"}
                       </button>
                     </div>
+                    {recentOutdirs.length > 0 ? (
+                      <div className="mt-3 flex flex-wrap items-center gap-2">
+                        <span className="text-[11px] font-medium uppercase tracking-[0.16em] text-slate-400">{isZh ? "最近输出目录" : "Recent outdir"}</span>
+                        {recentOutdirs.map((path) => (
+                          <button
+                            key={path}
+                            type="button"
+                            className="ui-pressable rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-600 hover:border-ice-200 hover:bg-ice-50 hover:text-ice-700"
+                            onClick={() => patchDraft({ outputDirectory: path })}
+                            title={path}
+                          >
+                            <span className="block max-w-56 truncate">{path}</span>
+                          </button>
+                        ))}
+                      </div>
+                    ) : null}
                     <IssueText issue={outputIssue} />
                   </label>
                 </div>
@@ -1095,18 +1257,20 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
                 <div className="mt-5 rounded-xl border border-slate-200/80 bg-slate-50/80 p-4">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
-                      <p className="text-sm font-semibold text-slate-900">Import request JSON</p>
+                      <p className="text-sm font-semibold text-slate-900">{isZh ? "导入 request JSON" : "Import request JSON"}</p>
                       <p className="mt-1 text-sm leading-6 text-slate-500">
-                        Attach an existing AnalysisRequest file and run it directly without rebuilding the request from the wizard.
+                        {isZh
+                          ? "附加一个现有的 AnalysisRequest 文件，直接运行，而不必重新填写向导。"
+                          : "Attach an existing AnalysisRequest file and run it directly without rebuilding the request from the wizard."}
                       </p>
                     </div>
                     <div className="flex flex-wrap gap-2">
                       <button type="button" className={SECONDARY_BUTTON_CLASS} onClick={handleImportRequestJson}>
-                        Import request JSON
+                        {isZh ? "导入 request JSON" : "Import request JSON"}
                       </button>
                       {usesImportedRequest ? (
                         <button type="button" className={SECONDARY_BUTTON_CLASS} onClick={clearImportedRequest}>
-                          Clear imported request
+                          {isZh ? "清除导入请求" : "Clear imported request"}
                         </button>
                       ) : null}
                     </div>
@@ -1114,24 +1278,47 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
 
                   {usesImportedRequest ? (
                     <div className="mt-4 grid gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600">
-                      <InfoRow label="source" value="Imported request JSON" />
+                      <InfoRow label={isZh ? "来源" : "source"} value={isZh ? "导入的 request JSON" : "Imported request JSON"} />
                       <InfoRow label="request" value={importedRequest?.path ?? "-"} />
-                      <InfoRow label="method" value={importedRequest?.method ?? "-"} />
+                      <InfoRow label={isZh ? "方法" : "method"} value={importedRequest?.method ?? "-"} />
                       <InfoRow label="workflow" value={importedRequest?.workflow ?? "-"} />
-                      <InfoRow label="mode" value={importedRequest?.inputMode ?? "-"} />
+                      <InfoRow label={isZh ? "模式" : "mode"} value={importedRequest?.inputMode ?? "-"} />
                       <InfoRow
-                        label="request outdir"
-                        value={importedRequest?.requestOutputDirectory || "Not declared in imported JSON"}
+                        label={isZh ? "请求内 outdir" : "request outdir"}
+                        value={importedRequest?.requestOutputDirectory || (isZh ? "导入 JSON 未声明" : "Not declared in imported JSON")}
                       />
                       <p className="pt-1 text-xs leading-5 text-slate-500">
-                        Run uses the imported request path above and the current task output directory shown in this panel.
+                        {isZh
+                          ? "运行会直接使用上面的导入 request 路径，并配合当前面板里显示的任务输出目录。"
+                          : "Run uses the imported request path above and the current task output directory shown in this panel."}
                       </p>
                     </div>
                   ) : (
                     <p className="mt-4 text-sm text-slate-500">
-                      No imported request is attached. The current wizard draft still generates the request JSON for this task.
+                      {isZh
+                        ? "当前没有附加导入请求，本任务仍会由向导草稿生成 request JSON。"
+                        : "No imported request is attached. The current wizard draft still generates the request JSON for this task."}
                     </p>
                   )}
+                  {recentRequests.length > 0 ? (
+                    <div className="mt-4 flex flex-wrap items-center gap-2">
+                      <span className="text-[11px] font-medium uppercase tracking-[0.16em] text-slate-400">{isZh ? "最近 request" : "Recent request"}</span>
+                      {recentRequests.map((item) => (
+                        <button
+                          key={item.path}
+                          type="button"
+                          className="ui-pressable rounded-full border border-slate-200 bg-white px-3 py-1 text-left text-xs text-slate-600 hover:border-ice-200 hover:bg-ice-50 hover:text-ice-700"
+                          onClick={() => void attachImportedRequest(item.path)}
+                          title={item.path}
+                        >
+                          <span className="block max-w-56 truncate">{item.path}</span>
+                          <span className="mt-0.5 block text-[10px] uppercase tracking-[0.14em] text-slate-400">
+                            {item.workflow ?? item.method ?? "request"}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
               </section>
 
@@ -1139,11 +1326,15 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
                 <section className={PANEL_BODY_CLASS}>
                   <div className="flex items-start justify-between gap-3">
                     <SectionTitle
-                      title="Species inputs"
-                      subtitle="Explicit species mode is available for workflows that do not use auto_directory."
+                      title={isZh ? "物种输入" : "Species inputs"}
+                      subtitle={
+                        isZh
+                          ? "当 workflow 不使用 auto_directory 时，可以改用显式物种输入。"
+                          : "Explicit species mode is available for workflows that do not use auto_directory."
+                      }
                     />
                     <button type="button" className={SECONDARY_BUTTON_CLASS} onClick={addSpecies}>
-                      Add species
+                      {isZh ? "添加物种" : "Add species"}
                     </button>
                   </div>
                   <div className="mt-4 grid gap-3">
@@ -1185,7 +1376,10 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
               ) : null}
 
               <section className={PANEL_BODY_CLASS}>
-                <SectionTitle title="Analysis options" subtitle="Keep transport fields aligned with the GenomeLens request contract." />
+                <SectionTitle
+                  title={isZh ? "分析选项" : "Analysis options"}
+                  subtitle={isZh ? "保持 transport 字段与 GenomeLens request 契约一致。" : "Keep transport fields aligned with the GenomeLens request contract."}
+                />
                 <div className="mt-4 grid gap-4 lg:grid-cols-3">
                   <label>
                     <span className={LABEL_CLASS}>threads</span>
@@ -1270,7 +1464,10 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
               </section>
 
               <section className={PANEL_BODY_CLASS}>
-                <SectionTitle title="MCSCAN parameters" subtitle="Advanced options remain task-local and can diverge per task." />
+                <SectionTitle
+                  title={isZh ? "MCSCAN 参数" : "MCSCAN parameters"}
+                  subtitle={isZh ? "高级选项保留为任务本地设置，不同任务可以独立调整。" : "Advanced options remain task-local and can diverge per task."}
+                />
                 <div className="mt-4 grid gap-4 lg:grid-cols-3">
                   <label>
                     <span className={LABEL_CLASS}>align_soft</span>
@@ -1353,13 +1550,18 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
           {activeTask.view === "run" ? (
             <div className="mx-auto grid w-full max-w-4xl gap-6">
               <section className={PANEL_BODY_CLASS}>
-                <SectionTitle title="Run control" subtitle="One task maps to one request file and one GenomeLens run." />
+                <SectionTitle
+                  title={isZh ? "运行控制" : "Run control"}
+                  subtitle={isZh ? "一个任务对应一个 request 文件和一次 GenomeLens 运行。" : "One task maps to one request file and one GenomeLens run."}
+                />
                 {usesImportedRequest ? (
                   <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
-                    <p className="font-medium text-slate-900">Imported request attached</p>
+                    <p className="font-medium text-slate-900">{isZh ? "已附加导入请求" : "Imported request attached"}</p>
                     <p className="mt-1 break-all font-mono text-xs leading-6 text-slate-500">{importedRequest?.path ?? "-"}</p>
                     <p className="mt-2 text-xs leading-5 text-slate-500">
-                      This run will use the imported request file directly. Current task outdir: {draft.outputDirectory || "-"}.
+                      {isZh
+                        ? `本次运行会直接使用该 request 文件。当前任务 outdir：${draft.outputDirectory || "-" }。`
+                        : `This run will use the imported request file directly. Current task outdir: ${draft.outputDirectory || "-"}.`}
                     </p>
                   </div>
                 ) : null}
@@ -1370,16 +1572,16 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
                     disabled={activeTask.runStatus === "starting" || activeTask.runStatus === "running"}
                     onClick={handlePrepareRun}
                   >
-                    Run active task
+                    {isZh ? "运行当前任务" : "Run active task"}
                   </button>
                   <button type="button" className={SECONDARY_BUTTON_CLASS} onClick={handleReadLog}>
-                    Refresh log
+                    {isZh ? "刷新日志" : "Refresh log"}
                   </button>
                   <button type="button" className={SECONDARY_BUTTON_CLASS} onClick={handleReadSummary}>
-                    Read summary
+                    {isZh ? "读取摘要" : "Read summary"}
                   </button>
                   <button type="button" className={SECONDARY_BUTTON_CLASS} disabled={!resolvedLogPath} onClick={handleOpenLog}>
-                    Open log
+                    {isZh ? "打开日志" : "Open log"}
                   </button>
                   <button
                     type="button"
@@ -1387,19 +1589,37 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
                     disabled={!resolvedSummaryPath}
                     onClick={handleOpenSummary}
                   >
-                    Open summary
+                    {isZh ? "打开摘要" : "Open summary"}
                   </button>
                   <button type="button" className={SECONDARY_BUTTON_CLASS} onClick={handleOpenOutput}>
-                    Open output
+                    {isZh ? "打开输出目录" : "Open output"}
                   </button>
                 </div>
 
                 <div className="mt-5 grid gap-3 rounded-lg border border-border bg-bg p-4">
                   <div className="flex items-center justify-between gap-3">
-                    <span className="text-xs font-semibold uppercase tracking-[0.14em] text-text-tertiary">status</span>
-                    <span className={`rounded-full px-3 py-1 text-xs font-semibold uppercase ${statusTone(activeTask.runStatus)}`}>
-                      {activeTask.runStatus} / {workflowState}
+                    <span className="text-xs font-semibold uppercase tracking-[0.14em] text-text-tertiary">{isZh ? "状态" : "status"}</span>
+                    <span
+                      className={[
+                        "rounded-full px-3 py-1 text-xs font-semibold uppercase",
+                        statusTone(activeTask.runStatus),
+                        activeTask.runStatus === "starting" || activeTask.runStatus === "running"
+                          ? "ui-status-live"
+                          : activeTask.runStatus === "finished" || activeTask.runStatus === "error"
+                            ? "ui-status-settle"
+                            : "",
+                      ].join(" ")}
+                    >
+                      {runStatusLabel} / {workflowState}
                     </span>
+                  </div>
+                  <div className="grid gap-2 rounded-lg border border-slate-200/80 bg-white/75 px-3 py-3 text-sm text-slate-600">
+                    <InfoRow label={isZh ? "来源" : "source"} value={requestSourceLabel} />
+                    <InfoRow label="workflow" value={requestWorkflow} />
+                    <InfoRow label={isZh ? "模式" : "mode"} value={requestMode} />
+                    <InfoRow label="outdir" value={draft.outputDirectory || "-"} />
+                    <InfoRow label="request" value={requestSourcePath} />
+                    <p className="ui-message-enter text-xs leading-5 text-slate-500">{runHint}</p>
                   </div>
                   <div className="h-2 overflow-hidden rounded-full bg-ice-100 dark:bg-ice-900/40">
                     <div
@@ -1423,18 +1643,42 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
                   {activeTask.runError ? (
                     <p className="text-sm font-medium text-rose-600 dark:text-rose-300">{activeTask.runError}</p>
                   ) : null}
+                  {summaryView ? (
+                    <div className="ui-summary-reveal rounded-lg border border-slate-200/80 bg-white/80 px-3 py-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="text-sm font-semibold text-slate-900">{isZh ? "摘要已就绪" : "Summary ready"}</p>
+                        <span className="text-xs font-medium text-slate-400">{summaryView.status}</span>
+                      </div>
+                      <div className="mt-3 grid gap-2 text-sm text-slate-600 sm:grid-cols-3">
+                        <InfoRow label={isZh ? "图件" : "figures"} value={String(summaryFigureCount)} />
+                        <InfoRow label={isZh ? "产物" : "artifacts"} value={String(summaryArtifactCount)} />
+                        <InfoRow label={isZh ? "摘要" : "summary"} value={resolvedSummaryPath || "-"} />
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
               </section>
 
               {activeTask.runStatus === "confirming" ? (
                 <section className="ui-surface-enter rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-900/40 dark:bg-amber-950/20">
-                  <h3 className="text-sm font-semibold text-text-primary">Confirm AnalysisRequest JSON</h3>
+                  <h3 className="text-sm font-semibold text-text-primary">{isZh ? "确认 AnalysisRequest JSON" : "Confirm AnalysisRequest JSON"}</h3>
                   <div className="mt-3 grid gap-2 rounded-lg border border-amber-200/80 bg-white/80 px-3 py-3 text-sm text-slate-600">
-                    <InfoRow label="source" value={usesImportedRequest ? "Imported request JSON" : "Generated from active draft"} />
+                    <InfoRow
+                      label={isZh ? "来源" : "source"}
+                      value={
+                        usesImportedRequest
+                          ? isZh
+                            ? "导入的 request JSON"
+                            : "Imported request JSON"
+                          : isZh
+                            ? "当前草稿生成"
+                            : "Generated from active draft"
+                      }
+                    />
                     {usesImportedRequest ? (
                       <>
                         <InfoRow label="request" value={importedRequest?.path ?? "-"} />
-                        <InfoRow label="mode" value={importedRequest?.inputMode ?? "-"} />
+                        <InfoRow label={isZh ? "模式" : "mode"} value={importedRequest?.inputMode ?? "-"} />
                         <InfoRow label="workflow" value={importedRequest?.workflow ?? "-"} />
                       </>
                     ) : (
@@ -1447,17 +1691,20 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
                   </pre>
                   <div className="mt-3 flex gap-2">
                     <button type="button" className={PRIMARY_BUTTON_CLASS} onClick={handleConfirmRun}>
-                      Confirm run
+                      {isZh ? "确认运行" : "Confirm run"}
                     </button>
                     <button type="button" className={SECONDARY_BUTTON_CLASS} onClick={() => updateActiveTask((task) => ({ ...task, runStatus: "idle" }))}>
-                      Cancel
+                      {isZh ? "取消" : "Cancel"}
                     </button>
                   </div>
                 </section>
               ) : null}
 
               <section className={PANEL_BODY_CLASS}>
-                <SectionTitle title="Live log" subtitle="Stable run.log lines are streamed into this task context." />
+                <SectionTitle
+                  title={isZh ? "实时日志" : "Live log"}
+                  subtitle={isZh ? "稳定的 run.log 行会持续流入当前任务上下文。" : "Stable run.log lines are streamed into this task context."}
+                />
                 <div className="mt-4 max-h-[30rem] overflow-auto rounded-lg border border-border bg-bg p-4 font-mono text-xs leading-6 text-text-secondary">
                   {logLines.length > 0 ? (
                     <div className="grid gap-1">
@@ -1468,7 +1715,7 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
                       ))}
                     </div>
                   ) : (
-                    <div className="text-text-secondary">Waiting for analysis:stdout or read_run_log().</div>
+                    <div className="text-text-secondary">{isZh ? "等待 analysis:stdout 或 read_run_log()..." : "Waiting for analysis:stdout or read_run_log()."}</div>
                   )}
                 </div>
               </section>
@@ -1478,7 +1725,7 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
           {activeTask.view === "results" ? (
             <div className="mx-auto grid w-full max-w-4xl gap-6">
               <section className={PANEL_BODY_CLASS}>
-                <SectionTitle title="Results" subtitle="Read run_summary.json for the active task." />
+                <SectionTitle title={isZh ? "结果" : "Results"} subtitle={isZh ? "读取当前任务的 run_summary.json。" : "Read run_summary.json for the active task."} />
                 {summaryView ? (
                   <div className="mt-4 grid gap-4">
                     <div className="grid gap-2 rounded-lg border border-border bg-bg p-4 text-sm text-text-secondary">
@@ -1496,7 +1743,7 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
                       </div>
                     </div>
                     <div>
-                      <h3 className="text-sm font-semibold text-text-primary">Figure assets</h3>
+                      <h3 className="text-sm font-semibold text-text-primary">{isZh ? "图件资源" : "Figure assets"}</h3>
                       <div className="mt-3 grid gap-2">
                         {summaryView.figureAssets.length > 0 ? (
                           summaryView.figureAssets.slice(0, 12).map((asset) => (
@@ -1507,7 +1754,7 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
                           ))
                         ) : (
                           <p className="rounded-lg border border-border bg-bg p-3 text-sm text-text-secondary">
-                            No figure assets listed in summary yet.
+                            {isZh ? "summary 中暂时还没有列出图件资源。" : "No figure assets listed in summary yet."}
                           </p>
                         )}
                       </div>
@@ -1515,9 +1762,9 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
                   </div>
                 ) : (
                   <div className="mt-4 rounded-lg border border-border bg-bg p-4">
-                    <p className="text-sm text-text-secondary">No summary loaded for this task.</p>
+                    <p className="text-sm text-text-secondary">{isZh ? "当前任务还没有加载 summary。" : "No summary loaded for this task."}</p>
                     <button type="button" className={`${PRIMARY_BUTTON_CLASS} mt-4`} onClick={handleReadSummary}>
-                      Read summary
+                      {isZh ? "读取摘要" : "Read summary"}
                     </button>
                   </div>
                 )}
@@ -1528,16 +1775,20 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
                   title="Request JSON"
                   subtitle={
                     usesImportedRequest
-                      ? "Preview of the imported request file used by this task."
-                      : "Current task request preview generated from the active draft."
+                      ? isZh
+                        ? "当前任务使用的导入 request 文件预览。"
+                        : "Preview of the imported request file used by this task."
+                      : isZh
+                        ? "当前任务由草稿生成的 request 预览。"
+                        : "Current task request preview generated from the active draft."
                   }
                 />
                 <div className="mt-4 grid gap-2 rounded-lg border border-border bg-bg px-4 py-3 text-sm text-text-secondary">
-                  <InfoRow label="source" value={usesImportedRequest ? "Imported request JSON" : "Generated draft"} />
+                  <InfoRow label={isZh ? "来源" : "source"} value={usesImportedRequest ? (isZh ? "导入的 request JSON" : "Imported request JSON") : isZh ? "当前草稿生成" : "Generated draft"} />
                   {usesImportedRequest ? (
                     <>
                       <InfoRow label="request" value={importedRequest?.path ?? "-"} />
-                      <InfoRow label="mode" value={importedRequest?.inputMode ?? "-"} />
+                      <InfoRow label={isZh ? "模式" : "mode"} value={importedRequest?.inputMode ?? "-"} />
                       <InfoRow label="workflow" value={importedRequest?.workflow ?? "-"} />
                     </>
                   ) : (
@@ -1559,22 +1810,27 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
             </button>
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm text-slate-500">
-                {activeTask.title} · {draft.mcscan.workflow} · {validation.issues.length === 0 ? "ready" : `${validation.issues.length} issue(s)`}
+                {usesImportedRequest ? requestSourceLabel : activeTask.title}
               </p>
+              <div className="mt-1 flex flex-wrap gap-2 text-xs text-slate-500">
+                <span className="rounded-full bg-slate-100 px-2.5 py-1">{requestWorkflow}</span>
+                <span className="rounded-full bg-slate-100 px-2.5 py-1">{draft.outputDirectory || (isZh ? "未选择 outdir" : "No outdir selected")}</span>
+                <span className="rounded-full bg-slate-100 px-2.5 py-1">{validation.issues.length === 0 ? (isZh ? "已就绪" : "ready") : isZh ? `${validation.issues.length} 个问题` : `${validation.issues.length} issue(s)`}</span>
+              </div>
             </div>
             <button
               type="button"
               className="ui-pressable rounded-xl border border-slate-200 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50"
               onClick={() => setTaskView("setup")}
             >
-              setup
+              {isZh ? "配置" : "setup"}
             </button>
             <button
               type="button"
               className="ui-pressable rounded-xl border border-slate-200 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50"
               onClick={() => setTaskView("results")}
             >
-              results
+              {isZh ? "结果" : "results"}
             </button>
             <button
               type="button"
@@ -1585,7 +1841,7 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
               disabled={activeTask.runStatus === "starting" || activeTask.runStatus === "running"}
               onClick={handlePrepareRun}
             >
-              Run
+              {activeTask.runStatus === "starting" || activeTask.runStatus === "running" ? (isZh ? "运行中" : "Running") : isZh ? "运行" : "Run"}
             </button>
           </div>
         </div>

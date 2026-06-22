@@ -1,10 +1,5 @@
 import type { ThemeMode } from "../theme/theme";
-
-const THEME_OPTIONS: Array<{ mode: ThemeMode; label: string }> = [
-  { mode: "system", label: "System" },
-  { mode: "light", label: "Light" },
-  { mode: "dark", label: "Dark" },
-];
+import { useLanguage } from "../i18n/useLanguage";
 
 interface ThemeToggleProps {
   mode: ThemeMode;
@@ -13,13 +8,21 @@ interface ThemeToggleProps {
 }
 
 export function ThemeToggle({ mode, resolvedTheme, onChange }: ThemeToggleProps) {
+  const { language } = useLanguage();
+  const isZh = language === "zh-CN";
+  const options: Array<{ mode: ThemeMode; label: string }> = [
+    { mode: "system", label: isZh ? "跟随系统" : "System" },
+    { mode: "light", label: isZh ? "浅色" : "Light" },
+    { mode: "dark", label: isZh ? "深色" : "Dark" },
+  ];
+
   return (
     <div className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-2 py-2">
       <span className="hidden text-[11px] font-medium uppercase tracking-[0.16em] text-slate-400 lg:inline">
-        {resolvedTheme}
+        {isZh ? (resolvedTheme === "dark" ? "深色" : "浅色") : resolvedTheme}
       </span>
       <div className="flex items-center gap-1 rounded-lg bg-slate-100 p-1">
-        {THEME_OPTIONS.map((option) => (
+        {options.map((option) => (
           <button
             key={option.mode}
             type="button"

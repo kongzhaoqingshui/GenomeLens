@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useLanguage } from "../i18n/useLanguage";
 
 type CommandState =
   | { status: "loading"; data?: undefined; error?: undefined }
@@ -14,6 +15,8 @@ interface CommandPreviewProps<TData> {
 
 export function CommandPreview<TData>({ title, command, description, load }: CommandPreviewProps<TData>) {
   const [state, setState] = useState<CommandState>({ status: "loading" });
+  const { language } = useLanguage();
+  const isZh = language === "zh-CN";
 
   useEffect(() => {
     let cancelled = false;
@@ -52,7 +55,13 @@ export function CommandPreview<TData>({ title, command, description, load }: Com
           <p className="mt-2 font-mono text-xs text-slate-400">{command}</p>
         </div>
         <span className={`rounded-full px-3 py-1 text-[11px] font-semibold uppercase ${statusClass}`}>
-          {state.status}
+          {isZh
+            ? state.status === "ready"
+              ? "就绪"
+              : state.status === "error"
+                ? "错误"
+                : "加载中"
+            : state.status}
         </span>
       </div>
 
@@ -61,7 +70,9 @@ export function CommandPreview<TData>({ title, command, description, load }: Com
           ? JSON.stringify(state.data, null, 2)
           : state.status === "error"
             ? state.error
-            : "Loading..."}
+            : isZh
+              ? "加载中..."
+              : "Loading..."}
       </pre>
     </section>
   );

@@ -9,7 +9,9 @@
       (() => {
         const stored = localStorage.getItem("genomelens.theme");
         const mode = stored === "light" || stored === "dark" || stored === "system" ? stored : "system";
+        const language = localStorage.getItem("genomelens.language") === "en" ? "en" : "zh-CN";
         const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+        document.documentElement.lang = language;
         document.documentElement.dataset.themeMode = mode;
         document.documentElement.classList.toggle("dark", mode === "dark" || (mode === "system" && prefersDark));
       })();
