@@ -39,7 +39,7 @@ HAIant 插件把 `params.json` 转换为 GenomeLens 调用：
 | `reference` | str/int | `input.reference_index` | 否 | `1` | 参考物种名称或 1-based 索引 |
 | `threads` | int | `options.threads` | 否 | `4` | 运行时工作线程数 |
 | `min_block_size` | int | `options.min_block_size` | 否 | `5` | 保留 block 的最小基因数 |
-| `formats` | csv/list | `output.formats` | 否 | `png` | 输出格式，如 `png,svg,pdf` |
+| `formats` | enum | `output.formats` | 否 | `svg` | 输出图片格式：`svg` / `png` / `pdf` / `eps` / `jpg`；所有插件统一使用单选，仅输出一个格式 |
 | `align_soft` | enum | `method_config.align_soft` | 否 | `blast` | 比对后端：`blast` / `last` / `diamond_blastp` |
 | `dbtype` | enum | `method_config.dbtype` | 否 | `nucl` | 序列类型：`nucl` / `prot` |
 | `cscore` | float | `method_config.cscore` | 否 | `0.7` | 同源匹配过滤强度 |

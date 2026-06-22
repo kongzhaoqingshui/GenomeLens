@@ -278,7 +278,7 @@ def build_analysis_request(
         "output": {
             "directory": str(output_dir),
             "force": parse_bool(params.get("force", True)),
-            "formats": _split_csv(params.get("formats") or "png") or ["png"],
+            "formats": _parse_formats(params.get("formats")),
         },
         "config": {
             "project_config": _optional_path(base, params.get("config")),
@@ -427,10 +427,19 @@ def build_analyze_run_command(
 
 
 def _parse_formats(value: object) -> list[str]:
-    """Parse a comma-separated formats string into a list of non-empty items."""
+    """Return the selected output format as a single-item list (default svg).
 
-    items = _split_csv(value)
-    return items if items else ["png"]
+    The UI exposes ``formats`` as a single-select (``customer_selector``), so
+    only the first selected value is honored.  Lists are accepted defensively
+    for backward compatibility, but multi-format output is intentionally not
+    supported by the auto plugin.
+    """
+
+    if isinstance(value, list):
+        text = str(value[0]).strip() if value else ""
+    else:
+        text = str(value or "").strip().split(",")[0].strip()
+    return [text] if text else ["svg"]
 
 
 def build_auto_jcvi_config(
@@ -473,7 +482,7 @@ def build_auto_jcvi_config(
             "threads": _int_value(
                 params.get("threads"), default=4, label="threads", minimum=1
             ),
-            "formats": _parse_formats(params.get("formats") or "png"),
+            "formats": _parse_formats(params.get("formats")),
         },
         "mcscan": {
             "workflow": workflow,

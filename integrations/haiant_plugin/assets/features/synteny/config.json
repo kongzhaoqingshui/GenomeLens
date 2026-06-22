@@ -65,19 +65,30 @@
     },
     {
       "label": "输出格式",
-      "label_en": "Output Formats",
+      "label_en": "Output Format",
       "key": "formats",
-      "valueType": "str",
-      "example_value": "png",
-      "description": "输出格式，多个用逗号分隔，例如 svg,pdf。",
-      "description_en": "Comma-separated output formats, e.g. svg,pdf."
+      "valueType": "customer_selector",
+      "example_value": "svg",
+      "description": "输出图片格式。",
+      "description_en": "Output image format.",
+      "options": [
+        "svg",
+        "png",
+        "pdf",
+        "eps",
+        "jpg"
+      ]
     },
     {
       "label": "比对后端",
       "label_en": "Alignment Backend",
       "key": "align_soft",
       "valueType": "customer_selector",
-      "options": ["blast", "last", "diamond_blastp"],
+      "options": [
+        "blast",
+        "last",
+        "diamond_blastp"
+      ],
       "example_value": "blast",
       "description": "同源搜索比对后端。",
       "description_en": "Homology search alignment backend."
@@ -87,7 +98,10 @@
       "label_en": "Sequence Type",
       "key": "dbtype",
       "valueType": "customer_selector",
-      "options": ["nucl", "prot"],
+      "options": [
+        "nucl",
+        "prot"
+      ],
       "example_value": "nucl",
       "description": "序列数据库类型：nucl（核酸）或 prot（蛋白）。",
       "description_en": "Sequence database type: nucl or prot."
@@ -124,7 +138,10 @@
       "label_en": "Glyph Style",
       "key": "glyphstyle",
       "valueType": "customer_selector",
-      "options": ["box", "arrow"],
+      "options": [
+        "box",
+        "arrow"
+      ],
       "example_value": "",
       "description": "基因形状：box / arrow。",
       "description_en": "Gene glyph style: box / arrow."
@@ -134,7 +151,10 @@
       "label_en": "Glyph Color",
       "key": "glyphcolor",
       "valueType": "customer_selector",
-      "options": ["orientation", "orthogroup"],
+      "options": [
+        "orientation",
+        "orthogroup"
+      ],
       "example_value": "",
       "description": "基因着色策略：orientation / orthogroup。",
       "description_en": "Gene coloring strategy: orientation / orthogroup."
@@ -144,7 +164,10 @@
       "label_en": "Shade Style",
       "key": "shadestyle",
       "valueType": "customer_selector",
-      "options": ["curve", "line"],
+      "options": [
+        "curve",
+        "line"
+      ],
       "example_value": "",
       "description": "共线性连线样式：curve / line。",
       "description_en": "Synteny link style: curve / line."
