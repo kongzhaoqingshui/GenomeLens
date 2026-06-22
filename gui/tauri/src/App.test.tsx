@@ -71,25 +71,7 @@ const { invokeMock, dialogOpenMock, mkdirMock, writeTextFileMock } = vi.hoisted(
         outdir,
         summaryPath: `${outdir}/report/run_summary.json`,
         logPath: `${outdir}/logs/run.log`,
-        summary: {
-          status: "SUCCEEDED",
-          schema_version: 1,
-          workflow: "graphics_synteny",
-          method: "mcscan",
-          task: {},
-          species: [],
-          final_figures: [],
-          artifact_index: [],
-          logs: {},
-          ui: {
-            state: "SUCCEEDED",
-            progress: 1,
-            primary_figures: [],
-            summary_path: `${outdir}/report/run_summary.json`,
-            log_path: `${outdir}/logs/run.log`,
-          },
-          scoring: { status: "", scores: [], ranking: [], message: "" },
-        },
+        summary: null,
         artifacts: [],
         log: {
           outdir,
@@ -333,16 +315,19 @@ describe("App", () => {
     });
     expect(writeTextFileMock).not.toHaveBeenCalled();
 
-    fireEvent.click(await screen.findByTestId("cancel-run-button"));
-    await waitFor(() => {
-      const cancelRunCall = invokeMock.mock.calls.find(([command]) => command === "cancel_run");
-      expect(cancelRunCall?.[1]).toMatchObject({ runId: "run-test" });
-    });
+    expect(screen.getByTestId("bottom-run-action-button")).toHaveTextContent("取消运行");
 
     fireEvent.click(screen.getByTestId("restore-run-snapshot-button"));
     await waitFor(() => {
       const snapshotCall = invokeMock.mock.calls.find(([command]) => command === "read_run_snapshot");
       expect(snapshotCall?.[1]).toMatchObject({ outdir: "/runs/out", tailLines: 120 });
+    });
+    expect(screen.getByTestId("bottom-run-action-button")).toHaveTextContent("取消运行");
+
+    fireEvent.click(await screen.findByTestId("cancel-run-button"));
+    await waitFor(() => {
+      const cancelRunCall = invokeMock.mock.calls.find(([command]) => command === "cancel_run");
+      expect(cancelRunCall?.[1]).toMatchObject({ runId: "run-test" });
     });
   });
 

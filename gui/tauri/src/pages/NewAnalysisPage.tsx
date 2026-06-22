@@ -38,7 +38,14 @@ import {
 import { runSummaryToViewModel } from "../models/run-summary-view";
 import { validateAnalysisRequestDraft, type ValidationIssue } from "../models/validation";
 import type { AppRoute } from "../routes/routes";
-import { getAnalysisSchema, getTemplateDraft, readRequestPreview, type JsonObject } from "../services/analysis";
+import {
+  getAnalysisSchema,
+  getCachedAnalysisSchema,
+  getCachedTemplateDraft,
+  getTemplateDraft,
+  readRequestPreview,
+  type JsonObject,
+} from "../services/analysis";
 import {
   cancelRun,
   listenToAnalysisEvents,
@@ -550,16 +557,37 @@ function localizeRunPrompt(
   }
 }
 
+function createCachedWorkbenchState(capabilityId: JcviCapabilityId | null) {
+  const cachedTemplateDraft = getCachedTemplateDraft("mcscan");
+  const cachedSchema = getCachedAnalysisSchema();
+  if (!cachedTemplateDraft || !cachedSchema) {
+    return null;
+  }
+
+  const firstTask = createTaskFromTemplate(cachedTemplateDraft, capabilityId, 1);
+  return {
+    activeTaskId: firstTask.id,
+    schema: cachedSchema,
+    taskCounter: 2,
+    tasks: [firstTask],
+    templateDraft: cachedTemplateDraft,
+  };
+}
+
 export default function NewAnalysisPage({ route, onNavigate, locationHash }: NewAnalysisPageProps) {
   const { language } = useLanguage();
   const isZh = language === "zh-CN";
-  const [templateDraft, setTemplateDraft] = useState<AnalysisRequestDraft | null>(null);
-  const [schema, setSchema] = useState<JsonObject | null>(null);
-  const [loading, setLoading] = useState(true);
+  const capabilityId = useMemo(() => readCapabilityFromHash(locationHash), [locationHash]);
+  const initialWorkbench = useMemo(() => createCachedWorkbenchState(capabilityId), [capabilityId]);
+  const [templateDraft, setTemplateDraft] = useState<AnalysisRequestDraft | null>(
+    () => initialWorkbench?.templateDraft ?? null,
+  );
+  const [schema, setSchema] = useState<JsonObject | null>(() => initialWorkbench?.schema ?? null);
+  const [loading, setLoading] = useState(() => initialWorkbench === null);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [tasks, setTasks] = useState<WorkbenchTask[]>([]);
-  const [activeTaskId, setActiveTaskId] = useState("");
-  const [taskCounter, setTaskCounter] = useState(1);
+  const [tasks, setTasks] = useState<WorkbenchTask[]>(() => initialWorkbench?.tasks ?? []);
+  const [activeTaskId, setActiveTaskId] = useState(() => initialWorkbench?.activeTaskId ?? "");
+  const [taskCounter, setTaskCounter] = useState(() => initialWorkbench?.taskCounter ?? 1);
   const [taskFilter, setTaskFilter] = useState("");
   const [recentOutdirs, setRecentOutdirs] = useState<string[]>(() => readStoredJson<string[]>(RECENT_OUTDIRS_KEY, []));
   const [recentRequests, setRecentRequests] = useState<RecentRequestHint[]>(() =>
@@ -569,7 +597,6 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
   const [activeResize, setActiveResize] = useState<ResizeDragState | null>(null);
   const leftSidebarWidth = sidebarWidths.left;
   const rightSidebarWidth = sidebarWidths.right;
-  const capabilityId = useMemo(() => readCapabilityFromHash(locationHash), [locationHash]);
 
   useEffect(() => {
     writeStoredJson(RECENT_OUTDIRS_KEY, recentOutdirs);
@@ -704,6 +731,20 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
 
   useEffect(() => {
     let cancelled = false;
+    const cachedWorkbench = createCachedWorkbenchState(capabilityId);
+
+    if (cachedWorkbench) {
+      setTemplateDraft(cachedWorkbench.templateDraft);
+      setSchema(cachedWorkbench.schema);
+      setTasks(cachedWorkbench.tasks);
+      setActiveTaskId(cachedWorkbench.activeTaskId);
+      setTaskCounter(cachedWorkbench.taskCounter);
+      setLoadError(null);
+      setLoading(false);
+      return () => {
+        cancelled = true;
+      };
+    }
 
     setLoading(true);
     setLoadError(null);
@@ -1152,6 +1193,10 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
       const snapshot = await readRunSnapshot({ outdir, tailLines: 120 });
       const summaryView = snapshot.summary ? runSummaryToViewModel(snapshot.summary) : undefined;
       const summaryStatus = snapshot.summary?.status;
+      const shouldKeepActiveStatus =
+        activeTask.runStatus === "starting" ||
+        activeTask.runStatus === "running" ||
+        activeTask.runStatus === "cancelling";
       const nextStatus: RunPanelStatus =
         summaryStatus === "SUCCEEDED"
           ? "finished"
@@ -1159,6 +1204,8 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
             ? "error"
             : summaryStatus === "CANCELLED"
               ? "cancelled"
+              : shouldKeepActiveStatus
+                ? activeTask.runStatus
               : activeTask.runStatus === "error"
                 ? "error"
                 : "idle";

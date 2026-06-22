@@ -211,8 +211,10 @@ function AppContent() {
         <LaunchScreen
           message={launchMessage}
           error={startup.status === "error" ? startupError : null}
+          readyCount={startup.readyCount}
           slow={overlay.slow}
           closing={overlay.ready}
+          totalCount={startup.totalCount}
           onRetry={startup.reload}
           onOpenDiagnostics={() => navigate(startup.diagnosticsRoute)}
         />

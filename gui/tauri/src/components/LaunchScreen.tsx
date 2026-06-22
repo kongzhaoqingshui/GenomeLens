@@ -4,8 +4,10 @@ import { JcviMeowIcon } from "./JcviMeowIcon";
 interface LaunchScreenProps {
   message: string;
   error?: string | null;
+  readyCount: number;
   slow: boolean;
   closing: boolean;
+  totalCount: number;
   onRetry: () => void;
   onOpenDiagnostics: () => void;
 }
@@ -13,14 +15,21 @@ interface LaunchScreenProps {
 export function LaunchScreen({
   message,
   error,
+  readyCount,
   slow,
   closing,
+  totalCount,
   onRetry,
   onOpenDiagnostics,
 }: LaunchScreenProps) {
   const { language } = useLanguage();
   const isZh = language === "zh-CN";
   const isError = typeof error === "string" && error.length > 0;
+  const progressPercent = isError
+    ? 100
+    : closing
+      ? 100
+      : Math.max(14, Math.round((Math.max(0, readyCount) / Math.max(1, totalCount)) * 100));
 
   return (
     <div
@@ -43,7 +52,10 @@ export function LaunchScreen({
             </p>
           </div>
           <div className="mt-5 h-1.5 overflow-hidden rounded-full bg-surface">
-            <div className="ui-running-progress h-full w-2/3 rounded-full bg-ice-500" />
+            <div
+              className="ui-running-progress h-full rounded-full bg-ice-500 transition-[width] duration-500 ease-out"
+              style={{ width: `${progressPercent}%` }}
+            />
           </div>
         </div>
 
