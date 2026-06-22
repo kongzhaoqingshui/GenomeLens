@@ -78,3 +78,43 @@ def test_multi_local_aggregate_scopes_gene_ids_per_species(tmp_path: Path) -> No
     assert "query__qgene2" in bed_text
     assert "subject__shared" in bed_text
     assert "third__shared" in bed_text
+
+
+def test_multi_local_aggregate_preserves_multiple_subject_hits(tmp_path: Path) -> None:
+    query_bed = _write_bed(tmp_path / "query.bed", "q")
+    subject_bed = _write_bed(tmp_path / "subject.bed", "s")
+    third_bed = _write_bed(tmp_path / "third.bed", "t")
+    request = McscanRequest(
+        query=_prepared("query", query_bed),
+        subject=_prepared("subject", subject_bed),
+        additional_species=[_prepared("third", third_bed)],
+        outdir=tmp_path / "out",
+        target_gene_ids=["qgene2"],
+    )
+    blocks = tmp_path / "query__subject.local.blocks"
+    blocks.write_text("r*qgene2\tshared\tqgene3\n", encoding="utf-8")
+    engine_summary = tmp_path / "query__subject.engine.json"
+    engine_summary.write_text(
+        json.dumps({"artifacts": {"local_artifacts": [{"target": "qgene2", "blocks": str(blocks)}]}}),
+        encoding="utf-8",
+    )
+    jobs = [
+        PairwiseJobSummary(
+            pair_id="query__subject",
+            species_a_name="query",
+            species_b_name="subject",
+            status="SUCCEEDED",
+            outdir=str(tmp_path / "query__subject"),
+            engine_summary_path=str(engine_summary),
+            query_bed=str(query_bed),
+            subject_bed=str(subject_bed),
+        ),
+        _job(tmp_path, "query__third", "third", query_bed, third_bed),
+    ]
+
+    aggregates = _collect_target_aggregates(jobs)
+    blocks_path, _scoped_targets = _write_multi_local_blocks(tmp_path / "multi.blocks", request, jobs, aggregates)
+    rows = blocks_path.read_text(encoding="utf-8").splitlines()
+
+    assert "r*query__qgene2\tsubject__shared\tthird__shared" in rows
+    assert "r*query__qgene2\tsubject__qgene3\t." in rows

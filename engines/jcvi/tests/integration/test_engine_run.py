@@ -383,6 +383,61 @@ def test_engine_run_local_synteny_multi(tmp_path: Path) -> None:
     assert Path(payload["artifacts"]["multi_species_local_figures"][0]).is_file()
 
 
+def test_engine_run_local_synteny_multi_native_renderer(tmp_path: Path) -> None:
+    bed = tmp_path / "local_multi.bed"
+    bed.write_text(
+        "\n".join(
+            [
+                "qchr1\t0\t10\tqgene1\t0\t+",
+                "qchr1\t10\t20\tqgene2\t0\t+",
+                "schr5\t0\t10\tsgene1\t0\t+",
+                "schr2\t2000000\t2000010\tsgene2\t0\t+",
+                "tchr1\t0\t10\ttgene1\t0\t+",
+                "tchr3\t100\t110\ttgene2\t0\t+",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    blocks = tmp_path / "local_multi.blocks"
+    blocks.write_text("r*qgene1\tsgene1\ttgene1\nqgene2\tsgene2\ttgene2\n", encoding="utf-8")
+    manifest = {
+        "schema_version": 2,
+        "workflow": "local_synteny_multi",
+        "task": {"task_id": "local-native", "task_type": "multi_species_local_synteny", "source": "pytest"},
+        "tracks": [
+            {"name": "query", "bed": str(bed)},
+            {"name": "subject", "bed": str(bed)},
+            {"name": "third", "bed": str(bed)},
+        ],
+        "blocks": str(blocks),
+        "bed": str(bed),
+        "toolchain": {},
+        "options": {
+            "formats": ["svg"],
+            "target_gene_ids": ["qgene1"],
+            "use_native_local_synteny_renderer": True,
+            "auto_optimization": {
+                "optimize_figsize": True,
+            },
+        },
+        "expected_outputs": ["figures"],
+    }
+    manifest_path = tmp_path / "local_multi_native.json"
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    summary_path = run_manifest(manifest_path, tmp_path / "local-native")
+    payload = json.loads(summary_path.read_text(encoding="utf-8"))
+
+    assert payload["status"] == "ok"
+    assert [command["name"] for command in payload["commands"]] == ["local_synteny_renderer"]
+    assert payload["artifacts"]["backend"] == "local_synteny_renderer"
+    figure = Path(payload["artifacts"]["multi_species_local_figures"][0])
+    assert figure.is_file()
+    content = figure.read_text(encoding="utf-8")
+    assert "schr5" in content
+    assert "schr2" in content
+
+
 def test_engine_rejects_simplified_fallback(tmp_path: Path) -> None:
     data = _manifest("graphics_synteny")
     data["options"] = {**data["options"], "allow_simplified_fallback": True}

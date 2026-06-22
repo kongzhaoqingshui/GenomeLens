@@ -28,7 +28,7 @@ class _TargetAggregate:
 
     order: list[str] = field(default_factory=list)
     seen: set[str] = field(default_factory=set)
-    species_hits: dict[str, dict[str, str]] = field(default_factory=dict)
+    species_hits: dict[str, dict[str, list[str]]] = field(default_factory=dict)
 
     def add(self, species_name: str, reference_gene: str, subject_gene: str) -> None:
         """记录一行 reference -> subject 命中"""
@@ -36,7 +36,9 @@ class _TargetAggregate:
         if reference_gene not in self.seen:
             self.seen.add(reference_gene)
             self.order.append(reference_gene)
-        self.species_hits.setdefault(species_name, {})[reference_gene] = subject_gene
+        hits = self.species_hits.setdefault(species_name, {}).setdefault(reference_gene, [])
+        if subject_gene not in hits:
+            hits.append(subject_gene)
 
 
 def _safe_prefix(value: str) -> str:
@@ -61,14 +63,15 @@ def _split_block_highlight(line: str) -> tuple[str | None, str]:
     return highlight or None, body
 
 
-def _first_subject(parts: list[str]) -> str:
+def _subject_hits(parts: list[str]) -> list[str]:
     """读取 blocks 行中第一个可用 subject accn"""
 
+    hits: list[str] = []
     for item in parts[1:]:
         accn = item.strip()
-        if accn and accn != ".":
-            return accn
-    return "."
+        if accn and accn != "." and accn not in hits:
+            hits.append(accn)
+    return hits
 
 
 def _read_engine_local_artifacts(path: str) -> list[dict[str, object]]:
@@ -108,10 +111,11 @@ def _add_blocks_to_aggregate(
             if len(parts) < 2:
                 continue
             reference_gene = parts[0].strip()
-            subject_gene = _first_subject(parts)
-            if not reference_gene or subject_gene == ".":
+            subject_hits = _subject_hits(parts)
+            if not reference_gene or not subject_hits:
                 continue
-            aggregate.add(species_name, reference_gene, subject_gene)
+            for subject_gene in subject_hits:
+                aggregate.add(species_name, reference_gene, subject_gene)
 
 
 def _collect_target_aggregates(pairwise_jobs: list[PairwiseJobSummary]) -> dict[str, _TargetAggregate]:
@@ -190,12 +194,17 @@ def _write_multi_local_blocks(
     for target in sorted(aggregates):
         aggregate = aggregates[target]
         for reference_gene in aggregate.order:
-            row = [_scoped_accn(request.query.name, reference_gene)]
-            for species_name in target_names:
-                subject_gene = aggregate.species_hits.get(species_name, {}).get(reference_gene, ".")
-                row.append("." if subject_gene == "." else _scoped_accn(species_name, subject_gene))
-            prefix = "r*" if reference_gene in target_gene_ids else ""
-            lines.append(prefix + "\t".join(row))
+            per_species_hits = [
+                aggregate.species_hits.get(species_name, {}).get(reference_gene, []) for species_name in target_names
+            ]
+            row_count = max((len(hits) for hits in per_species_hits), default=0)
+            for hit_index in range(max(1, row_count)):
+                row = [_scoped_accn(request.query.name, reference_gene)]
+                for species_name, hits in zip(target_names, per_species_hits, strict=False):
+                    subject_gene = hits[hit_index] if hit_index < len(hits) else "."
+                    row.append("." if subject_gene == "." else _scoped_accn(species_name, subject_gene))
+                prefix = "r*" if reference_gene in target_gene_ids else ""
+                lines.append(prefix + "\t".join(row))
 
     path.write_text("\n".join(lines) + ("\n" if lines else ""), encoding="utf-8")
     return path, scoped_target_gene_ids

@@ -5,6 +5,7 @@ import pytest
 from jcvi_genomelens.graphics.local_synteny_renderer import (
     GeneRecord,
     _build_track_window,
+    _compute_layout,
     _format_bp_range,
     _read_bed,
     _read_blocks,
@@ -207,6 +208,21 @@ def test_render_multi_track(fixture_dir: Path) -> None:
     assert "SubB" in content
 
 
+def test_compute_layout_links_only_adjacent_tracks(fixture_dir: Path) -> None:
+    multi_blocks = fixture_dir / "multi.blocks"
+    _write_multi_track_blocks(multi_blocks)
+
+    layout = _compute_layout(multi_blocks, fixture_dir / "all.bed", ["Ref", "SubA", "SubB"], [])
+    links = {(link.left_track, link.right_track, link.left_gene, link.right_gene) for link in layout.links}
+
+    assert links == {
+        (0, 1, "g1", "s1"),
+        (1, 2, "s1", "s3"),
+        (0, 1, "g2", "s2"),
+    }
+    assert (0, 2, "g1", "s3") not in links
+
+
 def test_format_bp_range() -> None:
     assert _format_bp_range(0, 21_320_000) == "0.00-21.32Mb"
     assert _format_bp_range(500, 1500) == "0.50-1.50kb"
@@ -289,3 +305,114 @@ def test_custom_figsize_is_respected(fixture_dir: Path) -> None:
     )
     assert output.is_file()
     assert output.stat().st_size > 0
+
+
+def test_compute_layout_splits_subject_cross_chromosome_segments(fixture_dir: Path) -> None:
+    layout = _compute_layout(
+        fixture_dir / "blocks.txt",
+        fixture_dir / "all.bed",
+        ["Ref", "Sub"],
+        [],
+    )
+
+    subject = layout.tracks[1]
+    assert [segment.chromosome for segment in subject.segments] == ["chrA", "chrB"]
+    assert {link.right_gene for link in layout.links} == {"s1", "s2", "s3", "s4"}
+
+
+def test_compute_layout_maps_reference_by_bed_coordinates(tmp_path: Path) -> None:
+    bed = tmp_path / "all.bed"
+    bed.write_text(
+        "\n".join(
+            [
+                "qchr\t0\t10\tq1\t0\t+",
+                "qchr\t20\t30\tq2\t0\t+",
+                "qchr\t1000\t1010\tq3\t0\t+",
+                "schr\t0\t10\ts1\t0\t+",
+                "schr\t20\t30\ts2\t0\t+",
+                "schr\t40\t50\ts3\t0\t+",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    blocks = tmp_path / "blocks.txt"
+    blocks.write_text("q1\ts1\nq2\ts2\nq3\ts3\n", encoding="utf-8")
+
+    layout = _compute_layout(blocks, bed, ["Ref", "Sub"], [])
+
+    xs = [mapped.x for mapped in layout.tracks[0].all_genes]
+    first_gap = xs[1] - xs[0]
+    second_gap = xs[2] - xs[1]
+    assert second_gap > first_gap * 20
+
+
+def test_compute_layout_keeps_multiple_chromosomes_on_one_row(tmp_path: Path) -> None:
+    bed = tmp_path / "all.bed"
+    bed_lines = [f"qchr\t{i * 10}\t{i * 10 + 5}\tq{i}\t0\t+" for i in range(24)]
+    bed_lines.extend(f"schr{i}\t0\t10\ts{i}\t0\t+" for i in range(24))
+    bed.write_text("\n".join(bed_lines) + "\n", encoding="utf-8")
+    blocks = tmp_path / "blocks.txt"
+    blocks.write_text("\n".join(f"q{i}\ts{i}" for i in range(24)) + "\n", encoding="utf-8")
+
+    layout = _compute_layout(blocks, bed, ["Ref", "Sub"], [])
+
+    subject = layout.tracks[1]
+    assert len(subject.segments) == 24
+    assert subject.lane_count == 1
+    assert {segment.lane for segment in subject.segments} == {0}
+    ordered_segments = subject.segments
+    for left, right in zip(ordered_segments, ordered_segments[1:], strict=False):
+        assert left.visual_end <= right.visual_start
+
+
+def test_compute_layout_marks_long_anchor_free_gap(tmp_path: Path) -> None:
+    bed = tmp_path / "all.bed"
+    bed.write_text(
+        "\n".join(
+            [
+                "qchr\t0\t10\tq1\t0\t+",
+                "qchr\t10\t20\tq2\t0\t+",
+                "schr\t0\t10\ts1\t0\t+",
+                "schr\t2000000\t2000010\ts2\t0\t+",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    blocks = tmp_path / "blocks.txt"
+    blocks.write_text("q1\ts1\nq2\ts2\n", encoding="utf-8")
+
+    layout = _compute_layout(blocks, bed, ["Ref", "Sub"], [])
+
+    segment = layout.tracks[1].segments[0]
+    assert segment.has_compressed_gaps is True
+    assert segment.gap_markers
+    assert segment.visual_end - segment.visual_start < 0.25
+
+
+def test_compute_layout_handles_scoped_ids_and_missing_values(tmp_path: Path) -> None:
+    bed = tmp_path / "all.bed"
+    bed.write_text(
+        "\n".join(
+            [
+                "qchr\t0\t10\tquery__q1\t0\t+",
+                "qchr\t10\t20\tquery__q2\t0\t+",
+                "schr\t0\t10\tsubject__s1\t0\t+",
+                "tchr\t0\t10\tthird__t1\t0\t+",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    blocks = tmp_path / "blocks.txt"
+    blocks.write_text("r*query__q1\tsubject__s1\t.\nquery__q2\t.\tthird__t1\n", encoding="utf-8")
+
+    layout = _compute_layout(blocks, bed, ["query", "subject", "third"], ["query__q1"])
+
+    assert "query__q1" in layout.target_gene_ids
+    assert [segment.chromosome for segment in layout.tracks[1].segments] == ["schr"]
+    assert [segment.chromosome for segment in layout.tracks[2].segments] == ["tchr"]
+    assert {(link.left_gene, link.right_gene) for link in layout.links} == {
+        ("query__q1", "subject__s1"),
+    }
