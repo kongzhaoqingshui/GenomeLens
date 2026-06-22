@@ -67,7 +67,7 @@ export default function SettingsPage({ route, onNavigate }: SettingsPageProps) {
   const toolItems = report ? getCheckToolItems(report) : [];
 
   return (
-    <section className="grid w-full gap-0 overflow-hidden border border-slate-200 bg-white xl:grid-cols-[16rem_minmax(0,1fr)]">
+    <section className="ui-page-enter grid w-full gap-0 overflow-hidden border border-slate-200 bg-white xl:grid-cols-[16rem_minmax(0,1fr)]">
       <aside className="border-r border-slate-200/80 bg-[#f6f8f9]">
         <div className="border-b border-slate-200/80 px-5 py-5">
           <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-400">{route.label}</p>
@@ -78,7 +78,7 @@ export default function SettingsPage({ route, onNavigate }: SettingsPageProps) {
         <nav className="px-3 py-3">
           <button
             type="button"
-            className="mb-1 flex w-full items-center justify-between rounded-lg bg-white px-3 py-2 text-left text-sm font-medium text-slate-800 shadow-sm transition hover:bg-slate-50"
+            className="ui-list-item mb-1 flex w-full items-center justify-between rounded-lg bg-white px-3 py-2 text-left text-sm font-medium text-slate-800 shadow-sm transition hover:bg-slate-50"
             onClick={() => onNavigate("/analysis/new")}
           >
             <span>Open workbench</span>
@@ -86,7 +86,7 @@ export default function SettingsPage({ route, onNavigate }: SettingsPageProps) {
           </button>
           <button
             type="button"
-            className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm text-slate-600 transition hover:bg-white hover:text-slate-900"
+            className="ui-list-item flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm text-slate-600 transition hover:bg-white hover:text-slate-900"
             onClick={() => onNavigate("/")}
           >
             <span>Back to home</span>
@@ -111,7 +111,7 @@ export default function SettingsPage({ route, onNavigate }: SettingsPageProps) {
         </div>
       </aside>
 
-      <div className="min-w-0 bg-white">
+      <div className="ui-surface-enter min-w-0 bg-white">
         <div className="border-b border-slate-200/80 px-6 py-5">
           <div className="flex items-start justify-between gap-4">
             <div>

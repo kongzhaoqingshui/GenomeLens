@@ -1,11 +1,12 @@
 import { open } from "@tauri-apps/plugin-dialog";
-import { mkdir, writeTextFile } from "@tauri-apps/plugin-fs";
+import { mkdir, readTextFile, writeTextFile } from "@tauri-apps/plugin-fs";
 import { useEffect, useMemo, useState } from "react";
 
 import { GameIcon, type GameIconName } from "../components/GameIcon";
 import type {
   AlignSoft,
   AnalysisInputMode,
+  AnalysisRequest,
   DbType,
   LogLevel,
   McscanWorkflow,
@@ -52,19 +53,29 @@ interface WorkbenchTask {
   runState: AnalysisRunState | null;
   runError: string | null;
   pendingRequestJson: string;
+  importedRequest: ImportedRequestState | null;
   createdAt: string;
   updatedAt: string;
+}
+
+interface ImportedRequestState {
+  path: string;
+  json: string;
+  method: string;
+  workflow: string;
+  inputMode: string;
+  requestOutputDirectory: string;
 }
 
 const FIELD_CLASS =
   "mt-2 w-full rounded-lg border border-border bg-bg px-3 py-2 text-sm text-text-primary shadow-sm outline-none transition focus:border-ice-400 focus:ring-2 focus:ring-ice-200 dark:focus:ring-ice-900/60";
 const LABEL_CLASS = "text-xs font-semibold uppercase tracking-[0.14em] text-text-tertiary";
 const CHECKBOX_CLASS = "h-4 w-4 rounded border-border text-ice-500 focus:ring-ice-500";
-const PANEL_BODY_CLASS = "border-b border-slate-200/80 bg-white px-1 py-6 last:border-b-0";
+const PANEL_BODY_CLASS = "ui-surface-enter border-b border-slate-200/80 bg-white px-1 py-6 last:border-b-0";
 const SECONDARY_BUTTON_CLASS =
-  "rounded-lg border border-border bg-surface-raised/80 px-3 py-2 text-xs font-semibold text-text-secondary transition hover:border-ice-200 hover:bg-ice-50 hover:text-ice-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ice-500 dark:hover:border-ice-800 dark:hover:bg-ice-900/30 dark:hover:text-ice-200 disabled:cursor-not-allowed disabled:opacity-45";
+  "ui-pressable rounded-lg border border-border bg-surface-raised/80 px-3 py-2 text-xs font-semibold text-text-secondary transition hover:border-ice-200 hover:bg-ice-50 hover:text-ice-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ice-500 dark:hover:border-ice-800 dark:hover:bg-ice-900/30 dark:hover:text-ice-200 disabled:cursor-not-allowed disabled:opacity-45";
 const PRIMARY_BUTTON_CLASS =
-  "rounded-lg bg-ice-500 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-ice-500/20 transition hover:bg-ice-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ice-500 focus-visible:ring-offset-2 focus-visible:ring-offset-bg disabled:cursor-not-allowed disabled:opacity-50";
+  "ui-pressable rounded-lg bg-ice-500 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-ice-500/20 transition hover:bg-ice-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ice-500 focus-visible:ring-offset-2 focus-visible:ring-offset-bg disabled:cursor-not-allowed disabled:opacity-50";
 
 const WORKFLOW_OPTIONS: McscanWorkflow[] = [
   "mcscan_pairwise",
@@ -164,6 +175,34 @@ function stringifyJson(value: unknown): string {
   return JSON.stringify(value, null, 2);
 }
 
+function asObject(value: unknown): Record<string, unknown> | null {
+  if (typeof value === "object" && value !== null && !Array.isArray(value)) {
+    return value as Record<string, unknown>;
+  }
+  return null;
+}
+
+function parseImportedRequest(path: string, sourceText: string): ImportedRequestState {
+  const parsed = JSON.parse(sourceText) as AnalysisRequest;
+  const root = asObject(parsed);
+  if (!root) {
+    throw new Error("Imported request must be a JSON object.");
+  }
+
+  const input = asObject(root.input);
+  const output = asObject(root.output);
+  const methodConfig = asObject(root.method_config);
+
+  return {
+    path,
+    json: stringifyJson(parsed),
+    method: typeof root.method === "string" ? root.method : "unknown",
+    workflow: typeof methodConfig?.workflow === "string" ? methodConfig.workflow : "unknown",
+    inputMode: typeof input?.mode === "string" ? input.mode : "unknown",
+    requestOutputDirectory: typeof output?.directory === "string" ? output.directory : "",
+  };
+}
+
 function joinPath(directory: string, filename: string): string {
   const separator = directory.includes("\\") ? "\\" : "/";
   return `${directory.replace(/[\\/]+$/, "")}${separator}${filename}`;
@@ -236,6 +275,7 @@ function createTaskFromTemplate(
     runState: null,
     runError: null,
     pendingRequestJson: "",
+    importedRequest: null,
     createdAt,
     updatedAt: createdAt,
   };
@@ -359,6 +399,8 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
   const requestJson = useMemo(() => (draft ? stringifyJson(draftToAnalysisRequest(draft)) : ""), [draft]);
   const schemaJson = useMemo(() => (schema ? stringifyJson(schema) : ""), [schema]);
   const targetGeneText = draft?.mcscan.targetGeneIds.join("\n") ?? "";
+  const importedRequest = activeTask?.importedRequest ?? null;
+  const requestPreviewJson = importedRequest?.json ?? requestJson;
 
   useEffect(() => {
     if (!activeTask?.runState || !activeTask.runState.finished || activeTask.runState.summaryView !== undefined) {
@@ -519,10 +561,87 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
     }
   }
 
-  async function handlePrepareRun() {
-    if (!activeTask || !validation) {
+  async function handleImportRequestJson() {
+    if (!activeTask) {
       return;
     }
+
+    const selected = coerceDialogPath(
+      await open({
+        directory: false,
+        multiple: false,
+        filters: [{ name: "JSON", extensions: ["json"] }],
+      }),
+    );
+
+    if (!selected) {
+      return;
+    }
+
+    try {
+      const sourceText = await readTextFile(selected);
+      const nextImportedRequest = parseImportedRequest(selected, sourceText);
+      updateActiveTask((task) => ({
+        ...task,
+        runStatus: task.runStatus === "confirming" ? "idle" : task.runStatus,
+        runError: null,
+        pendingRequestJson: "",
+        importedRequest: nextImportedRequest,
+        draft:
+          task.draft.outputDirectory.trim().length === 0 && nextImportedRequest.requestOutputDirectory
+            ? { ...task.draft, outputDirectory: nextImportedRequest.requestOutputDirectory }
+            : task.draft,
+      }));
+    } catch (error: unknown) {
+      updateActiveTask((task) => ({
+        ...task,
+        runStatus: "error",
+        runError: error instanceof Error ? error.message : String(error),
+        view: "setup",
+      }));
+    }
+  }
+
+  function clearImportedRequest() {
+    updateActiveTask((task) => ({
+      ...task,
+      importedRequest: null,
+      pendingRequestJson: "",
+      runStatus: task.runStatus === "confirming" ? "idle" : task.runStatus,
+      runError: null,
+    }));
+  }
+
+  async function handlePrepareRun() {
+    if (!activeTask) {
+      return;
+    }
+
+    if (activeTask.importedRequest) {
+      if (!activeTask.draft.outputDirectory.trim()) {
+        updateActiveTask((task) => ({
+          ...task,
+          runStatus: "error",
+          runError: "Choose an output directory before running an imported request.",
+          view: "setup",
+        }));
+        return;
+      }
+
+      updateActiveTask((task) => ({
+        ...task,
+        runError: null,
+        pendingRequestJson: task.importedRequest?.json ?? "",
+        runStatus: "confirming",
+        view: "run",
+      }));
+      return;
+    }
+
+    if (!validation) {
+      return;
+    }
+
     if (!validation.ok) {
       updateActiveTask((task) => ({
         ...task,
@@ -548,16 +667,33 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
     }
 
     const taskId = activeTask.id;
-    const request = draftToAnalysisRequest(activeTask.draft);
-    const json = stringifyJson(request);
-    const requestPath = joinPath(activeTask.draft.outputDirectory, `genomelens-request-${timestampForFilename()}.json`);
+    const outdir = activeTask.draft.outputDirectory.trim();
+    const imported = activeTask.importedRequest;
+
+    if (!outdir) {
+      updateTask(taskId, (task) => ({
+        ...task,
+        runStatus: "error",
+        runError: imported
+          ? "Choose an output directory before running an imported request."
+          : "Choose an output directory before generating a request JSON.",
+        view: "setup",
+      }));
+      return;
+    }
+
+    const request = imported ? null : draftToAnalysisRequest(activeTask.draft);
+    const json = imported?.json ?? (request ? stringifyJson(request) : "");
+    const requestPath = imported ? imported.path : joinPath(outdir, `genomelens-request-${timestampForFilename()}.json`);
 
     updateTask(taskId, (task) => ({ ...task, runStatus: "starting", runError: null, runState: null, view: "run" }));
 
     try {
-      await mkdir(activeTask.draft.outputDirectory, { recursive: true });
-      await writeTextFile(requestPath, `${json}\n`);
-      const handle = await runAnalysis({ requestPath, outdir: activeTask.draft.outputDirectory });
+      await mkdir(outdir, { recursive: true });
+      if (!imported) {
+        await writeTextFile(requestPath, `${json}\n`);
+      }
+      const handle = await runAnalysis({ requestPath, outdir });
       updateTask(taskId, (task) => ({
         ...task,
         runState: createAnalysisRunState(handle),
@@ -658,7 +794,7 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
 
   if (loading) {
     return (
-      <section className="grid h-screen w-full content-center justify-center gap-4 bg-[#f4fbfd] text-center">
+      <section className="ui-page-enter grid h-screen w-full content-center justify-center gap-4 bg-[#f4fbfd] text-center">
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
           JCVI meow · {route.description}
         </p>
@@ -670,7 +806,7 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
 
   if (loadError || !activeTask || !draft || validation === null) {
     return (
-      <section className="grid h-screen w-full content-center justify-center gap-4 bg-[#f4fbfd] text-center">
+      <section className="ui-page-enter grid h-screen w-full content-center justify-center gap-4 bg-[#f4fbfd] text-center">
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
           JCVI meow · {route.description}
         </p>
@@ -693,23 +829,24 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
   const resolvedLogPath = activeTask.runState?.logPath ?? summaryView?.runLogPath ?? "";
   const resolvedSummaryPath = activeTask.runState?.summaryPath ?? summaryView?.runSummaryPath ?? "";
   const recentEvents = logLines.slice(-6).reverse();
+  const usesImportedRequest = importedRequest !== null;
 
   return (
-    <div className="grid h-screen w-full grid-cols-[20rem_minmax(0,1fr)_23rem] overflow-hidden bg-white">
+    <div className="ui-page-enter grid h-screen w-full grid-cols-[20rem_minmax(0,1fr)_23rem] overflow-hidden bg-white">
       <aside className="flex min-h-0 flex-col overflow-hidden border-r border-slate-200/80 bg-[#eaf7fb] px-3 py-4">
         <div className="flex items-center gap-3 px-3 pb-4">
-          <button type="button" className="text-sm text-slate-500 hover:text-slate-900" onClick={() => onNavigate("/")}>
+          <button type="button" className="ui-pressable text-sm text-slate-500 hover:text-slate-900" onClick={() => onNavigate("/")}>
             ←
           </button>
           <span className="text-sm font-semibold text-slate-900">JCVI meow</span>
         </div>
 
         <nav className="grid gap-1 px-1 pb-5 text-sm text-slate-700">
-          <button type="button" className="flex items-center gap-3 rounded-lg px-3 py-2 text-left hover:bg-white/75" onClick={() => createTask()}>
+          <button type="button" className="ui-list-item flex items-center gap-3 rounded-lg px-3 py-2 text-left hover:bg-white/75" onClick={() => createTask()}>
             <GameIcon name="pairwise" className="h-4 w-4" />
             新任务
           </button>
-          <label className="flex items-center gap-3 rounded-lg px-3 py-2 hover:bg-white/75">
+          <label className="ui-list-item flex items-center gap-3 rounded-lg px-3 py-2 hover:bg-white/75">
             <GameIcon name="environment" className="h-4 w-4" />
             <input
               className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-slate-500"
@@ -726,7 +863,7 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
               <p className="text-xs font-medium text-slate-400">置顶</p>
               <h2 className="mt-4 text-sm font-semibold text-slate-500">Tasks</h2>
             </div>
-            <button type="button" className="rounded-lg px-2 py-1 text-lg leading-none text-slate-500 hover:bg-white/75" onClick={() => createTask()}>
+            <button type="button" className="ui-pressable rounded-lg px-2 py-1 text-lg leading-none text-slate-500 hover:bg-white/75" onClick={() => createTask()}>
               +
             </button>
           </div>
@@ -738,7 +875,7 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
               key={task.id}
               type="button"
               className={[
-                "mb-1 grid w-full grid-cols-[1.75rem_minmax(0,1fr)_auto] items-center gap-3 rounded-xl px-3 py-2.5 text-left transition",
+                "ui-list-item mb-1 grid w-full grid-cols-[1.75rem_minmax(0,1fr)_auto] items-center gap-3 rounded-xl px-3 py-2.5 text-left transition",
                 task.id === activeTask.id
                   ? "bg-white/75 text-slate-900 shadow-sm"
                   : "bg-transparent text-slate-600 hover:bg-white/55",
@@ -756,7 +893,7 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
                 <span
                   role="button"
                   tabIndex={0}
-                  className="rounded-md px-2 py-1 text-xs text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                  className="ui-pressable rounded-md px-2 py-1 text-xs text-slate-400 hover:bg-slate-100 hover:text-slate-700"
                   onClick={(event) => {
                     event.stopPropagation();
                     closeTask(task.id);
@@ -798,7 +935,7 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
           </div>
           <button
             type="button"
-            className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm text-slate-600 hover:bg-white/75"
+            className="ui-list-item flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm text-slate-600 hover:bg-white/75"
             onClick={() => onNavigate("/settings")}
           >
             <GameIcon name="environment" className="h-4 w-4" />
@@ -822,7 +959,7 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
           <div className="flex shrink-0 items-center gap-3">
             <button
               type="button"
-              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 shadow-sm"
+              className="ui-pressable rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 shadow-sm"
               onClick={handleOpenOutput}
             >
               打开位置
@@ -834,8 +971,8 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
                   type="button"
                   className={
                     activeTask.view === view
-                      ? "rounded-lg bg-white px-3 py-1.5 text-xs font-semibold uppercase text-slate-900 shadow-sm"
-                      : "rounded-lg px-3 py-1.5 text-xs font-semibold uppercase text-slate-500 hover:text-slate-900"
+                      ? "ui-pressable rounded-lg bg-white px-3 py-1.5 text-xs font-semibold uppercase text-slate-900 shadow-sm"
+                      : "ui-pressable rounded-lg px-3 py-1.5 text-xs font-semibold uppercase text-slate-500 hover:text-slate-900"
                   }
                   onClick={() => setTaskView(view)}
                 >
@@ -950,6 +1087,48 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
                     </div>
                     <IssueText issue={outputIssue} />
                   </label>
+                </div>
+
+                <div className="mt-5 rounded-xl border border-slate-200/80 bg-slate-50/80 p-4">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-slate-900">Import request JSON</p>
+                      <p className="mt-1 text-sm leading-6 text-slate-500">
+                        Attach an existing AnalysisRequest file and run it directly without rebuilding the request from the wizard.
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <button type="button" className={SECONDARY_BUTTON_CLASS} onClick={handleImportRequestJson}>
+                        Import request JSON
+                      </button>
+                      {usesImportedRequest ? (
+                        <button type="button" className={SECONDARY_BUTTON_CLASS} onClick={clearImportedRequest}>
+                          Clear imported request
+                        </button>
+                      ) : null}
+                    </div>
+                  </div>
+
+                  {usesImportedRequest ? (
+                    <div className="mt-4 grid gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600">
+                      <InfoRow label="source" value="Imported request JSON" />
+                      <InfoRow label="request" value={importedRequest?.path ?? "-"} />
+                      <InfoRow label="method" value={importedRequest?.method ?? "-"} />
+                      <InfoRow label="workflow" value={importedRequest?.workflow ?? "-"} />
+                      <InfoRow label="mode" value={importedRequest?.inputMode ?? "-"} />
+                      <InfoRow
+                        label="request outdir"
+                        value={importedRequest?.requestOutputDirectory || "Not declared in imported JSON"}
+                      />
+                      <p className="pt-1 text-xs leading-5 text-slate-500">
+                        Run uses the imported request path above and the current task output directory shown in this panel.
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="mt-4 text-sm text-slate-500">
+                      No imported request is attached. The current wizard draft still generates the request JSON for this task.
+                    </p>
+                  )}
                 </div>
               </section>
 
@@ -1172,6 +1351,15 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
             <div className="mx-auto grid w-full max-w-4xl gap-6">
               <section className={PANEL_BODY_CLASS}>
                 <SectionTitle title="Run control" subtitle="One task maps to one request file and one GenomeLens run." />
+                {usesImportedRequest ? (
+                  <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                    <p className="font-medium text-slate-900">Imported request attached</p>
+                    <p className="mt-1 break-all font-mono text-xs leading-6 text-slate-500">{importedRequest?.path ?? "-"}</p>
+                    <p className="mt-2 text-xs leading-5 text-slate-500">
+                      This run will use the imported request file directly. Current task outdir: {draft.outputDirectory || "-"}.
+                    </p>
+                  </div>
+                ) : null}
                 <div className="mt-4 flex flex-wrap items-center gap-3">
                   <button
                     type="button"
@@ -1211,7 +1399,13 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
                     </span>
                   </div>
                   <div className="h-2 overflow-hidden rounded-full bg-ice-100 dark:bg-ice-900/40">
-                    <div className="h-full rounded-full bg-ice-500 transition-all" style={{ width: `${Math.max(0, Math.min(progress, 100))}%` }} />
+                    <div
+                      className={[
+                        "h-full rounded-full bg-ice-500 transition-all",
+                        activeTask.runStatus === "starting" || activeTask.runStatus === "running" ? "ui-running-progress" : "",
+                      ].join(" ")}
+                      style={{ width: `${Math.max(0, Math.min(progress, 100))}%` }}
+                    />
                   </div>
                   {activeTask.runState ? (
                     <div className="grid gap-2 font-mono text-xs text-text-tertiary">
@@ -1230,8 +1424,21 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
               </section>
 
               {activeTask.runStatus === "confirming" ? (
-                <section className="rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-900/40 dark:bg-amber-950/20">
+                <section className="ui-surface-enter rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-900/40 dark:bg-amber-950/20">
                   <h3 className="text-sm font-semibold text-text-primary">Confirm AnalysisRequest JSON</h3>
+                  <div className="mt-3 grid gap-2 rounded-lg border border-amber-200/80 bg-white/80 px-3 py-3 text-sm text-slate-600">
+                    <InfoRow label="source" value={usesImportedRequest ? "Imported request JSON" : "Generated from active draft"} />
+                    {usesImportedRequest ? (
+                      <>
+                        <InfoRow label="request" value={importedRequest?.path ?? "-"} />
+                        <InfoRow label="mode" value={importedRequest?.inputMode ?? "-"} />
+                        <InfoRow label="workflow" value={importedRequest?.workflow ?? "-"} />
+                      </>
+                    ) : (
+                      <InfoRow label="workflow" value={draft.mcscan.workflow} />
+                    )}
+                    <InfoRow label="outdir" value={draft.outputDirectory || "-"} />
+                  </div>
                   <pre className="mt-3 max-h-72 overflow-auto rounded-lg border border-border bg-bg p-3 font-mono text-xs leading-6 text-text-secondary">
                     {activeTask.pendingRequestJson}
                   </pre>
@@ -1248,9 +1455,19 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
 
               <section className={PANEL_BODY_CLASS}>
                 <SectionTitle title="Live log" subtitle="Stable run.log lines are streamed into this task context." />
-                <pre className="mt-4 max-h-[30rem] overflow-auto rounded-lg border border-border bg-bg p-4 font-mono text-xs leading-6 text-text-secondary">
-                  {logLines.length > 0 ? logLines.join("\n") : "Waiting for analysis:stdout or read_run_log()."}
-                </pre>
+                <div className="mt-4 max-h-[30rem] overflow-auto rounded-lg border border-border bg-bg p-4 font-mono text-xs leading-6 text-text-secondary">
+                  {logLines.length > 0 ? (
+                    <div className="grid gap-1">
+                      {logLines.map((line, index) => (
+                        <div key={`${index}-${line}`} className="ui-log-line whitespace-pre-wrap break-words">
+                          {line}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-text-secondary">Waiting for analysis:stdout or read_run_log().</div>
+                  )}
+                </div>
               </section>
             </div>
           ) : null}
@@ -1280,7 +1497,7 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
                       <div className="mt-3 grid gap-2">
                         {summaryView.figureAssets.length > 0 ? (
                           summaryView.figureAssets.slice(0, 12).map((asset) => (
-                            <div key={asset.path} className="rounded-lg border border-border bg-bg p-3">
+                            <div key={asset.path} className="ui-surface-enter rounded-lg border border-border bg-bg p-3">
                               <p className="text-sm font-semibold text-text-primary">{asset.name}</p>
                               <p className="mt-1 break-all font-mono text-xs text-text-tertiary">{asset.path}</p>
                             </div>
@@ -1304,9 +1521,28 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
               </section>
 
               <section className={PANEL_BODY_CLASS}>
-                <SectionTitle title="Request JSON" subtitle="Current task request preview." />
+                <SectionTitle
+                  title="Request JSON"
+                  subtitle={
+                    usesImportedRequest
+                      ? "Preview of the imported request file used by this task."
+                      : "Current task request preview generated from the active draft."
+                  }
+                />
+                <div className="mt-4 grid gap-2 rounded-lg border border-border bg-bg px-4 py-3 text-sm text-text-secondary">
+                  <InfoRow label="source" value={usesImportedRequest ? "Imported request JSON" : "Generated draft"} />
+                  {usesImportedRequest ? (
+                    <>
+                      <InfoRow label="request" value={importedRequest?.path ?? "-"} />
+                      <InfoRow label="mode" value={importedRequest?.inputMode ?? "-"} />
+                      <InfoRow label="workflow" value={importedRequest?.workflow ?? "-"} />
+                    </>
+                  ) : (
+                    <InfoRow label="workflow" value={draft.mcscan.workflow} />
+                  )}
+                </div>
                 <pre className="mt-4 max-h-[28rem] overflow-auto rounded-lg border border-border bg-bg p-4 font-mono text-xs leading-6 text-text-secondary">
-                  {requestJson}
+                  {requestPreviewJson}
                 </pre>
               </section>
             </div>
@@ -1314,8 +1550,8 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
         </div>
 
         <div className="pointer-events-none border-t border-slate-200/80 bg-white px-14 py-5">
-          <div className="pointer-events-auto mx-auto flex max-w-4xl items-center gap-3 rounded-[1.1rem] border border-slate-200 bg-white px-4 py-3 shadow-[0_6px_20px_rgba(15,23,42,0.06)]">
-            <button type="button" className="text-2xl leading-none text-slate-400 hover:text-slate-700" onClick={() => createTask()}>
+          <div className="ui-surface-enter pointer-events-auto mx-auto flex max-w-4xl items-center gap-3 rounded-[1.1rem] border border-slate-200 bg-white px-4 py-3 shadow-[0_6px_20px_rgba(15,23,42,0.06)]">
+            <button type="button" className="ui-pressable text-2xl leading-none text-slate-400 hover:text-slate-700" onClick={() => createTask()}>
               +
             </button>
             <div className="min-w-0 flex-1">
@@ -1325,21 +1561,24 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
             </div>
             <button
               type="button"
-              className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50"
+              className="ui-pressable rounded-xl border border-slate-200 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50"
               onClick={() => setTaskView("setup")}
             >
               setup
             </button>
             <button
               type="button"
-              className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50"
+              className="ui-pressable rounded-xl border border-slate-200 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50"
               onClick={() => setTaskView("results")}
             >
               results
             </button>
             <button
               type="button"
-              className="rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+              className={[
+                "ui-pressable rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50",
+                activeTask.runStatus === "starting" || activeTask.runStatus === "running" ? "ui-running-progress" : "",
+              ].join(" ")}
               disabled={activeTask.runStatus === "starting" || activeTask.runStatus === "running"}
               onClick={handlePrepareRun}
             >
@@ -1359,19 +1598,19 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
           <section>
             <div className="flex items-center justify-between gap-3">
               <h3 className="text-sm font-medium text-slate-900">变更</h3>
-              <button type="button" className="rounded-lg px-2 py-1 text-xl leading-none text-slate-400 hover:bg-slate-100 hover:text-slate-700" onClick={() => onNavigate("/settings")}>
+              <button type="button" className="ui-pressable rounded-lg px-2 py-1 text-xl leading-none text-slate-400 hover:bg-slate-100 hover:text-slate-700" onClick={() => onNavigate("/settings")}>
                 +
               </button>
             </div>
-            <button type="button" className="mt-3 flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left text-sm text-slate-700 hover:bg-slate-50" onClick={() => onNavigate("/settings")}>
+            <button type="button" className="ui-list-item mt-3 flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left text-sm text-slate-700 hover:bg-slate-50" onClick={() => onNavigate("/settings")}>
               <GameIcon name="environment" className="h-4 w-4" />
               环境诊断
             </button>
-            <button type="button" className="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left text-sm text-slate-700 hover:bg-slate-50" onClick={handleOpenOutput}>
+            <button type="button" className="ui-list-item flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left text-sm text-slate-700 hover:bg-slate-50" onClick={handleOpenOutput}>
               <GameIcon name="local" className="h-4 w-4" />
               工作树
             </button>
-            <button type="button" className="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left text-sm text-slate-700 hover:bg-slate-50" onClick={handlePrepareRun}>
+            <button type="button" className="ui-list-item flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left text-sm text-slate-700 hover:bg-slate-50" onClick={handlePrepareRun}>
               <GameIcon name="pairwise" className="h-4 w-4" />
               提交或推送
             </button>
@@ -1384,6 +1623,7 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
               <InfoRow label="workflow" value={draft.mcscan.workflow} />
               <InfoRow label="input" value={draft.directory || "-"} />
               <InfoRow label="output" value={draft.outputDirectory || "-"} />
+              <InfoRow label="request" value={usesImportedRequest ? "imported" : "draft"} />
               <InfoRow label="issues" value={String(validation.issues.length)} />
             </div>
           </section>
@@ -1403,7 +1643,7 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
             <div className="mt-3 grid gap-2">
               {recentEvents.length > 0 ? (
                 recentEvents.map((line, index) => (
-                  <div key={`${index}-${line}`} className="rounded-lg px-2 py-1.5 font-mono text-[11px] leading-5 text-slate-500">
+                  <div key={`${index}-${line}`} className="ui-log-line rounded-lg px-2 py-1.5 font-mono text-[11px] leading-5 text-slate-500">
                     {line}
                   </div>
                 ))

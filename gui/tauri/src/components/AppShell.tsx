@@ -30,13 +30,13 @@ export function AppShell({
         <div className="fixed right-5 top-5 z-10">
           <ThemeToggle mode={themeMode} resolvedTheme={resolvedTheme} onChange={onThemeChange} />
         </div>
-        <main className="min-h-screen">{children}</main>
+        <main className="ui-page-enter min-h-screen">{children}</main>
       </div>
     );
   }
 
   if (activeRoute.id === "new-analysis") {
-    return <div className="min-h-screen bg-[#f4f7f8] text-text-primary transition-colors duration-200">{children}</div>;
+    return <div className="ui-page-enter min-h-screen bg-[#f4f7f8] text-text-primary transition-colors duration-200">{children}</div>;
   }
 
   const sidebarRoutes = routes.filter((route) => route.id !== "new-analysis");
@@ -47,7 +47,7 @@ export function AppShell({
         <aside className="flex min-h-0 flex-col border-r border-slate-200/80 bg-[#eef6f8] px-3 py-4">
           <button
             type="button"
-            className="flex items-center gap-3 rounded-xl px-3 py-2 text-left transition hover:bg-white/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ice-500"
+            className="ui-pressable flex items-center gap-3 rounded-xl px-3 py-2 text-left transition hover:bg-white/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ice-500"
             onClick={() => onNavigate("/")}
           >
             <JcviMeowIcon className="h-8 w-8" />
@@ -63,8 +63,8 @@ export function AppShell({
                 type="button"
                 className={
                   route.id === activeRoute.id
-                    ? "flex items-center rounded-lg bg-white px-3 py-2 text-left text-sm font-medium text-slate-900 shadow-sm"
-                    : "flex items-center rounded-lg px-3 py-2 text-left text-sm text-slate-600 transition hover:bg-white/70 hover:text-slate-900"
+                    ? "ui-list-item flex items-center rounded-lg bg-white px-3 py-2 text-left text-sm font-medium text-slate-900 shadow-sm"
+                    : "ui-list-item flex items-center rounded-lg px-3 py-2 text-left text-sm text-slate-600 transition hover:bg-white/70 hover:text-slate-900"
                 }
                 onClick={() => onNavigate(route.path)}
               >
@@ -89,14 +89,14 @@ export function AppShell({
             </div>
             <button
               type="button"
-              className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
+              className="ui-pressable rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
               onClick={() => onNavigate("/analysis/new")}
             >
               Open workbench
             </button>
           </header>
 
-          <main className="min-h-0 flex-1 overflow-auto bg-white px-8 py-8">{children}</main>
+          <main className="ui-page-enter min-h-0 flex-1 overflow-auto bg-white px-8 py-8">{children}</main>
         </div>
       </div>
     </div>

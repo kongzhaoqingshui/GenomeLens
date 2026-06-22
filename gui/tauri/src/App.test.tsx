@@ -1,12 +1,8 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("@tauri-apps/api/event", () => ({
-  listen: vi.fn().mockResolvedValue(vi.fn()),
-}));
-
-vi.mock("@tauri-apps/api/core", () => ({
-  invoke: vi.fn((command: string) => {
+const { invokeMock, dialogOpenMock, mkdirMock, readTextFileMock, writeTextFileMock } = vi.hoisted(() => ({
+  invokeMock: vi.fn<(command: string, payload?: Record<string, unknown>) => Promise<unknown>>((command: string) => {
     if (command === "get_template") {
       return Promise.resolve({
         schema_version: 1,
@@ -109,15 +105,28 @@ vi.mock("@tauri-apps/api/core", () => ({
       engine: { ok: false, command: "jcvi-genomelens probe", version: "", error: "not found" },
     });
   }),
+  dialogOpenMock: vi.fn().mockResolvedValue(null),
+  mkdirMock: vi.fn().mockResolvedValue(undefined),
+  readTextFileMock: vi.fn().mockResolvedValue(""),
+  writeTextFileMock: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock("@tauri-apps/api/event", () => ({
+  listen: vi.fn().mockResolvedValue(vi.fn()),
+}));
+
+vi.mock("@tauri-apps/api/core", () => ({
+  invoke: invokeMock,
 }));
 
 vi.mock("@tauri-apps/plugin-dialog", () => ({
-  open: vi.fn().mockResolvedValue(null),
+  open: dialogOpenMock,
 }));
 
 vi.mock("@tauri-apps/plugin-fs", () => ({
-  mkdir: vi.fn().mockResolvedValue(undefined),
-  writeTextFile: vi.fn().mockResolvedValue(undefined),
+  mkdir: mkdirMock,
+  readTextFile: readTextFileMock,
+  writeTextFile: writeTextFileMock,
 }));
 
 import App from "./App";
@@ -127,6 +136,13 @@ afterEach(() => {
   document.documentElement.className = "";
   window.localStorage.clear();
   window.location.hash = "";
+  invokeMock.mockClear();
+  dialogOpenMock.mockReset();
+  dialogOpenMock.mockResolvedValue(null);
+  mkdirMock.mockClear();
+  readTextFileMock.mockReset();
+  readTextFileMock.mockResolvedValue("");
+  writeTextFileMock.mockClear();
 });
 
 describe("App", () => {
@@ -189,5 +205,48 @@ describe("App", () => {
     expect(await screen.findByText("Primary figures")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Artifacts" })).toBeInTheDocument();
     expect(await screen.findByText("pairwise.png")).toBeInTheDocument();
+  });
+
+  it("imports an existing request JSON and runs it with the current outdir", async () => {
+    dialogOpenMock.mockResolvedValueOnce("/imports/request.json");
+    readTextFileMock.mockResolvedValueOnce(
+      JSON.stringify({
+        schema_version: 1,
+        kind: "analysis_request",
+        method: "mcscan",
+        input: { mode: "auto_directory", directory: "/inputs/demo" },
+        output: { directory: "/runs/from-request", force: false, formats: ["png"] },
+        options: { preset: "auto", log_level: "INFO" },
+        method_config: { workflow: "mcscan_pairwise", align_soft: "blast", dbtype: "nucl" },
+      }),
+    );
+
+    render(<App />);
+
+    const [primaryAction] = await screen.findAllByRole("button", { name: "Open workbench" });
+    fireEvent.click(primaryAction);
+
+    expect(await screen.findByText("Inputs and output")).toBeInTheDocument();
+    fireEvent.change(screen.getByPlaceholderText("Select where this task should write outputs"), {
+      target: { value: "/runs/out" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Import request JSON" }));
+
+    expect(await screen.findByText("/imports/request.json")).toBeInTheDocument();
+    expect(screen.getAllByText("mcscan_pairwise").length).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getByRole("button", { name: "Run" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Confirm run" }));
+
+    await waitFor(() => {
+      const runAnalysisCall = invokeMock.mock.calls.find(([command]) => command === "run_analysis");
+      const runAnalysisPayload = runAnalysisCall?.[1];
+
+      expect(runAnalysisPayload).toMatchObject({
+        requestPath: "/imports/request.json",
+        outdir: "/runs/out",
+      });
+    });
+    expect(writeTextFileMock).not.toHaveBeenCalled();
   });
 });

@@ -59,7 +59,7 @@ export default function Home({ onNavigate }: HomeProps) {
   }
 
   return (
-    <div className="grid h-screen w-full grid-cols-[18rem_minmax(0,1fr)_20rem] overflow-hidden bg-white">
+    <div className="ui-page-enter grid h-screen w-full grid-cols-[18rem_minmax(0,1fr)_20rem] overflow-hidden bg-white">
       <aside className="flex min-h-0 flex-col border-r border-slate-200/80 bg-[#eef6f8] px-3 py-4">
         <div className="flex items-center gap-3 rounded-xl px-3 py-2">
           <JcviMeowIcon className="h-9 w-9" />
@@ -71,7 +71,7 @@ export default function Home({ onNavigate }: HomeProps) {
 
         <button
           type="button"
-          className="mt-4 rounded-lg bg-slate-900 px-3 py-2 text-left text-sm font-semibold text-white transition hover:bg-slate-700"
+          className="ui-pressable mt-4 rounded-lg bg-slate-900 px-3 py-2 text-left text-sm font-semibold text-white transition hover:bg-slate-700"
           onClick={() => openCapability(selected)}
         >
           {actionLabel(selected)}
@@ -85,8 +85,8 @@ export default function Home({ onNavigate }: HomeProps) {
               type="button"
               className={
                 entry.id === selected.id
-                  ? "mb-1 flex w-full items-center gap-3 rounded-lg bg-white px-3 py-2 text-left shadow-sm"
-                  : "mb-1 flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-slate-600 transition hover:bg-white/70 hover:text-slate-900"
+                  ? "ui-list-item mb-1 flex w-full items-center gap-3 rounded-lg bg-white px-3 py-2 text-left shadow-sm"
+                  : "ui-list-item mb-1 flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-slate-600 transition hover:bg-white/70 hover:text-slate-900"
               }
               onClick={() => setSelectedId(entry.id)}
             >
@@ -104,7 +104,7 @@ export default function Home({ onNavigate }: HomeProps) {
         <div className="border-t border-slate-200/80 pt-3">
           <button
             type="button"
-            className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm text-slate-600 transition hover:bg-white/70 hover:text-slate-900"
+            className="ui-list-item flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm text-slate-600 transition hover:bg-white/70 hover:text-slate-900"
             onClick={() => onNavigate("/settings")}
           >
             <GameIcon name="environment" className="h-4 w-4" />
@@ -131,7 +131,7 @@ export default function Home({ onNavigate }: HomeProps) {
         </header>
 
         <div className="min-h-0 flex-1 overflow-auto px-10 py-8">
-          <div className="mx-auto max-w-5xl">
+          <div className="ui-surface-enter mx-auto max-w-5xl">
             <div className="flex items-start gap-5">
               <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50">
                 <GameIcon name={CAPABILITY_ICON[selected.id]} className="h-7 w-7" />
@@ -189,7 +189,7 @@ export default function Home({ onNavigate }: HomeProps) {
           <div className="mx-auto flex max-w-5xl items-center gap-3 border border-slate-200 bg-white px-4 py-3">
             <button
               type="button"
-              className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
+              className="ui-pressable rounded-lg border border-slate-200 px-3 py-2 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
               onClick={() => onNavigate("/settings")}
             >
               Settings
@@ -203,7 +203,7 @@ export default function Home({ onNavigate }: HomeProps) {
               type="button"
               className={
                 selected.status === "connected"
-                  ? "rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-700"
+                  ? "ui-pressable rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-700"
                   : "rounded-full bg-slate-200 px-4 py-2 text-sm font-semibold text-slate-500"
               }
               disabled={selected.status !== "connected"}
@@ -223,7 +223,7 @@ export default function Home({ onNavigate }: HomeProps) {
               <button
                 key={entry.id}
                 type="button"
-                className="flex items-center gap-3 rounded-lg px-2 py-2 text-left text-sm text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
+                className="ui-list-item flex items-center gap-3 rounded-lg px-2 py-2 text-left text-sm text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
                 onClick={() => setSelectedId(entry.id)}
               >
                 <GameIcon name={CAPABILITY_ICON[entry.id]} className="h-4 w-4" />
@@ -240,7 +240,7 @@ export default function Home({ onNavigate }: HomeProps) {
               <button
                 key={entry.id}
                 type="button"
-                className="flex items-center gap-3 rounded-lg px-2 py-2 text-left text-sm text-slate-500 transition hover:bg-slate-50 hover:text-slate-900"
+                className="ui-list-item flex items-center gap-3 rounded-lg px-2 py-2 text-left text-sm text-slate-500 transition hover:bg-slate-50 hover:text-slate-900"
                 onClick={() => setSelectedId(entry.id)}
               >
                 <GameIcon name={CAPABILITY_ICON[entry.id]} className="h-4 w-4" />

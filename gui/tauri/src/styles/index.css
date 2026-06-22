@@ -50,6 +50,84 @@ button {
   min-height: 100vh;
 }
 
+.ui-page-enter {
+  animation: ui-page-enter 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.ui-surface-enter {
+  animation: ui-surface-enter 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.ui-message-enter {
+  animation: ui-message-enter 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.ui-pressable {
+  transition:
+    transform 160ms ease,
+    background-color 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    box-shadow 160ms ease,
+    opacity 160ms ease;
+}
+
+.ui-pressable:hover {
+  transform: translateY(-1px);
+}
+
+.ui-pressable:active {
+  transform: scale(0.985);
+}
+
+.ui-pressable[aria-pressed="true"],
+.ui-pressable[data-selected="true"] {
+  transform: translateY(-1px);
+}
+
+.ui-list-item {
+  transition:
+    transform 180ms ease,
+    background-color 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    box-shadow 180ms ease;
+}
+
+.ui-list-item:hover {
+  transform: translateX(2px);
+}
+
+.ui-list-item:active {
+  transform: scale(0.99);
+}
+
+.ui-floating {
+  animation: ui-floating 4.8s ease-in-out infinite;
+}
+
+.ui-breathing {
+  animation: ui-breathing 3.8s ease-in-out infinite;
+}
+
+.ui-running-progress {
+  position: relative;
+  overflow: hidden;
+}
+
+.ui-running-progress::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent 0%, rgb(255 255 255 / 0.28) 42%, transparent 72%);
+  transform: translateX(-100%);
+  animation: ui-progress-shimmer 1.45s linear infinite;
+}
+
+.ui-log-line {
+  animation: ui-log-line-enter 180ms ease both;
+}
+
 .jcvi-launch-icon {
   animation: jcvi-drop-in 0.85s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
@@ -101,10 +179,96 @@ button {
   }
 }
 
+@keyframes ui-page-enter {
+  0% {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes ui-surface-enter {
+  0% {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes ui-message-enter {
+  0% {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes ui-floating {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+@keyframes ui-breathing {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.018);
+  }
+}
+
+@keyframes ui-progress-shimmer {
+  100% {
+    transform: translateX(130%);
+  }
+}
+
+@keyframes ui-log-line-enter {
+  0% {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .ui-page-enter,
+  .ui-surface-enter,
+  .ui-message-enter,
+  .ui-floating,
+  .ui-breathing,
   .jcvi-launch-icon,
   .jcvi-launch-icon .jcvi-icon-lens,
-  .jcvi-launch-icon .jcvi-icon-lens-text {
+  .jcvi-launch-icon .jcvi-icon-lens-text,
+  .ui-log-line {
+    animation: none !important;
+  }
+
+  .ui-pressable,
+  .ui-list-item {
+    transition: none !important;
+    transform: none !important;
+  }
+
+  .ui-running-progress::after {
     animation: none !important;
   }
 

@@ -110,7 +110,7 @@ export default function ProjectsPage({ route, onNavigate }: ProjectsPageProps) {
   }, [projects.length, queryState, trimmedWorkspace]);
 
   return (
-    <section className="grid w-full gap-0 overflow-hidden border border-slate-200 bg-white xl:grid-cols-[17rem_minmax(0,1fr)]">
+    <section className="ui-page-enter grid w-full gap-0 overflow-hidden border border-slate-200 bg-white xl:grid-cols-[17rem_minmax(0,1fr)]">
       <aside className="border-r border-slate-200/80 bg-[#f6f8f9]">
         <div className="border-b border-slate-200/80 px-5 py-5">
           <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-400">{route.label}</p>
@@ -133,7 +133,7 @@ export default function ProjectsPage({ route, onNavigate }: ProjectsPageProps) {
           <div className="mt-3 grid gap-2">
             <button
               type="button"
-              className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+              className="ui-pressable rounded-lg bg-slate-900 px-3 py-2 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-300"
               disabled={queryState === "loading"}
               onClick={() => void refreshProjects()}
             >
@@ -141,7 +141,7 @@ export default function ProjectsPage({ route, onNavigate }: ProjectsPageProps) {
             </button>
             <button
               type="button"
-              className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-600 transition hover:bg-white hover:text-slate-900"
+              className="ui-pressable rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-600 transition hover:bg-white hover:text-slate-900"
               onClick={() => onNavigate("/analysis/new")}
             >
               Open workbench
@@ -164,7 +164,7 @@ export default function ProjectsPage({ route, onNavigate }: ProjectsPageProps) {
         </div>
       </aside>
 
-      <div className="min-w-0 bg-white">
+      <div className="ui-surface-enter min-w-0 bg-white">
         <div className="border-b border-slate-200/80 px-6 py-5">
           <div className="flex items-start justify-between gap-4">
             <div>
@@ -194,7 +194,7 @@ export default function ProjectsPage({ route, onNavigate }: ProjectsPageProps) {
             />
             <button
               type="button"
-              className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 hover:text-slate-900 disabled:cursor-not-allowed disabled:text-slate-400"
+              className="ui-pressable rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 hover:text-slate-900 disabled:cursor-not-allowed disabled:text-slate-400"
               disabled={!trimmedWorkspace || !trimmedProjectName || createState === "loading"}
               onClick={() => void handleCreateProject()}
             >
@@ -232,7 +232,7 @@ export default function ProjectsPage({ route, onNavigate }: ProjectsPageProps) {
           {projects.length > 0 ? (
             <div className="divide-y divide-slate-200/80 border-y border-slate-200/80">
               {projects.map((project) => (
-                <article key={`${project.path}-${project.name}`} className="grid gap-4 px-6 py-4 lg:grid-cols-[minmax(0,1fr)_13rem]">
+                <article key={`${project.path}-${project.name}`} className="ui-surface-enter grid gap-4 px-6 py-4 lg:grid-cols-[minmax(0,1fr)_13rem]">
                   <div className="min-w-0">
                     <p className="text-sm font-semibold text-slate-900">{project.name}</p>
                     <p className="mt-1 break-all text-sm text-slate-500">{project.path}</p>

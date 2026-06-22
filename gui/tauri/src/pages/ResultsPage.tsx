@@ -50,7 +50,7 @@ function ResultAssetRow({
         </span>
         <button
           type="button"
-          className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
+          className="ui-pressable rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
           onClick={() => onOpen(asset.path)}
         >
           Open
@@ -83,7 +83,7 @@ function ArtifactRow({
         </span>
         <button
           type="button"
-          className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
+          className="ui-pressable rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
           onClick={() => onOpen(artifact.path)}
         >
           Open
@@ -116,7 +116,7 @@ function ArtifactSummaryRow({
         </span>
         <button
           type="button"
-          className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
+          className="ui-pressable rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
           onClick={() => onOpen(artifact.path)}
         >
           Open
@@ -188,7 +188,7 @@ export default function ResultsPage({ route, onNavigate }: ResultsPageProps) {
   }, [summary]);
 
   return (
-    <section className="grid w-full gap-0 overflow-hidden border border-slate-200 bg-white xl:grid-cols-[17rem_minmax(0,1fr)]">
+    <section className="ui-page-enter grid w-full gap-0 overflow-hidden border border-slate-200 bg-white xl:grid-cols-[17rem_minmax(0,1fr)]">
       <aside className="border-r border-slate-200/80 bg-[#f6f8f9]">
         <div className="border-b border-slate-200/80 px-5 py-5">
           <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-400">{route.label}</p>
@@ -211,7 +211,7 @@ export default function ResultsPage({ route, onNavigate }: ResultsPageProps) {
           <div className="mt-3 grid gap-2">
             <button
               type="button"
-              className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+              className="ui-pressable rounded-lg bg-slate-900 px-3 py-2 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-300"
               disabled={queryState === "loading"}
               onClick={() => void loadSummary()}
             >
@@ -219,7 +219,7 @@ export default function ResultsPage({ route, onNavigate }: ResultsPageProps) {
             </button>
             <button
               type="button"
-              className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-600 transition hover:bg-white hover:text-slate-900 disabled:cursor-not-allowed disabled:text-slate-400"
+              className="ui-pressable rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-600 transition hover:bg-white hover:text-slate-900 disabled:cursor-not-allowed disabled:text-slate-400"
               disabled={!trimmedOutdir}
               onClick={() => void handleOpenPath(trimmedOutdir)}
             >
@@ -227,7 +227,7 @@ export default function ResultsPage({ route, onNavigate }: ResultsPageProps) {
             </button>
             <button
               type="button"
-              className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-600 transition hover:bg-white hover:text-slate-900"
+              className="ui-pressable rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-600 transition hover:bg-white hover:text-slate-900"
               onClick={() => onNavigate("/analysis/new")}
             >
               Back to workbench
@@ -254,7 +254,7 @@ export default function ResultsPage({ route, onNavigate }: ResultsPageProps) {
         </div>
       </aside>
 
-      <div className="min-w-0 bg-white">
+      <div className="ui-surface-enter min-w-0 bg-white">
         <div className="border-b border-slate-200/80 px-6 py-5">
           <div className="flex items-start justify-between gap-4">
             <div>
@@ -311,7 +311,7 @@ export default function ResultsPage({ route, onNavigate }: ResultsPageProps) {
                   <span className="text-slate-400">Summary path</span>
                   <button
                     type="button"
-                    className="truncate text-left font-medium text-ice-700 transition hover:text-ice-900"
+                    className="ui-pressable truncate text-left font-medium text-ice-700 transition hover:text-ice-900"
                     onClick={() => void handleOpenPath(summary.runSummaryPath)}
                   >
                     {summary.runSummaryPath || "Unavailable"}
@@ -321,7 +321,7 @@ export default function ResultsPage({ route, onNavigate }: ResultsPageProps) {
                   <span className="text-slate-400">Run log</span>
                   <button
                     type="button"
-                    className="truncate text-left font-medium text-ice-700 transition hover:text-ice-900"
+                    className="ui-pressable truncate text-left font-medium text-ice-700 transition hover:text-ice-900"
                     onClick={() => void handleOpenPath(summary.runLogPath)}
                   >
                     {summary.runLogPath || "Unavailable"}
