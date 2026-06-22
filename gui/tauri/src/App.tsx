@@ -6,6 +6,8 @@ import { useWorkbenchStartup } from "./hooks/useWorkbenchStartup";
 import Home from "./pages/Home";
 import NewAnalysisPage from "./pages/NewAnalysisPage";
 import PlaceholderPage from "./pages/PlaceholderPage";
+import ProjectsPage from "./pages/ProjectsPage";
+import ResultsPage from "./pages/ResultsPage";
 import SettingsPage from "./pages/SettingsPage";
 import { useHashRouter } from "./routes/useHashRouter";
 import { useTheme } from "./theme/useTheme";
@@ -22,28 +24,24 @@ function renderRoute(
   if (route.id === "home") {
     return <Home route={route} onNavigate={navigate} />;
   }
+  if (route.id === "projects") {
+    return <ProjectsPage route={route} onNavigate={navigate} />;
+  }
   if (route.id === "new-analysis") {
     return <NewAnalysisPage route={route} onNavigate={navigate} locationHash={hash} />;
+  }
+  if (route.id === "results") {
+    return <ResultsPage route={route} onNavigate={navigate} />;
   }
   if (route.id === "settings") {
     return <SettingsPage route={route} onNavigate={navigate} />;
   }
-  if (route.id === "projects") {
-    return (
-      <PlaceholderPage
-        route={route}
-        title="项目列表"
-        subtitle="项目浏览、创建和最近任务入口会在后续工作台阶段接入。"
-        details={["最近项目列表", "创建项目弹窗", "工作区路径选择"]}
-      />
-    );
-  }
   return (
     <PlaceholderPage
       route={route}
-      title="结果与图件预览"
-      subtitle="结果摘要、文件树和图件预览会在下一阶段补齐。"
-      details={["运行摘要卡片", "结果文件树", "图件网格与放大预览"]}
+      title="Unavailable surface"
+      subtitle="This route is not wired yet."
+      details={["Keep the current workbench flow available.", "Wire a concrete page before removing this fallback."]}
     />
   );
 }

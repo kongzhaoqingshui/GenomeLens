@@ -65,6 +65,30 @@ vi.mock("@tauri-apps/api/core", () => ({
         jcvi_engine: { status: "ok", path: "jcvi-genomelens", message: "ready" },
       });
     }
+    if (command === "list_projects") {
+      return Promise.resolve([
+        {
+          name: "Demo Project",
+          path: "/workspace/demo-project",
+          configPath: "/workspace/demo-project/.genomelens/project.json",
+          jcviConfigPath: "/workspace/demo-project/jcvi.yaml",
+          updatedAt: "2026-06-22T00:00:00Z",
+          createdAt: "2026-06-21T00:00:00Z",
+          lastRunAt: "2026-06-22T01:00:00Z",
+        },
+      ]);
+    }
+    if (command === "create_project") {
+      return Promise.resolve({
+        name: "Created Project",
+        path: "/workspace/Created Project",
+        configPath: "/workspace/Created Project/.genomelens/project.json",
+        jcviConfigPath: "/workspace/Created Project/jcvi.yaml",
+        updatedAt: "2026-06-22T00:00:00Z",
+        createdAt: "2026-06-22T00:00:00Z",
+        lastRunAt: "",
+      });
+    }
     if (command === "open_path") {
       return Promise.resolve();
     }
@@ -123,5 +147,35 @@ describe("App", () => {
     expect(screen.getByDisplayValue("Pairwise Synteny #1")).toBeInTheDocument();
     expect(screen.getByText("Inputs and output")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Run" })).toBeInTheDocument();
+  });
+
+  it("renders the projects page with workspace controls and project rows", async () => {
+    window.location.hash = "#/projects";
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: "Workspace projects" })).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Workspace path"), {
+      target: { value: "/workspace" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Refresh projects" }));
+
+    expect(await screen.findByText("Demo Project")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Create project" })).toBeInTheDocument();
+  });
+
+  it("renders the results page with summary loading controls", async () => {
+    window.location.hash = "#/results";
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: "Run summary browser" })).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Output directory"), {
+      target: { value: "/runs/demo" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Load summary" }));
+
+    expect(await screen.findByText("Primary figures")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Artifacts" })).toBeInTheDocument();
   });
 });
