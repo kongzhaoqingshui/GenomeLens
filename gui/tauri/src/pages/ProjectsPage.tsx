@@ -61,6 +61,7 @@ export default function ProjectsPage({ route, onNavigate }: ProjectsPageProps) {
     try {
       const nextProjects = await listProjects({ workspace: trimmedWorkspace });
       setProjects(dedupeProjects(nextProjects));
+      setCreateError(null);
       setQueryState("ready");
     } catch (error: unknown) {
       setProjects([]);
@@ -83,6 +84,7 @@ export default function ProjectsPage({ route, onNavigate }: ProjectsPageProps) {
       });
       setProjects((current) => dedupeProjects([createdProject, ...current]));
       setProjectName("");
+      setQueryError(null);
       setCreateState("ready");
       setQueryState("ready");
     } catch (error: unknown) {
@@ -206,7 +208,7 @@ export default function ProjectsPage({ route, onNavigate }: ProjectsPageProps) {
         <section>
           <div className="px-6 py-4">
             <h3 className="text-sm font-semibold text-slate-900">Available projects</h3>
-            <p className="mt-1 text-sm text-slate-500">The page stays usable even when `list_projects` or `create_project` is not available yet.</p>
+            <p className="mt-1 text-sm text-slate-500">Scan the selected workspace for `.genomelens/project.json` metadata.</p>
           </div>
 
           {queryError ? <div className="border-y border-slate-200/80 bg-rose-50 px-6 py-4 text-sm text-rose-700">{queryError}</div> : null}
