@@ -26,6 +26,7 @@ import {
   createAnalysisRunState,
   type AnalysisEvent,
   type AnalysisRunState,
+  type WorkflowState,
 } from "../models/run-session";
 import { validateAnalysisRequestDraft, type ValidationIssue } from "../models/validation";
 import type { AppRoute } from "../routes/routes";
@@ -359,6 +360,41 @@ function applyEventStatus(currentStatus: RunPanelStatus, event: AnalysisEvent): 
 
 function canCloseTask(task: WorkbenchTask): boolean {
   return task.runStatus !== "confirming" && task.runStatus !== "starting" && task.runStatus !== "running";
+}
+
+function localizeWorkflowState(state: WorkflowState, language: "zh-CN" | "en"): string {
+  if (language === "en") {
+    return state;
+  }
+
+  switch (state) {
+    case "PENDING":
+      return "等待中";
+    case "VALIDATING_INPUTS":
+      return "校验输入";
+    case "PREPROCESSING_ANNOTATIONS":
+      return "预处理注释";
+    case "PREPARING_WORKSPACE":
+      return "准备工作区";
+    case "CHECKING_TOOLCHAIN":
+      return "检查工具链";
+    case "WRITING_MANIFEST":
+      return "写入清单";
+    case "RUNNING_ENGINE":
+      return "运行引擎";
+    case "PARSING_ENGINE_SUMMARY":
+      return "解析引擎摘要";
+    case "FINALIZING":
+      return "收尾整理";
+    case "SUCCEEDED":
+      return "已完成";
+    case "FAILED":
+      return "失败";
+    case "CANCELLED":
+      return "已取消";
+    default:
+      return state;
+  }
 }
 
 export default function NewAnalysisPage({ route, onNavigate, locationHash }: NewAnalysisPageProps) {
@@ -908,6 +944,7 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
   const threadsIssue = issueFor(validation.issues, "options.threads");
   const minBlockIssue = issueFor(validation.issues, "options.min_block_size");
   const workflowState = activeTask.runState?.status ?? "PENDING";
+  const workflowStateLabel = localizeWorkflowState(workflowState, language);
   const progress = toProgressPercent(activeTask.runState?.progress ?? 0);
   const logLines = activeTask.runState?.logLines ?? [];
   const summaryView = activeTask.runState?.summaryView ?? null;
@@ -1610,7 +1647,7 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
                             : "",
                       ].join(" ")}
                     >
-                      {runStatusLabel} / {workflowState}
+                      {runStatusLabel} / {workflowStateLabel}
                     </span>
                   </div>
                   <div className="grid gap-2 rounded-lg border border-slate-200/80 bg-white/75 px-3 py-3 text-sm text-slate-600">
@@ -1890,9 +1927,9 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
           <section className="mt-5 border-t border-slate-100 pt-5">
             <h3 className="text-sm font-medium text-slate-900">工作树</h3>
             <div className="mt-3 grid gap-2 text-sm text-text-secondary">
-              <InfoRow label="status" value={activeTask.runStatus} />
-              <InfoRow label="state" value={workflowState} />
-              <InfoRow label="progress" value={`${Math.round(progress)}%`} />
+              <InfoRow label={isZh ? "状态" : "status"} value={runStatusLabel} />
+              <InfoRow label={isZh ? "流程状态" : "state"} value={workflowStateLabel} />
+              <InfoRow label={isZh ? "进度" : "progress"} value={`${Math.round(progress)}%`} />
               <InfoRow label="runId" value={activeTask.runState?.runId ?? "-"} />
             </div>
           </section>
@@ -1908,7 +1945,7 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
                 ))
               ) : (
                 <p className="rounded-lg px-2 py-1.5 text-sm text-slate-500">
-                  Run events will appear here.
+                  {isZh ? "运行事件会显示在这里。" : "Run events will appear here."}
                 </p>
               )}
             </div>
@@ -1924,9 +1961,9 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
           </section>
 
           <section className="mt-5 border-t border-slate-100 pt-5">
-            <SectionTitle title="Schema" subtitle="get_analysis_schema()" />
+            <SectionTitle title={isZh ? "分析 schema" : "Schema"} subtitle="get_analysis_schema()" />
             <pre className="mt-3 max-h-52 overflow-auto rounded-lg bg-slate-50 p-3 font-mono text-[11px] leading-5 text-slate-500">
-              {schemaJson || "Schema not loaded."}
+              {schemaJson || (isZh ? "尚未加载 schema。" : "Schema not loaded.")}
             </pre>
           </section>
         </div>

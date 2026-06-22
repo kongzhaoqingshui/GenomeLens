@@ -197,6 +197,10 @@ describe("App", () => {
     expect(screen.getByDisplayValue("Pairwise Synteny #1")).toBeInTheDocument();
     expect(screen.getByText("输入与输出")).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: "运行" }).length).toBeGreaterThan(0);
+    expect(screen.getByText("运行事件会显示在这里。")).toBeInTheDocument();
+    expect(screen.getByText("分析 schema")).toBeInTheDocument();
+    expect(screen.queryByText("Run events will appear here.")).not.toBeInTheDocument();
+    expect(screen.queryByText("Schema not loaded.")).not.toBeInTheDocument();
   });
 
   it("renders the projects page with workspace controls and project rows", async () => {
