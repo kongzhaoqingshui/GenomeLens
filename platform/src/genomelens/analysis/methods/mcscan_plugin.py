@@ -114,6 +114,11 @@ class McscanPlugin(MethodPlugin):
         local_group.add_argument("--down", type=int, default=None, help="目标基因下游取多少个基因，默认 20")
         local_group.add_argument("--split-targets", action="store_true", help="多个目标基因时各自单独出图")
         local_group.add_argument("--label-targets", action="store_true", help="在图中标注目标基因名称")
+        local_group.add_argument(
+            "--use-native-local-synteny-renderer",
+            action="store_true",
+            help="使用原生 matplotlib 局部共线性渲染器（支持跨染色体窗口，计算较重）",
+        )
 
         # endregion
 

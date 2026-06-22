@@ -71,6 +71,7 @@ _PAGES: tuple[McscanHelpPage, ...] = (
             ("--down DOWN", "目标基因下游取多少个基因，默认 20"),
             ("--split-targets", "多个目标基因时各自单独出图"),
             ("--label-targets", "在图中标注目标基因名称"),
+            ("--use-native-local-synteny-renderer", "使用原生 matplotlib 渲染器（支持跨染色体窗口，计算较重）"),
         ),
     ),
     McscanHelpPage(
@@ -86,7 +87,7 @@ _PAGES: tuple[McscanHelpPage, ...] = (
             ("--dpi DPI", "图片分辨率，默认 300"),
             ("--optimize-figsize", "自动推导 synteny 图件尺寸，默认关闭"),
             ("--rewrite-layout-links", "将跨轨道 layout 连线改写为链式连线，默认关闭"),
-            ("--fix-karyotype-label-overlap", "改善 karyotype 轨道名称与 seqid 圆点重叠，默认关闭"),
+            ("--optimize-karyotype-labels", "自动优化全局核型图轨道标签位置，默认关闭"),
             ("--trim-cross-chromosome-blocks", "切除 blocks 中跨染色体的基因行，默认关闭"),
         ),
     ),
