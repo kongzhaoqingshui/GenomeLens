@@ -129,3 +129,34 @@ def test_build_analyze_run_command_dispatches_executables() -> None:
     argv = build_analyze_run_command(str(exe), request_path)
 
     assert argv == [str(exe), "analyze", "run", str(request_path)]
+
+
+def test_compress_output_intermediates_packs_and_cleans(tmp_path: Path) -> None:
+    from genomelens_haiant_plugin._core import compress_output_intermediates
+
+    results_dir = tmp_path / "results"
+    results_dir.mkdir()
+    (results_dir / "figure.png").write_text("figure", encoding="utf-8")
+    (tmp_path / "jcvi.config.json").write_text("{}", encoding="utf-8")
+    (tmp_path / "run.log").write_text("log", encoding="utf-8")
+    temp_dir = tmp_path / "temp"
+    temp_dir.mkdir()
+    (temp_dir / "anchors.txt").write_text("anchors", encoding="utf-8")
+
+    archive = compress_output_intermediates(tmp_path)
+
+    assert archive is not None
+    assert archive.name == "intermediates.zip"
+    assert (tmp_path / "intermediates.zip.deletable").is_file()
+    assert not (tmp_path / "jcvi.config.json").exists()
+    assert not (tmp_path / "run.log").exists()
+    assert not (tmp_path / "temp").exists()
+    assert (results_dir / "figure.png").is_file()
+
+    import zipfile
+
+    with zipfile.ZipFile(archive) as zf:
+        names = zf.namelist()
+        assert "jcvi.config.json" in names
+        assert "run.log" in names
+        assert "temp/anchors.txt" in names

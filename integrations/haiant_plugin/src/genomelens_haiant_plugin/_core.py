@@ -7,6 +7,7 @@ import logging
 import os
 import subprocess
 import sys
+import zipfile
 from dataclasses import asdict
 from pathlib import Path
 from typing import Mapping, Sequence, cast
@@ -394,11 +395,14 @@ def resolve_genomelens_exe(params: Mapping[str, object], base: Path) -> Path:
     """Locate the external GenomeLens executable from params or environment."""
 
     raw = str(
-        params.get("genomelens_exe") or os.environ.get(GENOMELENS_EXE_ENV, "")
+        params.get("genomelens_exe")
+        or params.get("GenomeLens_Path")
+        or os.environ.get(GENOMELENS_EXE_ENV, "")
     ).strip()
     if not raw:
         raise PluginError(
-            "genomelens_exe is required: set it in params.json or via GENOMELENS_EXE environment variable"
+            "genomelens_exe is required: set it in params.json (genomelens_exe or GenomeLens_Path) "
+            "or via GENOMELENS_EXE environment variable"
         )
     path = Path(raw)
     if not path.is_absolute():
@@ -420,6 +424,190 @@ def build_analyze_run_command(
     if exe.suffix.lower() in {".cmd", ".bat"}:
         return ["cmd.exe", "/c", str(exe), *args]
     return [str(exe), *args]
+
+
+def _parse_formats(value: object) -> list[str]:
+    """Parse a comma-separated formats string into a list of non-empty items."""
+
+    items = _split_csv(value)
+    return items if items else ["png"]
+
+
+def build_auto_jcvi_config(
+    params: Mapping[str, object],
+    base: Path,
+    output_dir: str | Path,
+) -> Path:
+    """Dynamically build ``jcvi.config.json`` for the ``analyze mcscan jcvi`` auto flow.
+
+    The config is derived from the HAIant ``params.json`` and the species auto-discovered
+    from ``input_dir``.  No per-species request files are generated.
+    """
+
+    resolved_output = Path(output_dir).expanduser().resolve(strict=False)
+    resolved_output.mkdir(parents=True, exist_ok=True)
+
+    input_dir = resolve_param_path(
+        base, params.get("input_dir"), required=True, must_exist=True
+    )
+    species = _discover_species_from_input_dir(base, input_dir)
+    reference_index = _reference_index(params, species)
+    reference_name = str(species[reference_index].get("name") or "")
+
+    target_gene_ids = _target_gene_ids(params)
+    workflow = "local_synteny" if target_gene_ids else "graphics_synteny"
+
+    optimize_auto = parse_bool(params.get("optimize_auto", False))
+
+    jcvi_config: dict[str, object] = {
+        "schema_version": 2,
+        "toolchain": {
+            "jcvi_engine_path": "",
+            "blastn_path": "",
+            "makeblastdb_path": "",
+            "lastal_path": "",
+            "lastdb_path": "",
+            "magick_path": "",
+        },
+        "runtime": {
+            "threads": _int_value(
+                params.get("threads"), default=4, label="threads", minimum=1
+            ),
+            "formats": _parse_formats(params.get("formats") or "png"),
+        },
+        "mcscan": {
+            "workflow": workflow,
+            "min_block_size": _int_value(
+                params.get("min_block_size"),
+                default=1,
+                label="min_block_size",
+                minimum=1,
+            ),
+            "align_soft": str(params.get("align_soft") or "blast"),
+            "dbtype": str(params.get("dbtype") or "nucl"),
+            "cscore": _float_value(params.get("cscore"), default=0.7, label="cscore"),
+            "dist": _int_value(params.get("dist"), default=20, label="dist", minimum=1),
+            "iter": _int_value(params.get("iter"), default=1, label="iter", minimum=1),
+            "reference": reference_name,
+        },
+        "local_synteny": {
+            "target_gene_ids": target_gene_ids,
+            "up": _int_value(params.get("up"), default=20, label="up", minimum=0),
+            "down": _int_value(params.get("down"), default=20, label="down", minimum=0),
+            "split_targets": parse_bool(params.get("split_targets", False)),
+            "label_targets": parse_bool(params.get("label_targets", False)),
+            "glyphstyle": str(params.get("glyphstyle") or ""),
+            "glyphcolor": str(params.get("glyphcolor") or ""),
+            "shadestyle": str(params.get("shadestyle") or ""),
+            "figsize": str(params.get("figsize") or ""),
+            "dpi": _int_value(params.get("dpi"), default=300, label="dpi", minimum=1),
+            "auto_optimization": {
+                "optimize_figsize": optimize_auto,
+                "rewrite_layout_links": optimize_auto,
+                "optimize_karyotype_labels": optimize_auto,
+                "trim_cross_chromosome_blocks": optimize_auto,
+            },
+        },
+    }
+
+    target = resolved_output / "jcvi.config.json"
+    target.write_text(
+        json.dumps(jcvi_config, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    return target
+
+
+def build_mcscan_jcvi_command(
+    genomelens_exe: str | Path,
+    input_dir: str | Path,
+    output_dir: str | Path,
+    jcvi_config_path: str | Path,
+    *,
+    allow_simplified_fallback: bool = False,
+) -> list[str]:
+    """Build the ``<GenomeLens.exe> analyze mcscan jcvi <in> <out> <jcvi.config>`` argv."""
+
+    exe = Path(genomelens_exe)
+    args = [
+        "analyze",
+        "mcscan",
+        "jcvi",
+        str(input_dir),
+        str(output_dir),
+        str(jcvi_config_path),
+        "--force",
+    ]
+    if allow_simplified_fallback:
+        args.append("--allow-simplified-fallback")
+    if exe.suffix.lower() in {".cmd", ".bat"}:
+        return ["cmd.exe", "/c", str(exe), *args]
+    return [str(exe), *args]
+
+
+def compress_output_intermediates(
+    output_dir: str | Path,
+    *,
+    archive_name: str = "intermediates.zip",
+    marker_name: str = "intermediates.zip.deletable",
+    preserve: set[str] | None = None,
+) -> Path | None:
+    """Package everything except ``results`` into a zip and mark it as deletable.
+
+    The ``results`` directory is left untouched.  After archiving, the original
+    intermediate files and directories are removed so the output root only keeps
+    ``results``, the archive, and a ``.deletable`` marker.
+    """
+
+    root = Path(output_dir).expanduser().resolve(strict=False)
+    if not root.is_dir():
+        return None
+
+    kept = preserve or set()
+    kept = {*kept, "results", archive_name, marker_name}
+
+    items = [path for path in root.iterdir() if path.name not in kept]
+    if not items:
+        return None
+
+    archive_path = root / archive_name
+    marker_path = root / marker_name
+
+    logger = logging.getLogger(LOGGER_NAME)
+    logger.info("Compressing intermediate files to %s", archive_path)
+
+    with zipfile.ZipFile(archive_path, "w", zipfile.ZIP_DEFLATED) as zf:
+        for path in items:
+            if path.is_file():
+                zf.write(path, path.name)
+            elif path.is_dir():
+                for child in path.rglob("*"):
+                    arcname = str(child.relative_to(root)).replace("\\", "/")
+                    zf.write(child, arcname)
+
+    for path in items:
+        if path.is_file():
+            path.unlink()
+        elif path.is_dir():
+            _rm_tree(path)
+
+    marker_path.write_text(
+        "This archive contains intermediate files that can be safely deleted.\n",
+        encoding="utf-8",
+    )
+    logger.info("Marked intermediates as deletable: %s", archive_path)
+    return archive_path
+
+
+def _rm_tree(path: Path) -> None:
+    """Recursively remove a directory tree."""
+
+    for child in path.iterdir():
+        if child.is_dir():
+            _rm_tree(child)
+        else:
+            child.unlink()
+    path.rmdir()
 
 
 def run_process(argv: Sequence[str]) -> int:

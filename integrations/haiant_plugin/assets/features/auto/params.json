@@ -1,5 +1,5 @@
 {
-  "genomelens_exe": "C:/GenomeLens/GenomeLens.exe",
+  "GenomeLens_Path": "",
   "input_dir": "input",
   "output_dir": "output",
   "reference": "1",
@@ -21,14 +21,6 @@
   "shadestyle": "",
   "figsize": "",
   "dpi": 300,
-  "jcvi_engine": "",
-  "blastn": "",
-  "makeblastdb": "",
-  "jcvi_layout": "",
-  "jcvi_seqids": "",
-  "optimize_figsize": false,
-  "rewrite_layout_links": false,
-  "optimize_karyotype_labels": false,
-  "trim_cross_chromosome_blocks": false,
+  "optimize_auto": false,
   "allow_simplified_fallback": false
 }

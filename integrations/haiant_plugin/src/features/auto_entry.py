@@ -1,4 +1,11 @@
-"""Lightweight HAIant feature entry for the ``analyze mcscan jcvi`` auto workflow."""
+"""Lightweight HAIant feature entry for the ``analyze mcscan jcvi`` auto workflow.
+
+This entry does **not** write a ``genomelens_request.json``.  Instead it dynamically
+builds a ``jcvi.config.json`` from the HAIant ``params.json`` and directly invokes the
+external GenomeLens executable with:
+
+    <genomelens_exe> analyze mcscan jcvi <input_dir> <output_dir> <jcvi.config.json>
+"""
 
 from __future__ import annotations
 
@@ -8,41 +15,89 @@ from pathlib import Path
 if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from features._shared import build_runtime_command as shared_build_runtime_command
-from features._shared import main as run_feature_main
-from features._shared import source_plugin_root
+from genomelens_haiant_plugin._core import (
+    PluginError,
+    build_auto_jcvi_config,
+    build_mcscan_jcvi_command,
+    close_adapter_logging,
+    compress_output_intermediates,
+    load_params,
+    resolve_genomelens_exe,
+    resolve_param_path,
+    setup_adapter_logging,
+)
 
-WORKFLOW = "graphics_synteny"
 LOGGER_NAME = "gljcvi_auto"
 
 
 def plugin_root() -> Path:
     """Return the auto workflow plugin root."""
 
+    from features._shared import source_plugin_root
+
     return source_plugin_root(__file__)
 
 
 def build_runtime_command(params_path: str | Path) -> list[str]:
-    """Build the GenomeLens analyze run command for the auto workflow."""
+    """Build the ``analyze mcscan jcvi`` auto command from HAIant params."""
 
-    return shared_build_runtime_command(
-        params_path,
-        workflow=WORKFLOW,
-        plugin_root=plugin_root(),
-        logger_name=LOGGER_NAME,
-    )
+    params, base = load_params(params_path)
+    output_dir = Path(resolve_param_path(base, params.get("output_dir") or "output"))
+    logger = setup_adapter_logging(output_dir, logger_name=LOGGER_NAME)
+    logger.info("Loaded params.json: %s", params_path)
+
+    try:
+        genomelens_exe = resolve_genomelens_exe(params, base)
+        input_dir = resolve_param_path(
+            base, params.get("input_dir"), required=True, must_exist=True
+        )
+        output_dir = resolve_param_path(base, params.get("output_dir") or "output")
+        Path(output_dir).mkdir(parents=True, exist_ok=True)
+
+        jcvi_config_path = build_auto_jcvi_config(params, base, output_dir)
+        argv = build_mcscan_jcvi_command(
+            genomelens_exe,
+            input_dir,
+            output_dir,
+            jcvi_config_path,
+            allow_simplified_fallback=bool(
+                params.get("allow_simplified_fallback", False)
+            ),
+        )
+        logger.info("Dispatching GenomeLens: %s", argv)
+        return argv
+    finally:
+        close_adapter_logging(LOGGER_NAME)
+
+
+def run_runtime(argv: list[str]) -> int:
+    """Run a prepared command and return its exit code."""
+
+    import subprocess
+
+    completed = subprocess.run(argv, shell=False, check=False)
+    return int(completed.returncode)
 
 
 def main(argv: list[str] | None = None) -> int:
     """Run the ``analyze mcscan jcvi`` auto workflow entry."""
 
-    return run_feature_main(
-        argv,
-        workflow=WORKFLOW,
-        plugin_root=plugin_root(),
-        logger_name=LOGGER_NAME,
-        error_prefix="GenomeLens MCscan auto workflow plugin error",
-    )
+    args = sys.argv[1:] if argv is None else argv
+    try:
+        if len(args) != 1:
+            raise PluginError("Expected one params.json path")
+        params, base = load_params(args[0])
+        command = build_runtime_command(args[0])
+        exit_code = run_runtime(command)
+        output_dir = Path(
+            resolve_param_path(base, params.get("output_dir") or "output")
+        )
+        if exit_code == 0:
+            compress_output_intermediates(output_dir)
+        return exit_code
+    except PluginError as exc:
+        print(f"GenomeLens MCscan auto workflow plugin error: {exc}", file=sys.stderr)
+        return 2
 
 
 if __name__ == "__main__":

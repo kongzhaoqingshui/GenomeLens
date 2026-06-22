@@ -69,7 +69,13 @@ gljcvi-dotplot/
 
 ### 2.3 统一自动流插件
 
-`gljcvi-auto` 是一个统一的 MCscan 自动流插件，对应 `analyze mcscan jcvi` 一键分析流程。它固定生成 `workflow = graphics_synteny` 的 AnalysisRequest，运行 pairwise MCscan 并生成共线性图与点图；当填写 `target_gene_ids` 时，平台会自动切换到局部共线性模式（与 CLI 的 `--target-genes` 行为一致）。该插件不再提供 workflow 选择器。
+`gljcvi-auto` 是一个统一的 MCscan 自动流插件，直接对应 `analyze mcscan jcvi` 一键分析流程。它根据 `params.json` 动态生成 `output/jcvi.config.json`，然后直接调用外部 GenomeLens：
+
+```powershell
+<genomelens_exe> analyze mcscan jcvi <input_dir> <output_dir> <output/jcvi.config.json>
+```
+
+未填写 `target_gene_ids` 时生成 `workflow = graphics_synteny` 的全局共线性配置；填写 `target_gene_ids` 时自动切换到 `local_synteny`。该插件不再生成 `genomelens_request.json`，也不提供 workflow 选择器。
 
 ### 2.4 输入约定
 
@@ -85,9 +91,9 @@ gljcvi-dotplot/
 3. HAIant 调用 `main.exe params.json`。
 4. `main.exe` 内的 Python 逻辑：
    - 解析 `params.json`
-   - 从 `params.json` 或 `GENOMELENS_EXE` 环境变量解析外部 GenomeLens 可执行文件路径
-   - 生成 `output/genomelens_request.json`
-   - 调用 `<genomelens_exe> analyze run output\genomelens_request.json`
+   - 从 `params.json` 的 `genomelens_exe` / `GenomeLens_Path` 或 `GENOMELENS_EXE` 环境变量解析外部 GenomeLens 可执行文件路径
+   - 对 `gljcvi-auto`：动态生成 `output/jcvi.config.json`，并调用 `<genomelens_exe> analyze mcscan jcvi <input> <output> output/jcvi.config.json`
+   - 对单功能插件：生成 `output/genomelens_request.json`，并调用 `<genomelens_exe> analyze run output\genomelens_request.json`
 5. 返回外部 GenomeLens 的退出码。
 
 ---
@@ -103,7 +109,7 @@ gljcvi-dotplot/
 | `gljcvi-karyotype` | `graphics_karyotype` | 核型图 |
 | `gljcvi-catalog-ortholog` | `catalog_ortholog` | 双向 ortholog 目录 |
 | `gljcvi-local-synteny` | `local_synteny` | 局部共线性 |
-| `gljcvi-auto` | `graphics_synteny`（固定） | `analyze mcscan jcvi` 一键自动流；填写 `target_gene_ids` 时切换到局部共线性 |
+| `gljcvi-auto` | `graphics_synteny` / `local_synteny` | `analyze mcscan jcvi` 一键自动流；填写 `target_gene_ids` 时切换到 `local_synteny` |
 
 ---
 
@@ -111,7 +117,7 @@ gljcvi-dotplot/
 
 | 变量 | 设置者 | 使用者 | 说明 |
 |---|---|---|---|
-| `GENOMELENS_EXE` | 用户或 HAIant | 所有插件 | 外部 GenomeLens 可执行文件路径；`params.json` 中的 `genomelens_exe` 优先级更高 |
+| `GENOMELENS_EXE` | 用户或 HAIant | 所有插件 | 外部 GenomeLens 可执行文件路径；`params.json` 中的 `genomelens_exe` 或 HAIant 注入的 `GenomeLens_Path` 优先级更高 |
 
 旧环境变量 `GENOMELENS_PLUGIN_RUNTIME`、`GLJCVIMCSCAN_HOME` 随重型中心与单包插件一起移除，新插件不再使用。
 

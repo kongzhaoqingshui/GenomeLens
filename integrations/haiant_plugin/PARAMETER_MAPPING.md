@@ -1,10 +1,18 @@
 # HAIant 参数映射
 
-HAIant 插件把 `params.json` 转换为 GenomeLens `AnalysisRequest` JSON，然后调用外部 GenomeLens 可执行文件：
+HAIant 插件把 `params.json` 转换为 GenomeLens 调用：
 
-```powershell
-<genomelens_exe> analyze run output\genomelens_request.json
-```
+- 单功能插件生成 `AnalysisRequest` JSON，调用外部 GenomeLens 可执行文件：
+
+  ```powershell
+  <genomelens_exe> analyze run output\genomelens_request.json
+  ```
+
+- `gljcvi-auto` 直接对应 `analyze mcscan jcvi` 一键自动流：根据参数动态生成 `output/jcvi.config.json`，然后直接调用：
+
+  ```powershell
+  <genomelens_exe> analyze mcscan jcvi <input_dir> <output_dir> output\jcvi.config.json
+  ```
 
 所有相对路径都按 `params.json` 所在目录解析。
 
@@ -12,10 +20,10 @@ HAIant 插件把 `params.json` 转换为 GenomeLens `AnalysisRequest` JSON，然
 
 当前插件体系为**完全独立的轻量插件**：
 
-- 每个 JCVI 小功能对应一个独立插件包（`gljcvi-dotplot`、`gljcvi-synteny`、`gljcvi-karyotype`、`gljcvi-catalog-ortholog`、`gljcvi-local-synteny`）。
-- `gljcvi-auto` 固定对应 `analyze mcscan jcvi` 一键自动流（`workflow = graphics_synteny`）。
+- 每个 JCVI 小功能对应一个独立插件包（`gljcvi-dotplot`、`gljcvi-synteny`、`gljcvi-karyotype`、`gljcvi-catalog-ortholog`、`gljcvi-local-synteny`），统一使用 ``analyze run``。
+- `gljcvi-auto` 直接对应 `analyze mcscan jcvi` 一键自动流：动态生成 `jcvi.config.json` 后直接调用 CLI，不再走 ``analyze run``。
 - 所有插件都不再依赖重型中心 `gljcvimcscan` 或 `GLJCVIMCSCAN_HOME`。
-- 用户需要在 `params.json` 中提供 `genomelens_exe`，或预先设置 `GENOMELENS_EXE` 环境变量。
+- 用户需要在 `params.json` 中提供 `genomelens_exe` / `GenomeLens_Path`，或预先设置 `GENOMELENS_EXE` 环境变量。
 
 详见 `ARCHITECTURE.md`。
 
@@ -51,6 +59,7 @@ HAIant 插件把 `params.json` 转换为 GenomeLens `AnalysisRequest` JSON，然
 | `rewrite_layout_links` | bool | `method_config.auto_optimization.rewrite_layout_links` | 否 | `false` | 改写跨轨道 layout 连线（GenomeLens 扩展） |
 | `optimize_karyotype_labels` | bool | `method_config.auto_optimization.optimize_karyotype_labels` | 否 | `false` | 优化全局核型标签（GenomeLens 扩展） |
 | `trim_cross_chromosome_blocks` | bool | `method_config.auto_optimization.trim_cross_chromosome_blocks` | 否 | `false` | 切除跨染色体 block 行（GenomeLens 扩展） |
+| `optimize_auto` | bool | `method_config.auto_optimization.*` | 否 | `false` | `gljcvi-auto` 专用：一键开启上述四项出图自动优化 |
 | `allow_simplified_fallback` | bool | `method_config.allow_simplified_fallback` | 否 | `false` | 诊断开关；正式流程保持关闭 |
 
 \* `genomelens_exe` 未设置时读取 `GENOMELENS_EXE` 环境变量；`input_dir` 与 `species` 至少提供一个。
@@ -64,37 +73,51 @@ HAIant 插件把 `params.json` 转换为 GenomeLens `AnalysisRequest` JSON，然
 | `gljcvi-karyotype` | `graphics_karyotype` | 双物种核型图 |
 | `gljcvi-catalog-ortholog` | `catalog_ortholog` | 双向 ortholog 目录 |
 | `gljcvi-local-synteny` | `local_synteny` | 目标基因局部共线性 |
-| `gljcvi-auto` | `graphics_synteny` | `analyze mcscan jcvi` 一键自动流 |
+| `gljcvi-auto` | `graphics_synteny` / `local_synteny` | `analyze mcscan jcvi` 一键自动流；填写 `target_gene_ids` 时切换到 `local_synteny` |
 
 ## 局部共线性专属字段
 
-仅 `gljcvi-local-synteny` 与 `gljcvi-auto`（填写时）使用：
+仅 `gljcvi-local-synteny` 与 `gljcvi-auto`（填写 `target_gene_ids` 时）使用以下字段：
 
 | 平台字段 | 请求字段 | 说明 |
 |---|---|---|
 | `target_gene_ids` | `method_config.target_gene_ids` | 目标基因 ID，多个用逗号分隔 |
 | `up` | `method_config.up` | 上游窗口基因数 |
 | `down` | `method_config.down` | 下游窗口基因数 |
-| `split_targets` | `method_config.split_targets` | 多个目标各自出图 |
+| `split_targets` | `method_config.split_targets` | 多个目标各自出图；`gljcvi-auto` 默认单图全出 |
 | `label_targets` | `method_config.label_targets` | 在图中标注目标基因 |
 
 ## 输出约定
 
-插件在 `output_dir` 下写入：
+单功能插件在 `output_dir` 下写入：
 
 ```text
 output/genomelens_request.json
 output/run.log
 ```
 
-实际调用命令形如：
+`gljcvi-auto` 在 `output_dir` 下写入：
+
+```text
+output/jcvi.config.json
+output/run.log
+```
+
+单功能插件实际调用命令形如：
 
 ```powershell
 cmd.exe /c C:\GenomeLens\genomelens.cmd analyze run output\genomelens_request.json
+```
+
+`gljcvi-auto` 实际调用命令形如：
+
+```powershell
+cmd.exe /c C:\GenomeLens\genomelens.cmd analyze mcscan jcvi input output output\jcvi.config.json
 ```
 
 当 `genomelens_exe` 不是 `.cmd` / `.bat` 时，直接调用可执行文件：
 
 ```powershell
 C:\GenomeLens\GenomeLens.exe analyze run output\genomelens_request.json
+C:\GenomeLens\GenomeLens.exe analyze mcscan jcvi input output output\jcvi.config.json
 ```
