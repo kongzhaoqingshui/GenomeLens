@@ -35,10 +35,19 @@ import {
   type AnalysisRunState,
   type WorkflowState,
 } from "../models/run-session";
+import { runSummaryToViewModel } from "../models/run-summary-view";
 import { validateAnalysisRequestDraft, type ValidationIssue } from "../models/validation";
 import type { AppRoute } from "../routes/routes";
 import { getAnalysisSchema, getTemplateDraft, readRequestPreview, type JsonObject } from "../services/analysis";
-import { listenToAnalysisEvents, openPath, readRunLog, readSummaryView, runAnalysis } from "../services/workbench";
+import {
+  cancelRun,
+  listenToAnalysisEvents,
+  openPath,
+  readRunLog,
+  readRunSnapshot,
+  readSummaryView,
+  runAnalysis,
+} from "../services/workbench";
 
 interface NewAnalysisPageProps {
   route: AppRoute;
@@ -46,7 +55,7 @@ interface NewAnalysisPageProps {
   locationHash: string;
 }
 
-type RunPanelStatus = "idle" | "confirming" | "starting" | "running" | "finished" | "error";
+type RunPanelStatus = "idle" | "confirming" | "starting" | "running" | "cancelling" | "cancelled" | "finished" | "error";
 type WorkbenchView = "setup" | "run" | "results";
 type ResizeSide = "left" | "right";
 type McscanNumberField = "cscore" | "dist" | "iter" | "up" | "down" | "dpi";
@@ -437,9 +446,12 @@ function statusTone(status: RunPanelStatus): string {
       return "bg-sky-100 text-sky-700 dark:bg-sky-400/15 dark:text-sky-200";
     case "finished":
       return "bg-emerald-100 text-emerald-700 dark:bg-emerald-400/15 dark:text-emerald-200";
+    case "cancelled":
+      return "bg-slate-100 text-slate-600 dark:bg-slate-700/50 dark:text-slate-300";
     case "error":
       return "bg-rose-100 text-rose-700 dark:bg-rose-400/15 dark:text-rose-200";
     case "confirming":
+    case "cancelling":
       return "bg-amber-100 text-amber-700 dark:bg-amber-400/15 dark:text-amber-200";
     default:
       return "bg-surface text-text-secondary";
@@ -448,16 +460,30 @@ function statusTone(status: RunPanelStatus): string {
 
 function applyEventStatus(currentStatus: RunPanelStatus, event: AnalysisEvent): RunPanelStatus {
   if (event.name === "analysis:stdout" || event.name === "analysis:state") {
+    if (event.name === "analysis:state" && event.payload.state === "CANCELLED") {
+      return "cancelled";
+    }
+    if (currentStatus === "cancelling") {
+      return "cancelling";
+    }
     return currentStatus === "finished" || currentStatus === "error" ? currentStatus : "running";
   }
   if (event.name === "analysis:finished") {
+    if (event.payload.status === "CANCELLED") {
+      return "cancelled";
+    }
     return event.payload.status === "SUCCEEDED" ? "finished" : "error";
   }
-  return "error";
+  return event.payload.code === "cancelled" ? "cancelled" : "error";
 }
 
 function canCloseTask(task: WorkbenchTask): boolean {
-  return task.runStatus !== "confirming" && task.runStatus !== "starting" && task.runStatus !== "running";
+  return (
+    task.runStatus !== "confirming" &&
+    task.runStatus !== "starting" &&
+    task.runStatus !== "running" &&
+    task.runStatus !== "cancelling"
+  );
 }
 
 function localizeWorkflowState(state: WorkflowState, language: "zh-CN" | "en"): string {
@@ -727,7 +753,12 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
           return {
             ...task,
             runStatus: applyEventStatus(task.runStatus, event),
-            runError: event.name === "analysis:error" ? event.payload.message : task.runError,
+            runError:
+              event.name === "analysis:error"
+                ? event.payload.code === "cancelled"
+                  ? null
+                  : event.payload.message
+                : task.runError,
             runState: applyAnalysisEvent(task.runState, event),
             updatedAt: nowIso(),
           };
@@ -1085,6 +1116,104 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
     }
   }
 
+  async function handleCancelRun() {
+    if (!activeTask?.runState?.runId) {
+      return;
+    }
+
+    const taskId = activeTask.id;
+    const runId = activeTask.runState.runId;
+    updateTask(taskId, (task) => ({ ...task, runStatus: "cancelling", runError: null, view: "run" }));
+
+    try {
+      await cancelRun({ runId });
+    } catch (error: unknown) {
+      updateTask(taskId, (task) => ({
+        ...task,
+        runStatus: "error",
+        runError: error instanceof Error ? error.message : String(error),
+      }));
+    }
+  }
+
+  async function handleReadSnapshot() {
+    if (!activeTask) {
+      return;
+    }
+
+    const taskId = activeTask.id;
+    const outdir = (activeTask.runState?.outdir ?? activeTask.draft.outputDirectory).trim();
+    if (!outdir) {
+      updateTask(taskId, (task) => ({ ...task, runError: localizeRunPrompt("draftOutdir", language), view: "setup" }));
+      return;
+    }
+
+    try {
+      const snapshot = await readRunSnapshot({ outdir, tailLines: 120 });
+      const summaryView = snapshot.summary ? runSummaryToViewModel(snapshot.summary) : undefined;
+      const summaryStatus = snapshot.summary?.status;
+      const nextStatus: RunPanelStatus =
+        summaryStatus === "SUCCEEDED"
+          ? "finished"
+          : summaryStatus === "FAILED"
+            ? "error"
+            : summaryStatus === "CANCELLED"
+              ? "cancelled"
+              : activeTask.runStatus === "error"
+                ? "error"
+                : "idle";
+
+      updateTask(taskId, (task) => {
+        const baseState: AnalysisRunState =
+          task.runState ??
+          {
+            runId: `snapshot:${outdir}`,
+            outdir: snapshot.outdir,
+            requestPath: task.importedRequest?.path ?? "-",
+            logPath: snapshot.logPath || snapshot.log.logPath,
+            summaryPath: snapshot.summaryPath,
+            status: snapshot.summary?.ui?.state ?? summaryStatus ?? "PENDING",
+            progress: snapshot.summary?.ui?.progress ?? 0,
+            finished: summaryStatus === "SUCCEEDED" || summaryStatus === "FAILED" || summaryStatus === "CANCELLED",
+            logLines: [],
+          };
+
+        return {
+          ...task,
+          view: summaryView ? "results" : "run",
+          runStatus: nextStatus,
+          runError: null,
+          runState: appendRunLogLines(
+            {
+              ...baseState,
+              outdir: snapshot.outdir,
+              logPath: snapshot.logPath || snapshot.log.logPath || baseState.logPath,
+              summaryPath: snapshot.summaryPath || baseState.summaryPath,
+              status: snapshot.summary?.ui?.state ?? summaryStatus ?? baseState.status,
+              progress: snapshot.summary?.ui?.progress ?? baseState.progress,
+              finished:
+                baseState.finished ||
+                summaryStatus === "SUCCEEDED" ||
+                summaryStatus === "FAILED" ||
+                summaryStatus === "CANCELLED",
+              summary: snapshot.summary ?? baseState.summary,
+              summaryView: summaryView ?? baseState.summaryView,
+              logLines: [],
+              lastLogLine: undefined,
+            },
+            snapshot.log.lines,
+          ),
+        };
+      });
+    } catch (error: unknown) {
+      updateTask(taskId, (task) => ({
+        ...task,
+        runStatus: "error",
+        runError: error instanceof Error ? error.message : String(error),
+      }));
+    }
+  }
+
   async function handleReadSummary() {
     if (!activeTask) {
       return;
@@ -1229,6 +1358,14 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
         ? isZh
           ? "运行中"
           : "Running analysis"
+        : activeTask.runStatus === "cancelling"
+          ? isZh
+            ? "正在取消"
+            : "Cancelling run"
+          : activeTask.runStatus === "cancelled"
+            ? isZh
+              ? "已取消"
+              : "Run cancelled"
         : activeTask.runStatus === "finished"
           ? isZh
             ? "运行完成"
@@ -1249,6 +1386,14 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
       ? isZh
         ? "GenomeLens 正在把 run.log 更新持续写入当前任务。"
         : "GenomeLens is streaming run.log updates into this task."
+      : activeTask.runStatus === "cancelling"
+        ? isZh
+          ? "已请求取消，正在等待运行进程退出。"
+          : "Cancel requested. Waiting for the run process to exit."
+        : activeTask.runStatus === "cancelled"
+          ? isZh
+            ? "运行已取消，可以检查日志、恢复上下文或重新运行。"
+            : "Run cancelled. You can inspect logs, restore context, or run again."
       : activeTask.runStatus === "finished"
         ? isZh
           ? "下方与结果页都可以继续查看 summary 元数据。"
@@ -1875,16 +2020,48 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
                   <button
                     type="button"
                     className={PRIMARY_BUTTON_CLASS}
-                    disabled={activeTask.runStatus === "starting" || activeTask.runStatus === "running"}
+                    disabled={
+                      activeTask.runStatus === "starting" ||
+                      activeTask.runStatus === "running" ||
+                      activeTask.runStatus === "cancelling"
+                    }
                     onClick={handlePrepareRun}
                   >
                     {isZh ? "运行当前任务" : "Run active task"}
                   </button>
+                  {activeTask.runStatus === "starting" ||
+                  activeTask.runStatus === "running" ||
+                  activeTask.runStatus === "cancelling" ? (
+                    <button
+                      type="button"
+                      className={SECONDARY_BUTTON_CLASS}
+                      data-testid="cancel-run-button"
+                      disabled={activeTask.runStatus === "cancelling" || !activeTask.runState?.runId}
+                      onClick={() => void handleCancelRun()}
+                    >
+                      {activeTask.runStatus === "cancelling"
+                        ? isZh
+                          ? "取消中..."
+                          : "Cancelling..."
+                        : isZh
+                          ? "取消运行"
+                          : "Cancel run"}
+                    </button>
+                  ) : null}
                   <button type="button" className={SECONDARY_BUTTON_CLASS} onClick={handleReadLog}>
                     {isZh ? "刷新日志" : "Refresh log"}
                   </button>
                   <button type="button" className={SECONDARY_BUTTON_CLASS} onClick={handleReadSummary}>
                     {isZh ? "读取摘要" : "Read summary"}
+                  </button>
+                  <button
+                    type="button"
+                    className={SECONDARY_BUTTON_CLASS}
+                    data-testid="restore-run-snapshot-button"
+                    disabled={!activeTask.runState?.outdir && !draft.outputDirectory.trim()}
+                    onClick={() => void handleReadSnapshot()}
+                  >
+                    {isZh ? "恢复上下文" : "Restore context"}
                   </button>
                   <button type="button" className={SECONDARY_BUTTON_CLASS} disabled={!resolvedLogPath} onClick={handleOpenLog}>
                     {isZh ? "打开日志" : "Open log"}
@@ -2142,12 +2319,29 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
               type="button"
               className={[
                 "ui-pressable rounded-full bg-ice-500 px-4 py-2 text-sm font-semibold text-white shadow-card hover:bg-ice-400 disabled:cursor-not-allowed disabled:opacity-50",
-                activeTask.runStatus === "starting" || activeTask.runStatus === "running" ? "ui-running-progress" : "",
+                activeTask.runStatus === "starting" || activeTask.runStatus === "running" || activeTask.runStatus === "cancelling"
+                  ? "ui-running-progress"
+                  : "",
               ].join(" ")}
-              disabled={activeTask.runStatus === "starting" || activeTask.runStatus === "running"}
-              onClick={handlePrepareRun}
+              data-testid="bottom-run-action-button"
+              disabled={activeTask.runStatus === "cancelling" || ((activeTask.runStatus === "starting" || activeTask.runStatus === "running") && !activeTask.runState?.runId)}
+              onClick={
+                activeTask.runStatus === "starting" || activeTask.runStatus === "running" || activeTask.runStatus === "cancelling"
+                  ? () => void handleCancelRun()
+                  : handlePrepareRun
+              }
             >
-              {activeTask.runStatus === "starting" || activeTask.runStatus === "running" ? (isZh ? "运行中" : "Running") : isZh ? "运行" : "Run"}
+              {activeTask.runStatus === "cancelling"
+                ? isZh
+                  ? "取消中"
+                  : "Cancelling"
+                : activeTask.runStatus === "starting" || activeTask.runStatus === "running"
+                  ? isZh
+                    ? "取消运行"
+                    : "Cancel run"
+                  : isZh
+                    ? "运行"
+                    : "Run"}
             </button>
           </div>
         </div>

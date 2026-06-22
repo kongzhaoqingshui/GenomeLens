@@ -2,7 +2,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const { invokeMock, dialogOpenMock, mkdirMock, writeTextFileMock } = vi.hoisted(() => ({
-  invokeMock: vi.fn<(command: string, payload?: Record<string, unknown>) => Promise<unknown>>((command: string) => {
+  invokeMock: vi.fn<(command: string, payload?: Record<string, unknown>) => Promise<unknown>>((command: string, payload) => {
     if (command === "get_template") {
       return Promise.resolve({
         schema_version: 1,
@@ -39,9 +39,15 @@ const { invokeMock, dialogOpenMock, mkdirMock, writeTextFileMock } = vi.hoisted(
     if (command === "run_analysis") {
       return Promise.resolve({
         runId: "run-test",
-        requestPath: "request.json",
-        outdir: "out",
+        requestPath: payload?.requestPath ?? "request.json",
+        outdir: payload?.outdir ?? "out",
         status: "PENDING",
+      });
+    }
+    if (command === "cancel_run") {
+      return Promise.resolve({
+        runId: payload?.runId ?? "run-test",
+        status: "CANCEL_REQUESTED",
       });
     }
     if (command === "read_summary") {
@@ -57,6 +63,41 @@ const { invokeMock, dialogOpenMock, mkdirMock, writeTextFileMock } = vi.hoisted(
         logs: {},
         ui: { state: "SUCCEEDED", progress: 100, primary_figures: [], summary_path: "", log_path: "" },
         scoring: { status: "", scores: [], ranking: [], message: "" },
+      });
+    }
+    if (command === "read_run_snapshot") {
+      const outdir = String(payload?.outdir ?? "/runs/out");
+      return Promise.resolve({
+        outdir,
+        summaryPath: `${outdir}/report/run_summary.json`,
+        logPath: `${outdir}/logs/run.log`,
+        summary: {
+          status: "SUCCEEDED",
+          schema_version: 1,
+          workflow: "graphics_synteny",
+          method: "mcscan",
+          task: {},
+          species: [],
+          final_figures: [],
+          artifact_index: [],
+          logs: {},
+          ui: {
+            state: "SUCCEEDED",
+            progress: 1,
+            primary_figures: [],
+            summary_path: `${outdir}/report/run_summary.json`,
+            log_path: `${outdir}/logs/run.log`,
+          },
+          scoring: { status: "", scores: [], ranking: [], message: "" },
+        },
+        artifacts: [],
+        log: {
+          outdir,
+          logPath: `${outdir}/logs/run.log`,
+          text: "snapshot ready",
+          lines: ["snapshot ready"],
+          truncated: false,
+        },
       });
     }
     if (command === "read_run_log") {
@@ -291,6 +332,18 @@ describe("App", () => {
       });
     });
     expect(writeTextFileMock).not.toHaveBeenCalled();
+
+    fireEvent.click(await screen.findByTestId("cancel-run-button"));
+    await waitFor(() => {
+      const cancelRunCall = invokeMock.mock.calls.find(([command]) => command === "cancel_run");
+      expect(cancelRunCall?.[1]).toMatchObject({ runId: "run-test" });
+    });
+
+    fireEvent.click(screen.getByTestId("restore-run-snapshot-button"));
+    await waitFor(() => {
+      const snapshotCall = invokeMock.mock.calls.find(([command]) => command === "read_run_snapshot");
+      expect(snapshotCall?.[1]).toMatchObject({ outdir: "/runs/out", tailLines: 120 });
+    });
   });
 
   it("shows Chinese guidance when an imported request is missing an outdir", async () => {
