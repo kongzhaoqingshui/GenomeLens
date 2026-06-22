@@ -7,8 +7,10 @@ import argparse
 import os
 import re
 import sys
+import threading
 import time
 import unicodedata
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Protocol, TextIO, cast
@@ -387,16 +389,23 @@ class SignalBusProgressReporter:
         color: bool | None = None,
         stream: TextIO | None = None,
         theme: ProgressTheme | None = None,
+        tick_interval: float = 1.0,
+        clock: Callable[[], float] | None = None,
     ) -> None:
         self._adapter = adapter
         self._stream = stream or sys.stderr
         self._theme = theme or ProgressTheme()
         self._enabled = _supports_color(self._stream) if color is None else color
         self._interactive = bool(getattr(self._stream, "isatty", lambda: False)())
-        self._started_at = time.perf_counter()
+        self._clock = clock or time.perf_counter
+        self._tick_interval = max(0.05, tick_interval)
+        self._started_at = self._clock()
         self._render_started = False
         self._last_line = ""
         self._last_width = 0
+        self._render_lock = threading.Lock()
+        self._ticker_stop = threading.Event()
+        self._ticker_thread: threading.Thread | None = None
 
     def attach(self, signal_bus: SignalBus) -> None:
         """Subscribe to progress-related events on the shared SignalBus"""
@@ -413,11 +422,13 @@ class SignalBusProgressReporter:
     def finish(self) -> None:
         """Close the live progress line cleanly on interactive terminals"""
 
-        if self._interactive and self._last_line:
-            self._stream.write("\n")
-            self._stream.flush()
-            self._last_line = ""
-            self._last_width = 0
+        self._stop_ticker()
+        with self._render_lock:
+            if self._interactive and self._last_line:
+                self._stream.write("\n")
+                self._stream.flush()
+                self._last_line = ""
+                self._last_width = 0
 
     def _line_text(self, frame: ProgressFrame) -> str:
         label = _paint(
@@ -432,7 +443,7 @@ class SignalBusProgressReporter:
             enabled=self._enabled,
         )
         elapsed = _paint(
-            _progress_duration_text(time.perf_counter() - self._started_at),
+            _progress_duration_text(self._clock() - self._started_at),
             self._theme.label_color,
             enabled=self._enabled,
         )
@@ -451,25 +462,45 @@ class SignalBusProgressReporter:
         return "".join(segments)
 
     def _render(self, frame: ProgressFrame) -> None:
-        line = self._line_text(frame)
-        if line == self._last_line:
+        with self._render_lock:
+            line = self._line_text(frame)
+            if line == self._last_line:
+                return
+
+            if not self._render_started:
+                self._stream.write("\n")
+                self._render_started = True
+
+            if self._interactive:
+                width = max(self._last_width, _visible_width(line))
+                padded = line + " " * max(0, width - _visible_width(line))
+                self._stream.write("\r" + padded)
+                self._stream.flush()
+                self._last_width = width
+            else:
+                self._stream.write(line + "\n")
+                self._stream.flush()
+
+            self._last_line = line
+            if self._interactive and self._ticker_thread is None:
+                self._start_ticker()
+
+    def _start_ticker(self) -> None:
+        if self._ticker_thread is not None:
             return
+        self._ticker_stop.clear()
+        self._ticker_thread = threading.Thread(target=self._ticker_loop, name="genomelens-progress-ticker", daemon=True)
+        self._ticker_thread.start()
 
-        if not self._render_started:
-            self._stream.write("\n")
-            self._render_started = True
+    def _stop_ticker(self) -> None:
+        self._ticker_stop.set()
+        if self._ticker_thread is not None and self._ticker_thread.is_alive():
+            self._ticker_thread.join(timeout=self._tick_interval * 2)
+        self._ticker_thread = None
 
-        if self._interactive:
-            width = max(self._last_width, _visible_width(line))
-            padded = line + " " * max(0, width - _visible_width(line))
-            self._stream.write("\r" + padded)
-            self._stream.flush()
-            self._last_width = width
-        else:
-            self._stream.write(line + "\n")
-            self._stream.flush()
-
-        self._last_line = line
+    def _ticker_loop(self) -> None:
+        while not self._ticker_stop.wait(self._tick_interval):
+            self._render(self._adapter.current_frame())
 
 
 PROGRESS_STATE_LABELS = {
@@ -521,6 +552,9 @@ class McscanProgressAdapter:
             return self.current_frame()
 
         if event.name == "pair_started":
+            raw_total = event.payload.get("total")
+            if raw_total is not None:
+                self._total_pairs = max(1, int(cast(int, raw_total)))
             raw_index = event.payload.get("index")
             if raw_index is not None:
                 self._active_pair_index = int(cast(int, raw_index))
@@ -531,6 +565,9 @@ class McscanProgressAdapter:
             return self.current_frame()
 
         if event.name == "pair_finished":
+            raw_total = event.payload.get("total")
+            if raw_total is not None:
+                self._total_pairs = max(1, int(cast(int, raw_total)))
             raw_index = event.payload.get("index")
             if raw_index is not None:
                 self._active_pair_index = int(cast(int, raw_index))
@@ -570,8 +607,17 @@ class CliProgressReporter(SignalBusProgressReporter):
         color: bool | None = None,
         stream: TextIO | None = None,
         theme: ProgressTheme | None = None,
+        tick_interval: float = 1.0,
+        clock: Callable[[], float] | None = None,
     ) -> None:
-        super().__init__(McscanProgressAdapter(request), color=color, stream=stream or sys.stdout, theme=theme)
+        super().__init__(
+            McscanProgressAdapter(request),
+            color=color,
+            stream=stream or sys.stdout,
+            theme=theme,
+            tick_interval=tick_interval,
+            clock=clock,
+        )
 
 
 def render_workbench_banner(*, color: bool | None = None) -> str:

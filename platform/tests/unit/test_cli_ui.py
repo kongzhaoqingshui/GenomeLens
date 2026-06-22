@@ -1,5 +1,7 @@
 import argparse
 import io
+import threading
+import time
 
 from genomelens._version import __version__
 from genomelens.analysis.requests.models import (
@@ -170,3 +172,75 @@ def test_cli_progress_reporter_uses_gray_detail_text_when_colored() -> None:
     output = stream.getvalue()
 
     assert f"{PALETTE.gray}query vs subject{PALETTE.reset}" in output
+
+
+class _InteractiveBuffer(io.StringIO):
+    def isatty(self) -> bool:
+        return True
+
+
+class _FakeClock:
+    def __init__(self) -> None:
+        self._value = 0.0
+        self._lock = threading.Lock()
+
+    def __call__(self) -> float:
+        with self._lock:
+            current = self._value
+            self._value += 1.0
+            return current
+
+
+def test_cli_progress_reporter_updates_elapsed_without_new_state_events() -> None:
+    request = AnalysisRequest(
+        method="mcscan",
+        input=AnalysisInput(
+            mode="bed_cds",
+            species=[
+                AnalysisSpeciesInput(name="query", input_mode="bed_cds"),
+                AnalysisSpeciesInput(name="subject", input_mode="bed_cds"),
+            ],
+        ),
+        output=AnalysisOutput(directory="out"),
+    )
+    stream = _InteractiveBuffer()
+    signal_bus = SignalBus()
+    reporter = CliProgressReporter(
+        request,
+        color=False,
+        stream=stream,
+        tick_interval=0.05,
+        clock=_FakeClock(),
+    )
+    reporter.attach(signal_bus)
+
+    signal_bus.emit("state", state="RUNNING_ENGINE")
+    time.sleep(0.12)
+    reporter.finish()
+
+    output = stream.getvalue()
+    assert "0:00:01" in output
+    assert "0:00:02" in output
+
+
+def test_cli_progress_reporter_uses_runtime_pair_total_when_available() -> None:
+    request = AnalysisRequest(
+        method="mcscan",
+        input=AnalysisInput(
+            mode="bed_cds",
+            species=[
+                AnalysisSpeciesInput(name="query", input_mode="bed_cds"),
+                AnalysisSpeciesInput(name="subject", input_mode="bed_cds"),
+                AnalysisSpeciesInput(name="third", input_mode="bed_cds"),
+            ],
+        ),
+        output=AnalysisOutput(directory="out"),
+    )
+    stream = io.StringIO()
+    signal_bus = SignalBus()
+    reporter = CliProgressReporter(request, color=False, stream=stream)
+    reporter.attach(signal_bus)
+
+    signal_bus.emit("pair_started", index=1, total=5, query="query", subject="subject")
+
+    assert "0/5" in stream.getvalue()
