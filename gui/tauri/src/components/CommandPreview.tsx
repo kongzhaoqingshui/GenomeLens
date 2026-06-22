@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useLanguage } from "../i18n/useLanguage";
 
 type CommandState =
   | { status: "loading"; data?: undefined; error?: undefined }
@@ -14,6 +15,8 @@ interface CommandPreviewProps<TData> {
 
 export function CommandPreview<TData>({ title, command, description, load }: CommandPreviewProps<TData>) {
   const [state, setState] = useState<CommandState>({ status: "loading" });
+  const { language } = useLanguage();
+  const isZh = language === "zh-CN";
 
   useEffect(() => {
     let cancelled = false;
@@ -36,33 +39,41 @@ export function CommandPreview<TData>({ title, command, description, load }: Com
     };
   }, [load]);
 
+  const statusClass =
+    state.status === "ready"
+      ? "bg-emerald-50 text-emerald-700"
+      : state.status === "error"
+        ? "bg-rose-50 text-rose-700"
+        : "bg-surface text-text-secondary";
+
   return (
-    <section className="rounded-2xl border border-border bg-surface/80 p-5 shadow-card">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h2 className="text-lg font-semibold text-text-primary">{title}</h2>
+    <section className="border-t border-border/90">
+      <div className="flex items-start justify-between gap-4 px-6 py-5">
+        <div className="min-w-0">
+          <h2 className="text-base font-semibold text-text-primary">{title}</h2>
           <p className="mt-1 text-sm leading-6 text-text-secondary">{description}</p>
           <p className="mt-2 font-mono text-xs text-text-tertiary">{command}</p>
         </div>
-        <span
-          className={
-            state.status === "ready"
-              ? "rounded-full bg-emerald-100 px-3 py-1 text-[11px] font-semibold text-emerald-700 dark:bg-emerald-400/15 dark:text-emerald-200"
-              : "rounded-full bg-ice-100 px-3 py-1 text-[11px] font-semibold text-ice-700 dark:bg-ice-900/40 dark:text-ice-200"
-          }
-        >
-          {state.status === "ready" ? "READY" : state.status === "error" ? "ERROR" : "LOADING"}
+        <span className={`rounded-full px-3 py-1 text-[11px] font-semibold uppercase ${statusClass}`}>
+          {isZh
+            ? state.status === "ready"
+              ? "就绪"
+              : state.status === "error"
+                ? "错误"
+                : "加载中"
+            : state.status}
         </span>
       </div>
 
-      <pre className="mt-4 max-h-56 overflow-auto rounded-xl border border-border bg-bg p-4 font-mono text-xs leading-6 text-text-secondary">
+      <pre className="max-h-80 overflow-auto border-t border-border/90 bg-surface px-6 py-5 font-mono text-xs leading-6 text-text-secondary">
         {state.status === "ready"
           ? JSON.stringify(state.data, null, 2)
           : state.status === "error"
             ? state.error
-            : "Loading..."}
+            : isZh
+              ? "加载中..."
+              : "Loading..."}
       </pre>
     </section>
   );
 }
-

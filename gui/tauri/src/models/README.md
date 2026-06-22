@@ -7,8 +7,10 @@ This directory contains the Phase 0 TypeScript draft for the GUI business/data-f
 - `check-report.ts` mirrors the structured `genomelens check -j` payload and provides simple environment display helpers.
 - `analysis-request.ts` mirrors `platform/src/genomelens/analysis/request_models.py`.
 - `analysis-request-draft.ts` provides GUI-local camelCase draft types plus request mapping helpers for forms/stores.
+- `artifact.ts` defines GUI-owned Tauri payloads for listing run artifacts from `run_summary.json`.
 - `jcvi-meow.ts` provides GUI-owned startup warmup state, capability entry view models, and workflow preset helpers for the JCVI shell experience.
 - `project.ts` and `run-session.ts` define the GUI-owned Tauri command payloads for project listing, analysis runs, log snapshots, and event flow.
+- `request-preview.ts` defines the GUI-owned Tauri payloads for importing and previewing a local `AnalysisRequest` JSON file.
 - `run-summary.ts` mirrors the stable top-level fields in `platform/src/genomelens/core/summary_models.py`.
 - `run-summary-view.ts` provides GUI-local result parsing helpers centered on `run_summary.json` and `artifact_index`.
 - `validation.ts` is a field-level validation draft for the task creation form.

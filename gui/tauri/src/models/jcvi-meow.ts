@@ -44,14 +44,14 @@ export interface JcviCapabilityEntry {
   description: string;
   route: "/analysis/new" | "/settings";
   status: JcviCapabilityStatus;
-  statusLabel: "已接入" | "预留";
+  statusLabel: "Connected" | "Reserved";
   workflowPreset?: McscanWorkflow;
 }
 
 const STARTUP_HINTS: Record<StartupResourceKey, string> = {
-  version: "正在检查 GenomeLens 与 JCVI 引擎...",
-  template: "正在读取 MCSCAN 模板...",
-  schema: "正在准备任务工作台...",
+  version: "Checking GenomeLens and JCVI engine availability...",
+  template: "Loading the MCSCAN template...",
+  schema: "Preparing the workbench schema...",
 };
 
 const EMPTY_RESOURCE = { status: "loading" } as const;
@@ -59,72 +59,72 @@ const EMPTY_RESOURCE = { status: "loading" } as const;
 const JCVI_CAPABILITIES: JcviCapabilityEntry[] = [
   {
     id: "pairwise-synteny",
-    title: "双物种共线性",
+    title: "Pairwise",
     subtitle: "Pairwise Synteny",
-    description: "进入现有 MCSCAN wizard，并预设双物种 workflow。",
+    description: "Open the current MCSCAN workbench with a pairwise workflow preset.",
     route: "/analysis/new",
     status: "connected",
-    statusLabel: "已接入",
+    statusLabel: "Connected",
     workflowPreset: "mcscan_pairwise",
   },
   {
     id: "multi-species-synteny",
-    title: "多物种共线性",
+    title: "Multi-species",
     subtitle: "Multi-species Synteny",
-    description: "进入现有 MCSCAN wizard，并预设多物种 workflow。",
+    description: "Open the current MCSCAN workbench with a multi-species workflow preset.",
     route: "/analysis/new",
     status: "connected",
-    statusLabel: "已接入",
+    statusLabel: "Connected",
     workflowPreset: "graphics_synteny",
   },
   {
     id: "local-synteny",
-    title: "局部共线性",
+    title: "Local",
     subtitle: "Local Synteny",
-    description: "进入现有 MCSCAN wizard，并预设 local_synteny workflow。",
+    description: "Open the current MCSCAN workbench with a local synteny workflow preset.",
     route: "/analysis/new",
     status: "connected",
-    statusLabel: "已接入",
+    statusLabel: "Connected",
     workflowPreset: "local_synteny",
   },
   {
     id: "dotplot",
-    title: "点图",
+    title: "Dotplot",
     subtitle: "Dotplot",
-    description: "沿用现有 wizard 入口，保留 workflow 预设，等待专门交互补齐。",
+    description: "Reserved for a dedicated dotplot surface. The workflow preset is already wired.",
     route: "/analysis/new",
     status: "reserved",
-    statusLabel: "预留",
+    statusLabel: "Reserved",
     workflowPreset: "graphics_dotplot",
   },
   {
     id: "karyotype",
-    title: "核型总图",
+    title: "Karyotype",
     subtitle: "Karyotype",
-    description: "沿用现有 wizard 入口，保留 workflow 预设，等待专门交互补齐。",
+    description: "Reserved for a dedicated karyotype surface. The workflow preset is already wired.",
     route: "/analysis/new",
     status: "reserved",
-    statusLabel: "预留",
+    statusLabel: "Reserved",
     workflowPreset: "graphics_karyotype",
   },
   {
     id: "ortholog-catalog",
-    title: "直系同源目录",
+    title: "Ortholog Catalog",
     subtitle: "Ortholog Catalog",
-    description: "沿用现有 wizard 入口，保留 workflow 预设，等待专门交互补齐。",
+    description: "Reserved for a dedicated ortholog catalog surface. The workflow preset is already wired.",
     route: "/analysis/new",
     status: "reserved",
-    statusLabel: "预留",
+    statusLabel: "Reserved",
     workflowPreset: "catalog_ortholog",
   },
   {
     id: "environment-check",
-    title: "环境诊断",
+    title: "Environment",
     subtitle: "Environment Check",
-    description: "跳转设置页，复用现有环境检查入口。",
+    description: "Open the settings surface and reuse the current diagnostics entry point.",
     route: "/settings",
     status: "connected",
-    statusLabel: "已接入",
+    statusLabel: "Connected",
   },
 ];
 
@@ -141,7 +141,7 @@ export function deriveWorkbenchStartupState(resources: WorkbenchStartupResources
   const pending = entries.filter(([, resource]) => resource.status === "loading").map(([key]) => key);
   const failed = entries.filter(([, resource]) => resource.status === "error").map(([key]) => key);
   const readyCount = entries.filter(([, resource]) => resource.status === "ready").length;
-  const hints = pending.length > 0 ? pending.map((key) => STARTUP_HINTS[key]) : ["工作台已就绪。"];
+  const hints = pending.length > 0 ? pending.map((key) => STARTUP_HINTS[key]) : ["Workbench resources are ready."];
 
   return {
     ...resources,

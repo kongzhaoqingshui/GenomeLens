@@ -1,12 +1,8 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("@tauri-apps/api/event", () => ({
-  listen: vi.fn().mockResolvedValue(vi.fn()),
-}));
-
-vi.mock("@tauri-apps/api/core", () => ({
-  invoke: vi.fn((command: string) => {
+const { invokeMock, dialogOpenMock, mkdirMock, writeTextFileMock } = vi.hoisted(() => ({
+  invokeMock: vi.fn<(command: string, payload?: Record<string, unknown>) => Promise<unknown>>((command: string, payload) => {
     if (command === "get_template") {
       return Promise.resolve({
         schema_version: 1,
@@ -24,12 +20,34 @@ vi.mock("@tauri-apps/api/core", () => ({
         properties: { kind: { const: "analysis_request" } },
       });
     }
+    if (command === "read_request_preview") {
+      return Promise.resolve({
+        requestPath: "/imports/request.json",
+        json: {
+          schema_version: 1,
+          kind: "analysis_request",
+          method: "mcscan",
+          input: { mode: "auto_directory", directory: "/inputs/demo" },
+          output: { directory: "/runs/from-request", force: false, formats: ["png"] },
+          options: { preset: "auto", log_level: "INFO" },
+          method_config: { workflow: "mcscan_pairwise", align_soft: "blast", dbtype: "nucl" },
+        },
+        method: "mcscan",
+        workflow: "mcscan_pairwise",
+      });
+    }
     if (command === "run_analysis") {
       return Promise.resolve({
         runId: "run-test",
-        requestPath: "request.json",
-        outdir: "out",
+        requestPath: payload?.requestPath ?? "request.json",
+        outdir: payload?.outdir ?? "out",
         status: "PENDING",
+      });
+    }
+    if (command === "cancel_run") {
+      return Promise.resolve({
+        runId: payload?.runId ?? "run-test",
+        status: "CANCEL_REQUESTED",
       });
     }
     if (command === "read_summary") {
@@ -47,6 +65,23 @@ vi.mock("@tauri-apps/api/core", () => ({
         scoring: { status: "", scores: [], ranking: [], message: "" },
       });
     }
+    if (command === "read_run_snapshot") {
+      const outdir = String(payload?.outdir ?? "/runs/out");
+      return Promise.resolve({
+        outdir,
+        summaryPath: `${outdir}/report/run_summary.json`,
+        logPath: `${outdir}/logs/run.log`,
+        summary: null,
+        artifacts: [],
+        log: {
+          outdir,
+          logPath: `${outdir}/logs/run.log`,
+          text: "snapshot ready",
+          lines: ["snapshot ready"],
+          truncated: false,
+        },
+      });
+    }
     if (command === "read_run_log") {
       return Promise.resolve({
         outdir: "out",
@@ -56,6 +91,17 @@ vi.mock("@tauri-apps/api/core", () => ({
         truncated: false,
       });
     }
+    if (command === "list_artifacts") {
+      return Promise.resolve([
+        {
+          path: "/runs/demo/report/pairwise.png",
+          name: "pairwise.png",
+          format: "png",
+          source: "final_figures",
+          preview: true,
+        },
+      ]);
+    }
     if (command === "check_environment") {
       return Promise.resolve({
         status: "ok",
@@ -63,6 +109,30 @@ vi.mock("@tauri-apps/api/core", () => ({
         makeblastdb: { status: "ok", path: "makeblastdb", message: "ready" },
         magick: { status: "ok", path: "magick", message: "ready" },
         jcvi_engine: { status: "ok", path: "jcvi-genomelens", message: "ready" },
+      });
+    }
+    if (command === "list_projects") {
+      return Promise.resolve([
+        {
+          name: "Demo Project",
+          path: "/workspace/demo-project",
+          configPath: "/workspace/demo-project/.genomelens/project.json",
+          jcviConfigPath: "/workspace/demo-project/jcvi.yaml",
+          updatedAt: "2026-06-22T00:00:00Z",
+          createdAt: "2026-06-21T00:00:00Z",
+          lastRunAt: "2026-06-22T01:00:00Z",
+        },
+      ]);
+    }
+    if (command === "create_project") {
+      return Promise.resolve({
+        name: "Created Project",
+        path: "/workspace/Created Project",
+        configPath: "/workspace/Created Project/.genomelens/project.json",
+        jcviConfigPath: "/workspace/Created Project/jcvi.yaml",
+        updatedAt: "2026-06-22T00:00:00Z",
+        createdAt: "2026-06-22T00:00:00Z",
+        lastRunAt: "",
       });
     }
     if (command === "open_path") {
@@ -74,15 +144,26 @@ vi.mock("@tauri-apps/api/core", () => ({
       engine: { ok: false, command: "jcvi-genomelens probe", version: "", error: "not found" },
     });
   }),
+  dialogOpenMock: vi.fn().mockResolvedValue(null),
+  mkdirMock: vi.fn().mockResolvedValue(undefined),
+  writeTextFileMock: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock("@tauri-apps/api/event", () => ({
+  listen: vi.fn().mockResolvedValue(vi.fn()),
+}));
+
+vi.mock("@tauri-apps/api/core", () => ({
+  invoke: invokeMock,
 }));
 
 vi.mock("@tauri-apps/plugin-dialog", () => ({
-  open: vi.fn().mockResolvedValue(null),
+  open: dialogOpenMock,
 }));
 
 vi.mock("@tauri-apps/plugin-fs", () => ({
-  mkdir: vi.fn().mockResolvedValue(undefined),
-  writeTextFile: vi.fn().mockResolvedValue(undefined),
+  mkdir: mkdirMock,
+  writeTextFile: writeTextFileMock,
 }));
 
 import App from "./App";
@@ -90,17 +171,23 @@ import App from "./App";
 afterEach(() => {
   cleanup();
   document.documentElement.className = "";
+  Object.defineProperty(window, "innerWidth", { configurable: true, writable: true, value: 1024 });
   window.localStorage.clear();
   window.location.hash = "";
+  invokeMock.mockClear();
+  dialogOpenMock.mockReset();
+  dialogOpenMock.mockResolvedValue(null);
+  mkdirMock.mockClear();
+  writeTextFileMock.mockClear();
 });
 
 describe("App", () => {
-  it("renders the JCVI喵 desktop and startup overlay", async () => {
+  it("renders the JCVI meow desktop and startup overlay", async () => {
     render(<App />);
 
-    expect(screen.getAllByText("JCVI喵").length).toBeGreaterThan(0);
-    expect(screen.getByRole("heading", { name: "JCVI喵" })).toBeInTheDocument();
-    expect(await screen.findByRole("button", { name: /双物种共线性/ })).toBeInTheDocument();
+    expect(screen.getAllByText("JCVI meow").length).toBeGreaterThan(0);
+    expect(screen.getByRole("heading", { name: "JCVI meow" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "双物种共线性" })).toBeInTheDocument();
   });
 
   it("switches theme modes", async () => {
@@ -112,14 +199,158 @@ describe("App", () => {
     expect(window.localStorage.getItem("genomelens.theme")).toBe("dark");
   });
 
-  it("navigates from the home ring into the analysis workbench", async () => {
+  it("defaults to Chinese and can switch language to English in settings", async () => {
+    window.location.hash = "#/settings";
     render(<App />);
 
-    fireEvent.click(await screen.findByRole("button", { name: /双物种共线性/ }));
+    expect(await screen.findByRole("heading", { name: "环境与参考" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "English" }));
+
+    expect(window.localStorage.getItem("genomelens.language")).toBe("en");
+    expect(await screen.findByRole("heading", { name: "Environment and references" })).toBeInTheDocument();
+  });
+
+  it("navigates from the home surface into the analysis workbench", async () => {
+    render(<App />);
+
+    const [primaryAction] = await screen.findAllByRole("button", { name: "打开工作台" });
+    fireEvent.click(primaryAction);
 
     expect(window.location.hash).toBe("#/analysis/new?capability=pairwise-synteny");
-    expect(screen.getByText(/JCVI 任务工作台/)).toBeInTheDocument();
-    expect(await screen.findByText("MCSCAN 分析工作台")).toBeInTheDocument();
-    expect(screen.getByText("validateAnalysisRequestDraft()")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "任务" })).toBeInTheDocument();
+    expect(screen.getByDisplayValue("Pairwise Synteny #1")).toBeInTheDocument();
+    expect(screen.getByText("输入与输出")).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "运行" }).length).toBeGreaterThan(0);
+    expect(screen.getByText("运行事件会显示在这里。")).toBeInTheDocument();
+    expect(screen.getByText("分析 schema")).toBeInTheDocument();
+    const leftResizeHandle = screen.getByTestId("workbench-left-resize-handle");
+    expect(leftResizeHandle).toHaveAttribute("role", "separator");
+    expect(screen.getByTestId("workbench-right-resize-handle")).toHaveAttribute("role", "separator");
+    expect(leftResizeHandle).toHaveAttribute("aria-valuenow", "320");
+    fireEvent.keyDown(leftResizeHandle, { key: "ArrowRight" });
+    expect(leftResizeHandle).toHaveAttribute("aria-valuenow", "336");
+    expect(screen.queryByText("Run events will appear here.")).not.toBeInTheDocument();
+    expect(screen.queryByText("Schema not loaded.")).not.toBeInTheDocument();
+  });
+
+  it("clamps restored workbench sidebar widths for narrow windows", async () => {
+    Object.defineProperty(window, "innerWidth", { configurable: true, writable: true, value: 900 });
+    window.localStorage.setItem("genomelens.gui.workbench.leftWidth", "480");
+    window.localStorage.setItem("genomelens.gui.workbench.rightWidth", "520");
+
+    render(<App />);
+
+    const [primaryAction] = await screen.findAllByRole("button", { name: "打开工作台" });
+    fireEvent.click(primaryAction);
+
+    const leftResizeHandle = await screen.findByTestId("workbench-left-resize-handle");
+    const rightResizeHandle = screen.getByTestId("workbench-right-resize-handle");
+    const leftWidth = Number(leftResizeHandle.getAttribute("aria-valuenow"));
+    const rightWidth = Number(rightResizeHandle.getAttribute("aria-valuenow"));
+
+    expect(leftWidth + rightWidth).toBeLessThanOrEqual(588);
+  });
+
+  it("renders the projects page with workspace controls and project rows", async () => {
+    window.location.hash = "#/projects";
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: "工作区项目" })).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("工作区路径"), {
+      target: { value: "/workspace" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "刷新项目" }));
+
+    expect(await screen.findByText("Demo Project")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "创建项目" })).toBeInTheDocument();
+  });
+
+  it("renders the results page with summary loading controls", async () => {
+    window.location.hash = "#/results";
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: "运行摘要浏览器" })).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("输出目录"), {
+      target: { value: "/runs/demo" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "加载摘要" }));
+
+    expect(await screen.findByText("主要图件")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "产物" })).toBeInTheDocument();
+    expect(await screen.findByText("pairwise.png")).toBeInTheDocument();
+  });
+
+  it("imports an existing request JSON and runs it with the current outdir", async () => {
+    dialogOpenMock.mockResolvedValueOnce("/imports/request.json");
+
+    render(<App />);
+
+    const [primaryAction] = await screen.findAllByRole("button", { name: "打开工作台" });
+    fireEvent.click(primaryAction);
+
+    expect(await screen.findByText("输入与输出")).toBeInTheDocument();
+    fireEvent.change(screen.getByPlaceholderText("选择当前任务的输出位置"), {
+      target: { value: "/runs/out" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "导入 request JSON" }));
+
+    expect((await screen.findAllByText("/imports/request.json")).length).toBeGreaterThan(0);
+    expect(screen.getAllByText("mcscan_pairwise").length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: "运行" }).length).toBeGreaterThan(0);
+
+    const runButtons = screen.getAllByRole("button", { name: "运行" });
+    fireEvent.click(runButtons[runButtons.length - 1]!);
+    fireEvent.click(await screen.findByRole("button", { name: "确认运行" }));
+
+    await waitFor(() => {
+      const runAnalysisCall = invokeMock.mock.calls.find(([command]) => command === "run_analysis");
+      const runAnalysisPayload = runAnalysisCall?.[1];
+
+      expect(runAnalysisPayload).toMatchObject({
+        requestPath: "/imports/request.json",
+        outdir: "/runs/out",
+      });
+    });
+    expect(writeTextFileMock).not.toHaveBeenCalled();
+
+    expect(screen.getByTestId("bottom-run-action-button")).toHaveTextContent("取消运行");
+
+    fireEvent.click(screen.getByTestId("restore-run-snapshot-button"));
+    await waitFor(() => {
+      const snapshotCall = invokeMock.mock.calls.find(([command]) => command === "read_run_snapshot");
+      expect(snapshotCall?.[1]).toMatchObject({ outdir: "/runs/out", tailLines: 120 });
+    });
+    expect(screen.getByTestId("bottom-run-action-button")).toHaveTextContent("取消运行");
+
+    fireEvent.click(await screen.findByTestId("cancel-run-button"));
+    await waitFor(() => {
+      const cancelRunCall = invokeMock.mock.calls.find(([command]) => command === "cancel_run");
+      expect(cancelRunCall?.[1]).toMatchObject({ runId: "run-test" });
+    });
+  });
+
+  it("shows Chinese guidance when an imported request is missing an outdir", async () => {
+    dialogOpenMock.mockResolvedValueOnce("/imports/request.json");
+
+    render(<App />);
+
+    const [primaryAction] = await screen.findAllByRole("button", { name: "打开工作台" });
+    fireEvent.click(primaryAction);
+
+    expect(await screen.findByText("输入与输出")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "导入 request JSON" }));
+    expect((await screen.findAllByText("/imports/request.json")).length).toBeGreaterThan(0);
+
+    fireEvent.change(screen.getByPlaceholderText("选择当前任务的输出位置"), {
+      target: { value: "" },
+    });
+
+    const runButtons = screen.getAllByRole("button", { name: "运行" });
+    fireEvent.click(runButtons[runButtons.length - 1]!);
+
+    expect(await screen.findByText("输出目录不能为空")).toBeInTheDocument();
+    expect(screen.queryByText("Choose an output directory before running an imported request.")).not.toBeInTheDocument();
   });
 });

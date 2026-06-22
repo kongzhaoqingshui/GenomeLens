@@ -1,10 +1,5 @@
+import { useLanguage } from "../i18n/useLanguage";
 import type { ThemeMode } from "../theme/theme";
-
-const THEME_OPTIONS: Array<{ mode: ThemeMode; label: string }> = [
-  { mode: "system", label: "系统" },
-  { mode: "light", label: "浅色" },
-  { mode: "dark", label: "深色" },
-];
 
 interface ThemeToggleProps {
   mode: ThemeMode;
@@ -13,29 +8,36 @@ interface ThemeToggleProps {
 }
 
 export function ThemeToggle({ mode, resolvedTheme, onChange }: ThemeToggleProps) {
+  const { language } = useLanguage();
+  const isZh = language === "zh-CN";
+  const options: Array<{ mode: ThemeMode; label: string }> = [
+    { mode: "system", label: isZh ? "跟随系统" : "System" },
+    { mode: "light", label: isZh ? "浅色" : "Light" },
+    { mode: "dark", label: isZh ? "深色" : "Dark" },
+  ];
+
   return (
-    <div className="flex items-center gap-2">
-      <span className="hidden text-xs font-medium text-text-tertiary lg:inline">
-        {resolvedTheme === "dark" ? "Dark" : "Light"}
-      </span>
-      <div className="flex rounded-full border border-border bg-surface/80 p-1 shadow-card backdrop-blur">
-        {THEME_OPTIONS.map((option) => (
+    <div
+      className="w-full min-w-0 rounded-lg border border-border bg-surface-raised/95 p-1 shadow-card backdrop-blur"
+      aria-label={isZh ? `颜色模式：${resolvedTheme === "dark" ? "深色" : "浅色"}` : `Color mode: ${resolvedTheme}`}
+    >
+      <div className="grid min-w-0 grid-cols-3 gap-1 rounded-lg bg-surface p-1">
+        {options.map((option) => (
           <button
             key={option.mode}
             type="button"
             className={
               mode === option.mode
-                ? "rounded-full bg-ice-500 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition"
-                : "rounded-full px-3 py-1.5 text-xs font-semibold text-text-secondary transition hover:bg-ice-50 hover:text-ice-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ice-500 dark:hover:bg-ice-900/30 dark:hover:text-ice-200"
+                ? "ui-pressable min-w-0 rounded-md border border-border bg-surface-raised px-2 py-1.5 text-xs font-semibold text-text-primary shadow-card transition"
+                : "ui-pressable min-w-0 rounded-md px-2 py-1.5 text-xs font-medium text-text-secondary transition hover:bg-surface-raised/70 hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ice-500"
             }
             aria-pressed={mode === option.mode}
             onClick={() => onChange(option.mode)}
           >
-            {option.label}
+            <span className="block truncate">{option.label}</span>
           </button>
         ))}
       </div>
     </div>
   );
 }
-

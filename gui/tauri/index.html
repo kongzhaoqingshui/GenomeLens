@@ -3,12 +3,15 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>JCVI喵</title>
+    <title>JCVI meow</title>
+    <link rel="icon" type="image/png" href="/src/assets/brand/jcvi-meow-logo.png" />
     <script>
       (() => {
         const stored = localStorage.getItem("genomelens.theme");
         const mode = stored === "light" || stored === "dark" || stored === "system" ? stored : "system";
+        const language = localStorage.getItem("genomelens.language") === "en" ? "en" : "zh-CN";
         const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+        document.documentElement.lang = language;
         document.documentElement.dataset.themeMode = mode;
         document.documentElement.classList.toggle("dark", mode === "dark" || (mode === "system" && prefersDark));
       })();

@@ -70,6 +70,17 @@ gui/tauri/node_modules/
 gui/tauri/dist/
 gui/tauri/src-tauri/target/
 gui/tauri/src-tauri/target/**
+gui/tauri/src-tauri/gen/
+gui/tauri/src-tauri/gen/**
 
 # IDE 配置（含 JetBrains 会话状态、模块配置、检查配置等）
 .idea/
+
+# Local icon-pack downloads and generated preview assets
+references/downloads/Game-Icon-Pack-v1.4.zip
+references/downloads/Nieobie-Game-Icon-Pack/
+design-assets/game-icon-candidates/
+design-assets/icon-build-game-pack/
+design-assets/icon-clarity-candidates/
+design-assets/icon-selected-preview.png
+design-assets/icon-visible-small-preview.png

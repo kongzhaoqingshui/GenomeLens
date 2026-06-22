@@ -1,3 +1,4 @@
+import type { ArtifactSummary } from "./artifact";
 import type { RunSummary } from "./run-summary";
 import { runSummaryToViewModel, type RunSummaryViewModel } from "./run-summary-view";
 
@@ -21,6 +22,15 @@ export interface RunAnalysisInput extends Record<string, unknown> {
   outdir: string;
 }
 
+export interface CancelRunInput extends Record<string, unknown> {
+  runId: string;
+}
+
+export interface CancelRunResult {
+  runId: string;
+  status: "CANCEL_REQUESTED" | string;
+}
+
 export interface RunHandle {
   runId: string;
   requestPath: string;
@@ -42,6 +52,11 @@ export interface ReadRunLogInput extends Record<string, unknown> {
   tailLines?: number;
 }
 
+export interface ReadRunSnapshotInput extends Record<string, unknown> {
+  outdir: string;
+  tailLines?: number;
+}
+
 export interface RunLogSnapshot {
   outdir: string;
   logPath: string;
@@ -50,6 +65,15 @@ export interface RunLogSnapshot {
   truncated: boolean;
   updatedAt?: string;
   [extraField: string]: unknown;
+}
+
+export interface RunSnapshot {
+  outdir: string;
+  summaryPath: string;
+  logPath: string;
+  summary?: RunSummary;
+  artifacts: ArtifactSummary[];
+  log: RunLogSnapshot;
 }
 
 export interface OpenPathInput extends Record<string, unknown> {

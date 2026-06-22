@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 
+import { useLanguage } from "../i18n/useLanguage";
 import type { AppRoute } from "../routes/routes";
 import type { ThemeMode } from "../theme/theme";
 import { JcviMeowIcon } from "./JcviMeowIcon";
@@ -24,49 +25,50 @@ export function AppShell({
   onThemeChange,
   children,
 }: AppShellProps) {
+  const { language } = useLanguage();
+  const isZh = language === "zh-CN";
+
   if (activeRoute.id === "home") {
     return (
-      <div className="min-h-screen bg-bg text-text-primary transition-colors duration-200">
-        <div className="fixed right-5 top-5 z-10">
+      <div className="ui-app-frame min-h-screen transition-colors duration-200">
+        <div className="fixed bottom-5 right-5 z-30 w-[17rem] max-w-[calc(100vw-2.5rem)]">
           <ThemeToggle mode={themeMode} resolvedTheme={resolvedTheme} onChange={onThemeChange} />
         </div>
-        <main className="min-h-screen p-5">{children}</main>
+        <main className="ui-page-enter min-h-screen">{children}</main>
       </div>
     );
   }
 
-  return (
-    <div className="min-h-screen bg-bg text-text-primary transition-colors duration-200">
-      <div className="pointer-events-none fixed inset-0 overflow-hidden">
-        <div className="absolute inset-x-0 top-0 h-72 bg-gradient-to-b from-ice-100/80 via-ice-50/40 to-transparent dark:from-ice-900/30 dark:via-ice-800/10" />
-        <div className="absolute left-1/2 top-16 h-64 w-[42rem] -translate-x-1/2 rounded-full border border-ice-200/50 opacity-50 blur-3xl dark:border-ice-700/30" />
-      </div>
+  if (activeRoute.id === "new-analysis") {
+    return <div className="ui-app-frame ui-page-enter min-h-screen transition-colors duration-200">{children}</div>;
+  }
 
-      <div className="relative mx-auto flex min-h-screen w-full max-w-[1600px] flex-col px-6 py-5 lg:px-8">
-        <header className="flex flex-wrap items-center justify-between gap-4 border-b border-border/80 pb-4">
+  const sidebarRoutes = routes.filter((route) => route.id !== "new-analysis");
+
+  return (
+    <div className="ui-app-frame min-h-screen transition-colors duration-200">
+      <div className="mx-auto grid min-h-screen w-full max-w-[1600px] grid-cols-[15rem_minmax(0,1fr)] overflow-hidden">
+        <aside className="ui-shell-sidebar flex min-h-0 flex-col border-r px-3 py-4">
           <button
             type="button"
-            className="flex items-center gap-3 rounded-xl text-left outline-none transition focus-visible:ring-2 focus-visible:ring-ice-500 focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
+            className="ui-pressable flex items-center gap-3 rounded-xl px-3 py-2 text-left transition hover:bg-surface-raised/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ice-500"
             onClick={() => onNavigate("/")}
           >
-            <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-ice-50 text-ice-500 shadow-lg shadow-ice-500/10 ring-1 ring-ice-100 dark:bg-ice-950/60 dark:ring-ice-900/60">
-              <JcviMeowIcon className="h-8 w-8" showLensText={false} />
-            </span>
+            <JcviMeowIcon className="h-8 w-8" />
             <span>
-              <span className="jcvi-brand-title block text-xl font-semibold tracking-tight">JCVI喵</span>
-              <span className="block text-xs text-text-secondary">Comparative genomics workbench · Powered by GenomeLens</span>
+              <span className="jcvi-brand-title block text-sm font-semibold text-text-primary">JCVI meow</span>
             </span>
           </button>
 
-          <nav className="hidden items-center gap-1 rounded-full border border-border bg-surface/80 p-1 shadow-card backdrop-blur lg:flex">
-            {routes.map((route) => (
+          <nav className="mt-6 grid gap-1">
+            {sidebarRoutes.map((route) => (
               <button
                 key={route.id}
                 type="button"
                 className={
                   route.id === activeRoute.id
-                    ? "rounded-full bg-ice-500 px-4 py-2 text-xs font-semibold text-white shadow-sm transition"
-                    : "rounded-full px-4 py-2 text-xs font-semibold text-text-secondary transition hover:bg-ice-50 hover:text-ice-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ice-500 dark:hover:bg-ice-900/30 dark:hover:text-ice-200"
+                    ? "ui-list-item flex items-center rounded-lg border border-border bg-surface-raised px-3 py-2 text-left text-sm font-medium text-text-primary shadow-card"
+                    : "ui-list-item flex items-center rounded-lg px-3 py-2 text-left text-sm text-text-secondary transition hover:bg-surface-raised/75 hover:text-text-primary"
                 }
                 onClick={() => onNavigate(route.path)}
               >
@@ -75,15 +77,33 @@ export function AppShell({
             ))}
           </nav>
 
-          <div className="flex items-center gap-3">
-            <span className="hidden rounded-full border border-border bg-surface/80 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-text-tertiary lg:inline-flex">
-              {activeRoute.label}
-            </span>
-            <ThemeToggle mode={themeMode} resolvedTheme={resolvedTheme} onChange={onThemeChange} />
+          <div className="mt-auto border-t border-border/90 pt-4">
+            <div className="px-3 text-[11px] font-medium uppercase tracking-[0.16em] text-text-tertiary">
+              {isZh ? "外观" : "Appearance"}
+            </div>
+            <div className="mt-3 px-1">
+              <ThemeToggle mode={themeMode} resolvedTheme={resolvedTheme} onChange={onThemeChange} />
+            </div>
           </div>
-        </header>
+        </aside>
 
-        <main className="flex flex-1 py-8">{children}</main>
+        <div className="ui-shell-main flex min-w-0 flex-col">
+          <header className="ui-shell-main flex h-14 items-center justify-between border-b px-6">
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-text-primary">{activeRoute.label}</p>
+              <p className="truncate text-xs text-text-secondary">{activeRoute.description}</p>
+            </div>
+            <button
+              type="button"
+              className="ui-pressable rounded-lg border border-border bg-surface px-3 py-1.5 text-xs font-medium text-text-secondary transition hover:border-ice-200 hover:bg-surface-raised hover:text-text-primary dark:hover:border-ice-800 dark:hover:bg-surface"
+              onClick={() => onNavigate("/analysis/new")}
+            >
+              {isZh ? "打开工作台" : "Open workbench"}
+            </button>
+          </header>
+
+          <main className="ui-page-enter min-h-0 flex-1 overflow-auto bg-surface-raised px-8 py-8">{children}</main>
+        </div>
       </div>
     </div>
   );

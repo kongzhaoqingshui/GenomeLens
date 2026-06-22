@@ -1,7 +1,9 @@
 export type * from "./check-report";
 export type * from "./analysis-request";
 export type * from "./analysis-request-draft";
+export type * from "./artifact";
 export type * from "./project";
+export type * from "./request-preview";
 export type * from "./run-summary";
 export type * from "./run-summary-view";
 export type * from "./run-session";
@@ -9,8 +11,10 @@ export type * from "./jcvi-meow";
 export * from "./validation";
 export * from "./check-report";
 export * from "./analysis-request-draft";
+export * from "./artifact";
 export * from "./jcvi-meow";
 export * from "./project";
+export * from "./request-preview";
 export * from "./run-summary-view";
 export * from "./run-session";
 
