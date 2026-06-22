@@ -48,6 +48,11 @@ chromosome segments.
   segment directions.
 - Synteny links are JCVI-style interval ribbons based on gene widths, with
   inversion ribbons drawn by reversed endpoints.
+- Link curves may micro-adjust Bezier controls only for naturally nearby
+  crossings inside the same adjacent track/chromosome-segment pair; far links
+  and cross-segment links keep their original geometry.
+- Gene ticks scale their linewidth from the current baseline by local gene
+  length relative to the common segment length, with a minimum visible width.
 - Very short chromosome segments include up to 20 same-chromosome flanking genes
   on each side and show compact terminal break marks when the BED context
   continues.

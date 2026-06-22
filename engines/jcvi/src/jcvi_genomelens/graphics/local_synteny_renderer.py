@@ -82,6 +82,13 @@ LEGEND_SQUARE_SIZE = 0.016
 LEGEND_FONT_SIZE = 6
 MAX_LEGEND_ENTRIES = 12
 DRAW_CHROMOSOME_LEGEND = False
+BACKGROUND_TICK_BASE_LW = 0.0175
+BACKGROUND_TICK_MIN_LW = 0.006
+ANCHOR_TICK_BASE_LW = 0.04
+ANCHOR_TICK_MIN_LW = 0.018
+NATURAL_FOCUS_CLUSTER_X = 0.035
+NATURAL_FOCUS_CLUSTER_SPAN = 0.070
+NATURAL_FOCUS_MIN_LINKS = 3
 
 
 @dataclass(frozen=True)
@@ -189,6 +196,8 @@ class PositionedGene:
 
     mapped: MappedGene
     y: float
+    segment_index: int = -1
+    chromosome: str = ""
 
 
 @dataclass(frozen=True)
@@ -363,6 +372,7 @@ class MatplotlibLocalSyntenyRenderer:
             drawable_links.append((link, left, right))
 
         target_colors = _target_color_by_gene(layout)
+        focus_x_by_row = _clustered_natural_focus_x(drawable_links)
         for link, left, right in drawable_links:
             color = BACKGROUND_LINK_COLOR
             alpha = LINK_ALPHA
@@ -376,7 +386,70 @@ class MatplotlibLocalSyntenyRenderer:
                 alpha = 1.0
                 zorder = 2
             focus_y = (left.y + right.y) / 2.0
-            _draw_ribbon_link(ax, left, right, color=color, alpha=alpha, zorder=zorder, focus_y=focus_y)
+            _draw_ribbon_link(
+                ax,
+                left,
+                right,
+                color=color,
+                alpha=alpha,
+                zorder=zorder,
+                focus_y=focus_y,
+                focus_x=focus_x_by_row.get(link.row_index),
+            )
+
+
+def _clustered_natural_focus_x(
+    drawable_links: list[tuple[AnchorLink, PositionedGene, PositionedGene]],
+) -> dict[int, float]:
+    """Cluster only nearby natural crossing points within the same segment pair."""
+
+    grouped: dict[tuple[int, int, int, int, str, str], list[tuple[float, int]]] = {}
+    for link, left, right in drawable_links:
+        if left.segment_index < 0 or right.segment_index < 0:
+            continue
+        key = (
+            link.left_track,
+            link.right_track,
+            left.segment_index,
+            right.segment_index,
+            left.chromosome,
+            right.chromosome,
+        )
+        natural_x = (left.mapped.x + right.mapped.x) / 2.0
+        grouped.setdefault(key, []).append((natural_x, link.row_index))
+
+    focus_by_row: dict[int, float] = {}
+    for points in grouped.values():
+        points.sort(key=lambda item: item[0])
+        cluster: list[tuple[float, int]] = []
+        for point in points:
+            if not cluster:
+                cluster = [point]
+                continue
+            proposed = [*cluster, point]
+            if (
+                point[0] - cluster[-1][0] <= NATURAL_FOCUS_CLUSTER_X
+                and proposed[-1][0] - proposed[0][0] <= NATURAL_FOCUS_CLUSTER_SPAN
+            ):
+                cluster.append(point)
+                continue
+            _assign_cluster_focus(focus_by_row, cluster)
+            cluster = [point]
+        _assign_cluster_focus(focus_by_row, cluster)
+    return focus_by_row
+
+
+def _assign_cluster_focus(
+    focus_by_row: dict[int, float],
+    cluster: list[tuple[float, int]],
+) -> None:
+    """Assign median focus to a natural crossing cluster if it is large enough."""
+
+    if len(cluster) < NATURAL_FOCUS_MIN_LINKS:
+        return
+    focus_x = median(point[0] for point in cluster)
+    for _natural_x, row_index in cluster:
+        focus_by_row[row_index] = focus_x
 
 
 def _strip_highlight_prefix(value: str) -> tuple[bool, str]:
@@ -1343,7 +1416,7 @@ def _draw_gene_tick_collection(
     color: str,
     *,
     alpha: float,
-    linewidth: float,
+    linewidth: float | list[float],
 ) -> None:
     """Draw many background gene ticks efficiently."""
 
@@ -1359,6 +1432,27 @@ def _draw_gene_tick_collection(
             clip_on=False,
         )
     )
+
+
+def _typical_gene_length(mapped_genes: list[MappedGene]) -> float:
+    """Return a robust common gene length for local linewidth scaling."""
+
+    lengths = [max(1, mapped.gene.length_bp) for mapped in mapped_genes]
+    if not lengths:
+        return 1.0
+    bucket_counts: dict[int, int] = {}
+    for length in lengths:
+        bucket = max(1, int(round(length / 100.0)) * 100)
+        bucket_counts[bucket] = bucket_counts.get(bucket, 0) + 1
+    common_bucket = max(bucket_counts.items(), key=lambda item: (item[1], -item[0]))[0]
+    return float(common_bucket)
+
+
+def _scaled_gene_tick_linewidth(mapped: MappedGene, typical_length: float, *, baseline: float, minimum: float) -> float:
+    """Scale a tick line width by gene length while preserving a visible floor."""
+
+    multiplier = max(0.01, mapped.gene.length_bp / max(1.0, typical_length))
+    return max(minimum, baseline * multiplier)
 
 
 def _abbreviate_track_name(name: str) -> str:
@@ -1712,8 +1806,19 @@ def _draw_track(
 
         tick_top = y + GENE_TICK_HALF_HEIGHT
         tick_bottom = y - GENE_TICK_HALF_HEIGHT
+        typical_length = _typical_gene_length(segment.genes)
         background_forward = [
             [(mapped.x, tick_bottom), (mapped.x, tick_top)]
+            for mapped in segment.genes
+            if mapped.row_index < 0 and mapped.display_strand != "-"
+        ]
+        background_forward_widths = [
+            _scaled_gene_tick_linewidth(
+                mapped,
+                typical_length,
+                baseline=BACKGROUND_TICK_BASE_LW,
+                minimum=BACKGROUND_TICK_MIN_LW,
+            )
             for mapped in segment.genes
             if mapped.row_index < 0 and mapped.display_strand != "-"
         ]
@@ -1722,23 +1827,56 @@ def _draw_track(
             for mapped in segment.genes
             if mapped.row_index < 0 and mapped.display_strand == "-"
         ]
-        _draw_gene_tick_collection(ax, background_forward, GENE_FORWARD_COLOR, alpha=0.88, linewidth=0.0175)
-        _draw_gene_tick_collection(ax, background_reverse, GENE_REVERSE_COLOR, alpha=0.88, linewidth=0.0175)
+        background_reverse_widths = [
+            _scaled_gene_tick_linewidth(
+                mapped,
+                typical_length,
+                baseline=BACKGROUND_TICK_BASE_LW,
+                minimum=BACKGROUND_TICK_MIN_LW,
+            )
+            for mapped in segment.genes
+            if mapped.row_index < 0 and mapped.display_strand == "-"
+        ]
+        _draw_gene_tick_collection(
+            ax,
+            background_forward,
+            GENE_FORWARD_COLOR,
+            alpha=0.88,
+            linewidth=background_forward_widths,
+        )
+        _draw_gene_tick_collection(
+            ax,
+            background_reverse,
+            GENE_REVERSE_COLOR,
+            alpha=0.88,
+            linewidth=background_reverse_widths,
+        )
         for mapped in segment.genes:
             is_anchor = mapped.row_index >= 0
             if not is_anchor:
                 continue
             gene_color = GENE_REVERSE_COLOR if mapped.display_strand == "-" else GENE_FORWARD_COLOR
+            linewidth = _scaled_gene_tick_linewidth(
+                mapped,
+                typical_length,
+                baseline=ANCHOR_TICK_BASE_LW,
+                minimum=ANCHOR_TICK_MIN_LW,
+            )
             ax.plot(
                 [mapped.x, mapped.x],
                 [tick_bottom, tick_top],
                 color=gene_color,
-                lw=max(0.04, min(0.085, mapped.width * 45.0)),
+                lw=linewidth,
                 alpha=0.96,
                 zorder=6,
                 solid_capstyle="butt",
             )
-            gene_positions[mapped.gene.accn] = PositionedGene(mapped=mapped, y=y)
+            gene_positions[mapped.gene.accn] = PositionedGene(
+                mapped=mapped,
+                y=y,
+                segment_index=segment_index,
+                chromosome=segment.chromosome,
+            )
             if mapped.gene.accn in target_gene_ids and label_targets:
                 _draw_target_gene_label(ax, _display_accn(mapped.gene.accn), mapped.x, y, segment)
 
@@ -1788,6 +1926,7 @@ def _draw_ribbon_link(
     alpha: float,
     zorder: int,
     focus_y: float | None = None,
+    focus_x: float | None = None,
 ) -> None:
     """Draw a JCVI-style synteny ribbon using gene interval endpoints."""
 
@@ -1795,10 +1934,8 @@ def _draw_ribbon_link(
 
     mid_y1 = focus_y if focus_y is not None else (left_a[1] + right_a[1]) / 2.0
     mid_y2 = focus_y if focus_y is not None else (left_b[1] + right_b[1]) / 2.0
-    left_ctrl_x1 = left_a[0] * 0.78 + right_a[0] * 0.22
-    right_ctrl_x1 = left_a[0] * 0.22 + right_a[0] * 0.78
-    right_ctrl_x2 = left_b[0] * 0.22 + right_b[0] * 0.78
-    left_ctrl_x2 = left_b[0] * 0.78 + right_b[0] * 0.22
+    left_ctrl_x1, right_ctrl_x1 = _ribbon_control_x_pair(left_a[0], right_a[0], focus_x)
+    left_ctrl_x2, right_ctrl_x2 = _ribbon_control_x_pair(left_b[0], right_b[0], focus_x)
     verts = [
         left_a,
         (left_ctrl_x1, mid_y1),
@@ -1832,6 +1969,18 @@ def _draw_ribbon_link(
             clip_on=False,
         )
     )
+
+
+def _ribbon_control_x_pair(start_x: float, end_x: float, focus_x: float | None = None) -> tuple[float, float]:
+    """Return Bezier control x values, optionally passing through a natural focus."""
+
+    first = start_x * 0.78 + end_x * 0.22
+    second = start_x * 0.22 + end_x * 0.78
+    if focus_x is None:
+        return first, second
+    required_sum = (8.0 * focus_x - start_x - end_x) / 3.0
+    shift = (required_sum - first - second) / 2.0
+    return first + shift, second + shift
 
 
 def _draw_target_legend(ax: Axes, entries: list[TargetLegendEntry], *, y_base: float = LEGEND_Y) -> None:

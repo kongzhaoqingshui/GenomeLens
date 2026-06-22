@@ -3,10 +3,12 @@ from pathlib import Path
 import pytest
 
 from jcvi_genomelens.graphics.local_synteny_renderer import (
+    AnchorLink,
     GeneRecord,
     MappedGene,
     PositionedGene,
     _build_track_window,
+    _clustered_natural_focus_x,
     _compute_layout,
     _effective_dpi,
     _format_bp_range,
@@ -14,7 +16,9 @@ from jcvi_genomelens.graphics.local_synteny_renderer import (
     _layout_visual_audit,
     _read_bed,
     _read_blocks,
+    _ribbon_control_x_pair,
     _ribbon_endpoint_pairs,
+    _scaled_gene_tick_linewidth,
     _strip_highlight_prefix,
     render_local_synteny,
 )
@@ -631,6 +635,49 @@ def test_ribbon_endpoint_pairs_reverse_inversions() -> None:
 
     assert right_a[0] < right_b[0]
     assert inv_right_a[0] > inv_right_b[0]
+
+
+def test_tick_linewidth_scales_by_gene_length() -> None:
+    short = MappedGene(GeneRecord("short", "chr", 0, 50, "+"), x=0.2, width=0.01)
+    common = MappedGene(GeneRecord("common", "chr", 0, 100, "+"), x=0.3, width=0.01)
+    long = MappedGene(GeneRecord("long", "chr", 0, 200, "+"), x=0.4, width=0.01)
+
+    assert _scaled_gene_tick_linewidth(short, 100, baseline=0.0175, minimum=0.006) == pytest.approx(0.00875)
+    assert _scaled_gene_tick_linewidth(common, 100, baseline=0.0175, minimum=0.006) == pytest.approx(0.0175)
+    assert _scaled_gene_tick_linewidth(long, 100, baseline=0.0175, minimum=0.006) == pytest.approx(0.035)
+
+
+def test_nearby_link_crossings_cluster_within_same_segment_pair() -> None:
+    def positioned(gene_id: str, x: float, y: float, segment_index: int, chromosome: str) -> PositionedGene:
+        return PositionedGene(
+            MappedGene(GeneRecord(gene_id, chromosome, 0, 100, "+"), x=x, width=0.02),
+            y=y,
+            segment_index=segment_index,
+            chromosome=chromosome,
+        )
+
+    links = [
+        (AnchorLink(0, 0, 1, "a", "b"), positioned("a", 0.20, 0.8, 0, "chrA"), positioned("b", 0.40, 0.6, 0, "chrB")),
+        (AnchorLink(1, 0, 1, "c", "d"), positioned("c", 0.22, 0.8, 0, "chrA"), positioned("d", 0.42, 0.6, 0, "chrB")),
+        (AnchorLink(2, 0, 1, "e", "f"), positioned("e", 0.24, 0.8, 0, "chrA"), positioned("f", 0.44, 0.6, 0, "chrB")),
+        (AnchorLink(3, 0, 1, "g", "h"), positioned("g", 0.20, 0.8, 0, "chrA"), positioned("h", 0.90, 0.6, 0, "chrB")),
+        (AnchorLink(4, 0, 1, "i", "j"), positioned("i", 0.26, 0.8, 1, "chrC"), positioned("j", 0.46, 0.6, 0, "chrB")),
+    ]
+
+    focus_by_row = _clustered_natural_focus_x(links)
+
+    assert focus_by_row[0] == pytest.approx(0.32)
+    assert focus_by_row[1] == pytest.approx(0.32)
+    assert focus_by_row[2] == pytest.approx(0.32)
+    assert 3 not in focus_by_row
+    assert 4 not in focus_by_row
+
+
+def test_ribbon_control_points_pass_through_focus_x() -> None:
+    first, second = _ribbon_control_x_pair(0.10, 0.70, focus_x=0.50)
+    midpoint_x = 0.125 * 0.10 + 0.375 * first + 0.375 * second + 0.125 * 0.70
+
+    assert midpoint_x == pytest.approx(0.50)
 
 
 def test_render_uses_target_legend_and_no_pair_cloud(fixture_dir: Path) -> None:
