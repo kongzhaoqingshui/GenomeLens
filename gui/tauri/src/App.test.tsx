@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-const { invokeMock, dialogOpenMock, mkdirMock, readTextFileMock, writeTextFileMock } = vi.hoisted(() => ({
+const { invokeMock, dialogOpenMock, mkdirMock, writeTextFileMock } = vi.hoisted(() => ({
   invokeMock: vi.fn<(command: string, payload?: Record<string, unknown>) => Promise<unknown>>((command: string) => {
     if (command === "get_template") {
       return Promise.resolve({
@@ -18,6 +18,22 @@ const { invokeMock, dialogOpenMock, mkdirMock, readTextFileMock, writeTextFileMo
       return Promise.resolve({
         title: "GenomeLens AnalysisRequest",
         properties: { kind: { const: "analysis_request" } },
+      });
+    }
+    if (command === "read_request_preview") {
+      return Promise.resolve({
+        requestPath: "/imports/request.json",
+        json: {
+          schema_version: 1,
+          kind: "analysis_request",
+          method: "mcscan",
+          input: { mode: "auto_directory", directory: "/inputs/demo" },
+          output: { directory: "/runs/from-request", force: false, formats: ["png"] },
+          options: { preset: "auto", log_level: "INFO" },
+          method_config: { workflow: "mcscan_pairwise", align_soft: "blast", dbtype: "nucl" },
+        },
+        method: "mcscan",
+        workflow: "mcscan_pairwise",
       });
     }
     if (command === "run_analysis") {
@@ -107,7 +123,6 @@ const { invokeMock, dialogOpenMock, mkdirMock, readTextFileMock, writeTextFileMo
   }),
   dialogOpenMock: vi.fn().mockResolvedValue(null),
   mkdirMock: vi.fn().mockResolvedValue(undefined),
-  readTextFileMock: vi.fn().mockResolvedValue(""),
   writeTextFileMock: vi.fn().mockResolvedValue(undefined),
 }));
 
@@ -125,7 +140,6 @@ vi.mock("@tauri-apps/plugin-dialog", () => ({
 
 vi.mock("@tauri-apps/plugin-fs", () => ({
   mkdir: mkdirMock,
-  readTextFile: readTextFileMock,
   writeTextFile: writeTextFileMock,
 }));
 
@@ -140,8 +154,6 @@ afterEach(() => {
   dialogOpenMock.mockReset();
   dialogOpenMock.mockResolvedValue(null);
   mkdirMock.mockClear();
-  readTextFileMock.mockReset();
-  readTextFileMock.mockResolvedValue("");
   writeTextFileMock.mockClear();
 });
 
@@ -209,17 +221,6 @@ describe("App", () => {
 
   it("imports an existing request JSON and runs it with the current outdir", async () => {
     dialogOpenMock.mockResolvedValueOnce("/imports/request.json");
-    readTextFileMock.mockResolvedValueOnce(
-      JSON.stringify({
-        schema_version: 1,
-        kind: "analysis_request",
-        method: "mcscan",
-        input: { mode: "auto_directory", directory: "/inputs/demo" },
-        output: { directory: "/runs/from-request", force: false, formats: ["png"] },
-        options: { preset: "auto", log_level: "INFO" },
-        method_config: { workflow: "mcscan_pairwise", align_soft: "blast", dbtype: "nucl" },
-      }),
-    );
 
     render(<App />);
 

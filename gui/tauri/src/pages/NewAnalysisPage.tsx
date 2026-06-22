@@ -1,12 +1,11 @@
 import { open } from "@tauri-apps/plugin-dialog";
-import { mkdir, readTextFile, writeTextFile } from "@tauri-apps/plugin-fs";
+import { mkdir, writeTextFile } from "@tauri-apps/plugin-fs";
 import { useEffect, useMemo, useState } from "react";
 
 import { GameIcon, type GameIconName } from "../components/GameIcon";
 import type {
   AlignSoft,
   AnalysisInputMode,
-  AnalysisRequest,
   DbType,
   LogLevel,
   McscanWorkflow,
@@ -29,7 +28,7 @@ import {
 } from "../models/run-session";
 import { validateAnalysisRequestDraft, type ValidationIssue } from "../models/validation";
 import type { AppRoute } from "../routes/routes";
-import { getAnalysisSchema, getTemplateDraft, type JsonObject } from "../services/analysis";
+import { getAnalysisSchema, getTemplateDraft, readRequestPreview, type JsonObject } from "../services/analysis";
 import { listenToAnalysisEvents, openPath, readRunLog, readSummaryView, runAnalysis } from "../services/workbench";
 
 interface NewAnalysisPageProps {
@@ -182,9 +181,13 @@ function asObject(value: unknown): Record<string, unknown> | null {
   return null;
 }
 
-function parseImportedRequest(path: string, sourceText: string): ImportedRequestState {
-  const parsed = JSON.parse(sourceText) as AnalysisRequest;
-  const root = asObject(parsed);
+function parseImportedRequest(preview: {
+  requestPath: string;
+  json: Record<string, unknown> | unknown;
+  method?: string;
+  workflow?: string;
+}): ImportedRequestState {
+  const root = asObject(preview.json);
   if (!root) {
     throw new Error("Imported request must be a JSON object.");
   }
@@ -194,10 +197,10 @@ function parseImportedRequest(path: string, sourceText: string): ImportedRequest
   const methodConfig = asObject(root.method_config);
 
   return {
-    path,
-    json: stringifyJson(parsed),
-    method: typeof root.method === "string" ? root.method : "unknown",
-    workflow: typeof methodConfig?.workflow === "string" ? methodConfig.workflow : "unknown",
+    path: preview.requestPath,
+    json: stringifyJson(preview.json),
+    method: preview.method ?? (typeof root.method === "string" ? root.method : "unknown"),
+    workflow: preview.workflow ?? (typeof methodConfig?.workflow === "string" ? methodConfig.workflow : "unknown"),
     inputMode: typeof input?.mode === "string" ? input.mode : "unknown",
     requestOutputDirectory: typeof output?.directory === "string" ? output.directory : "",
   };
@@ -579,8 +582,8 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
     }
 
     try {
-      const sourceText = await readTextFile(selected);
-      const nextImportedRequest = parseImportedRequest(selected, sourceText);
+      const preview = await readRequestPreview({ requestPath: selected });
+      const nextImportedRequest = parseImportedRequest(preview);
       updateActiveTask((task) => ({
         ...task,
         runStatus: task.runStatus === "confirming" ? "idle" : task.runStatus,
