@@ -1,5 +1,5 @@
-import type { ThemeMode } from "../theme/theme";
 import { useLanguage } from "../i18n/useLanguage";
+import type { ThemeMode } from "../theme/theme";
 
 interface ThemeToggleProps {
   mode: ThemeMode;
@@ -18,18 +18,18 @@ export function ThemeToggle({ mode, resolvedTheme, onChange }: ThemeToggleProps)
 
   return (
     <div
-      className="w-full min-w-0 rounded-lg border border-border bg-surface-raised p-1"
+      className="w-full min-w-0 rounded-lg border border-border bg-surface-raised/95 p-1 shadow-card backdrop-blur"
       aria-label={isZh ? `颜色模式：${resolvedTheme === "dark" ? "深色" : "浅色"}` : `Color mode: ${resolvedTheme}`}
     >
-      <div className="grid min-w-0 grid-cols-3 gap-1 rounded-md bg-surface p-1">
+      <div className="grid min-w-0 grid-cols-3 gap-1 rounded-lg bg-surface p-1">
         {options.map((option) => (
           <button
             key={option.mode}
             type="button"
             className={
               mode === option.mode
-                ? "min-w-0 rounded-md bg-surface-raised px-2 py-1.5 text-xs font-semibold text-text-primary shadow-sm transition"
-                : "min-w-0 rounded-md px-2 py-1.5 text-xs font-medium text-text-secondary transition hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ice-500"
+                ? "ui-pressable min-w-0 rounded-md border border-border bg-surface-raised px-2 py-1.5 text-xs font-semibold text-text-primary shadow-card transition"
+                : "ui-pressable min-w-0 rounded-md px-2 py-1.5 text-xs font-medium text-text-secondary transition hover:bg-surface-raised/70 hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ice-500"
             }
             aria-pressed={mode === option.mode}
             onClick={() => onChange(option.mode)}

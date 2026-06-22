@@ -44,15 +44,15 @@ export function CommandPreview<TData>({ title, command, description, load }: Com
       ? "bg-emerald-50 text-emerald-700"
       : state.status === "error"
         ? "bg-rose-50 text-rose-700"
-        : "bg-slate-100 text-slate-600";
+        : "bg-surface text-text-secondary";
 
   return (
-    <section className="border-t border-slate-200/80">
+    <section className="border-t border-border/90">
       <div className="flex items-start justify-between gap-4 px-6 py-5">
         <div className="min-w-0">
-          <h2 className="text-base font-semibold text-slate-900">{title}</h2>
-          <p className="mt-1 text-sm leading-6 text-slate-500">{description}</p>
-          <p className="mt-2 font-mono text-xs text-slate-400">{command}</p>
+          <h2 className="text-base font-semibold text-text-primary">{title}</h2>
+          <p className="mt-1 text-sm leading-6 text-text-secondary">{description}</p>
+          <p className="mt-2 font-mono text-xs text-text-tertiary">{command}</p>
         </div>
         <span className={`rounded-full px-3 py-1 text-[11px] font-semibold uppercase ${statusClass}`}>
           {isZh
@@ -65,7 +65,7 @@ export function CommandPreview<TData>({ title, command, description, load }: Com
         </span>
       </div>
 
-      <pre className="max-h-80 overflow-auto border-t border-slate-200/80 bg-slate-50 px-6 py-5 font-mono text-xs leading-6 text-slate-600">
+      <pre className="max-h-80 overflow-auto border-t border-border/90 bg-surface px-6 py-5 font-mono text-xs leading-6 text-text-secondary">
         {state.status === "ready"
           ? JSON.stringify(state.data, null, 2)
           : state.status === "error"

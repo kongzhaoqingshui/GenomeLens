@@ -18,15 +18,15 @@ function formatError(error: unknown): string {
 
 function statusClass(state: QueryState | RunSummaryViewModel["status"]) {
   if (state === "SUCCEEDED" || state === "ready") {
-    return "bg-emerald-50 text-emerald-700";
+    return "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-200";
   }
   if (state === "FAILED" || state === "error") {
-    return "bg-rose-50 text-rose-700";
+    return "bg-rose-50 text-rose-700 dark:bg-rose-950/30 dark:text-rose-200";
   }
   if (state === "loading" || state === "RUNNING" || state === "PENDING") {
-    return "bg-amber-50 text-amber-700";
+    return "bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-200";
   }
-  return "bg-slate-100 text-slate-600";
+  return "bg-surface text-text-secondary";
 }
 
 function ResultAssetRow({
@@ -42,18 +42,16 @@ function ResultAssetRow({
   const isZh = language === "zh-CN";
   return (
     <article className="ui-row-item grid gap-3 px-6 py-4 lg:grid-cols-[8rem_minmax(0,1fr)_auto]">
-      <div className="text-sm text-slate-400">{label}</div>
+      <div className="text-sm text-text-tertiary">{label}</div>
       <div className="min-w-0">
-        <p className="truncate text-sm font-medium text-slate-900">{asset.name}</p>
-        <p className="mt-1 break-all text-sm text-slate-500">{asset.path}</p>
+        <p className="truncate text-sm font-medium text-text-primary">{asset.name}</p>
+        <p className="mt-1 break-all text-sm text-text-secondary">{asset.path}</p>
       </div>
       <div className="flex items-center gap-2">
-        <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold uppercase text-slate-600">
-          {asset.format}
-        </span>
+        <span className="rounded-full bg-surface px-2.5 py-1 text-[11px] font-semibold uppercase text-text-secondary">{asset.format}</span>
         <button
           type="button"
-          className="ui-pressable rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
+          className="ui-pressable rounded-lg border border-border bg-surface px-3 py-1.5 text-xs font-medium text-text-secondary transition hover:bg-surface-raised hover:text-text-primary"
           onClick={() => onOpen(asset.path)}
         >
           {isZh ? "打开" : "Open"}
@@ -75,20 +73,20 @@ function ArtifactRow({
   return (
     <article className="ui-row-item grid gap-3 px-6 py-4 lg:grid-cols-[10rem_minmax(0,1fr)_auto]">
       <div className="grid gap-1 text-sm">
-        <span className="font-medium text-slate-900">{artifact.artifact_type}</span>
-        <span className="text-slate-400">{artifact.artifact_id}</span>
+        <span className="font-medium text-text-primary">{artifact.artifact_type}</span>
+        <span className="text-text-tertiary">{artifact.artifact_id}</span>
       </div>
       <div className="min-w-0">
-        <p className="break-all text-sm text-slate-500">{artifact.path}</p>
-        <p className="mt-1 text-xs text-slate-400">{artifact.produced_by}</p>
+        <p className="break-all text-sm text-text-secondary">{artifact.path}</p>
+        <p className="mt-1 text-xs text-text-tertiary">{artifact.produced_by}</p>
       </div>
       <div className="flex items-center gap-2">
-        <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold uppercase text-slate-600">
+        <span className="rounded-full bg-surface px-2.5 py-1 text-[11px] font-semibold uppercase text-text-secondary">
           {artifact.format ?? "unknown"}
         </span>
         <button
           type="button"
-          className="ui-pressable rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
+          className="ui-pressable rounded-lg border border-border bg-surface px-3 py-1.5 text-xs font-medium text-text-secondary transition hover:bg-surface-raised hover:text-text-primary"
           onClick={() => onOpen(artifact.path)}
         >
           {isZh ? "打开" : "Open"}
@@ -110,20 +108,22 @@ function ArtifactSummaryRow({
   return (
     <article className="ui-row-item grid gap-3 px-6 py-4 lg:grid-cols-[10rem_minmax(0,1fr)_auto]">
       <div className="grid gap-1 text-sm">
-        <span className="font-medium text-slate-900">{artifact.name}</span>
-        <span className="text-slate-400">{artifact.source}</span>
+        <span className="font-medium text-text-primary">{artifact.name}</span>
+        <span className="text-text-tertiary">{artifact.source}</span>
       </div>
       <div className="min-w-0">
-        <p className="break-all text-sm text-slate-500">{artifact.path}</p>
-        <p className="mt-1 text-xs text-slate-400">{artifact.preview ? (isZh ? "可预览结果" : "Preview-ready result") : isZh ? "运行输出产物" : "Run output artifact"}</p>
+        <p className="break-all text-sm text-text-secondary">{artifact.path}</p>
+        <p className="mt-1 text-xs text-text-tertiary">
+          {artifact.preview ? (isZh ? "可预览结果" : "Preview-ready result") : isZh ? "运行输出产物" : "Run output artifact"}
+        </p>
       </div>
       <div className="flex items-center gap-2">
-        <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold uppercase text-slate-600">
+        <span className="rounded-full bg-surface px-2.5 py-1 text-[11px] font-semibold uppercase text-text-secondary">
           {artifact.format || "unknown"}
         </span>
         <button
           type="button"
-          className="ui-pressable rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
+          className="ui-pressable rounded-lg border border-border bg-surface px-3 py-1.5 text-xs font-medium text-text-secondary transition hover:bg-surface-raised hover:text-text-primary"
           onClick={() => onOpen(artifact.path)}
         >
           {isZh ? "打开" : "Open"}
@@ -197,16 +197,16 @@ export default function ResultsPage({ route, onNavigate }: ResultsPageProps) {
   }, [summary]);
 
   return (
-    <section className="ui-page-enter grid w-full gap-0 overflow-hidden border border-slate-200 bg-white xl:grid-cols-[17rem_minmax(0,1fr)]">
-      <aside className="border-r border-slate-200/80 bg-[#f6f8f9]">
-        <div className="border-b border-slate-200/80 px-5 py-5">
-          <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-400">{route.label}</p>
-          <h1 className="mt-2 text-lg font-semibold text-slate-900">{isZh ? "运行摘要浏览器" : "Run summary browser"}</h1>
-          <p className="mt-2 text-sm leading-6 text-slate-500">{route.description}</p>
+    <section className="ui-page-enter grid w-full gap-0 overflow-hidden border border-border bg-surface-raised xl:grid-cols-[17rem_minmax(0,1fr)]">
+      <aside className="ui-shell-sidebar border-r">
+        <div className="border-b border-border/90 px-5 py-5">
+          <p className="text-xs font-medium uppercase tracking-[0.16em] text-text-tertiary">{route.label}</p>
+          <h1 className="mt-2 text-lg font-semibold text-text-primary">{isZh ? "运行摘要浏览器" : "Run summary browser"}</h1>
+          <p className="mt-2 text-sm leading-6 text-text-secondary">{route.description}</p>
         </div>
 
         <div className="px-5 py-4">
-          <label className="text-xs font-medium uppercase tracking-[0.18em] text-slate-400" htmlFor="results-outdir">
+          <label className="text-xs font-medium uppercase tracking-[0.16em] text-text-tertiary" htmlFor="results-outdir">
             {isZh ? "输出目录" : "Output directory"}
           </label>
           <input
@@ -214,13 +214,13 @@ export default function ResultsPage({ route, onNavigate }: ResultsPageProps) {
             type="text"
             value={outdir}
             placeholder={isZh ? "输入分析输出目录" : "Enter an analysis outdir"}
-            className="mt-3 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-ice-400 focus:ring-2 focus:ring-ice-100"
+            className="mt-3 w-full rounded-lg border border-border bg-surface-raised px-3 py-2 text-sm text-text-primary outline-none transition placeholder:text-text-tertiary focus:border-ice-400 focus:ring-2 focus:ring-ice-100 dark:focus:ring-ice-900/50"
             onChange={(event) => setOutdir(event.target.value)}
           />
           <div className="mt-3 grid gap-2">
             <button
               type="button"
-              className="ui-pressable rounded-lg bg-slate-900 px-3 py-2 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+              className="ui-pressable rounded-lg bg-ice-500 px-3 py-2 text-sm font-semibold text-white transition hover:bg-ice-400 disabled:cursor-not-allowed disabled:opacity-50"
               disabled={queryState === "loading"}
               onClick={() => void loadSummary()}
             >
@@ -228,7 +228,7 @@ export default function ResultsPage({ route, onNavigate }: ResultsPageProps) {
             </button>
             <button
               type="button"
-              className="ui-pressable rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-600 transition hover:bg-white hover:text-slate-900 disabled:cursor-not-allowed disabled:text-slate-400"
+              className="ui-pressable rounded-lg border border-border bg-surface px-3 py-2 text-sm font-medium text-text-secondary transition hover:bg-surface-raised hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-45"
               disabled={!trimmedOutdir}
               onClick={() => void handleOpenPath(trimmedOutdir)}
             >
@@ -236,7 +236,7 @@ export default function ResultsPage({ route, onNavigate }: ResultsPageProps) {
             </button>
             <button
               type="button"
-              className="ui-pressable rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-600 transition hover:bg-white hover:text-slate-900"
+              className="ui-pressable rounded-lg border border-border bg-surface px-3 py-2 text-sm font-medium text-text-secondary transition hover:bg-surface-raised hover:text-text-primary"
               onClick={() => onNavigate("/analysis/new")}
             >
               {isZh ? "返回工作台" : "Back to workbench"}
@@ -244,55 +244,53 @@ export default function ResultsPage({ route, onNavigate }: ResultsPageProps) {
           </div>
         </div>
 
-        <div className="border-t border-slate-200/80 px-5 py-4">
-          <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-slate-400">{isZh ? "状态" : "State"}</div>
-          <div className="mt-3 divide-y divide-slate-200/80 border-y border-slate-200/80">
+        <div className="border-t border-border/90 px-5 py-4">
+          <div className="text-[11px] font-medium uppercase tracking-[0.16em] text-text-tertiary">{isZh ? "状态" : "State"}</div>
+          <div className="mt-3 divide-y divide-border/90 border-y border-border/90">
             <div className="flex items-center justify-between py-3 text-sm">
-              <span className="text-slate-400">{isZh ? "查询" : "Query"}</span>
-              <span className="font-medium capitalize text-slate-900">{queryState}</span>
+              <span className="text-text-tertiary">{isZh ? "查询" : "Query"}</span>
+              <span className={`rounded-full px-3 py-1 text-[11px] font-semibold uppercase ${statusClass(queryState)}`}>{queryState}</span>
             </div>
             <div className="flex items-center justify-between py-3 text-sm">
-              <span className="text-slate-400">{isZh ? "图件" : "Figures"}</span>
-              <span className="font-medium text-slate-900">{summary?.figureAssets.length ?? 0}</span>
+              <span className="text-text-tertiary">{isZh ? "图件" : "Figures"}</span>
+              <span className="font-medium text-text-primary">{summary?.figureAssets.length ?? 0}</span>
             </div>
             <div className="flex items-center justify-between py-3 text-sm">
-              <span className="text-slate-400">{isZh ? "产物" : "Artifacts"}</span>
-              <span className="font-medium text-slate-900">{artifacts.length || summary?.artifactIndex.length || 0}</span>
+              <span className="text-text-tertiary">{isZh ? "产物" : "Artifacts"}</span>
+              <span className="font-medium text-text-primary">{artifacts.length || summary?.artifactIndex.length || 0}</span>
             </div>
           </div>
         </div>
       </aside>
 
-      <div className="ui-surface-enter min-w-0 bg-white">
-        <div className="border-b border-slate-200/80 px-6 py-5">
+      <div className="ui-surface-enter min-w-0 bg-surface-raised">
+        <div className="border-b border-border/90 px-6 py-5">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-400">{isZh ? "结果" : "Results"}</p>
-              <h2 className="mt-1 text-lg font-semibold text-slate-900">{isZh ? "状态、图件与产物" : "Status, figures, and artifacts"}</h2>
-              <p className="mt-2 text-sm leading-6 text-slate-500">
-                {isZh ? "查看所选输出目录的运行摘要与轻量 artifact 索引。" : "Inspect the run summary and the lightweight artifact index generated for the selected output directory."}
+              <p className="text-xs font-medium uppercase tracking-[0.16em] text-text-tertiary">{isZh ? "结果" : "Results"}</p>
+              <h2 className="mt-1 text-lg font-semibold text-text-primary">{isZh ? "状态、图件与产物" : "Status, figures, and artifacts"}</h2>
+              <p className="mt-2 text-sm leading-6 text-text-secondary">
+                {isZh
+                  ? "查看所选输出目录的运行摘要与轻量 artifact 索引。"
+                  : "Inspect the run summary and the lightweight artifact index generated for the selected output directory."}
               </p>
             </div>
-            <span
-              className={`rounded-full px-3 py-1 text-[11px] font-semibold uppercase ${statusClass(
-                summary?.status ?? queryState,
-              )}`}
-            >
+            <span className={`rounded-full px-3 py-1 text-[11px] font-semibold uppercase ${statusClass(summary?.status ?? queryState)}`}>
               {summary?.status ?? queryState}
             </span>
           </div>
         </div>
 
-        {queryError ? <div className="border-b border-slate-200/80 bg-rose-50 px-6 py-4 text-sm text-rose-700">{queryError}</div> : null}
+        {queryError ? <div className="border-b border-border/90 bg-rose-50 px-6 py-4 text-sm text-rose-700 dark:bg-rose-950/30 dark:text-rose-200">{queryError}</div> : null}
         {artifactError ? (
-          <div className="border-b border-slate-200/80 bg-amber-50 px-6 py-4 text-sm text-amber-700">
-            {isZh ? "产物列表暂不可用：" : "Artifact listing is unavailable: "} {artifactError}
+          <div className="border-b border-border/90 bg-amber-50 px-6 py-4 text-sm text-amber-700 dark:bg-amber-950/30 dark:text-amber-200">
+            {isZh ? "产物列表暂不可用: " : "Artifact listing is unavailable: "} {artifactError}
           </div>
         ) : null}
-        {openError ? <div className="border-b border-slate-200/80 bg-rose-50 px-6 py-4 text-sm text-rose-700">{openError}</div> : null}
+        {openError ? <div className="border-b border-border/90 bg-rose-50 px-6 py-4 text-sm text-rose-700 dark:bg-rose-950/30 dark:text-rose-200">{openError}</div> : null}
 
         {!trimmedOutdir && queryState === "idle" ? (
-          <div className="border-b border-slate-200/80 px-6 py-10 text-sm text-slate-500">
+          <div className="border-b border-border/90 px-6 py-10 text-sm text-text-secondary">
             {isZh ? "输入输出目录后即可查看运行摘要与结果文件。" : "Enter an output directory to inspect a run summary and its result files."}
           </div>
         ) : null}
@@ -301,39 +299,39 @@ export default function ResultsPage({ route, onNavigate }: ResultsPageProps) {
           <>
             <section>
               <div className="px-6 py-4">
-                <h3 className="text-sm font-semibold text-slate-900">{isZh ? "概览" : "Overview"}</h3>
+                <h3 className="text-sm font-semibold text-text-primary">{isZh ? "概览" : "Overview"}</h3>
               </div>
-              <div className="divide-y divide-slate-200/80 border-y border-slate-200/80">
+              <div className="divide-y divide-border/90 border-y border-border/90">
                 <div className="grid grid-cols-[12rem_minmax(0,1fr)] gap-4 px-6 py-4 text-sm">
-                  <span className="text-slate-400">{isZh ? "工作流" : "Workflow"}</span>
-                  <span className="font-medium text-slate-900">{summary.workflow}</span>
+                  <span className="text-text-tertiary">{isZh ? "工作流" : "Workflow"}</span>
+                  <span className="font-medium text-text-primary">{summary.workflow}</span>
                 </div>
                 <div className="grid grid-cols-[12rem_minmax(0,1fr)] gap-4 px-6 py-4 text-sm">
-                  <span className="text-slate-400">{isZh ? "方法" : "Method"}</span>
-                  <span className="font-medium text-slate-900">{summary.method || "Unavailable"}</span>
+                  <span className="text-text-tertiary">{isZh ? "方法" : "Method"}</span>
+                  <span className="font-medium text-text-primary">{summary.method || (isZh ? "不可用" : "Unavailable")}</span>
                 </div>
                 <div className="grid grid-cols-[12rem_minmax(0,1fr)] gap-4 px-6 py-4 text-sm">
-                  <span className="text-slate-400">{isZh ? "进度" : "Progress"}</span>
-                  <span className="font-medium text-slate-900">{summary.progress}%</span>
+                  <span className="text-text-tertiary">{isZh ? "进度" : "Progress"}</span>
+                  <span className="font-medium text-text-primary">{summary.progress}%</span>
                 </div>
                 <div className="grid grid-cols-[12rem_minmax(0,1fr)] gap-4 px-6 py-4 text-sm">
-                  <span className="text-slate-400">{isZh ? "摘要路径" : "Summary path"}</span>
+                  <span className="text-text-tertiary">{isZh ? "摘要路径" : "Summary path"}</span>
                   <button
                     type="button"
-                    className="ui-pressable truncate text-left font-medium text-ice-700 transition hover:text-ice-900"
+                    className="ui-pressable truncate text-left font-medium text-ice-700 transition hover:text-ice-900 dark:text-ice-300 dark:hover:text-ice-100"
                     onClick={() => void handleOpenPath(summary.runSummaryPath)}
                   >
-                    {summary.runSummaryPath || "Unavailable"}
+                    {summary.runSummaryPath || (isZh ? "不可用" : "Unavailable")}
                   </button>
                 </div>
                 <div className="grid grid-cols-[12rem_minmax(0,1fr)] gap-4 px-6 py-4 text-sm">
-                  <span className="text-slate-400">{isZh ? "运行日志" : "Run log"}</span>
+                  <span className="text-text-tertiary">{isZh ? "运行日志" : "Run log"}</span>
                   <button
                     type="button"
-                    className="ui-pressable truncate text-left font-medium text-ice-700 transition hover:text-ice-900"
+                    className="ui-pressable truncate text-left font-medium text-ice-700 transition hover:text-ice-900 dark:text-ice-300 dark:hover:text-ice-100"
                     onClick={() => void handleOpenPath(summary.runLogPath)}
                   >
-                    {summary.runLogPath || "Unavailable"}
+                    {summary.runLogPath || (isZh ? "不可用" : "Unavailable")}
                   </button>
                 </div>
               </div>
@@ -341,41 +339,49 @@ export default function ResultsPage({ route, onNavigate }: ResultsPageProps) {
 
             <section>
               <div className="px-6 py-4">
-                <h3 className="text-sm font-semibold text-slate-900">{isZh ? "主要图件" : "Primary figures"}</h3>
-                <p className="mt-1 text-sm text-slate-500">Figure shortcuts come from the run summary primary figure set.</p>
+                <h3 className="text-sm font-semibold text-text-primary">{isZh ? "主要图件" : "Primary figures"}</h3>
+                <p className="mt-1 text-sm text-text-secondary">
+                  {isZh ? "图件快捷入口来自 run summary 里的 primary figure 集合。" : "Figure shortcuts come from the run summary primary figure set."}
+                </p>
               </div>
 
               {primaryAssets.length > 0 ? (
-                <div className="divide-y divide-slate-200/80 border-y border-slate-200/80">
+                <div className="divide-y divide-border/90 border-y border-border/90">
                   {primaryAssets.map((asset) => (
                     <ResultAssetRow key={asset.path} label={asset.source} asset={asset} onOpen={(path) => void handleOpenPath(path)} />
                   ))}
                 </div>
               ) : (
-                <div className="border-y border-slate-200/80 px-6 py-8 text-sm text-slate-500">No primary figures were advertised in the summary.</div>
+                <div className="border-y border-border/90 px-6 py-8 text-sm text-text-secondary">
+                  {isZh ? "当前摘要没有标记主要图件。" : "No primary figures were advertised in the summary."}
+                </div>
               )}
             </section>
 
             <section>
               <div className="px-6 py-4">
-                <h3 className="text-sm font-semibold text-slate-900">{isZh ? "产物" : "Artifacts"}</h3>
-                <p className="mt-1 text-sm text-slate-500">Artifact rows come from the GUI artifact command, with summary records as fallback context.</p>
+                <h3 className="text-sm font-semibold text-text-primary">{isZh ? "产物" : "Artifacts"}</h3>
+                <p className="mt-1 text-sm text-text-secondary">
+                  {isZh ? "优先展示 GUI artifact 命令返回的行；若命令未返回，再回退到 summary 里的 artifact 记录。" : "Artifact rows come from the GUI artifact command, with summary records as fallback context."}
+                </p>
               </div>
 
               {artifacts.length > 0 ? (
-                <div className="divide-y divide-slate-200/80 border-y border-slate-200/80">
+                <div className="divide-y divide-border/90 border-y border-border/90">
                   {artifacts.map((artifact) => (
                     <ArtifactSummaryRow key={`${artifact.source}-${artifact.path}`} artifact={artifact} onOpen={(path) => void handleOpenPath(path)} />
                   ))}
                 </div>
               ) : summary.artifactIndex.length > 0 ? (
-                <div className="divide-y divide-slate-200/80 border-y border-slate-200/80">
+                <div className="divide-y divide-border/90 border-y border-border/90">
                   {summary.artifactIndex.map((artifact) => (
                     <ArtifactRow key={`${artifact.artifact_id}-${artifact.path}`} artifact={artifact} onOpen={(path) => void handleOpenPath(path)} />
                   ))}
                 </div>
               ) : (
-                <div className="border-y border-slate-200/80 px-6 py-8 text-sm text-slate-500">No artifact records were returned in the current summary.</div>
+                <div className="border-y border-border/90 px-6 py-8 text-sm text-text-secondary">
+                  {isZh ? "当前摘要没有返回任何 artifact 记录。" : "No artifact records were returned in the current summary."}
+                </div>
               )}
             </section>
           </>

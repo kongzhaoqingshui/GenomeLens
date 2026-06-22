@@ -35,6 +35,8 @@ body {
   margin: 0;
   min-width: 960px;
   background: rgb(var(--color-bg));
+  color: rgb(var(--color-text-primary));
+  overflow-x: hidden;
 }
 
 button {
@@ -48,6 +50,7 @@ button {
 
 #root {
   min-height: 100vh;
+  background: rgb(var(--color-bg));
 }
 
 .ui-page-enter {
@@ -95,7 +98,7 @@ button {
 }
 
 .ui-list-item:hover {
-  transform: translateX(2px);
+  transform: translateY(-1px);
 }
 
 .ui-list-item:active {
@@ -150,6 +153,31 @@ button {
 
 .ui-row-item:hover {
   transform: translateY(-1px);
+}
+
+.ui-app-frame {
+  background: rgb(var(--color-bg));
+  color: rgb(var(--color-text-primary));
+}
+
+.ui-shell-sidebar {
+  background: rgb(var(--color-surface));
+  border-color: rgb(var(--color-border) / 0.92);
+}
+
+.ui-shell-main {
+  background: rgb(var(--color-surface-raised));
+  border-color: rgb(var(--color-border) / 0.92);
+}
+
+.ui-soft-panel {
+  background: rgb(var(--color-surface-raised) / 0.86);
+  border-color: rgb(var(--color-border) / 0.92);
+}
+
+.ui-muted-strip {
+  background: rgb(var(--color-surface) / 0.92);
+  border-color: rgb(var(--color-border) / 0.92);
 }
 
 .jcvi-launch-icon {
