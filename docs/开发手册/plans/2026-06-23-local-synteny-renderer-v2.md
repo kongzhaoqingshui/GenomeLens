@@ -37,6 +37,14 @@ chromosome segments.
 - Long anchor-free gaps are represented with break markers and `...`.
 - Multi-track links are adjacent-track links; missing middle values do not create
   cross-track shortcuts.
+- Tracks are rendered at true relative local-window lengths and centered on the
+  shared canvas axis.
+- Synteny links are JCVI-style interval ribbons based on gene widths, with
+  inversion ribbons drawn by reversed endpoints.
+- Very short chromosome segments include up to 10 same-chromosome flanking genes
+  on each side and show truncation ellipses when the BED context continues.
+- Target/highlight genes are represented by coloured ribbons and a bottom legend,
+  not by star markers.
 - Existing `render_local_synteny(...)` call signature remains stable.
 - `use_native_local_synteny_renderer=true` uses V2, while `false` keeps the JCVI
   fallback path.
@@ -47,6 +55,9 @@ chromosome segments.
 
 - Unit tests for renderer segment splitting, gap compression, scoped IDs,
   missing values, and adjacent-only links.
+- Unit tests for centered true-length tracks, flanking context expansion,
+  chromosome label placement rules, interval ribbon endpoints, target legends,
+  and raster DPI handling.
 - Unit tests for multi-species aggregate multi-hit preservation.
 - Engine integration tests for native local synteny multi rendering.
 - Manual visual inspection against `app/gljcvi-auto` intermediate data.

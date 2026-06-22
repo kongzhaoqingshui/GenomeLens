@@ -10,7 +10,6 @@ compressed so cross-chromosome local windows remain readable.
 from __future__ import annotations
 
 import re
-from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 from statistics import median
@@ -25,7 +24,8 @@ from matplotlib.collections import LineCollection  # noqa: E402
 from matplotlib.patches import FancyBboxPatch, PathPatch, Rectangle  # noqa: E402
 from matplotlib.path import Path as MplPath  # noqa: E402
 
-DEFAULT_TRACK_COLORS = ("#2f6f73", "#b85c38", "#5b8c5a", "#8c6bb1", "#c2914a", "#41699e")
+DEFAULT_TRACK_COLORS = ("#5f8f91", "#9a775f", "#718f6f", "#837a9d", "#9a9068", "#697d9b")
+TRACK_BAR_COLORS = ("#86b8ba", "#b49a83", "#9bb898", "#aaa2c0", "#b9b18c", "#98a9c4")
 _CHROMOSOME_COLOR_PALETTE = (
     "#c44e52",
     "#4c72b0",
@@ -39,15 +39,17 @@ _CHROMOSOME_COLOR_PALETTE = (
     "#17becf",
 )
 
-HIGHLIGHT_COLOR = "#000000"
-HIGHLIGHT_LINK_COLOR = "#c94a4f"
-BAR_COLOR = "#49a6b2"
-TICK_COLOR = "#2f3a45"
-GENE_FORWARD_COLOR = "#5f9f81"
-GENE_REVERSE_COLOR = "#5f789e"
+HIGHLIGHT_COLOR = "#263238"
+HIGHLIGHT_LINK_COLORS = ("#c94a4f", "#2f64b7", "#2d9b73", "#d8912f", "#8e63b6", "#2b8ea3")
+HIGHLIGHT_LINK_COLOR = HIGHLIGHT_LINK_COLORS[0]
+BAR_COLOR = "#7fb0b3"
+BAR_EDGE_COLOR = "#5a8286"
+TICK_COLOR = "#56636b"
+GENE_FORWARD_COLOR = "#69aa83"
+GENE_REVERSE_COLOR = "#6f91bf"
 LABEL_BG_COLOR = "#fff8dc"
 LABEL_TEXT_COLOR = "#30363d"
-BACKGROUND_LINK_COLOR = "#b9b9b9"
+BACKGROUND_LINK_COLOR = "#b5b9ba"
 LABEL_BOX_HEIGHT = 0.028
 RANGE_LABEL_HEIGHT = 0.018
 
@@ -58,20 +60,25 @@ MAX_SEGMENT_WIDTH = 0.58
 MIN_SEGMENT_WIDTH = 0.045
 MIN_GENE_WIDTH = 0.0015
 MIN_VISIBLE_GENE_WIDTH = 0.0022
+MIN_RIBBON_GENE_WIDTH = 0.0075
 MAX_INTRA_GAP_WIDTH = 0.035
 COMPRESS_GAP_BP = 500_000
+CONTEXT_FLANK_GENES = 10
+SHORT_SEGMENT_CONTEXT_ANCHORS = 3
+SHORT_SEGMENT_CONTEXT_BP = 100_000
 INTER_SEGMENT_GAP = 0.018
 SEGMENT_COLLISION_GAP = 0.012
 LANE_GAP = 0.055
 TRACK_GAP = 0.20
 TRACK_BAR_HEIGHT = 0.010
+GENE_TICK_HALF_HEIGHT = 0.014
 BREAK_MARK_WIDTH = 0.006
 BREAK_MARK_HEIGHT = 0.020
-LINK_LW = 0.65
-LINK_ALPHA = 0.68
+LINK_ALPHA = 0.30
 LEGEND_Y = 0.045
 LEGEND_SQUARE_SIZE = 0.016
 LEGEND_FONT_SIZE = 6
+MAX_LEGEND_ENTRIES = 12
 DRAW_CHROMOSOME_LEGEND = False
 
 
@@ -113,6 +120,8 @@ class ChromosomeSegment:
     has_compressed_gaps: bool = False
     gap_markers: list[float] = field(default_factory=list)
     lane: int = 0
+    left_truncated: bool = False
+    right_truncated: bool = False
 
     @property
     def span_bp(self) -> float:
@@ -155,6 +164,34 @@ class AnchorLink:
     right_gene: str
 
 
+@dataclass(frozen=True)
+class TargetLegendEntry:
+    """A highlighted target gene shown in the bottom legend."""
+
+    gene_id: str
+    color: str
+    hidden_count: int = 0
+
+
+@dataclass(frozen=True)
+class PositionedGene:
+    """A mapped gene plus rendered y coordinate."""
+
+    mapped: MappedGene
+    y: float
+
+
+@dataclass(frozen=True)
+class TrackIntervalGenes:
+    """BED genes selected for one rendered chromosome interval."""
+
+    items: list[tuple[GeneRecord, int]]
+    start_bp: float
+    end_bp: float
+    left_truncated: bool = False
+    right_truncated: bool = False
+
+
 @dataclass
 class LocalSyntenyScene:
     """Parsed local synteny data before visual placement."""
@@ -173,6 +210,7 @@ class LocalSyntenyLayout:
     block_rows: list[RenderBlock]
     links: list[AnchorLink]
     target_gene_ids: set[str]
+    target_legend_entries: list[TargetLegendEntry]
     figsize: tuple[float, float]
     max_track_width: float = MAX_TRACK_WIDTH
 
@@ -236,12 +274,16 @@ class LocalSyntenyLayoutSolver:
             )
             tracks.append(track)
 
+        for track in tracks:
+            _center_track_window(track)
+
         width, height = _derive_figsize(len(tracks), len(scene.block_rows), figsize, tracks)
         return LocalSyntenyLayout(
             tracks=tracks,
             block_rows=scene.block_rows,
             links=_build_links(scene.block_rows, len(scene.track_names)),
             target_gene_ids=scene.target_gene_ids,
+            target_legend_entries=_build_target_legend_entries(scene.block_rows, scene.target_gene_ids),
             figsize=(width, height),
         )
 
@@ -255,7 +297,7 @@ class MatplotlibLocalSyntenyRenderer:
         output_path: Path,
         *,
         label_targets: bool = False,
-        dpi: int = 300,
+        dpi: int = 600,
         fmt: str = "svg",
     ) -> Path:
         fig, ax = plt.subplots(figsize=layout.figsize)
@@ -264,21 +306,24 @@ class MatplotlibLocalSyntenyRenderer:
         self._assign_track_y(layout)
         track_positions = [_draw_track(ax, track, layout.target_gene_ids, label_targets) for track in layout.tracks]
         self._draw_links(ax, layout, track_positions)
+        ys = [_segment_y(track, segment) for track in layout.tracks for segment in track.segments]
+        legend_y = min(ys) - 0.105 if ys else LEGEND_Y
+        _draw_target_legend(ax, layout.target_legend_entries, y_base=legend_y)
 
         if DRAW_CHROMOSOME_LEGEND:
             chromosomes = sorted({segment.chromosome for track in layout.tracks for segment in track.segments})
             color_map = _build_chromosome_color_map(chromosomes)
             _draw_chromosome_legend(ax, chromosomes, color_map)
         ax.set_xlim(-0.25, 1.02)
-        ys = [_segment_y(track, segment) for track in layout.tracks for segment in track.segments]
         if ys:
-            ax.set_ylim(max(0.0, min(ys) - 0.14), min(1.0, max(ys) + 0.10))
+            bottom = min(legend_y - 0.04 if layout.target_legend_entries else min(ys) - 0.14, min(ys) - 0.14)
+            ax.set_ylim(max(0.0, bottom), min(1.0, max(ys) + 0.10))
         else:
             ax.set_ylim(0.0, 1.0)
-        fig.subplots_adjust(left=0.10, right=0.98, top=0.96, bottom=0.08)
+        fig.subplots_adjust(left=0.10, right=0.98, top=0.96, bottom=0.14)
 
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        fig.savefig(output_path, format=fmt, dpi=dpi, bbox_inches="tight", pad_inches=0.08)
+        fig.savefig(output_path, format=fmt, dpi=_effective_dpi(dpi, fmt), bbox_inches="tight", pad_inches=0.08)
         plt.close(fig)
         return output_path
 
@@ -295,9 +340,9 @@ class MatplotlibLocalSyntenyRenderer:
         self,
         ax: Axes,
         layout: LocalSyntenyLayout,
-        track_positions: list[dict[str, tuple[float, float]]],
+        track_positions: list[dict[str, PositionedGene]],
     ) -> None:
-        drawable_links: list[tuple[AnchorLink, tuple[float, float], tuple[float, float]]] = []
+        drawable_links: list[tuple[AnchorLink, PositionedGene, PositionedGene]] = []
         for link in layout.links:
             if link.left_track >= len(track_positions) or link.right_track >= len(track_positions):
                 continue
@@ -307,27 +352,20 @@ class MatplotlibLocalSyntenyRenderer:
                 continue
             drawable_links.append((link, left, right))
 
-        links_by_pair: dict[tuple[int, int], list[tuple[tuple[float, float], tuple[float, float]]]] = defaultdict(list)
-        for link, left, right in drawable_links:
-            links_by_pair[(link.left_track, link.right_track)].append((left, right))
-        for pair_links in links_by_pair.values():
-            _draw_pair_cloud(ax, pair_links)
-
-        for _link, left, right in drawable_links:
-            _draw_curve_link(ax, left, right, color="#9ca3af", lw=3.8, alpha=0.045, zorder=0)
+        target_colors = _target_color_by_gene(layout)
         for link, left, right in drawable_links:
             color = BACKGROUND_LINK_COLOR
             alpha = LINK_ALPHA
-            lw = LINK_LW
+            zorder = 1
             if layout.block_rows[link.row_index].highlighted:
-                color = HIGHLIGHT_LINK_COLOR
-                alpha = 0.90
-                lw = 1.45
+                color = target_colors.get(layout.block_rows[link.row_index].query_gene, HIGHLIGHT_LINK_COLOR)
+                alpha = 0.86
+                zorder = 2
             elif link.left_gene in layout.target_gene_ids or link.right_gene in layout.target_gene_ids:
-                color = "#6b7280"
-                alpha = 0.72
-                lw = 0.85
-            _draw_curve_link(ax, left, right, color=color, lw=lw, alpha=alpha, zorder=1)
+                color = target_colors.get(link.left_gene) or target_colors.get(link.right_gene) or "#6b7280"
+                alpha = 0.80
+                zorder = 2
+            _draw_ribbon_link(ax, left, right, color=color, alpha=alpha, zorder=zorder)
 
 
 def _strip_highlight_prefix(value: str) -> tuple[bool, str]:
@@ -452,6 +490,30 @@ def _dedupe_gene_rows(items: list[tuple[GeneRecord, int]]) -> list[tuple[GeneRec
     return unique
 
 
+def _track_chromosome_genes(
+    genes: dict[str, GeneRecord],
+    *,
+    track_name: str,
+    chromosome: str,
+) -> list[GeneRecord]:
+    """Return all BED genes for a track/chromosome, preferring scoped IDs."""
+
+    prefix = _track_prefix(track_name)
+    scoped_matches = [
+        gene for gene in genes.values() if _scope_of(gene.accn)[0] == prefix and gene.chromosome == chromosome
+    ]
+    candidates = scoped_matches
+    if not candidates:
+        candidates = [gene for gene in genes.values() if gene.chromosome == chromosome]
+    return sorted(candidates, key=lambda gene: (gene.start, gene.end, gene.accn))
+
+
+def _should_expand_context(anchors: list[tuple[GeneRecord, int]], start_bp: float, end_bp: float) -> bool:
+    """Return True for very small local segments that need flanking context."""
+
+    return len(anchors) <= SHORT_SEGMENT_CONTEXT_ANCHORS or (end_bp - start_bp) <= SHORT_SEGMENT_CONTEXT_BP
+
+
 def _genes_in_track_interval(
     genes: dict[str, GeneRecord],
     *,
@@ -460,31 +522,40 @@ def _genes_in_track_interval(
     start_bp: float,
     end_bp: float,
     anchors: list[tuple[GeneRecord, int]],
-) -> list[tuple[GeneRecord, int]]:
-    """Return all BED genes from one track interval, preserving anchor rows."""
+) -> TrackIntervalGenes:
+    """Return all BED genes from one track interval, preserving anchor rows and context."""
 
     anchor_rows = {gene.accn: row_index for gene, row_index in anchors}
-    prefix = _track_prefix(track_name)
-    scoped_matches = [
-        gene
-        for gene in genes.values()
-        if _scope_of(gene.accn)[0] == prefix
-        and gene.chromosome == chromosome
-        and gene.end >= start_bp
-        and gene.start <= end_bp
-    ]
-    candidates = scoped_matches
-    if not candidates:
-        candidates = [
-            gene
-            for gene in genes.values()
-            if gene.chromosome == chromosome and gene.end >= start_bp and gene.start <= end_bp
-        ]
+    chromosome_genes = _track_chromosome_genes(genes, track_name=track_name, chromosome=chromosome)
+    if not chromosome_genes:
+        return TrackIntervalGenes(list(anchors), start_bp, end_bp)
 
-    merged = {gene.accn: (gene, anchor_rows.get(gene.accn, -1)) for gene in candidates}
+    selected = [gene for gene in chromosome_genes if gene.end >= start_bp and gene.start <= end_bp]
+    if _should_expand_context(anchors, start_bp, end_bp):
+        anchor_accns = {gene.accn for gene, _row_index in anchors}
+        anchor_indices = [index for index, gene in enumerate(chromosome_genes) if gene.accn in anchor_accns]
+        if anchor_indices:
+            left = max(0, min(anchor_indices) - CONTEXT_FLANK_GENES)
+            right = min(len(chromosome_genes) - 1, max(anchor_indices) + CONTEXT_FLANK_GENES)
+            selected = chromosome_genes[left : right + 1]
+
+    merged = {gene.accn: (gene, anchor_rows.get(gene.accn, -1)) for gene in selected}
     for gene, row_index in anchors:
         merged[gene.accn] = (gene, row_index)
-    return sorted(merged.values(), key=lambda item: (item[0].start, item[0].end, item[0].accn))
+    ordered = sorted(merged.values(), key=lambda item: (item[0].start, item[0].end, item[0].accn))
+    selected_accns = {gene.accn for gene, _row_index in ordered}
+    selected_indices = [index for index, gene in enumerate(chromosome_genes) if gene.accn in selected_accns]
+    left_truncated = bool(selected_indices and min(selected_indices) > 0)
+    right_truncated = bool(selected_indices and max(selected_indices) < len(chromosome_genes) - 1)
+    interval_start = min((gene.start for gene, _row_index in ordered), default=start_bp)
+    interval_end = max((gene.end for gene, _row_index in ordered), default=end_bp)
+    return TrackIntervalGenes(
+        items=ordered,
+        start_bp=float(interval_start),
+        end_bp=float(interval_end),
+        left_truncated=left_truncated,
+        right_truncated=right_truncated,
+    )
 
 
 def _total_track_span(items: list[tuple[GeneRecord, int]]) -> float:
@@ -502,6 +573,48 @@ def _track_visual_width_for_span(span: float, max_span: float) -> float:
     if max_span <= 0:
         return MAX_TRACK_WIDTH
     return max(MIN_SEGMENT_WIDTH, MAX_TRACK_WIDTH * max(1.0, span) / max_span)
+
+
+def _center_track_window(track: TrackWindow) -> None:
+    """Center one track's solved visual span on the shared canvas axis."""
+
+    if not track.segments:
+        return
+    left = min(segment.visual_start for segment in track.segments)
+    right = max(segment.visual_end for segment in track.segments)
+    desired_center = (AXIS_LEFT + AXIS_RIGHT) / 2.0
+    _shift = desired_center - (left + right) / 2.0
+    for segment in track.segments:
+        _shift_segment(segment, _shift)
+
+
+def _build_target_legend_entries(
+    block_rows: list[RenderBlock],
+    target_gene_ids: set[str],
+) -> list[TargetLegendEntry]:
+    """Build stable target legend entries from highlighted rows and explicit target genes."""
+
+    ordered: list[str] = []
+    for row in block_rows:
+        if row.highlighted and row.query_gene not in ordered:
+            ordered.append(row.query_gene)
+    for gene_id in sorted(target_gene_ids):
+        if gene_id not in ordered:
+            ordered.append(gene_id)
+    entries = [
+        TargetLegendEntry(gene_id=gene_id, color=HIGHLIGHT_LINK_COLORS[index % len(HIGHLIGHT_LINK_COLORS)])
+        for index, gene_id in enumerate(ordered[:MAX_LEGEND_ENTRIES])
+    ]
+    if len(ordered) > MAX_LEGEND_ENTRIES and entries:
+        last = entries[-1]
+        entries[-1] = TargetLegendEntry(last.gene_id, last.color, hidden_count=len(ordered) - MAX_LEGEND_ENTRIES)
+    return entries
+
+
+def _target_color_by_gene(layout: LocalSyntenyLayout) -> dict[str, str]:
+    """Return legend colour by full gene ID."""
+
+    return {entry.gene_id: entry.color for entry in layout.target_legend_entries}
 
 
 def _estimate_segment_width(genes: list[GeneRecord]) -> float:
@@ -733,7 +846,7 @@ def _build_reference_track(
     for (chromosome, group), span in zip(groups, spans, strict=False):
         start_bp = min(gene.start for gene, _ in group)
         end_bp = max(gene.end for gene, _ in group)
-        interval_items = _genes_in_track_interval(
+        interval = _genes_in_track_interval(
             genes,
             track_name=name,
             chromosome=chromosome,
@@ -745,7 +858,7 @@ def _build_reference_track(
         if x + visual_width > AXIS_RIGHT:
             visual_width = max(MIN_SEGMENT_WIDTH, AXIS_RIGHT - x)
         mapped, start_bp, end_bp = _map_reference_segment_genes(
-            interval_items,
+            interval.items,
             visual_start=x,
             visual_width=visual_width,
         )
@@ -761,6 +874,8 @@ def _build_reference_track(
                 end_bp=end_bp,
                 visual_start=x,
                 visual_end=x + visual_width,
+                left_truncated=interval.left_truncated,
+                right_truncated=interval.right_truncated,
             )
         )
         x += visual_width + INTER_SEGMENT_GAP
@@ -802,7 +917,7 @@ def _build_target_track(
     for chromosome, group in _chromosome_ordered_groups(_dedupe_gene_rows(items)):
         start_bp = min(gene.start for gene, _ in group)
         end_bp = max(gene.end for gene, _ in group)
-        interval_items = _genes_in_track_interval(
+        interval = _genes_in_track_interval(
             genes,
             track_name=name,
             chromosome=chromosome,
@@ -810,18 +925,16 @@ def _build_target_track(
             end_bp=end_bp,
             anchors=group,
         )
-        if not interval_items:
+        if not interval.items:
             continue
-        interval_start = min(gene.start for gene, _ in interval_items)
-        interval_end = max(gene.end for gene, _ in interval_items)
         segment_specs.append(
             (
                 chromosome,
                 group,
-                interval_items,
-                float(interval_start),
-                float(interval_end),
-                max(1.0, float(interval_end - interval_start)),
+                interval,
+                interval.start_bp,
+                interval.end_bp,
+                max(1.0, interval.end_bp - interval.start_bp),
             )
         )
 
@@ -831,12 +944,12 @@ def _build_target_track(
         max(MIN_SEGMENT_WIDTH, available_width),
     )
 
-    for (chromosome, _group, interval_items, start_bp, end_bp, _span), target_width in zip(
+    for (chromosome, _group, interval, start_bp, end_bp, _span), target_width in zip(
         segment_specs,
         target_widths,
         strict=False,
     ):
-        mapped, gap_markers, compressed = _map_segment_genes(interval_items, start_x=0.0, target_width=target_width)
+        mapped, gap_markers, compressed = _map_segment_genes(interval.items, start_x=0.0, target_width=target_width)
         if not mapped:
             continue
         anchor_mapped = [item for item in mapped if item.row_index in row_x]
@@ -868,6 +981,8 @@ def _build_target_track(
                 visual_end=max(item.x + item.width / 2.0 for item in mapped),
                 has_compressed_gaps=compressed,
                 gap_markers=shifted_markers,
+                left_truncated=interval.left_truncated,
+                right_truncated=interval.right_truncated,
             )
         )
 
@@ -1003,12 +1118,53 @@ def _compute_layout(
     track_names: list[str],
     target_gene_ids: list[str],
     figsize: str = "",
-    dpi: int = 300,
+    dpi: int = 600,
 ) -> LocalSyntenyLayout:
     """Build the chromosome-aware scene from blocks + BED."""
 
     scene = LocalSyntenySceneBuilder().build(blocks_path, bed_path, track_names, target_gene_ids)
     return LocalSyntenyLayoutSolver().solve(scene, figsize=figsize, dpi=dpi)
+
+
+def _effective_dpi(dpi: int, fmt: str) -> int:
+    """Return at least 2x raster DPI while leaving vector output unaffected."""
+
+    if fmt.lower() in {"png", "jpg", "jpeg", "tif", "tiff", "webp"}:
+        return max(600, dpi)
+    return max(1, dpi)
+
+
+def _layout_visual_audit(layout: LocalSyntenyLayout) -> dict[str, object]:
+    """Return compact geometry facts for visual regression checks."""
+
+    track_records: list[dict[str, object]] = []
+    for track in layout.tracks:
+        if track.segments:
+            left = min(segment.visual_start for segment in track.segments)
+            right = max(segment.visual_end for segment in track.segments)
+        else:
+            left = right = 0.0
+        track_records.append(
+            {
+                "name": track.name,
+                "center": round((left + right) / 2.0, 6),
+                "width": round(right - left, 6),
+                "segments": [
+                    {
+                        "chromosome": segment.chromosome,
+                        "width": round(segment.visual_end - segment.visual_start, 6),
+                        "left_truncated": segment.left_truncated,
+                        "right_truncated": segment.right_truncated,
+                    }
+                    for segment in track.segments
+                ],
+            }
+        )
+    return {
+        "tracks": track_records,
+        "ribbon_count": len(layout.links),
+        "legend_entries": [entry.gene_id for entry in layout.target_legend_entries],
+    }
 
 
 def _derive_figsize(
@@ -1027,7 +1183,7 @@ def _derive_figsize(
             except ValueError:
                 pass
     lane_total = sum(track.lane_count for track in tracks or [])
-    height = max(4.2, 1.35 + track_count * 0.78 + lane_total * 0.24)
+    height = max(4.5, 1.65 + track_count * 0.78 + lane_total * 0.24)
     width = max(10.0, min(18.0, 8.0 + block_rows * 0.045))
     return width, height
 
@@ -1046,6 +1202,71 @@ def _draw_break_marker(ax: Axes, x: float, y: float, color: str = "#777777") -> 
             zorder=7,
             solid_capstyle="round",
         )
+
+
+def _draw_segment_truncation_markers(ax: Axes, segment: ChromosomeSegment, y: float) -> None:
+    """Draw ellipsis markers when a context-expanded segment is still clipped."""
+
+    if segment.left_truncated:
+        ax.text(
+            segment.visual_start - 0.012,
+            y,
+            "...",
+            fontsize=7,
+            ha="right",
+            va="center",
+            color="#68727a",
+            zorder=8,
+            clip_on=False,
+        )
+    if segment.right_truncated:
+        ax.text(
+            segment.visual_end + 0.012,
+            y,
+            "...",
+            fontsize=7,
+            ha="left",
+            va="center",
+            color="#68727a",
+            zorder=8,
+            clip_on=False,
+        )
+
+
+def _track_bar_color(index: int) -> str:
+    """Return a muted per-track bar colour."""
+
+    return TRACK_BAR_COLORS[index % len(TRACK_BAR_COLORS)]
+
+
+def _track_bar_edge_color(index: int) -> str:
+    """Return a muted per-track bar edge colour."""
+
+    return DEFAULT_TRACK_COLORS[index % len(DEFAULT_TRACK_COLORS)]
+
+
+def _draw_gene_tick_collection(
+    ax: Axes,
+    ticks: list[list[tuple[float, float]]],
+    color: str,
+    *,
+    alpha: float,
+    linewidth: float,
+) -> None:
+    """Draw many background gene ticks efficiently."""
+
+    if not ticks:
+        return
+    ax.add_collection(
+        LineCollection(
+            ticks,
+            colors=color,
+            linewidths=linewidth,
+            alpha=alpha,
+            zorder=4,
+            clip_on=False,
+        )
+    )
 
 
 def _abbreviate_track_name(name: str) -> str:
@@ -1169,15 +1390,15 @@ def _draw_range_label(
     width = _estimate_range_label_width(text)
     center = (segment.visual_start + segment.visual_end) / 2.0
     candidates = [
-        (center, y + 0.034),
         (center, y - 0.034),
-        (center, y + 0.064),
         (center, y - 0.064),
-        (segment.visual_end + width / 2.0 + 0.010, y + 0.026),
         (segment.visual_start - width / 2.0 - 0.010, y - 0.026),
+        (segment.visual_end + width / 2.0 + 0.010, y - 0.026),
+        (center, y + 0.034),
+        (center, y + 0.064),
     ]
     label_x = _clamp(center, -0.22 + width / 2.0, AXIS_RIGHT - width / 2.0)
-    label_y = y + 0.034
+    label_y = y - 0.034
     label_rect = _centered_rect(label_x, label_y, width, RANGE_LABEL_HEIGHT)
     for raw_x, raw_y in candidates:
         x = _clamp(raw_x, -0.22 + width / 2.0, AXIS_RIGHT - width / 2.0)
@@ -1207,15 +1428,14 @@ def _draw_range_label(
 
 
 def _target_star_rects(track: TrackWindow, target_gene_ids: set[str]) -> list[tuple[float, float, float, float]]:
-    """Return rough occupied rectangles for target-star markers."""
+    """Return target marker occupied rectangles.
 
-    rects: list[tuple[float, float, float, float]] = []
-    for segment in track.segments:
-        y = _segment_y(track, segment)
-        for mapped in segment.genes:
-            if mapped.gene.accn in target_gene_ids:
-                rects.append((mapped.x - 0.018, mapped.x + 0.018, y - 0.030, y + 0.030))
-    return rects
+    Target stars were removed in favour of a bottom colour legend, so labels no
+    longer need to reserve marker space.
+    """
+
+    del track, target_gene_ids
+    return []
 
 
 def _label_positions_for_segments(
@@ -1226,19 +1446,12 @@ def _label_positions_for_segments(
 
     occupied: list[tuple[float, float, float, float]] = _target_star_rects(track, target_gene_ids)
     positions: dict[int, tuple[float, float]] = {}
-    for original_index, segment in sorted(enumerate(track.segments), key=lambda item: item[1].visual_start):
+    ordered_segments = sorted(enumerate(track.segments), key=lambda item: item[1].visual_start)
+    for ordered_index, (original_index, segment) in enumerate(ordered_segments):
         y = _segment_y(track, segment)
         width = _estimate_label_box_width(segment.chromosome)
         center = (segment.visual_start + segment.visual_end) / 2.0
-        candidates = [
-            (segment.visual_start - width - 0.008, y),
-            (segment.visual_start - width - 0.008, y + 0.052),
-            (segment.visual_start - width - 0.008, y - 0.052),
-            (segment.visual_start - width * 0.45, y + 0.043),
-            (segment.visual_start - width * 0.45, y - 0.043),
-            (center - width / 2.0, y + 0.043),
-            (center - width / 2.0, y - 0.043),
-        ]
+        candidates = _chromosome_label_candidates(track, segment, ordered_index, center, width, y)
         fallback = candidates[-1]
         for raw_x, raw_y in candidates:
             x = _clamp(raw_x, -0.22, AXIS_RIGHT - width)
@@ -1255,6 +1468,38 @@ def _label_positions_for_segments(
             positions[original_index] = (x, fallback[1])
             occupied.append(_label_rect(x, fallback[1], width))
     return positions
+
+
+def _chromosome_label_candidates(
+    track: TrackWindow,
+    segment: ChromosomeSegment,
+    ordered_index: int,
+    center: float,
+    width: float,
+    y: float,
+) -> list[tuple[float, float]]:
+    """Return chromosome label candidates following local synteny style rules."""
+
+    has_long_name = len(segment.chromosome) > 8
+    if len(track.segments) == 2 and not has_long_name:
+        if ordered_index == 0:
+            primary = (segment.visual_start - width - 0.008, y)
+        else:
+            primary = (segment.visual_end + 0.008, y)
+        return [
+            primary,
+            (primary[0], y + 0.052),
+            (center - width / 2.0, y + 0.048),
+            (center - width / 2.0, y - 0.050),
+        ]
+
+    return [
+        (center - width / 2.0, y + 0.052),
+        (segment.visual_start - width * 0.30, y + 0.052),
+        (segment.visual_end - width * 0.70, y + 0.052),
+        (segment.visual_start - width - 0.008, y),
+        (segment.visual_end + 0.008, y),
+    ]
 
 
 def _draw_star(ax: Axes, x: float, y: float, color: str = HIGHLIGHT_LINK_COLOR) -> None:
@@ -1331,10 +1576,10 @@ def _draw_track(
     track: TrackWindow,
     target_gene_ids: set[str],
     label_targets: bool,
-) -> dict[str, tuple[float, float]]:
+) -> dict[str, PositionedGene]:
     """Draw one track and return gene centre positions."""
 
-    gene_positions: dict[str, tuple[float, float]] = {}
+    gene_positions: dict[str, PositionedGene] = {}
     label_positions = _label_positions_for_segments(track, target_gene_ids)
     occupied_text_rects = _target_star_rects(track, target_gene_ids)
     for segment_index, (label_x, label_y) in label_positions.items():
@@ -1342,10 +1587,11 @@ def _draw_track(
         occupied_text_rects.append(_label_rect(label_x, label_y, _estimate_label_box_width(segment.chromosome)))
 
     ax.text(
-        -0.235,
+        -0.130,
         track.y,
         _abbreviate_track_name(track.name),
         fontsize=8,
+        fontweight="bold",
         ha="left",
         va="center",
         color=track.color,
@@ -1360,34 +1606,33 @@ def _draw_track(
             max(MIN_SEGMENT_WIDTH / 2.0, segment.visual_end - segment.visual_start),
             TRACK_BAR_HEIGHT,
             boxstyle=f"round,pad=0,rounding_size={TRACK_BAR_HEIGHT / 2.0}",
-            facecolor=BAR_COLOR,
-            edgecolor="#2d6970",
+            facecolor=_track_bar_color(track.index),
+            edgecolor=_track_bar_edge_color(track.index),
             lw=0.4,
             zorder=3,
             clip_on=False,
         )
         ax.add_patch(bar)
 
+        _draw_segment_truncation_markers(ax, segment, y)
         for marker in segment.gap_markers:
             _draw_break_marker(ax, marker, y)
             ax.text(marker, y + 0.026, "...", fontsize=6, ha="center", va="bottom", color="#777777", zorder=8)
 
-        tick_top = y + 0.021
-        tick_bottom = y - 0.021
-        background_ticks = [
-            [(mapped.x, tick_bottom), (mapped.x, tick_top)] for mapped in segment.genes if mapped.row_index < 0
+        tick_top = y + GENE_TICK_HALF_HEIGHT
+        tick_bottom = y - GENE_TICK_HALF_HEIGHT
+        background_forward = [
+            [(mapped.x, tick_bottom), (mapped.x, tick_top)]
+            for mapped in segment.genes
+            if mapped.row_index < 0 and mapped.gene.strand != "-"
         ]
-        if background_ticks:
-            ax.add_collection(
-                LineCollection(
-                    background_ticks,
-                    colors=TICK_COLOR,
-                    linewidths=0.20,
-                    alpha=0.105,
-                    zorder=4,
-                    clip_on=False,
-                )
-            )
+        background_reverse = [
+            [(mapped.x, tick_bottom), (mapped.x, tick_top)]
+            for mapped in segment.genes
+            if mapped.row_index < 0 and mapped.gene.strand == "-"
+        ]
+        _draw_gene_tick_collection(ax, background_forward, GENE_FORWARD_COLOR, alpha=0.36, linewidth=0.26)
+        _draw_gene_tick_collection(ax, background_reverse, GENE_REVERSE_COLOR, alpha=0.36, linewidth=0.26)
         for mapped in segment.genes:
             is_anchor = mapped.row_index >= 0
             if not is_anchor:
@@ -1403,7 +1648,7 @@ def _draw_track(
                     gene_height,
                     facecolor=gene_color,
                     edgecolor="none",
-                    alpha=0.52,
+                    alpha=0.70,
                     zorder=5,
                     clip_on=False,
                 )
@@ -1411,16 +1656,14 @@ def _draw_track(
             ax.plot(
                 [mapped.x, mapped.x],
                 [tick_bottom, tick_top],
-                color=TICK_COLOR,
-                lw=0.44,
-                alpha=0.64,
+                color=gene_color,
+                lw=0.52,
+                alpha=0.86,
                 zorder=6,
             )
-            gene_positions[mapped.gene.accn] = (mapped.x, y)
-            if mapped.gene.accn in target_gene_ids:
-                _draw_star(ax, mapped.x, y)
-                if label_targets:
-                    _draw_target_gene_label(ax, _display_accn(mapped.gene.accn), mapped.x, y, segment)
+            gene_positions[mapped.gene.accn] = PositionedGene(mapped=mapped, y=y)
+            if mapped.gene.accn in target_gene_ids and label_targets:
+                _draw_target_gene_label(ax, _display_accn(mapped.gene.accn), mapped.x, y, segment)
 
         label_x, label_y = label_positions.get(segment_index, (-0.18, y))
         _draw_label_box(ax, segment.chromosome, label_x, label_y)
@@ -1436,56 +1679,53 @@ def _draw_track(
     return gene_positions
 
 
-def _draw_curve_link(
+def _gene_interval_points(positioned: PositionedGene) -> tuple[tuple[float, float], tuple[float, float]]:
+    """Return visual left/right endpoints for one mapped gene."""
+
+    width = max(MIN_RIBBON_GENE_WIDTH, positioned.mapped.width)
+    x1 = positioned.mapped.x - width / 2.0
+    x2 = positioned.mapped.x + width / 2.0
+    return (x1, positioned.y), (x2, positioned.y)
+
+
+def _ribbon_endpoint_pairs(
+    left: PositionedGene,
+    right: PositionedGene,
+) -> tuple[tuple[float, float], tuple[float, float], tuple[float, float], tuple[float, float]]:
+    """Return ribbon endpoint pairs, reversing the right end for inversions."""
+
+    left_a, left_b = _gene_interval_points(left)
+    right_a, right_b = _gene_interval_points(right)
+    if left.mapped.gene.strand != right.mapped.gene.strand:
+        right_a, right_b = right_b, right_a
+    return left_a, left_b, right_a, right_b
+
+
+def _draw_ribbon_link(
     ax: Axes,
-    p1: tuple[float, float],
-    p2: tuple[float, float],
-    color: str = BACKGROUND_LINK_COLOR,
-    lw: float = LINK_LW,
-    alpha: float = LINK_ALPHA,
-    zorder: int = 1,
+    left: PositionedGene,
+    right: PositionedGene,
+    *,
+    color: str,
+    alpha: float,
+    zorder: int,
 ) -> None:
-    """Draw a thin curved synteny link."""
+    """Draw a JCVI-style synteny ribbon using gene interval endpoints."""
 
-    x1, y1 = p1
-    x2, y2 = p2
-    mid_y = (y1 + y2) / 2.0
-    verts = [(x1, y1), (x1, mid_y), (x2, mid_y), (x2, y2)]
-    codes = [MplPath.MOVETO, MplPath.CURVE4, MplPath.CURVE4, MplPath.CURVE4]
-    ax.add_patch(PathPatch(MplPath(verts, codes), fill=False, edgecolor=color, lw=lw, alpha=alpha, zorder=zorder))
+    left_a, left_b, right_a, right_b = _ribbon_endpoint_pairs(left, right)
 
-
-def _draw_pair_cloud(
-    ax: Axes,
-    links: list[tuple[tuple[float, float], tuple[float, float]]],
-) -> None:
-    """Draw a soft filled synteny cloud between one adjacent track pair."""
-
-    if len(links) < 3:
-        return
-    left_points = [left for left, _right in links]
-    right_points = [right for _left, right in links]
-    top_y = median(point[1] for point in left_points)
-    bottom_y = median(point[1] for point in right_points)
-    top_left, top_right = (
-        _percentile([point[0] for point in left_points], 0.10),
-        _percentile([point[0] for point in left_points], 0.90),
-    )
-    bottom_left, bottom_right = (
-        _percentile([point[0] for point in right_points], 0.10),
-        _percentile([point[0] for point in right_points], 0.90),
-    )
-    mid_y = (top_y + bottom_y) / 2.0
+    mid_y1 = (left_a[1] + right_a[1]) / 2.0
+    mid_y2 = (left_b[1] + right_b[1]) / 2.0
     verts = [
-        (top_left, top_y),
-        (top_left, mid_y),
-        (bottom_left, mid_y),
-        (bottom_left, bottom_y),
-        (bottom_right, bottom_y),
-        (bottom_right, mid_y),
-        (top_right, mid_y),
-        (top_right, top_y),
-        (top_left, top_y),
+        left_a,
+        (left_a[0], mid_y1),
+        (right_a[0], mid_y1),
+        right_a,
+        right_b,
+        (right_b[0], mid_y2),
+        (left_b[0], mid_y2),
+        left_b,
+        left_a,
     ]
     codes = [
         MplPath.MOVETO,
@@ -1501,12 +1741,45 @@ def _draw_pair_cloud(
     ax.add_patch(
         PathPatch(
             MplPath(verts, codes),
-            facecolor="#b8b8b8",
-            edgecolor="none",
-            alpha=0.085,
-            zorder=-1,
+            facecolor=color,
+            edgecolor=color,
+            lw=0,
+            alpha=alpha,
+            zorder=zorder,
+            clip_on=False,
         )
     )
+
+
+def _draw_target_legend(ax: Axes, entries: list[TargetLegendEntry], *, y_base: float = LEGEND_Y) -> None:
+    """Draw a bottom legend mapping highlight colours to target genes."""
+
+    if not entries:
+        return
+    columns = min(6, len(entries))
+    row_gap = 0.034
+    x0 = AXIS_LEFT
+    col_width = min(0.145, MAX_TRACK_WIDTH / max(1, columns))
+    for index, entry in enumerate(entries):
+        row = index // columns
+        col = index % columns
+        x = x0 + col * col_width
+        y = y_base - row * row_gap
+        ax.plot([x, x + 0.030], [y, y], color=entry.color, lw=2.4, solid_capstyle="round", zorder=12, clip_on=False)
+        label = _display_accn(entry.gene_id)
+        if entry.hidden_count:
+            label = f"{label} +{entry.hidden_count}"
+        ax.text(
+            x + 0.036,
+            y,
+            label,
+            fontsize=LEGEND_FONT_SIZE,
+            ha="left",
+            va="center",
+            color="#374151",
+            zorder=12,
+            clip_on=False,
+        )
 
 
 def _percentile(values: list[float], fraction: float) -> float:
@@ -1583,7 +1856,7 @@ def render_local_synteny(
     target_gene_ids: list[str] | None = None,
     label_targets: bool = False,
     figsize: str = "",
-    dpi: int = 300,
+    dpi: int = 600,
     fmt: str = "svg",
 ) -> Path:
     """Render a chromosome-aware local synteny figure."""

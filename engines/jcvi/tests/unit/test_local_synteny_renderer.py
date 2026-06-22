@@ -4,11 +4,17 @@ import pytest
 
 from jcvi_genomelens.graphics.local_synteny_renderer import (
     GeneRecord,
+    MappedGene,
+    PositionedGene,
     _build_track_window,
     _compute_layout,
+    _effective_dpi,
     _format_bp_range,
+    _label_positions_for_segments,
+    _layout_visual_audit,
     _read_bed,
     _read_blocks,
+    _ribbon_endpoint_pairs,
     _strip_highlight_prefix,
     render_local_synteny,
 )
@@ -146,8 +152,10 @@ def test_render_highlights_target_genes(fixture_dir: Path) -> None:
         target_gene_ids=["g2", "g5"],
     )
     content = output.read_text(encoding="utf-8")
-    # The highlight marker should be drawn in black.
-    assert "#000000" in content
+    # Target genes are shown in the bottom colour legend, not as star markers.
+    assert "g2" in content
+    assert "g5" in content
+    assert "#000000" not in content
 
 
 def test_render_includes_chromosome_legend(fixture_dir: Path) -> None:
@@ -394,6 +402,30 @@ def test_compute_layout_scales_track_lengths_across_species_by_bed_span(tmp_path
     assert subject_width < reference_width * 0.35
 
 
+def test_compute_layout_centers_tracks_after_scaling(tmp_path: Path) -> None:
+    bed = tmp_path / "all.bed"
+    bed.write_text(
+        "\n".join(
+            [
+                "qchr\t0\t10\tq1\t0\t+",
+                "qchr\t1000\t1010\tq2\t0\t+",
+                "schr\t0\t10\ts1\t0\t+",
+                "schr\t100\t110\ts2\t0\t+",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    blocks = tmp_path / "blocks.txt"
+    blocks.write_text("q1\ts1\nq2\ts2\n", encoding="utf-8")
+
+    layout = _compute_layout(blocks, bed, ["Ref", "Sub"], [])
+    audit = _layout_visual_audit(layout)
+    centers = [track["center"] for track in audit["tracks"]]
+
+    assert centers == pytest.approx([0.48, 0.48], abs=1e-6)
+
+
 def test_compressed_background_gaps_do_not_expand_track_length(tmp_path: Path) -> None:
     bed = tmp_path / "all.bed"
     subject_genes = [f"schr\t{i * 10000}\t{i * 10000 + 20}\ts{i}\t0\t+" for i in range(80)]
@@ -416,6 +448,30 @@ def test_compressed_background_gaps_do_not_expand_track_length(tmp_path: Path) -
     reference_width = layout.tracks[0].segments[0].visual_end - layout.tracks[0].segments[0].visual_start
     subject_width = layout.tracks[1].segments[0].visual_end - layout.tracks[1].segments[0].visual_start
     assert subject_width < reference_width * 0.50
+
+
+def test_short_segment_expands_to_flanking_context_and_marks_truncation(tmp_path: Path) -> None:
+    bed = tmp_path / "all.bed"
+    subject_genes = [f"schr\t{i * 100}\t{i * 100 + 20}\ts{i}\t0\t+" for i in range(25)]
+    bed.write_text(
+        "\n".join(
+            [
+                "qchr\t0\t20\tq1\t0\t+",
+                *subject_genes,
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    blocks = tmp_path / "blocks.txt"
+    blocks.write_text("q1\ts12\n", encoding="utf-8")
+
+    layout = _compute_layout(blocks, bed, ["Ref", "Sub"], [])
+    segment = layout.tracks[1].segments[0]
+
+    assert len(segment.genes) >= 21
+    assert segment.left_truncated is True
+    assert segment.right_truncated is True
 
 
 def test_compute_layout_keeps_multiple_chromosomes_on_one_row(tmp_path: Path) -> None:
@@ -487,3 +543,54 @@ def test_compute_layout_handles_scoped_ids_and_missing_values(tmp_path: Path) ->
     assert {(link.left_gene, link.right_gene) for link in layout.links} == {
         ("query__q1", "subject__s1"),
     }
+
+
+def test_chromosome_label_positions_follow_segment_count_rules(fixture_dir: Path) -> None:
+    layout = _compute_layout(
+        fixture_dir / "blocks.txt",
+        fixture_dir / "all.bed",
+        ["Ref", "Sub"],
+        [],
+    )
+
+    two_segment_track = layout.tracks[1]
+    two_positions = _label_positions_for_segments(two_segment_track, set())
+    assert two_positions[0][0] < two_segment_track.segments[0].visual_start
+    assert two_positions[1][0] > two_segment_track.segments[1].visual_end
+
+    three_segment_track = layout.tracks[0]
+    three_positions = _label_positions_for_segments(three_segment_track, set())
+    assert all(position[1] > three_segment_track.y for position in three_positions.values())
+
+
+def test_ribbon_endpoint_pairs_reverse_inversions() -> None:
+    left = PositionedGene(MappedGene(GeneRecord("a", "chr", 0, 100, "+"), x=0.20, width=0.04), y=0.8)
+    right_forward = PositionedGene(MappedGene(GeneRecord("b", "chr", 0, 100, "+"), x=0.30, width=0.04), y=0.6)
+    right_reverse = PositionedGene(MappedGene(GeneRecord("c", "chr", 0, 100, "-"), x=0.30, width=0.04), y=0.6)
+
+    _left_a, _left_b, right_a, right_b = _ribbon_endpoint_pairs(left, right_forward)
+    _inv_left_a, _inv_left_b, inv_right_a, inv_right_b = _ribbon_endpoint_pairs(left, right_reverse)
+
+    assert right_a[0] < right_b[0]
+    assert inv_right_a[0] > inv_right_b[0]
+
+
+def test_render_uses_target_legend_and_no_pair_cloud(fixture_dir: Path) -> None:
+    output = fixture_dir / "out.svg"
+    render_local_synteny(
+        blocks_path=fixture_dir / "blocks.txt",
+        bed_path=fixture_dir / "all.bed",
+        output_path=output,
+        track_names=["Ref", "Sub"],
+        target_gene_ids=["g2"],
+    )
+
+    content = output.read_text(encoding="utf-8")
+    assert "g2" in content
+    assert "#b8b8b8" not in content
+
+
+def test_effective_dpi_doubles_default_raster_quality() -> None:
+    assert _effective_dpi(300, "png") == 600
+    assert _effective_dpi(900, "png") == 900
+    assert _effective_dpi(300, "svg") == 300
