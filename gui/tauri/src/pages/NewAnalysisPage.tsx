@@ -1272,20 +1272,20 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
 
   return (
     <div className="ui-page-enter ui-app-frame grid h-screen w-full overflow-hidden" style={workbenchGridStyle}>
-      <aside className="ui-shell-sidebar flex min-h-0 flex-col overflow-hidden border-r px-3 py-4">
-        <div className="flex items-center gap-3 px-3 pb-4">
+      <aside className="ui-shell-sidebar flex min-h-0 flex-col overflow-hidden border-r px-2.5 py-3">
+        <div className="flex items-center gap-2.5 px-2.5 pb-3">
           <button type="button" className="ui-pressable text-sm text-text-secondary hover:text-text-primary" onClick={() => onNavigate("/")}>
             ←
           </button>
           <span className="text-sm font-semibold text-text-primary">JCVI meow</span>
         </div>
 
-        <nav className="grid gap-1 px-1 pb-5 text-sm text-text-secondary">
-          <button type="button" className="ui-list-item flex items-center gap-3 rounded-lg px-3 py-2 text-left hover:bg-surface-raised/80" onClick={() => createTask()}>
+        <nav className="grid gap-1 px-1 pb-4 text-sm text-text-secondary">
+          <button type="button" className="ui-list-item flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-left hover:bg-surface-raised/80" onClick={() => createTask()}>
             <GameIcon name="pairwise" className="h-4 w-4" />
             新任务
           </button>
-          <label className="ui-list-item flex items-center gap-3 rounded-lg px-3 py-2 hover:bg-surface-raised/80">
+          <label className="ui-list-item flex items-center gap-2.5 rounded-lg px-2.5 py-2 hover:bg-surface-raised/80">
             <GameIcon name="environment" className="h-4 w-4" />
             <input
               className="min-w-0 flex-1 bg-transparent text-sm text-text-primary outline-none placeholder:text-text-secondary"
@@ -1296,13 +1296,13 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
           </label>
         </nav>
 
-        <div className="px-2 pb-3">
+        <div className="px-1.5 pb-2">
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-xs font-medium text-text-tertiary">置顶</p>
-              <h2 className="mt-4 text-sm font-semibold text-text-secondary">{isZh ? "任务" : "Tasks"}</h2>
+              <h2 className="mt-3 text-sm font-semibold text-text-secondary">{isZh ? "任务" : "Tasks"}</h2>
             </div>
-            <button type="button" className="ui-pressable rounded-lg px-2 py-1 text-lg leading-none text-text-secondary hover:bg-surface-raised/80" onClick={() => createTask()}>
+            <button type="button" className="ui-pressable rounded-lg px-2 py-1 text-base leading-none text-text-secondary hover:bg-surface-raised/80" onClick={() => createTask()}>
               +
             </button>
           </div>
@@ -1314,25 +1314,25 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
               key={task.id}
               type="button"
               className={[
-                "ui-list-item mb-1 grid w-full grid-cols-[1.75rem_minmax(0,1fr)_auto] items-center gap-3 rounded-xl px-3 py-2.5 text-left transition",
+                "ui-list-item mb-1 grid w-full grid-cols-[1.5rem_minmax(0,1fr)_1.5rem] items-center gap-2 rounded-lg px-2.5 py-2 text-left transition",
                 task.id === activeTask.id
                   ? "border border-border bg-surface-raised text-text-primary shadow-card"
                   : "bg-transparent text-text-secondary hover:bg-surface-raised/60",
               ].join(" ")}
               onClick={() => setActiveTaskId(task.id)}
             >
-              <span className="flex h-7 w-7 items-center justify-center text-text-secondary">
-                <GameIcon name={task.icon} className="h-4 w-4" />
+              <span className="flex h-6 w-6 items-center justify-center text-text-secondary">
+                <GameIcon name={task.icon} className="h-[14px] w-[14px]" />
               </span>
               <span className="min-w-0">
-                <span className="block truncate text-sm font-medium">{task.title}</span>
-                <span className="mt-0.5 block truncate text-xs text-text-tertiary">{task.draft.mcscan.workflow}</span>
+                <span className="block truncate text-[13px] font-medium leading-5">{task.title}</span>
+                <span className="mt-0.5 block truncate text-[11px] leading-4 text-text-tertiary">{task.draft.mcscan.workflow}</span>
               </span>
               {tasks.length > 1 && canCloseTask(task) ? (
                 <span
                   role="button"
                   tabIndex={0}
-                  className="ui-pressable rounded-md px-2 py-1 text-xs text-text-tertiary hover:bg-surface hover:text-text-primary"
+                  className="ui-pressable flex h-6 w-6 items-center justify-center rounded-md text-[11px] text-text-tertiary hover:bg-surface hover:text-text-primary"
                   onClick={(event) => {
                     event.stopPropagation();
                     closeTask(task.id);
@@ -1352,7 +1352,7 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
           ))}
         </div>
 
-        <div className="border-t border-border/90 px-1 py-3">
+        <div className="border-t border-border/90 px-1 py-2.5">
           <p className="hidden px-3 text-xs font-medium text-text-tertiary">快速创建</p>
           <div className="hidden">
             {capabilities.map((capability) => {
@@ -1362,7 +1362,7 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
                   key={capability.id}
                   type="button"
                   disabled={disabled}
-                  className="flex items-center gap-3 rounded-lg px-3 py-1.5 text-left text-xs font-medium text-text-secondary transition hover:bg-surface-raised/80 disabled:cursor-not-allowed disabled:opacity-45"
+                  className="flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left text-xs font-medium text-text-secondary transition hover:bg-surface-raised/80 disabled:cursor-not-allowed disabled:opacity-45"
                   onClick={() => createTask(capability.id)}
                   title={capability.description}
                 >
@@ -1374,7 +1374,7 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
           </div>
           <button
             type="button"
-            className="ui-list-item flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm text-text-secondary hover:bg-surface-raised/80"
+            className="ui-list-item flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm text-text-secondary hover:bg-surface-raised/80"
             onClick={() => onNavigate("/settings")}
           >
             <GameIcon name="environment" className="h-4 w-4" />
