@@ -148,6 +148,7 @@ import App from "./App";
 afterEach(() => {
   cleanup();
   document.documentElement.className = "";
+  Object.defineProperty(window, "innerWidth", { configurable: true, writable: true, value: 1024 });
   window.localStorage.clear();
   window.location.hash = "";
   invokeMock.mockClear();
@@ -207,6 +208,24 @@ describe("App", () => {
     expect(leftResizeHandle).toHaveAttribute("aria-valuenow", "336");
     expect(screen.queryByText("Run events will appear here.")).not.toBeInTheDocument();
     expect(screen.queryByText("Schema not loaded.")).not.toBeInTheDocument();
+  });
+
+  it("clamps restored workbench sidebar widths for narrow windows", async () => {
+    Object.defineProperty(window, "innerWidth", { configurable: true, writable: true, value: 900 });
+    window.localStorage.setItem("genomelens.gui.workbench.leftWidth", "480");
+    window.localStorage.setItem("genomelens.gui.workbench.rightWidth", "520");
+
+    render(<App />);
+
+    const [primaryAction] = await screen.findAllByRole("button", { name: "打开工作台" });
+    fireEvent.click(primaryAction);
+
+    const leftResizeHandle = await screen.findByTestId("workbench-left-resize-handle");
+    const rightResizeHandle = screen.getByTestId("workbench-right-resize-handle");
+    const leftWidth = Number(leftResizeHandle.getAttribute("aria-valuenow"));
+    const rightWidth = Number(rightResizeHandle.getAttribute("aria-valuenow"));
+
+    expect(leftWidth + rightWidth).toBeLessThanOrEqual(588);
   });
 
   it("renders the projects page with workspace controls and project rows", async () => {

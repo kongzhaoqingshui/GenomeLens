@@ -58,6 +58,11 @@ interface ResizeDragState {
   startRightWidth: number;
 }
 
+interface WorkbenchWidths {
+  left: number;
+  right: number;
+}
+
 interface WorkbenchTask {
   id: string;
   title: string;
@@ -314,12 +319,43 @@ function viewportWidth(): number {
   return typeof window === "undefined" ? 1440 : window.innerWidth;
 }
 
-function clampSidebarWidth(side: ResizeSide, nextWidth: number, otherWidth: number): number {
-  const minWidth = side === "left" ? WORKBENCH_MIN_LEFT_WIDTH : WORKBENCH_MIN_RIGHT_WIDTH;
-  const maxWidth = side === "left" ? WORKBENCH_MAX_LEFT_WIDTH : WORKBENCH_MAX_RIGHT_WIDTH;
-  const viewportMax =
-    viewportWidth() - otherWidth - WORKBENCH_MIN_CENTER_WIDTH - WORKBENCH_RESIZER_WIDTH * 2;
-  return clampNumber(Math.round(nextWidth), minWidth, Math.min(maxWidth, viewportMax));
+function clampWorkbenchWidths(leftWidth: number, rightWidth: number, width = viewportWidth()): WorkbenchWidths {
+  let left = clampNumber(Math.round(leftWidth), WORKBENCH_MIN_LEFT_WIDTH, WORKBENCH_MAX_LEFT_WIDTH);
+  let right = clampNumber(Math.round(rightWidth), WORKBENCH_MIN_RIGHT_WIDTH, WORKBENCH_MAX_RIGHT_WIDTH);
+  const availableForSidebars = width - WORKBENCH_RESIZER_WIDTH * 2 - WORKBENCH_MIN_CENTER_WIDTH;
+
+  if (availableForSidebars <= WORKBENCH_MIN_LEFT_WIDTH + WORKBENCH_MIN_RIGHT_WIDTH) {
+    return {
+      left: WORKBENCH_MIN_LEFT_WIDTH,
+      right: WORKBENCH_MIN_RIGHT_WIDTH,
+    };
+  }
+
+  const total = left + right;
+  if (total <= availableForSidebars) {
+    return { left, right };
+  }
+
+  let overflow = total - availableForSidebars;
+  const rightShrink = Math.min(right - WORKBENCH_MIN_RIGHT_WIDTH, Math.ceil(overflow / 2));
+  right -= rightShrink;
+  overflow -= rightShrink;
+  const leftShrink = Math.min(left - WORKBENCH_MIN_LEFT_WIDTH, overflow);
+  left -= leftShrink;
+  overflow -= leftShrink;
+
+  if (overflow > 0) {
+    right = Math.max(WORKBENCH_MIN_RIGHT_WIDTH, right - overflow);
+  }
+
+  return { left, right };
+}
+
+function readInitialWorkbenchWidths(): WorkbenchWidths {
+  return clampWorkbenchWidths(
+    readStoredNumber(WORKBENCH_LEFT_WIDTH_KEY, WORKBENCH_DEFAULT_LEFT_WIDTH),
+    readStoredNumber(WORKBENCH_RIGHT_WIDTH_KEY, WORKBENCH_DEFAULT_RIGHT_WIDTH),
+  );
 }
 
 function rememberRecentText(items: string[], nextValue: string): string[] {
@@ -503,21 +539,10 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
   const [recentRequests, setRecentRequests] = useState<RecentRequestHint[]>(() =>
     readStoredJson<RecentRequestHint[]>(RECENT_REQUESTS_KEY, []),
   );
-  const [leftSidebarWidth, setLeftSidebarWidth] = useState(() =>
-    clampNumber(
-      readStoredNumber(WORKBENCH_LEFT_WIDTH_KEY, WORKBENCH_DEFAULT_LEFT_WIDTH),
-      WORKBENCH_MIN_LEFT_WIDTH,
-      WORKBENCH_MAX_LEFT_WIDTH,
-    ),
-  );
-  const [rightSidebarWidth, setRightSidebarWidth] = useState(() =>
-    clampNumber(
-      readStoredNumber(WORKBENCH_RIGHT_WIDTH_KEY, WORKBENCH_DEFAULT_RIGHT_WIDTH),
-      WORKBENCH_MIN_RIGHT_WIDTH,
-      WORKBENCH_MAX_RIGHT_WIDTH,
-    ),
-  );
+  const [sidebarWidths, setSidebarWidths] = useState(readInitialWorkbenchWidths);
   const [activeResize, setActiveResize] = useState<ResizeDragState | null>(null);
+  const leftSidebarWidth = sidebarWidths.left;
+  const rightSidebarWidth = sidebarWidths.right;
   const capabilityId = useMemo(() => readCapabilityFromHash(locationHash), [locationHash]);
 
   useEffect(() => {
@@ -536,16 +561,33 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
     writeStoredNumber(WORKBENCH_RIGHT_WIDTH_KEY, rightSidebarWidth);
   }, [rightSidebarWidth]);
 
-  const resizeSidebar = useCallback(
-    (side: ResizeSide, nextWidth: number) => {
-      if (side === "left") {
-        setLeftSidebarWidth(clampSidebarWidth("left", nextWidth, rightSidebarWidth));
-        return;
-      }
-      setRightSidebarWidth(clampSidebarWidth("right", nextWidth, leftSidebarWidth));
-    },
-    [leftSidebarWidth, rightSidebarWidth],
-  );
+  useEffect(() => {
+    const reclampWidths = () => {
+      setSidebarWidths((currentWidths) => {
+        const nextWidths = clampWorkbenchWidths(currentWidths.left, currentWidths.right);
+        if (nextWidths.left === currentWidths.left && nextWidths.right === currentWidths.right) {
+          return currentWidths;
+        }
+        return nextWidths;
+      });
+    };
+
+    reclampWidths();
+    window.addEventListener("resize", reclampWidths);
+
+    return () => {
+      window.removeEventListener("resize", reclampWidths);
+    };
+  }, []);
+
+  const resizeSidebar = useCallback((side: ResizeSide, nextWidth: number) => {
+    setSidebarWidths((currentWidths) =>
+      clampWorkbenchWidths(
+        side === "left" ? nextWidth : currentWidths.left,
+        side === "right" ? nextWidth : currentWidths.right,
+      ),
+    );
+  }, []);
 
   const handleResizeKeyDown = useCallback(
     (side: ResizeSide, event: ReactKeyboardEvent<HTMLDivElement>) => {
@@ -592,6 +634,10 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
     [leftSidebarWidth, rightSidebarWidth],
   );
 
+  const finishActiveResize = useCallback(() => {
+    setActiveResize(null);
+  }, []);
+
   useEffect(() => {
     if (!activeResize) {
       return;
@@ -605,30 +651,30 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
     const handlePointerMove = (event: PointerEvent) => {
       const delta = event.clientX - activeResize.startX;
       if (activeResize.side === "left") {
-        setLeftSidebarWidth(
-          clampSidebarWidth("left", activeResize.startLeftWidth + delta, activeResize.startRightWidth),
+        setSidebarWidths(
+          clampWorkbenchWidths(activeResize.startLeftWidth + delta, activeResize.startRightWidth),
         );
         return;
       }
-      setRightSidebarWidth(
-        clampSidebarWidth("right", activeResize.startRightWidth - delta, activeResize.startLeftWidth),
+      setSidebarWidths(
+        clampWorkbenchWidths(activeResize.startLeftWidth, activeResize.startRightWidth - delta),
       );
     };
 
-    const handlePointerUp = () => {
-      setActiveResize(null);
-    };
-
     window.addEventListener("pointermove", handlePointerMove);
-    window.addEventListener("pointerup", handlePointerUp);
+    window.addEventListener("pointerup", finishActiveResize);
+    window.addEventListener("pointercancel", finishActiveResize);
+    window.addEventListener("lostpointercapture", finishActiveResize);
 
     return () => {
       window.removeEventListener("pointermove", handlePointerMove);
-      window.removeEventListener("pointerup", handlePointerUp);
+      window.removeEventListener("pointerup", finishActiveResize);
+      window.removeEventListener("pointercancel", finishActiveResize);
+      window.removeEventListener("lostpointercapture", finishActiveResize);
       document.body.style.cursor = previousCursor;
       document.body.style.userSelect = previousUserSelect;
     };
-  }, [activeResize]);
+  }, [activeResize, finishActiveResize]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1346,6 +1392,7 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
         max={WORKBENCH_MAX_LEFT_WIDTH}
         onPointerDown={handleResizePointerDown}
         onKeyDown={handleResizeKeyDown}
+        onResizeEnd={finishActiveResize}
       />
 
       <main className="flex min-w-0 flex-col overflow-hidden bg-white">
@@ -2115,6 +2162,7 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
         max={WORKBENCH_MAX_RIGHT_WIDTH}
         onPointerDown={handleResizePointerDown}
         onKeyDown={handleResizeKeyDown}
+        onResizeEnd={finishActiveResize}
       />
 
       <aside className="min-h-0 overflow-hidden border-l border-slate-100 bg-white px-5 py-16">
@@ -2226,6 +2274,7 @@ function WorkbenchResizeHandle({
   max,
   onPointerDown,
   onKeyDown,
+  onResizeEnd,
 }: {
   side: ResizeSide;
   isActive: boolean;
@@ -2235,6 +2284,7 @@ function WorkbenchResizeHandle({
   max: number;
   onPointerDown: (side: ResizeSide, event: ReactPointerEvent<HTMLDivElement>) => void;
   onKeyDown: (side: ResizeSide, event: ReactKeyboardEvent<HTMLDivElement>) => void;
+  onResizeEnd: () => void;
 }) {
   return (
     <div
@@ -2252,6 +2302,8 @@ function WorkbenchResizeHandle({
       ].join(" ")}
       title={label}
       onPointerDown={(event) => onPointerDown(side, event)}
+      onPointerCancel={onResizeEnd}
+      onLostPointerCapture={onResizeEnd}
       onKeyDown={(event) => onKeyDown(side, event)}
     >
       <span
