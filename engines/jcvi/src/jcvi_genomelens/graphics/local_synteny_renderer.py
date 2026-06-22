@@ -21,11 +21,11 @@ matplotlib.rcParams["svg.fonttype"] = "none"
 import matplotlib.pyplot as plt  # noqa: E402
 from matplotlib.axes import Axes  # noqa: E402
 from matplotlib.collections import LineCollection  # noqa: E402
-from matplotlib.patches import FancyBboxPatch, PathPatch, Rectangle  # noqa: E402
+from matplotlib.patches import FancyBboxPatch, PathPatch  # noqa: E402
 from matplotlib.path import Path as MplPath  # noqa: E402
 
 DEFAULT_TRACK_COLORS = ("#5f8f91", "#9a775f", "#718f6f", "#837a9d", "#9a9068", "#697d9b")
-TRACK_BAR_COLORS = ("#86b8ba", "#b49a83", "#9bb898", "#aaa2c0", "#b9b18c", "#98a9c4")
+TRACK_BAR_COLORS = ("#7d898b", "#817f7b", "#7c887f", "#827f89", "#87847a", "#7d838b")
 _CHROMOSOME_COLOR_PALETTE = (
     "#c44e52",
     "#4c72b0",
@@ -45,11 +45,11 @@ HIGHLIGHT_LINK_COLOR = HIGHLIGHT_LINK_COLORS[0]
 BAR_COLOR = "#7fb0b3"
 BAR_EDGE_COLOR = "#5a8286"
 TICK_COLOR = "#56636b"
-GENE_FORWARD_COLOR = "#69aa83"
-GENE_REVERSE_COLOR = "#6f91bf"
+GENE_FORWARD_COLOR = "#4fa66f"
+GENE_REVERSE_COLOR = "#4f7fbd"
 LABEL_BG_COLOR = "#fff8dc"
 LABEL_TEXT_COLOR = "#30363d"
-BACKGROUND_LINK_COLOR = "#b5b9ba"
+BACKGROUND_LINK_COLOR = "#c9c9c9"
 LABEL_BOX_HEIGHT = 0.028
 RANGE_LABEL_HEIGHT = 0.018
 
@@ -60,7 +60,7 @@ MAX_SEGMENT_WIDTH = 0.58
 MIN_SEGMENT_WIDTH = 0.045
 MIN_GENE_WIDTH = 0.0015
 MIN_VISIBLE_GENE_WIDTH = 0.0022
-MIN_RIBBON_GENE_WIDTH = 0.0075
+MIN_RIBBON_GENE_WIDTH = 0.0068
 MAX_INTRA_GAP_WIDTH = 0.035
 COMPRESS_GAP_BP = 500_000
 CONTEXT_FLANK_GENES = 10
@@ -70,11 +70,11 @@ INTER_SEGMENT_GAP = 0.018
 SEGMENT_COLLISION_GAP = 0.012
 LANE_GAP = 0.055
 TRACK_GAP = 0.20
-TRACK_BAR_HEIGHT = 0.010
-GENE_TICK_HALF_HEIGHT = 0.014
+TRACK_BAR_HEIGHT = 0.0065
+GENE_TICK_HALF_HEIGHT = 0.012
 BREAK_MARK_WIDTH = 0.006
 BREAK_MARK_HEIGHT = 0.020
-LINK_ALPHA = 0.30
+LINK_ALPHA = 1.0
 LEGEND_Y = 0.045
 LEGEND_SQUARE_SIZE = 0.016
 LEGEND_FONT_SIZE = 6
@@ -105,6 +105,13 @@ class MappedGene:
     x: float
     width: float
     row_index: int = -1
+    visual_strand: str | None = None
+
+    @property
+    def display_strand(self) -> str:
+        """Return the strand after any visual segment reversal."""
+
+        return self.visual_strand or self.gene.strand
 
 
 @dataclass
@@ -122,10 +129,11 @@ class ChromosomeSegment:
     lane: int = 0
     left_truncated: bool = False
     right_truncated: bool = False
+    reversed: bool = False
 
     @property
     def span_bp(self) -> float:
-        return max(1.0, self.end_bp - self.start_bp)
+        return max(1.0, abs(self.end_bp - self.start_bp))
 
 
 @dataclass
@@ -359,13 +367,14 @@ class MatplotlibLocalSyntenyRenderer:
             zorder = 1
             if layout.block_rows[link.row_index].highlighted:
                 color = target_colors.get(layout.block_rows[link.row_index].query_gene, HIGHLIGHT_LINK_COLOR)
-                alpha = 0.86
+                alpha = 1.0
                 zorder = 2
             elif link.left_gene in layout.target_gene_ids or link.right_gene in layout.target_gene_ids:
                 color = target_colors.get(link.left_gene) or target_colors.get(link.right_gene) or "#6b7280"
-                alpha = 0.80
+                alpha = 1.0
                 zorder = 2
-            _draw_ribbon_link(ax, left, right, color=color, alpha=alpha, zorder=zorder)
+            focus_y = (left.y + right.y) / 2.0
+            _draw_ribbon_link(ax, left, right, color=color, alpha=alpha, zorder=zorder, focus_y=focus_y)
 
 
 def _strip_highlight_prefix(value: str) -> tuple[bool, str]:
@@ -456,7 +465,7 @@ def _display_accn(accn: str) -> str:
 def _format_bp_range(start_bp: float, end_bp: float) -> str:
     """Format a base-pair range like JCVI does."""
 
-    span = end_bp - start_bp
+    span = abs(end_bp - start_bp)
     if span >= 1_000_000:
         return f"{start_bp / 1_000_000:.2f}-{end_bp / 1_000_000:.2f}Mb"
     if span >= 1_000:
@@ -708,6 +717,46 @@ def _map_segment_genes(
     return mapped, gap_markers, compressed
 
 
+def _flip_strand(strand: str) -> str:
+    """Flip a BED strand for a visually reversed segment."""
+
+    if strand == "-":
+        return "+"
+    if strand == "+":
+        return "-"
+    return strand
+
+
+def _should_reverse_segment(group: list[tuple[GeneRecord, int]], row_x: dict[int, float]) -> bool:
+    """Infer whether a target segment should be drawn in reverse orientation."""
+
+    pairs = sorted((row_x[row_index], gene.start) for gene, row_index in group if row_index in row_x)
+    if len(pairs) < 2:
+        return False
+    left_x, left_bp = pairs[0]
+    right_x, right_bp = pairs[-1]
+    if abs(right_x - left_x) < 1e-9:
+        return False
+    return right_bp < left_bp
+
+
+def _reverse_mapped_segment(
+    mapped: list[MappedGene],
+    gap_markers: list[float],
+    *,
+    start_x: float,
+    width: float,
+) -> None:
+    """Mirror mapped genes inside a segment and flip their displayed strand."""
+
+    for item in mapped:
+        offset = item.x - start_x
+        item.x = start_x + width - offset
+        item.visual_strand = _flip_strand(item.gene.strand)
+    for index, marker in enumerate(gap_markers):
+        gap_markers[index] = start_x + width - (marker - start_x)
+
+
 def _cap_mapped_segment_width(
     mapped: list[MappedGene],
     gap_markers: list[float],
@@ -944,7 +993,7 @@ def _build_target_track(
         max(MIN_SEGMENT_WIDTH, available_width),
     )
 
-    for (chromosome, _group, interval, start_bp, end_bp, _span), target_width in zip(
+    for (chromosome, group, interval, start_bp, end_bp, _span), target_width in zip(
         segment_specs,
         target_widths,
         strict=False,
@@ -952,6 +1001,9 @@ def _build_target_track(
         mapped, gap_markers, compressed = _map_segment_genes(interval.items, start_x=0.0, target_width=target_width)
         if not mapped:
             continue
+        reversed_segment = _should_reverse_segment(group, row_x)
+        if reversed_segment:
+            _reverse_mapped_segment(mapped, gap_markers, start_x=0.0, width=target_width)
         anchor_mapped = [item for item in mapped if item.row_index in row_x]
         if not anchor_mapped:
             continue
@@ -971,18 +1023,21 @@ def _build_target_track(
             mapped_gene.x += shift
             all_mapped.append(mapped_gene)
         shifted_markers = [marker + shift for marker in gap_markers]
+        display_start_bp = end_bp if reversed_segment else start_bp
+        display_end_bp = start_bp if reversed_segment else end_bp
         segments.append(
             ChromosomeSegment(
                 chromosome=chromosome,
                 genes=mapped,
-                start_bp=start_bp,
-                end_bp=end_bp,
+                start_bp=display_start_bp,
+                end_bp=display_end_bp,
                 visual_start=min(item.x - item.width / 2.0 for item in mapped),
                 visual_end=max(item.x + item.width / 2.0 for item in mapped),
                 has_compressed_gaps=compressed,
                 gap_markers=shifted_markers,
                 left_truncated=interval.left_truncated,
                 right_truncated=interval.right_truncated,
+                reversed=reversed_segment,
             )
         )
 
@@ -1155,6 +1210,7 @@ def _layout_visual_audit(layout: LocalSyntenyLayout) -> dict[str, object]:
                         "width": round(segment.visual_end - segment.visual_start, 6),
                         "left_truncated": segment.left_truncated,
                         "right_truncated": segment.right_truncated,
+                        "reversed": segment.reversed,
                     }
                     for segment in track.segments
                 ],
@@ -1205,30 +1261,29 @@ def _draw_break_marker(ax: Axes, x: float, y: float, color: str = "#777777") -> 
 
 
 def _draw_segment_truncation_markers(ax: Axes, segment: ChromosomeSegment, y: float) -> None:
-    """Draw ellipsis markers when a context-expanded segment is still clipped."""
+    """Draw compact break markers when a context-expanded segment is still clipped."""
 
     if segment.left_truncated:
-        ax.text(
-            segment.visual_start - 0.012,
-            y,
-            "...",
-            fontsize=7,
-            ha="right",
-            va="center",
-            color="#68727a",
-            zorder=8,
-            clip_on=False,
-        )
+        _draw_terminal_break_marker(ax, segment.visual_start - 0.0018, y, side="left")
     if segment.right_truncated:
-        ax.text(
-            segment.visual_end + 0.012,
-            y,
-            "...",
-            fontsize=7,
-            ha="left",
-            va="center",
-            color="#68727a",
+        _draw_terminal_break_marker(ax, segment.visual_end + 0.0018, y, side="right")
+
+
+def _draw_terminal_break_marker(ax: Axes, x: float, y: float, *, side: str) -> None:
+    """Draw an integrated terminal truncation marker."""
+
+    del side
+    color = "#728088"
+    direction = 1
+    for offset in (0.0, 0.0022 * direction):
+        ax.plot(
+            [x + offset - 0.0010 * direction, x + offset + 0.0010 * direction],
+            [y - 0.0054, y + 0.0054],
+            color=color,
+            lw=0.42,
+            alpha=0.76,
             zorder=8,
+            solid_capstyle="round",
             clip_on=False,
         )
 
@@ -1303,31 +1358,21 @@ def _estimate_range_label_width(text: str) -> float:
 
 
 def _draw_label_box(ax: Axes, text: str, x: float, y: float, fontsize: int = 7) -> None:
-    """Draw a rounded label box."""
+    """Draw a compact chromosome label with a subtle white cushion."""
 
     box_width = _estimate_label_box_width(text)
-    box = FancyBboxPatch(
-        (x, y - LABEL_BOX_HEIGHT / 2.0),
-        box_width,
-        LABEL_BOX_HEIGHT,
-        boxstyle="round,pad=0,rounding_size=0.004",
-        facecolor=LABEL_BG_COLOR,
-        edgecolor="#d0d0d0",
-        lw=0.5,
-        zorder=8,
-        clip_on=False,
-    )
-    ax.add_patch(box)
     ax.text(
         x + box_width / 2.0,
         y,
         text,
         fontsize=fontsize,
+        fontweight="semibold",
         ha="center",
         va="center",
-        color=LABEL_TEXT_COLOR,
+        color="#4b5963",
         zorder=9,
         clip_on=False,
+        bbox={"facecolor": "white", "edgecolor": "none", "alpha": 0.62, "pad": 0.42},
     )
 
 
@@ -1483,20 +1528,22 @@ def _chromosome_label_candidates(
     has_long_name = len(segment.chromosome) > 8
     if len(track.segments) == 2 and not has_long_name:
         if ordered_index == 0:
-            primary = (segment.visual_start - width - 0.008, y)
+            margin = 0.022 if segment.left_truncated else 0.008
+            primary = (segment.visual_start - width - margin, y)
         else:
-            primary = (segment.visual_end + 0.008, y)
+            margin = 0.022 if segment.right_truncated else 0.008
+            primary = (segment.visual_end + margin, y)
         return [
             primary,
-            (primary[0], y + 0.052),
-            (center - width / 2.0, y + 0.048),
-            (center - width / 2.0, y - 0.050),
+            (primary[0], y + 0.034),
+            (center - width / 2.0, y + 0.034),
+            (center - width / 2.0, y - 0.038),
         ]
 
     return [
-        (center - width / 2.0, y + 0.052),
-        (segment.visual_start - width * 0.30, y + 0.052),
-        (segment.visual_end - width * 0.70, y + 0.052),
+        (center - width / 2.0, y + 0.034),
+        (segment.visual_start - width * 0.30, y + 0.034),
+        (segment.visual_end - width * 0.70, y + 0.034),
         (segment.visual_start - width - 0.008, y),
         (segment.visual_end + 0.008, y),
     ]
@@ -1617,49 +1664,34 @@ def _draw_track(
         _draw_segment_truncation_markers(ax, segment, y)
         for marker in segment.gap_markers:
             _draw_break_marker(ax, marker, y)
-            ax.text(marker, y + 0.026, "...", fontsize=6, ha="center", va="bottom", color="#777777", zorder=8)
 
         tick_top = y + GENE_TICK_HALF_HEIGHT
         tick_bottom = y - GENE_TICK_HALF_HEIGHT
         background_forward = [
             [(mapped.x, tick_bottom), (mapped.x, tick_top)]
             for mapped in segment.genes
-            if mapped.row_index < 0 and mapped.gene.strand != "-"
+            if mapped.row_index < 0 and mapped.display_strand != "-"
         ]
         background_reverse = [
             [(mapped.x, tick_bottom), (mapped.x, tick_top)]
             for mapped in segment.genes
-            if mapped.row_index < 0 and mapped.gene.strand == "-"
+            if mapped.row_index < 0 and mapped.display_strand == "-"
         ]
-        _draw_gene_tick_collection(ax, background_forward, GENE_FORWARD_COLOR, alpha=0.36, linewidth=0.26)
-        _draw_gene_tick_collection(ax, background_reverse, GENE_REVERSE_COLOR, alpha=0.36, linewidth=0.26)
+        _draw_gene_tick_collection(ax, background_forward, GENE_FORWARD_COLOR, alpha=0.88, linewidth=0.14)
+        _draw_gene_tick_collection(ax, background_reverse, GENE_REVERSE_COLOR, alpha=0.88, linewidth=0.14)
         for mapped in segment.genes:
             is_anchor = mapped.row_index >= 0
             if not is_anchor:
                 continue
-            gene_width = max(MIN_VISIBLE_GENE_WIDTH, mapped.width)
-            gene_left = mapped.x - gene_width / 2.0
-            gene_color = GENE_REVERSE_COLOR if mapped.gene.strand == "-" else GENE_FORWARD_COLOR
-            gene_height = TRACK_BAR_HEIGHT * 0.96
-            ax.add_patch(
-                Rectangle(
-                    (gene_left, y - gene_height / 2.0),
-                    gene_width,
-                    gene_height,
-                    facecolor=gene_color,
-                    edgecolor="none",
-                    alpha=0.70,
-                    zorder=5,
-                    clip_on=False,
-                )
-            )
+            gene_color = GENE_REVERSE_COLOR if mapped.display_strand == "-" else GENE_FORWARD_COLOR
             ax.plot(
                 [mapped.x, mapped.x],
                 [tick_bottom, tick_top],
                 color=gene_color,
-                lw=0.52,
-                alpha=0.86,
+                lw=max(0.32, min(0.68, mapped.width * 360.0)),
+                alpha=0.96,
                 zorder=6,
+                solid_capstyle="butt",
             )
             gene_positions[mapped.gene.accn] = PositionedGene(mapped=mapped, y=y)
             if mapped.gene.accn in target_gene_ids and label_targets:
@@ -1696,7 +1728,7 @@ def _ribbon_endpoint_pairs(
 
     left_a, left_b = _gene_interval_points(left)
     right_a, right_b = _gene_interval_points(right)
-    if left.mapped.gene.strand != right.mapped.gene.strand:
+    if left.mapped.display_strand != right.mapped.display_strand:
         right_a, right_b = right_b, right_a
     return left_a, left_b, right_a, right_b
 
@@ -1709,21 +1741,26 @@ def _draw_ribbon_link(
     color: str,
     alpha: float,
     zorder: int,
+    focus_y: float | None = None,
 ) -> None:
     """Draw a JCVI-style synteny ribbon using gene interval endpoints."""
 
     left_a, left_b, right_a, right_b = _ribbon_endpoint_pairs(left, right)
 
-    mid_y1 = (left_a[1] + right_a[1]) / 2.0
-    mid_y2 = (left_b[1] + right_b[1]) / 2.0
+    mid_y1 = focus_y if focus_y is not None else (left_a[1] + right_a[1]) / 2.0
+    mid_y2 = focus_y if focus_y is not None else (left_b[1] + right_b[1]) / 2.0
+    left_ctrl_x1 = left_a[0] * 0.78 + right_a[0] * 0.22
+    right_ctrl_x1 = left_a[0] * 0.22 + right_a[0] * 0.78
+    right_ctrl_x2 = left_b[0] * 0.22 + right_b[0] * 0.78
+    left_ctrl_x2 = left_b[0] * 0.78 + right_b[0] * 0.22
     verts = [
         left_a,
-        (left_a[0], mid_y1),
-        (right_a[0], mid_y1),
+        (left_ctrl_x1, mid_y1),
+        (right_ctrl_x1, mid_y1),
         right_a,
         right_b,
-        (right_b[0], mid_y2),
-        (left_b[0], mid_y2),
+        (right_ctrl_x2, mid_y2),
+        (left_ctrl_x2, mid_y2),
         left_b,
         left_a,
     ]

@@ -233,6 +233,7 @@ def test_compute_layout_links_only_adjacent_tracks(fixture_dir: Path) -> None:
 
 def test_format_bp_range() -> None:
     assert _format_bp_range(0, 21_320_000) == "0.00-21.32Mb"
+    assert _format_bp_range(18_330_000, 7_500_000) == "18.33-7.50Mb"
     assert _format_bp_range(500, 1500) == "0.50-1.50kb"
     assert _format_bp_range(0, 500) == "0-500bp"
 
@@ -474,6 +475,34 @@ def test_short_segment_expands_to_flanking_context_and_marks_truncation(tmp_path
     assert segment.right_truncated is True
 
 
+def test_target_segment_reverses_when_anchor_order_is_descending(tmp_path: Path) -> None:
+    bed = tmp_path / "all.bed"
+    bed.write_text(
+        "\n".join(
+            [
+                "qchr\t0\t20\tq1\t0\t+",
+                "qchr\t1000\t1020\tq2\t0\t+",
+                "schr\t0\t20\ts2\t0\t+",
+                "schr\t1000\t1020\ts1\t0\t+",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    blocks = tmp_path / "blocks.txt"
+    blocks.write_text("q1\ts1\nq2\ts2\n", encoding="utf-8")
+
+    layout = _compute_layout(blocks, bed, ["Ref", "Sub"], [])
+    segment = layout.tracks[1].segments[0]
+    positions = {mapped.gene.accn: mapped for mapped in segment.genes}
+
+    assert segment.reversed is True
+    assert segment.start_bp > segment.end_bp
+    assert _format_bp_range(segment.start_bp, segment.end_bp) == "1.02-0.00kb"
+    assert positions["s1"].x < positions["s2"].x
+    assert positions["s1"].display_strand == "-"
+
+
 def test_compute_layout_keeps_multiple_chromosomes_on_one_row(tmp_path: Path) -> None:
     bed = tmp_path / "all.bed"
     bed_lines = [f"qchr\t{i * 10}\t{i * 10 + 5}\tq{i}\t0\t+" for i in range(24)]
@@ -588,6 +617,7 @@ def test_render_uses_target_legend_and_no_pair_cloud(fixture_dir: Path) -> None:
     content = output.read_text(encoding="utf-8")
     assert "g2" in content
     assert "#b8b8b8" not in content
+    assert "#fff8dc" not in content
 
 
 def test_effective_dpi_doubles_default_raster_quality() -> None:
