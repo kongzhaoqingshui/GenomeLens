@@ -45,9 +45,11 @@ chromosome segments.
   `18.33-7.50Mb`.
 - Synteny links are JCVI-style interval ribbons based on gene widths, with
   inversion ribbons drawn by reversed endpoints.
-- Very short chromosome segments include up to 10 same-chromosome flanking genes
+- Very short chromosome segments include up to 20 same-chromosome flanking genes
   on each side and show compact terminal break marks when the BED context
   continues.
+- Special short truncated segments use a distinct warning edge/text colour to
+  show that readability-preserving expansion has relaxed strict visual scale.
 - Target/highlight genes are represented by coloured ribbons and a bottom legend,
   not by star markers.
 - Chromosome labels are unboxed compact text, truncation is shown with integrated

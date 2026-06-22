@@ -453,7 +453,7 @@ def test_compressed_background_gaps_do_not_expand_track_length(tmp_path: Path) -
 
 def test_short_segment_expands_to_flanking_context_and_marks_truncation(tmp_path: Path) -> None:
     bed = tmp_path / "all.bed"
-    subject_genes = [f"schr\t{i * 100}\t{i * 100 + 20}\ts{i}\t0\t+" for i in range(25)]
+    subject_genes = [f"schr\t{i * 100}\t{i * 100 + 20}\ts{i}\t0\t+" for i in range(60)]
     bed.write_text(
         "\n".join(
             [
@@ -465,12 +465,12 @@ def test_short_segment_expands_to_flanking_context_and_marks_truncation(tmp_path
         encoding="utf-8",
     )
     blocks = tmp_path / "blocks.txt"
-    blocks.write_text("q1\ts12\n", encoding="utf-8")
+    blocks.write_text("q1\ts30\n", encoding="utf-8")
 
     layout = _compute_layout(blocks, bed, ["Ref", "Sub"], [])
     segment = layout.tracks[1].segments[0]
 
-    assert len(segment.genes) >= 21
+    assert len(segment.genes) >= 41
     assert segment.left_truncated is True
     assert segment.right_truncated is True
 

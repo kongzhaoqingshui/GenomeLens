@@ -50,6 +50,7 @@ GENE_REVERSE_COLOR = "#4f7fbd"
 LABEL_BG_COLOR = "#fff8dc"
 LABEL_TEXT_COLOR = "#30363d"
 BACKGROUND_LINK_COLOR = "#c9c9c9"
+SPECIAL_TRUNCATED_COLOR = "#c94a4f"
 LABEL_BOX_HEIGHT = 0.028
 RANGE_LABEL_HEIGHT = 0.018
 
@@ -60,10 +61,11 @@ MAX_SEGMENT_WIDTH = 0.58
 MIN_SEGMENT_WIDTH = 0.045
 MIN_GENE_WIDTH = 0.0015
 MIN_VISIBLE_GENE_WIDTH = 0.0022
-MIN_RIBBON_GENE_WIDTH = 0.0068
+MIN_RIBBON_GENE_WIDTH = 0.0041
+RIBBON_WIDTH_SCALE = 0.60
 MAX_INTRA_GAP_WIDTH = 0.035
 COMPRESS_GAP_BP = 500_000
-CONTEXT_FLANK_GENES = 10
+CONTEXT_FLANK_GENES = 20
 SHORT_SEGMENT_CONTEXT_ANCHORS = 3
 SHORT_SEGMENT_CONTEXT_BP = 100_000
 INTER_SEGMENT_GAP = 0.018
@@ -71,7 +73,7 @@ SEGMENT_COLLISION_GAP = 0.012
 LANE_GAP = 0.055
 TRACK_GAP = 0.20
 TRACK_BAR_HEIGHT = 0.0065
-GENE_TICK_HALF_HEIGHT = 0.012
+GENE_TICK_HALF_HEIGHT = 0.008
 BREAK_MARK_WIDTH = 0.006
 BREAK_MARK_HEIGHT = 0.020
 LINK_ALPHA = 1.0
@@ -1264,7 +1266,7 @@ def _draw_segment_truncation_markers(ax: Axes, segment: ChromosomeSegment, y: fl
     """Draw compact break markers when a context-expanded segment is still clipped."""
 
     if segment.left_truncated:
-        _draw_terminal_break_marker(ax, segment.visual_start - 0.0018, y, side="left")
+        _draw_terminal_break_marker(ax, segment.visual_start - 0.0062, y, side="left")
     if segment.right_truncated:
         _draw_terminal_break_marker(ax, segment.visual_end + 0.0018, y, side="right")
 
@@ -1298,6 +1300,15 @@ def _track_bar_edge_color(index: int) -> str:
     """Return a muted per-track bar edge colour."""
 
     return DEFAULT_TRACK_COLORS[index % len(DEFAULT_TRACK_COLORS)]
+
+
+def _is_special_truncated_segment(segment: ChromosomeSegment) -> bool:
+    """Return True for short context-expanded segments that lost true scale readability."""
+
+    if not (segment.left_truncated or segment.right_truncated):
+        return False
+    visual_width = segment.visual_end - segment.visual_start
+    return visual_width <= MIN_SEGMENT_WIDTH * 1.35
 
 
 def _draw_gene_tick_collection(
@@ -1357,7 +1368,14 @@ def _estimate_range_label_width(text: str) -> float:
     return max(0.046, len(text) * 0.0054 + 0.010)
 
 
-def _draw_label_box(ax: Axes, text: str, x: float, y: float, fontsize: int = 7) -> None:
+def _draw_label_box(
+    ax: Axes,
+    text: str,
+    x: float,
+    y: float,
+    fontsize: int = 7,
+    color: str = "#4b5963",
+) -> None:
     """Draw a compact chromosome label with a subtle white cushion."""
 
     box_width = _estimate_label_box_width(text)
@@ -1369,7 +1387,7 @@ def _draw_label_box(ax: Axes, text: str, x: float, y: float, fontsize: int = 7) 
         fontweight="semibold",
         ha="center",
         va="center",
-        color="#4b5963",
+        color=color,
         zorder=9,
         clip_on=False,
         bbox={"facecolor": "white", "edgecolor": "none", "alpha": 0.62, "pad": 0.42},
@@ -1648,14 +1666,15 @@ def _draw_track(
 
     for segment_index, segment in enumerate(track.segments):
         y = _segment_y(track, segment)
+        is_special_truncated = _is_special_truncated_segment(segment)
         bar = FancyBboxPatch(
             (segment.visual_start, y - TRACK_BAR_HEIGHT / 2.0),
             max(MIN_SEGMENT_WIDTH / 2.0, segment.visual_end - segment.visual_start),
             TRACK_BAR_HEIGHT,
             boxstyle=f"round,pad=0,rounding_size={TRACK_BAR_HEIGHT / 2.0}",
             facecolor=_track_bar_color(track.index),
-            edgecolor=_track_bar_edge_color(track.index),
-            lw=0.4,
+            edgecolor=SPECIAL_TRUNCATED_COLOR if is_special_truncated else _track_bar_edge_color(track.index),
+            lw=0.58 if is_special_truncated else 0.4,
             zorder=3,
             clip_on=False,
         )
@@ -1677,8 +1696,8 @@ def _draw_track(
             for mapped in segment.genes
             if mapped.row_index < 0 and mapped.display_strand == "-"
         ]
-        _draw_gene_tick_collection(ax, background_forward, GENE_FORWARD_COLOR, alpha=0.88, linewidth=0.14)
-        _draw_gene_tick_collection(ax, background_reverse, GENE_REVERSE_COLOR, alpha=0.88, linewidth=0.14)
+        _draw_gene_tick_collection(ax, background_forward, GENE_FORWARD_COLOR, alpha=0.88, linewidth=0.07)
+        _draw_gene_tick_collection(ax, background_reverse, GENE_REVERSE_COLOR, alpha=0.88, linewidth=0.07)
         for mapped in segment.genes:
             is_anchor = mapped.row_index >= 0
             if not is_anchor:
@@ -1688,7 +1707,7 @@ def _draw_track(
                 [mapped.x, mapped.x],
                 [tick_bottom, tick_top],
                 color=gene_color,
-                lw=max(0.32, min(0.68, mapped.width * 360.0)),
+                lw=max(0.16, min(0.34, mapped.width * 180.0)),
                 alpha=0.96,
                 zorder=6,
                 solid_capstyle="butt",
@@ -1698,7 +1717,8 @@ def _draw_track(
                 _draw_target_gene_label(ax, _display_accn(mapped.gene.accn), mapped.x, y, segment)
 
         label_x, label_y = label_positions.get(segment_index, (-0.18, y))
-        _draw_label_box(ax, segment.chromosome, label_x, label_y)
+        label_color = SPECIAL_TRUNCATED_COLOR if is_special_truncated else "#4b5963"
+        _draw_label_box(ax, segment.chromosome, label_x, label_y, color=label_color)
         _draw_range_label(
             ax,
             _format_bp_range(segment.start_bp, segment.end_bp),
@@ -1714,7 +1734,7 @@ def _draw_track(
 def _gene_interval_points(positioned: PositionedGene) -> tuple[tuple[float, float], tuple[float, float]]:
     """Return visual left/right endpoints for one mapped gene."""
 
-    width = max(MIN_RIBBON_GENE_WIDTH, positioned.mapped.width)
+    width = max(MIN_RIBBON_GENE_WIDTH, positioned.mapped.width * RIBBON_WIDTH_SCALE)
     x1 = positioned.mapped.x - width / 2.0
     x2 = positioned.mapped.x + width / 2.0
     return (x1, positioned.y), (x2, positioned.y)
