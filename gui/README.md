@@ -1,6 +1,12 @@
-# gui/ — 图形界面层（规划，尚未实现）
+# gui/ — 图形界面层
 
-本目录预留给 GenomeLens 未来的桌面 GUI 外壳。按 `docs/开发手册/架构调整/最终架构目标.md` 第 7 节，桌面 GUI 采用 **Tauri**，定位为 Windows / macOS 的用户交互外壳，而**不是**新的业务核心。
+本目录包含 GenomeLens 桌面 GUI 实现，定位为 **Windows / macOS 用户交互外壳**，而不是新的业务核心。
+
+## 当前状态（0.9.20）
+
+- `gui/tauri/`：第一个先行 GUI 版本 **JCVI meow**，基于 Tauri v2 + React 18 构建，版本号 `0.9.20-preview.1`。
+- `gui/docs/`：GUI 本地开发文档索引（开发计划、风格指南、Git 工作流、构建说明）。
+- `gui/demo-data/`：GUI 开发期示例数据。
 
 ## 边界（重要）
 
@@ -14,29 +20,7 @@ GUI 层**不负责**：
 
 GUI 通过本地 API / 命令桥接 / sidecar 与平台核心（`platform/`）通信，复用同一套 `AnalysisRequest` 任务协议，不得把核心逻辑迁入前端。
 
-## 规划子目录
+## 开发入口
 
-- `tauri/`：Tauri 桌面宿主（Win / Mac）。
-- `docs/`：GUI 本地开发文档索引（开发计划、风格指南、Git 工作流、构建说明）。
-
-## 开发文档入口
-
-本地开发资料、分工、Git 工作流与构建说明请先看 `gui/docs/README.md`。
-
-权威文档位于 `docs/开发手册/GUI先行开发/`：
-
-- [开发计划](../docs/开发手册/GUI先行开发/开发计划.md)
-- [视觉与交互风格指南](../docs/开发手册/GUI先行开发/视觉与交互风格指南.md)
-- [Git 工作流](../docs/开发手册/GUI先行开发/Git工作流.md)
-- [构建与运行](../docs/开发手册/GUI先行开发/构建与运行.md)
-- [前后端数据契约](../docs/开发手册/GUI先行开发/前后端数据契约.md)
-
-## 先行开发计划
-
-具体分工、阶段、技术选型与约束参见 `docs/开发手册/GUI先行开发/开发计划.md`。
-
-视觉与交互风格（现代化、极简、冰蓝色调、比较基因组学主题首页、动效规范）参见 `docs/开发手册/GUI先行开发/视觉与交互风格指南.md`。
-
-## 接入顺序
-
-参见 `温和架构过渡.md`：Tauri GUI 应建在已稳定的平台任务接口之上（manifest/summary/artifact 协议稳定后再引入），而不是建在当前工具化的内部细节之上。本目录现阶段仅作架构占位，不含实现代码。
+- 构建、运行、检查命令见 [`gui/tauri/README.md`](tauri/README.md)。
+- 本地开发计划、分工与视觉规范见 [`gui/docs/README.md`](docs/README.md) 与 `docs/开发手册/GUI先行开发/`。

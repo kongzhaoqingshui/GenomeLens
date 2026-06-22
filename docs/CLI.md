@@ -155,6 +155,7 @@ GenomeLens.exe analyze mcscan jcvi graphics_histogram numbers.txt output `
 - `--down <int>`
 - `--split-targets`
 - `--label-targets`
+- `--use-native-local-synteny-renderer`：使用原生 matplotlib 渲染器替代 JCVI `graphics.synteny`，支持跨染色体局部窗口；**该参数计算较重，默认关闭**。
 
 示例：
 

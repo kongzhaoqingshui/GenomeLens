@@ -3,22 +3,23 @@ from pathlib import Path
 import pytest
 
 from jcvi_genomelens.graphics.local_synteny_renderer import (
-    AnchorLink,
     GeneRecord,
     MappedGene,
     PositionedGene,
     _build_track_window,
-    _clustered_natural_focus_x,
+    _centered_x_limits,
     _compute_layout,
     _effective_dpi,
     _format_bp_range,
+    _jcvi_shade_curve_path,
     _label_positions_for_segments,
     _layout_visual_audit,
+    _layout_visual_extent,
     _read_bed,
     _read_blocks,
-    _ribbon_control_x_pair,
     _ribbon_endpoint_pairs,
     _scaled_gene_tick_linewidth,
+    _species_label_anchor_x,
     _strip_highlight_prefix,
     render_local_synteny,
 )
@@ -647,37 +648,54 @@ def test_tick_linewidth_scales_by_gene_length() -> None:
     assert _scaled_gene_tick_linewidth(long, 100, baseline=0.0175, minimum=0.006) == pytest.approx(0.035)
 
 
-def test_nearby_link_crossings_cluster_within_same_segment_pair() -> None:
-    def positioned(gene_id: str, x: float, y: float, segment_index: int, chromosome: str) -> PositionedGene:
-        return PositionedGene(
-            MappedGene(GeneRecord(gene_id, chromosome, 0, 100, "+"), x=x, width=0.02),
-            y=y,
-            segment_index=segment_index,
-            chromosome=chromosome,
-        )
+def test_ribbon_path_uses_jcvi_shade_curve_controls() -> None:
+    left_a = (0.10, 0.8)
+    left_b = (0.14, 0.8)
+    right_a = (0.62, 0.5)
+    right_b = (0.68, 0.5)
 
-    links = [
-        (AnchorLink(0, 0, 1, "a", "b"), positioned("a", 0.20, 0.8, 0, "chrA"), positioned("b", 0.40, 0.6, 0, "chrB")),
-        (AnchorLink(1, 0, 1, "c", "d"), positioned("c", 0.22, 0.8, 0, "chrA"), positioned("d", 0.42, 0.6, 0, "chrB")),
-        (AnchorLink(2, 0, 1, "e", "f"), positioned("e", 0.24, 0.8, 0, "chrA"), positioned("f", 0.44, 0.6, 0, "chrB")),
-        (AnchorLink(3, 0, 1, "g", "h"), positioned("g", 0.20, 0.8, 0, "chrA"), positioned("h", 0.90, 0.6, 0, "chrB")),
-        (AnchorLink(4, 0, 1, "i", "j"), positioned("i", 0.26, 0.8, 1, "chrC"), positioned("j", 0.46, 0.6, 0, "chrB")),
+    verts, codes = _jcvi_shade_curve_path(left_a, left_b, right_a, right_b)
+
+    assert codes == [1, 4, 4, 4, 2, 4, 4, 4, 79]
+    assert verts == [
+        left_a,
+        (left_a[0], 0.65),
+        (right_a[0], 0.65),
+        right_a,
+        right_b,
+        (right_b[0], 0.65),
+        (left_b[0], 0.65),
+        left_b,
+        left_a,
     ]
 
-    focus_by_row = _clustered_natural_focus_x(links)
 
-    assert focus_by_row[0] == pytest.approx(0.32)
-    assert focus_by_row[1] == pytest.approx(0.32)
-    assert focus_by_row[2] == pytest.approx(0.32)
-    assert 3 not in focus_by_row
-    assert 4 not in focus_by_row
+def test_species_label_anchor_right_aligns_to_widest_visible_track(fixture_dir: Path) -> None:
+    layout = _compute_layout(
+        fixture_dir / "blocks.txt",
+        fixture_dir / "all.bed",
+        ["Ref", "Sub"],
+        [],
+    )
+    anchor_x = _species_label_anchor_x(layout.tracks, set())
+
+    assert anchor_x < min(segment.visual_start for track in layout.tracks for segment in track.segments)
+    assert anchor_x > -0.05
 
 
-def test_ribbon_control_points_pass_through_focus_x() -> None:
-    first, second = _ribbon_control_x_pair(0.10, 0.70, focus_x=0.50)
-    midpoint_x = 0.125 * 0.10 + 0.375 * first + 0.375 * second + 0.125 * 0.70
+def test_centered_x_limits_balance_visible_content(fixture_dir: Path) -> None:
+    layout = _compute_layout(
+        fixture_dir / "blocks.txt",
+        fixture_dir / "all.bed",
+        ["Ref", "Sub"],
+        ["g2"],
+    )
+    anchor_x = _species_label_anchor_x(layout.tracks, layout.target_gene_ids)
+    visible_left, visible_right = _layout_visual_extent(layout, anchor_x)
+    x_left, x_right = _centered_x_limits(layout, anchor_x)
 
-    assert midpoint_x == pytest.approx(0.50)
+    assert visible_left - x_left == pytest.approx(x_right - visible_right)
+    assert x_left > -0.25
 
 
 def test_render_uses_target_legend_and_no_pair_cloud(fixture_dir: Path) -> None:

@@ -1,11 +1,13 @@
-# GenomeLens GUI 本地开发
+# GenomeLens GUI — JCVI meow
 
-本目录是 GenomeLens 桌面 GUI 的 Phase 0 Tauri 骨架。GUI 只作为平台交互外壳，分析能力仍通过 `platform/` 暴露的 CLI / request / summary 协议完成。
+本目录是 GenomeLens 桌面 GUI 的 **Phase 1 先行版本**，代号 **JCVI meow**。GUI 只作为平台交互外壳，分析能力仍通过 `platform/` 暴露的 CLI / request / summary 协议完成。
+
+当前版本：`0.9.20-preview.1`（见 `package.json`、`src-tauri/Cargo.toml`、`src-tauri/tauri.conf.json`）。
 
 ## 环境要求
 
 - Node.js >= 18
-- pnpm
+- pnpm（通过 `corepack enable` 启用）
 - Rust / Cargo
 - `genomelens` conda 环境，且 `platform/` 与 `engines/jcvi/` 已 editable install
 
@@ -19,16 +21,12 @@ Rust 工具链必须来自官方渠道：
 
 ```powershell
 cd gui/tauri
+corepack enable
 pnpm install
 pnpm tauri dev
 ```
 
-## 调试构建
-
-```powershell
-cd gui/tauri
-pnpm tauri build --debug
-```
+开发服务器默认监听 `http://127.0.0.1:1420`，可在 `src-tauri/tauri.conf.json` 中修改 `devUrl`。
 
 ## 常用检查
 
@@ -36,11 +34,27 @@ pnpm tauri build --debug
 pnpm lint
 pnpm typecheck
 pnpm test
+pnpm build:web
 ```
 
-## Phase 0 能力
+## Tauri 侧校验与构建
 
-- Tauri v2 + Vite + React 18 + TypeScript + Tailwind CSS 骨架
-- 最小权限 capability：core、fs、shell、dialog、notification、os
-- `get_version()` Tauri command，返回 platform 与 engine 版本探测结果
-- 前端首页调用 `get_version()` 并展示版本状态
+```powershell
+cargo check --manifest-path src-tauri/Cargo.toml
+pnpm tauri build
+```
+
+`tauri build` 需要在 Windows 环境中完成才能生成 `.msi` / `.exe` 安装包；若仅验证前端与 Rust 侧，可先执行 `pnpm build:web` 与 `cargo check`。
+
+## Phase 1 能力
+
+- Tauri v2 + Vite + React 18 + TypeScript + Tailwind CSS 骨架。
+- 最小权限 capability：core、fs、shell、dialog、notification、os。
+- 分析向导首屏：支持选择输入目录、输出目录、参考物种与目标基因，生成 `AnalysisRequest` 草案。
+- 运行会话模型：展示任务运行状态与进度。
+- `get_version()` Tauri command，返回 platform 与 engine 版本探测结果。
+
+## 已知限制
+
+- 0.9.20 为第一个先行预览版，主要完成桌面壳、向导首屏与请求草案模型；真实分析执行链路仍调用 `platform/` CLI。
+- 安装包构建依赖 Windows + Rust，建议在具备完整工具链的机器或 CI 中执行 `pnpm tauri build`。

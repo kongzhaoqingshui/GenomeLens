@@ -46,11 +46,16 @@ chromosome segments.
 - Multi-chromosome target tracks use the leftmost chromosome segment as the
   orientation authority so one species row does not mix forward and reverse
   segment directions.
-- Synteny links are JCVI-style interval ribbons based on gene widths, with
-  inversion ribbons drawn by reversed endpoints.
-- Link curves may micro-adjust Bezier controls only for naturally nearby
-  crossings inside the same adjacent track/chromosome-segment pair; far links
-  and cross-segment links keep their original geometry.
+- Synteny links copy the JCVI `graphics.synteny.Shade(style="curve")` path
+  shape: interval endpoints define the ribbon width, Bezier controls sit
+  vertically above/below the endpoints, and inversion ribbons are drawn by
+  reversed endpoints.
+- Species labels are right-aligned to a shared anchor just left of the widest
+  visible track extent, including side chromosome labels when they extend the
+  row.
+- The final canvas x-limits are derived from the full visible content extent
+  (tracks, chromosome labels, species labels, and target legend) so the whole
+  figure is horizontally centred instead of relying on a fixed legacy viewport.
 - Gene ticks scale their linewidth from the current baseline by local gene
   length relative to the common segment length, with a minimum visible width.
 - Very short chromosome segments include up to 20 same-chromosome flanking genes

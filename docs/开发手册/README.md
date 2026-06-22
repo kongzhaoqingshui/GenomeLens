@@ -69,3 +69,50 @@ conda run -n genomelens powershell -NoProfile -ExecutionPolicy Bypass -Command "
 ```
 
 构建输出写入 `app/`，不进入 Git 跟踪。
+
+## GUI 开发
+
+0.9.20 起在 `gui/tauri` 下提供第一个先行 GUI 版本 `JCVI meow`（Tauri v2 + React 18）。
+
+```powershell
+cd gui/tauri
+corepack enable
+pnpm install
+pnpm lint
+pnpm typecheck
+pnpm build:web
+```
+
+若本地已安装 Rust 工具链，可进一步校验并打包：
+
+```powershell
+cargo check --manifest-path src-tauri/Cargo.toml
+pnpm tauri build
+```
+
+详细能力、端口、构建参数与环境变量见 `gui/tauri/README.md`。
+
+## Docker 开发环境
+
+0.9.20 起提供 Docker 开发镜像，内置 conda Python 环境、Node.js/pnpm 与 Rust，可直接编译 platform、engine 与 GUI。
+
+构建：
+
+```powershell
+docker build -t genomelens-dev:0.9.20 .
+```
+
+运行并执行测试：
+
+```powershell
+docker run --rm genomelens-dev:0.9.20 python -m pytest platform/tests -q
+docker run --rm genomelens-dev:0.9.20 python -m pytest engines/jcvi/tests/unit/test_local_synteny_renderer.py -q
+```
+
+开发容器启动（挂载源码）：
+
+```powershell
+docker run -it --rm -v ${PWD}:/workspace -p 1420:1420 genomelens-dev:0.9.20 bash
+```
+
+Docker 镜像不捆绑 BLAST+ / ImageMagick 等外部二进制；运行真实分析时需在容器内或宿主机额外配置工具链。

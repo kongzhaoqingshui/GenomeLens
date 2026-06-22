@@ -1,0 +1,38 @@
+# 构建产物与本地缓存
+app/
+.build/
+toolchains/
+node_modules/
+target/
+
+# Git 与编辑器
+.git/
+.gitignore
+.claude/
+.vscode/
+.idea/
+
+# 上游参考数据（体积大，不需要进入镜像）
+references/upstream/
+
+# Python 缓存
+__pycache__/
+*.py[cod]
+*.egg-info/
+*.egg/
+.eggs/
+dist/
+build/
+
+# 测试与临时输出
+*.log
+out_t/
+output_test/
+
+# OS 文件
+.DS_Store
+Thumbs.db
+
+# Docker 自身
+Dockerfile
+.dockerignore

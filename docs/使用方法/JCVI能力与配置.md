@@ -153,6 +153,35 @@ HAIant/Tauri 侧如果只开放一个入口，建议把它命名为“GenomeLens
 
    绘图阶段调用真实 `jcvi.graphics.synteny`。图件样式参数包括 `figsize`、`dpi`、`glyphstyle`、`glyphcolor`、`shadestyle` 和输出格式。
 
+### 原生 matplotlib 局部共线性渲染器
+
+除默认 JCVI 渲染路径外，`local_synteny` 支持通过 `use_native_local_synteny_renderer: true`（CLI 对应 `--use-native-local-synteny-renderer`）启用原生 matplotlib 渲染器。该渲染器专为跨染色体局部窗口设计，主要差异如下：
+
+- **染色体感知**：每个轨道可按真实染色体拆分成多个 segment，而不是强行压成单一连续区间。
+- **间隙压缩**：长锚点-free 区域会被压缩，避免图件被无共线性区域撑开。
+- **跨染色体窗口**：参考物种目标基因若落在多条染色体附近，可在同一张图中展示多个染色体 segment。
+- ** heavier 计算**：原生渲染器会额外求解 segment 布局、lane 分配与曲线连线，计算成本高于 JCVI 默认路径；建议仅在需要跨染色体视图或默认图件不满足需求时开启。
+
+启用方式：
+
+```powershell
+GenomeLens.exe analyze mcscan input output `
+  --reference subject `
+  --target-genes AT1G01010 `
+  --use-native-local-synteny-renderer `
+  --force
+```
+
+或在 `jcvi.config.json` 的 `local_synteny` 分组中设置：
+
+```json
+{
+  "local_synteny": {
+    "use_native_local_synteny_renderer": true
+  }
+}
+```
+
 10. 结果归档与汇总
 
     顶层结果会写入：

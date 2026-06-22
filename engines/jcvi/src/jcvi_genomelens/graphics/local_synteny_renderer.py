@@ -86,9 +86,8 @@ BACKGROUND_TICK_BASE_LW = 0.0175
 BACKGROUND_TICK_MIN_LW = 0.006
 ANCHOR_TICK_BASE_LW = 0.04
 ANCHOR_TICK_MIN_LW = 0.018
-NATURAL_FOCUS_CLUSTER_X = 0.035
-NATURAL_FOCUS_CLUSTER_SPAN = 0.070
-NATURAL_FOCUS_MIN_LINKS = 3
+SPECIES_LABEL_GAP = 0.014
+CONTENT_X_PADDING = 0.035
 
 
 @dataclass(frozen=True)
@@ -196,8 +195,6 @@ class PositionedGene:
 
     mapped: MappedGene
     y: float
-    segment_index: int = -1
-    chromosome: str = ""
 
 
 @dataclass(frozen=True)
@@ -323,7 +320,17 @@ class MatplotlibLocalSyntenyRenderer:
         ax.axis("off")
 
         self._assign_track_y(layout)
-        track_positions = [_draw_track(ax, track, layout.target_gene_ids, label_targets) for track in layout.tracks]
+        species_label_x = _species_label_anchor_x(layout.tracks, layout.target_gene_ids)
+        track_positions = [
+            _draw_track(
+                ax,
+                track,
+                layout.target_gene_ids,
+                label_targets,
+                species_label_x=species_label_x,
+            )
+            for track in layout.tracks
+        ]
         self._draw_links(ax, layout, track_positions)
         ys = [_segment_y(track, segment) for track in layout.tracks for segment in track.segments]
         legend_y = min(ys) - 0.105 if ys else LEGEND_Y
@@ -333,7 +340,7 @@ class MatplotlibLocalSyntenyRenderer:
             chromosomes = sorted({segment.chromosome for track in layout.tracks for segment in track.segments})
             color_map = _build_chromosome_color_map(chromosomes)
             _draw_chromosome_legend(ax, chromosomes, color_map)
-        ax.set_xlim(-0.25, 1.02)
+        ax.set_xlim(*_centered_x_limits(layout, species_label_x))
         if ys:
             bottom = min(legend_y - 0.04 if layout.target_legend_entries else min(ys) - 0.14, min(ys) - 0.14)
             ax.set_ylim(max(0.0, bottom), min(1.0, max(ys) + 0.10))
@@ -372,7 +379,6 @@ class MatplotlibLocalSyntenyRenderer:
             drawable_links.append((link, left, right))
 
         target_colors = _target_color_by_gene(layout)
-        focus_x_by_row = _clustered_natural_focus_x(drawable_links)
         for link, left, right in drawable_links:
             color = BACKGROUND_LINK_COLOR
             alpha = LINK_ALPHA
@@ -385,7 +391,6 @@ class MatplotlibLocalSyntenyRenderer:
                 color = target_colors.get(link.left_gene) or target_colors.get(link.right_gene) or "#6b7280"
                 alpha = 1.0
                 zorder = 2
-            focus_y = (left.y + right.y) / 2.0
             _draw_ribbon_link(
                 ax,
                 left,
@@ -393,63 +398,7 @@ class MatplotlibLocalSyntenyRenderer:
                 color=color,
                 alpha=alpha,
                 zorder=zorder,
-                focus_y=focus_y,
-                focus_x=focus_x_by_row.get(link.row_index),
             )
-
-
-def _clustered_natural_focus_x(
-    drawable_links: list[tuple[AnchorLink, PositionedGene, PositionedGene]],
-) -> dict[int, float]:
-    """Cluster only nearby natural crossing points within the same segment pair."""
-
-    grouped: dict[tuple[int, int, int, int, str, str], list[tuple[float, int]]] = {}
-    for link, left, right in drawable_links:
-        if left.segment_index < 0 or right.segment_index < 0:
-            continue
-        key = (
-            link.left_track,
-            link.right_track,
-            left.segment_index,
-            right.segment_index,
-            left.chromosome,
-            right.chromosome,
-        )
-        natural_x = (left.mapped.x + right.mapped.x) / 2.0
-        grouped.setdefault(key, []).append((natural_x, link.row_index))
-
-    focus_by_row: dict[int, float] = {}
-    for points in grouped.values():
-        points.sort(key=lambda item: item[0])
-        cluster: list[tuple[float, int]] = []
-        for point in points:
-            if not cluster:
-                cluster = [point]
-                continue
-            proposed = [*cluster, point]
-            if (
-                point[0] - cluster[-1][0] <= NATURAL_FOCUS_CLUSTER_X
-                and proposed[-1][0] - proposed[0][0] <= NATURAL_FOCUS_CLUSTER_SPAN
-            ):
-                cluster.append(point)
-                continue
-            _assign_cluster_focus(focus_by_row, cluster)
-            cluster = [point]
-        _assign_cluster_focus(focus_by_row, cluster)
-    return focus_by_row
-
-
-def _assign_cluster_focus(
-    focus_by_row: dict[int, float],
-    cluster: list[tuple[float, int]],
-) -> None:
-    """Assign median focus to a natural crossing cluster if it is large enough."""
-
-    if len(cluster) < NATURAL_FOCUS_MIN_LINKS:
-        return
-    focus_x = median(point[0] for point in cluster)
-    for _natural_x, row_index in cluster:
-        focus_by_row[row_index] = focus_x
 
 
 def _strip_highlight_prefix(value: str) -> tuple[bool, str]:
@@ -1488,6 +1437,18 @@ def _estimate_range_label_width(text: str) -> float:
     return max(0.046, len(text) * 0.0054 + 0.010)
 
 
+def _estimate_species_label_width(text: str) -> float:
+    """Estimate axes-width of a bold species label."""
+
+    return max(0.050, len(text) * 0.0068 + 0.012)
+
+
+def _estimate_legend_label_width(text: str) -> float:
+    """Estimate axes-width of a bottom target legend label."""
+
+    return max(0.035, len(text) * 0.0050 + 0.008)
+
+
 def _draw_label_box(
     ax: Axes,
     text: str,
@@ -1653,6 +1614,80 @@ def _label_positions_for_segments(
     return positions
 
 
+def _track_visual_extent(track: TrackWindow, target_gene_ids: set[str]) -> tuple[float, float]:
+    """Return the visible horizontal extent of a track, including side labels."""
+
+    left_edges = [segment.visual_start for segment in track.segments]
+    right_edges = [segment.visual_end for segment in track.segments]
+    for segment_index, (label_x, _label_y) in _label_positions_for_segments(track, target_gene_ids).items():
+        width = _estimate_label_box_width(track.segments[segment_index].chromosome)
+        left_edges.append(label_x)
+        right_edges.append(label_x + width)
+    return min(left_edges), max(right_edges)
+
+
+def _species_label_anchor_x(tracks: list[TrackWindow], target_gene_ids: set[str]) -> float:
+    """Right-align species labels just left of the widest visible track extent."""
+
+    if not tracks:
+        return AXIS_LEFT - SPECIES_LABEL_GAP
+    left, _right = max(
+        (_track_visual_extent(track, target_gene_ids) for track in tracks),
+        key=lambda extent: extent[1] - extent[0],
+    )
+    return left - SPECIES_LABEL_GAP
+
+
+def _target_legend_extent(entries: list[TargetLegendEntry]) -> tuple[float, float] | None:
+    """Return the horizontal extent occupied by the bottom target legend."""
+
+    if not entries:
+        return None
+    columns = min(6, len(entries))
+    col_width = min(0.145, MAX_TRACK_WIDTH / max(1, columns))
+    left_edges: list[float] = []
+    right_edges: list[float] = []
+    for index, entry in enumerate(entries):
+        col = index % columns
+        x = AXIS_LEFT + col * col_width
+        label = _display_accn(entry.gene_id)
+        if entry.hidden_count:
+            label = f"{label} +{entry.hidden_count}"
+        left_edges.append(x)
+        right_edges.append(x + 0.036 + _estimate_legend_label_width(label))
+    return min(left_edges), max(right_edges)
+
+
+def _layout_visual_extent(layout: LocalSyntenyLayout, species_label_x: float) -> tuple[float, float]:
+    """Return the horizontal extent of all visible local-synteny content."""
+
+    left_edges: list[float] = []
+    right_edges: list[float] = []
+    for track in layout.tracks:
+        track_left, track_right = _track_visual_extent(track, layout.target_gene_ids)
+        left_edges.append(track_left)
+        right_edges.append(track_right)
+        species_label = _abbreviate_track_name(track.name)
+        left_edges.append(species_label_x - _estimate_species_label_width(species_label))
+        right_edges.append(species_label_x)
+
+    legend_extent = _target_legend_extent(layout.target_legend_entries)
+    if legend_extent is not None:
+        left_edges.append(legend_extent[0])
+        right_edges.append(legend_extent[1])
+
+    if not left_edges:
+        return AXIS_LEFT, AXIS_RIGHT
+    return min(left_edges), max(right_edges)
+
+
+def _centered_x_limits(layout: LocalSyntenyLayout, species_label_x: float) -> tuple[float, float]:
+    """Compute balanced x-axis limits around the visible content extent."""
+
+    left, right = _layout_visual_extent(layout, species_label_x)
+    return left - CONTENT_X_PADDING, right + CONTENT_X_PADDING
+
+
 def _chromosome_label_candidates(
     track: TrackWindow,
     segment: ChromosomeSegment,
@@ -1761,6 +1796,8 @@ def _draw_track(
     track: TrackWindow,
     target_gene_ids: set[str],
     label_targets: bool,
+    *,
+    species_label_x: float,
 ) -> dict[str, PositionedGene]:
     """Draw one track and return gene centre positions."""
 
@@ -1772,12 +1809,12 @@ def _draw_track(
         occupied_text_rects.append(_label_rect(label_x, label_y, _estimate_label_box_width(segment.chromosome)))
 
     ax.text(
-        -0.130,
+        species_label_x,
         track.y,
         _abbreviate_track_name(track.name),
         fontsize=8,
         fontweight="bold",
-        ha="left",
+        ha="right",
         va="center",
         color=track.color,
         zorder=9,
@@ -1874,8 +1911,6 @@ def _draw_track(
             gene_positions[mapped.gene.accn] = PositionedGene(
                 mapped=mapped,
                 y=y,
-                segment_index=segment_index,
-                chromosome=segment.chromosome,
             )
             if mapped.gene.accn in target_gene_ids and label_targets:
                 _draw_target_gene_label(ax, _display_accn(mapped.gene.accn), mapped.x, y, segment)
@@ -1925,25 +1960,42 @@ def _draw_ribbon_link(
     color: str,
     alpha: float,
     zorder: int,
-    focus_y: float | None = None,
-    focus_x: float | None = None,
 ) -> None:
     """Draw a JCVI-style synteny ribbon using gene interval endpoints."""
 
     left_a, left_b, right_a, right_b = _ribbon_endpoint_pairs(left, right)
+    verts, codes = _jcvi_shade_curve_path(left_a, left_b, right_a, right_b)
+    ax.add_patch(
+        PathPatch(
+            MplPath(verts, codes),
+            facecolor=color,
+            edgecolor=color,
+            lw=0,
+            alpha=alpha,
+            zorder=zorder,
+            clip_on=False,
+        )
+    )
 
-    mid_y1 = focus_y if focus_y is not None else (left_a[1] + right_a[1]) / 2.0
-    mid_y2 = focus_y if focus_y is not None else (left_b[1] + right_b[1]) / 2.0
-    left_ctrl_x1, right_ctrl_x1 = _ribbon_control_x_pair(left_a[0], right_a[0], focus_x)
-    left_ctrl_x2, right_ctrl_x2 = _ribbon_control_x_pair(left_b[0], right_b[0], focus_x)
+
+def _jcvi_shade_curve_path(
+    left_a: tuple[float, float],
+    left_b: tuple[float, float],
+    right_a: tuple[float, float],
+    right_b: tuple[float, float],
+) -> tuple[list[tuple[float, float]], list[int]]:
+    """Return the same curve path shape used by ``jcvi.graphics.synteny.Shade``."""
+
+    mid_y1 = (left_a[1] + right_a[1]) / 2.0
+    mid_y2 = (left_b[1] + right_b[1]) / 2.0
     verts = [
         left_a,
-        (left_ctrl_x1, mid_y1),
-        (right_ctrl_x1, mid_y1),
+        (left_a[0], mid_y1),
+        (right_a[0], mid_y1),
         right_a,
         right_b,
-        (right_ctrl_x2, mid_y2),
-        (left_ctrl_x2, mid_y2),
+        (right_b[0], mid_y2),
+        (left_b[0], mid_y2),
         left_b,
         left_a,
     ]
@@ -1958,29 +2010,7 @@ def _draw_ribbon_link(
         MplPath.CURVE4,
         MplPath.CLOSEPOLY,
     ]
-    ax.add_patch(
-        PathPatch(
-            MplPath(verts, codes),
-            facecolor=color,
-            edgecolor=color,
-            lw=0,
-            alpha=alpha,
-            zorder=zorder,
-            clip_on=False,
-        )
-    )
-
-
-def _ribbon_control_x_pair(start_x: float, end_x: float, focus_x: float | None = None) -> tuple[float, float]:
-    """Return Bezier control x values, optionally passing through a natural focus."""
-
-    first = start_x * 0.78 + end_x * 0.22
-    second = start_x * 0.22 + end_x * 0.78
-    if focus_x is None:
-        return first, second
-    required_sum = (8.0 * focus_x - start_x - end_x) / 3.0
-    shift = (required_sum - first - second) / 2.0
-    return first + shift, second + shift
+    return verts, codes
 
 
 def _draw_target_legend(ax: Axes, entries: list[TargetLegendEntry], *, y_base: float = LEGEND_Y) -> None:
