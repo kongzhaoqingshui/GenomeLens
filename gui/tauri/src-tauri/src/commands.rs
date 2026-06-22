@@ -53,6 +53,21 @@ pub struct ReadSummaryInput {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct ReadRequestPreviewInput {
+    request_path: String,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RequestPreview {
+    request_path: String,
+    json: Value,
+    method: Option<String>,
+    workflow: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ListProjectsInput {
     workspace: String,
 }
@@ -254,6 +269,29 @@ pub fn get_analysis_schema() -> Result<Value, String> {
 #[tauri::command]
 pub fn check_environment() -> Result<Value, String> {
     run_json_command(CliTool::Platform, &["check", "-j"])
+}
+
+#[tauri::command]
+pub fn read_request_preview(input: ReadRequestPreviewInput) -> Result<RequestPreview, String> {
+    let request_path = input.request_path;
+    let json = read_json_file(Path::new(&request_path))?;
+    let method = json
+        .get("method")
+        .and_then(Value::as_str)
+        .map(ToOwned::to_owned);
+    let workflow = json
+        .get("method_config")
+        .and_then(Value::as_object)
+        .and_then(|config| config.get("workflow"))
+        .and_then(Value::as_str)
+        .map(ToOwned::to_owned);
+
+    Ok(RequestPreview {
+        request_path,
+        json,
+        method,
+        workflow,
+    })
 }
 
 #[tauri::command]
@@ -1298,7 +1336,8 @@ mod tests {
     use super::{
         command_path_variants, common_conda_env_roots, create_project_in_workspace,
         drain_buffered_log_lines, list_artifacts_from_outdir, list_projects_from_workspace,
-        looks_like_path, map_log_line_to_state, normalize_project_name,
+        looks_like_path, map_log_line_to_state, normalize_project_name, read_request_preview,
+        ReadRequestPreviewInput,
     };
     use serde_json::json;
     use std::path::{Path, PathBuf};
@@ -1437,6 +1476,40 @@ mod tests {
         assert_eq!(listed[0].config_path, created.config_path);
 
         std::fs::remove_dir_all(&workspace).expect("cleanup workspace temp dir");
+    }
+
+    #[test]
+    fn reads_request_preview_without_rewriting_request_json() {
+        let temp_dir = unique_temp_dir("request-preview");
+        std::fs::create_dir_all(&temp_dir).expect("create request preview temp dir");
+        let request_path = temp_dir.join("request.json");
+        let request = json!({
+            "method": "mcscan",
+            "options": {
+                "threads": 4
+            },
+            "method_config": {
+                "workflow": "pairwise"
+            }
+        });
+
+        std::fs::write(
+            &request_path,
+            serde_json::to_vec_pretty(&request).expect("serialize request"),
+        )
+        .expect("write request");
+
+        let preview = read_request_preview(ReadRequestPreviewInput {
+            request_path: request_path.to_string_lossy().to_string(),
+        })
+        .expect("read request preview");
+
+        assert_eq!(preview.request_path, request_path.to_string_lossy());
+        assert_eq!(preview.method.as_deref(), Some("mcscan"));
+        assert_eq!(preview.workflow.as_deref(), Some("pairwise"));
+        assert_eq!(preview.json, request);
+
+        std::fs::remove_dir_all(&temp_dir).expect("cleanup request preview temp dir");
     }
 
     #[test]

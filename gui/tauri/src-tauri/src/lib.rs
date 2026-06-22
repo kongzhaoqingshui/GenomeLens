@@ -16,6 +16,7 @@ pub fn run() {
             commands::list_artifacts,
             commands::list_projects,
             commands::open_path,
+            commands::read_request_preview,
             commands::read_run_log,
             commands::read_summary,
             commands::run_analysis
