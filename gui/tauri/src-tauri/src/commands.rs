@@ -248,6 +248,8 @@ struct ArtifactIndexEntry {
     preview: Option<bool>,
 }
 
+const MAX_REQUEST_PREVIEW_BYTES: u64 = 8 * 1024 * 1024;
+
 #[tauri::command]
 pub fn get_version() -> VersionInfo {
     VersionInfo {
@@ -273,16 +275,33 @@ pub fn check_environment() -> Result<Value, String> {
 
 #[tauri::command]
 pub fn read_request_preview(input: ReadRequestPreviewInput) -> Result<RequestPreview, String> {
-    let request_path = input.request_path;
-    let json = read_json_file(Path::new(&request_path))?;
+    let request_path = input.request_path.trim().to_string();
+    let (request_file_path, request_metadata) =
+        validate_existing_file_input(&request_path, "request preview")?;
+    if request_metadata.len() > MAX_REQUEST_PREVIEW_BYTES {
+        return Err(format!(
+            "request preview file is too large ({} bytes, limit {} bytes): {}",
+            request_metadata.len(),
+            MAX_REQUEST_PREVIEW_BYTES,
+            request_file_path.display()
+        ));
+    }
+
+    let json = read_json_file(&request_file_path)?;
+    let json_object = json.as_object().ok_or_else(|| {
+        format!(
+            "request preview file must contain a JSON object: {}",
+            request_file_path.display()
+        )
+    })?;
     let method = json
         .get("method")
         .and_then(Value::as_str)
         .map(ToOwned::to_owned);
-    let workflow = json
+    let workflow = json_object
         .get("method_config")
         .and_then(Value::as_object)
-        .and_then(|config| config.get("workflow"))
+        .and_then(|method_config| method_config.get("workflow"))
         .and_then(Value::as_str)
         .map(ToOwned::to_owned);
 
@@ -402,7 +421,9 @@ pub fn open_path(input: OpenPathInput) -> Result<(), String> {
 pub fn run_analysis(app: AppHandle, input: RunAnalysisInput) -> Result<RunHandle, String> {
     let run_id = format!("run-{}", unix_timestamp_millis());
     let started_at = system_time_to_iso_like(SystemTime::now());
-    let request_path = input.request_path.clone();
+    let request_path = input.request_path.trim().to_string();
+    validate_existing_file_input(&request_path, "analysis request")
+        .map_err(|error| format!("run analysis {}: {}", request_path, error))?;
     let outdir = input.outdir.clone();
     let log_path = Path::new(&outdir)
         .join("logs")
@@ -1098,11 +1119,7 @@ fn run_cli_output(tool: CliTool, args: &[&str]) -> Result<CommandOutputResult, S
         }
     }
 
-    Err(render_resolution_error(
-        tool.command_name(),
-        &attempt_texts,
-        &errors,
-    ))
+    Err(render_resolution_error(tool, &attempt_texts, &errors))
 }
 
 fn spawn_cli_process(tool: CliTool, args: &[&str]) -> Result<SpawnedCliProcess, String> {
@@ -1133,11 +1150,7 @@ fn spawn_cli_process(tool: CliTool, args: &[&str]) -> Result<SpawnedCliProcess, 
         }
     }
 
-    Err(render_resolution_error(
-        tool.command_name(),
-        &attempt_texts,
-        &errors,
-    ))
+    Err(render_resolution_error(tool, &attempt_texts, &errors))
 }
 
 fn resolve_cli_candidates(tool: CliTool) -> Vec<ResolvedCliCommand> {
@@ -1290,24 +1303,68 @@ fn render_command_text(program: &str, args: &[&str]) -> String {
         .join(" ")
 }
 
-fn render_resolution_error(
-    command_name: &str,
-    attempt_texts: &[String],
-    errors: &[String],
-) -> String {
+fn render_resolution_error(tool: CliTool, attempt_texts: &[String], errors: &[String]) -> String {
+    let command_name = tool.command_name();
     if errors.is_empty() {
-        return format!("{command_name} not found");
+        return format!(
+            "{command_name} not found. hint: {}",
+            render_cli_resolution_hint(tool)
+        );
     }
 
     format!(
-        "{command_name} not found. attempted: {}. errors: {}",
+        "{command_name} not found. attempted: {}. errors: {}. hint: {}",
         attempt_texts.join(" | "),
-        errors.join(" | ")
+        errors.join(" | "),
+        render_cli_resolution_hint(tool)
     )
 }
 
 fn is_not_found_error(error: &std::io::Error) -> bool {
     error.kind() == std::io::ErrorKind::NotFound
+}
+
+fn render_cli_resolution_hint(tool: CliTool) -> String {
+    format!(
+        "set {} to the executable path, activate the genomelens conda environment so CONDA_PREFIX is available, or ensure {} is on PATH",
+        tool.override_env_var(),
+        tool.command_name()
+    )
+}
+
+fn validate_existing_file_input(
+    path_text: &str,
+    label: &str,
+) -> Result<(PathBuf, std::fs::Metadata), String> {
+    let trimmed = path_text.trim();
+    if trimmed.is_empty() {
+        return Err(format!("{label} path must not be empty"));
+    }
+
+    let path = PathBuf::from(trimmed);
+    let metadata = std::fs::metadata(&path).map_err(|error| {
+        if error.kind() == std::io::ErrorKind::NotFound {
+            format!("{label} path does not exist: {}", path.display())
+        } else {
+            format!("read {label} path metadata {}: {error}", path.display())
+        }
+    })?;
+
+    if metadata.is_dir() {
+        return Err(format!(
+            "{label} path is a directory, expected a file: {}",
+            path.display()
+        ));
+    }
+
+    if !metadata.is_file() {
+        return Err(format!(
+            "{label} path is not a regular file: {}",
+            path.display()
+        ));
+    }
+
+    Ok((path, metadata))
 }
 
 fn read_json_file(path: &Path) -> Result<Value, String> {
@@ -1337,7 +1394,8 @@ mod tests {
         command_path_variants, common_conda_env_roots, create_project_in_workspace,
         drain_buffered_log_lines, list_artifacts_from_outdir, list_projects_from_workspace,
         looks_like_path, map_log_line_to_state, normalize_project_name, read_request_preview,
-        ReadRequestPreviewInput,
+        render_resolution_error, validate_existing_file_input, CliTool, ReadRequestPreviewInput,
+        MAX_REQUEST_PREVIEW_BYTES,
     };
     use serde_json::json;
     use std::path::{Path, PathBuf};
@@ -1454,6 +1512,19 @@ mod tests {
     }
 
     #[test]
+    fn resolution_errors_include_override_and_conda_hints() {
+        let message = render_resolution_error(
+            CliTool::Platform,
+            &["genomelens --version".to_string()],
+            &["genomelens --version: not found".to_string()],
+        );
+
+        assert!(message.contains("GENOMELENS_CLI"));
+        assert!(message.contains("CONDA_PREFIX"));
+        assert!(message.contains("genomelens is on PATH"));
+    }
+
+    #[test]
     fn rejects_invalid_project_names() {
         assert!(normalize_project_name("  ").is_err());
         assert!(normalize_project_name("bad/name").is_err());
@@ -1510,6 +1581,85 @@ mod tests {
         assert_eq!(preview.json, request);
 
         std::fs::remove_dir_all(&temp_dir).expect("cleanup request preview temp dir");
+    }
+
+    #[test]
+    fn reads_request_preview_without_method_or_workflow() {
+        let temp_dir = unique_temp_dir("request-preview-missing-fields");
+        std::fs::create_dir_all(&temp_dir).expect("create request preview temp dir");
+        let request_path = temp_dir.join("request.json");
+        let request = json!({
+            "input": {
+                "mode": "bed_cds"
+            }
+        });
+
+        std::fs::write(
+            &request_path,
+            serde_json::to_vec_pretty(&request).expect("serialize request"),
+        )
+        .expect("write request");
+
+        let preview = read_request_preview(ReadRequestPreviewInput {
+            request_path: request_path.to_string_lossy().to_string(),
+        })
+        .expect("read request preview");
+
+        assert_eq!(preview.method, None);
+        assert_eq!(preview.workflow, None);
+        assert_eq!(preview.json, request);
+
+        std::fs::remove_dir_all(&temp_dir).expect("cleanup request preview temp dir");
+    }
+
+    #[test]
+    fn request_preview_rejects_directory_paths() {
+        let temp_dir = unique_temp_dir("request-preview-directory");
+        std::fs::create_dir_all(&temp_dir).expect("create request preview temp dir");
+
+        let error = read_request_preview(ReadRequestPreviewInput {
+            request_path: temp_dir.to_string_lossy().to_string(),
+        })
+        .expect_err("directory path should fail request preview");
+
+        assert!(error.contains("is a directory"));
+
+        std::fs::remove_dir_all(&temp_dir).expect("cleanup request preview temp dir");
+    }
+
+    #[test]
+    fn request_preview_rejects_oversized_files() {
+        let temp_dir = unique_temp_dir("request-preview-large");
+        std::fs::create_dir_all(&temp_dir).expect("create request preview temp dir");
+        let request_path = temp_dir.join("request.json");
+        let oversized = vec![b' '; (MAX_REQUEST_PREVIEW_BYTES as usize) + 1];
+        std::fs::write(&request_path, oversized).expect("write oversized request");
+
+        let error = read_request_preview(ReadRequestPreviewInput {
+            request_path: request_path.to_string_lossy().to_string(),
+        })
+        .expect_err("oversized request preview should fail");
+
+        assert!(error.contains("too large"));
+
+        std::fs::remove_dir_all(&temp_dir).expect("cleanup request preview temp dir");
+    }
+
+    #[test]
+    fn validates_existing_file_input_for_missing_and_directory_paths() {
+        let missing = validate_existing_file_input("missing.json", "analysis request")
+            .expect_err("missing file should fail");
+        assert!(missing.contains("does not exist"));
+
+        let temp_dir = unique_temp_dir("existing-file-input-directory");
+        std::fs::create_dir_all(&temp_dir).expect("create temp dir");
+
+        let directory_error =
+            validate_existing_file_input(temp_dir.to_string_lossy().as_ref(), "analysis request")
+                .expect_err("directory path should fail");
+        assert!(directory_error.contains("is a directory"));
+
+        std::fs::remove_dir_all(&temp_dir).expect("cleanup temp dir");
     }
 
     #[test]
