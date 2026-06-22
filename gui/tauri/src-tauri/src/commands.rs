@@ -1,12 +1,14 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::collections::{BTreeMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::env;
 use std::ffi::OsString;
 use std::fs::File;
 use std::io::{BufReader, Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use std::sync::{Mutex, OnceLock};
 use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -31,6 +33,19 @@ pub struct VersionInfo {
 pub struct RunAnalysisInput {
     request_path: String,
     outdir: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CancelRunInput {
+    run_id: String,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CancelRunResult {
+    run_id: String,
+    status: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -117,6 +132,13 @@ pub struct ReadRunLogInput {
     tail_lines: Option<usize>,
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReadRunSnapshotInput {
+    outdir: String,
+    tail_lines: Option<usize>,
+}
+
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RunLogSnapshot {
@@ -126,6 +148,17 @@ pub struct RunLogSnapshot {
     lines: Vec<String>,
     truncated: bool,
     updated_at: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RunSnapshot {
+    outdir: String,
+    summary_path: String,
+    log_path: String,
+    summary: Option<Value>,
+    artifacts: Vec<ArtifactSummary>,
+    log: RunLogSnapshot,
 }
 
 #[derive(Debug, Deserialize)]
@@ -218,6 +251,12 @@ struct SpawnedCliProcess {
     child: Child,
 }
 
+#[derive(Debug, Clone)]
+struct RegisteredRun {
+    child: Arc<Mutex<Child>>,
+    cancel_requested: Arc<AtomicBool>,
+}
+
 #[derive(Debug, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 struct ProjectMetadataFile {
@@ -255,6 +294,7 @@ const MAX_LOG_TAIL_BYTES: usize = 512 * 1024;
 
 static ANALYSIS_SCHEMA_CACHE: OnceLock<Mutex<Option<Value>>> = OnceLock::new();
 static TEMPLATE_CACHE: OnceLock<Mutex<BTreeMap<String, Value>>> = OnceLock::new();
+static RUN_REGISTRY: OnceLock<Mutex<HashMap<String, RegisteredRun>>> = OnceLock::new();
 
 #[tauri::command]
 pub fn get_version() -> VersionInfo {
@@ -361,9 +401,7 @@ pub fn create_project(input: CreateProjectInput) -> Result<ProjectSummary, Strin
 
 #[tauri::command]
 pub fn read_summary(input: ReadSummaryInput) -> Result<Value, String> {
-    let summary_path = Path::new(&input.outdir)
-        .join("report")
-        .join("run_summary.json");
+    let summary_path = PathBuf::from(summary_path_for_outdir(&input.outdir));
     read_json_file(&summary_path)
 }
 
@@ -374,16 +412,12 @@ pub fn list_artifacts(input: ListArtifactsInput) -> Result<Vec<ArtifactSummary>,
 
 #[tauri::command]
 pub fn read_run_log(input: ReadRunLogInput) -> Result<RunLogSnapshot, String> {
-    let log_path = Path::new(&input.outdir).join("logs").join("run.log");
+    let log_path = PathBuf::from(log_path_for_outdir(&input.outdir));
     if !log_path.is_file() {
-        return Ok(RunLogSnapshot {
-            outdir: input.outdir,
-            log_path: log_path.to_string_lossy().to_string(),
-            text: String::new(),
-            lines: Vec::new(),
-            truncated: false,
-            updated_at: None,
-        });
+        return Ok(empty_run_log_snapshot(
+            input.outdir,
+            log_path.to_string_lossy().to_string(),
+        ));
     }
 
     let (text, lines, truncated) = if let Some(tail_lines) = input.tail_lines {
@@ -415,6 +449,33 @@ pub fn read_run_log(input: ReadRunLogInput) -> Result<RunLogSnapshot, String> {
         lines,
         truncated,
         updated_at,
+    })
+}
+
+#[tauri::command]
+pub fn read_run_snapshot(input: ReadRunSnapshotInput) -> Result<RunSnapshot, String> {
+    let outdir = input.outdir;
+    let log = read_run_log(ReadRunLogInput {
+        outdir: outdir.clone(),
+        tail_lines: input.tail_lines,
+    })?;
+    let summary_path = summary_path_for_outdir(&outdir);
+    let summary = read_summary(ReadSummaryInput {
+        outdir: outdir.clone(),
+    })
+    .ok();
+    let artifacts = summary
+        .as_ref()
+        .and_then(|summary_json| parse_artifacts_from_summary_json(summary_json).ok())
+        .unwrap_or_default();
+
+    Ok(RunSnapshot {
+        outdir,
+        summary_path,
+        log_path: log.log_path.clone(),
+        summary,
+        artifacts,
+        log,
     })
 }
 
@@ -454,6 +515,50 @@ pub fn open_path(input: OpenPathInput) -> Result<(), String> {
 }
 
 #[tauri::command]
+pub fn cancel_run(input: CancelRunInput) -> Result<CancelRunResult, String> {
+    let run_id = input.run_id.trim().to_string();
+    if run_id.is_empty() {
+        return Err("runId must not be empty".to_string());
+    }
+
+    let Some(registered_run) = get_registered_run(&run_id)? else {
+        return Err(format!(
+            "runId is not active in this GUI session: {}",
+            run_id
+        ));
+    };
+
+    registered_run
+        .cancel_requested
+        .store(true, Ordering::SeqCst);
+    let mut child = registered_run
+        .child
+        .lock()
+        .map_err(|_| format!("run process lock poisoned: {}", run_id))?;
+    if child
+        .try_wait()
+        .map_err(|error| format!("check run {} status before cancel: {}", run_id, error))?
+        .is_some()
+    {
+        drop(child);
+        remove_registered_run(&run_id)?;
+        return Err(format!(
+            "runId is no longer active in this GUI session: {}",
+            run_id
+        ));
+    }
+
+    child
+        .kill()
+        .map_err(|error| format!("cancel run {}: {}", run_id, error))?;
+
+    Ok(CancelRunResult {
+        run_id: run_id.clone(),
+        status: "CANCEL_REQUESTED".to_string(),
+    })
+}
+
+#[tauri::command]
 pub fn run_analysis(app: AppHandle, input: RunAnalysisInput) -> Result<RunHandle, String> {
     let run_id = format!("run-{}", unix_timestamp_millis());
     let started_at = system_time_to_iso_like(SystemTime::now());
@@ -461,16 +566,8 @@ pub fn run_analysis(app: AppHandle, input: RunAnalysisInput) -> Result<RunHandle
     validate_existing_file_input(&request_path, "analysis request")
         .map_err(|error| format!("run analysis {}: {}", request_path, error))?;
     let outdir = input.outdir.clone();
-    let log_path = Path::new(&outdir)
-        .join("logs")
-        .join("run.log")
-        .to_string_lossy()
-        .to_string();
-    let summary_path = Path::new(&outdir)
-        .join("report")
-        .join("run_summary.json")
-        .to_string_lossy()
-        .to_string();
+    let log_path = log_path_for_outdir(&outdir);
+    let summary_path = summary_path_for_outdir(&outdir);
 
     let spawned = spawn_cli_process(CliTool::Platform, &["analyze", "run", &request_path])
         .map_err(|error| {
@@ -493,8 +590,25 @@ pub fn run_analysis(app: AppHandle, input: RunAnalysisInput) -> Result<RunHandle
             );
             message
         })?;
-    let mut child = spawned.child;
-    let pid = child.id();
+    let child = Arc::new(Mutex::new(spawned.child));
+    let pid = child
+        .lock()
+        .map_err(|_| format!("run process lock poisoned before start: {}", run_id))?
+        .id();
+    let cancel_requested = Arc::new(AtomicBool::new(false));
+    register_run(
+        &run_id,
+        RegisteredRun {
+            child: Arc::clone(&child),
+            cancel_requested: Arc::clone(&cancel_requested),
+        },
+    )
+    .map_err(|error| {
+        if let Ok(mut child) = child.lock() {
+            let _ = child.kill();
+        }
+        format!("register run {}: {}", run_id, error)
+    })?;
 
     let app_handle = app.clone();
     let thread_context = RunEventContext {
@@ -525,10 +639,20 @@ pub fn run_analysis(app: AppHandle, input: RunAnalysisInput) -> Result<RunHandle
                 &mut last_state,
             );
 
-            match child.try_wait() {
+            let try_wait_result = child
+                .lock()
+                .map_err(|_| format!("run process lock poisoned: {}", thread_context.run_id))
+                .and_then(|mut child| {
+                    child.try_wait().map_err(|error| {
+                        format!("run {} wait error: {}", thread_context.run_id, error)
+                    })
+                });
+
+            match try_wait_result {
                 Ok(Some(status)) => break status,
                 Ok(None) => thread::sleep(Duration::from_millis(200)),
                 Err(error) => {
+                    let _ = remove_registered_run(&thread_context.run_id);
                     emit_new_log_lines(
                         &app_handle,
                         &run_log_path,
@@ -552,7 +676,7 @@ pub fn run_analysis(app: AppHandle, input: RunAnalysisInput) -> Result<RunHandle
                             exit_code: None,
                             log_path: thread_context.log_path.clone(),
                             summary_path: thread_context.summary_path.clone(),
-                            message: format!("run {} wait error: {}", thread_context.run_id, error),
+                            message: error,
                             code: Some("wait_failed".to_string()),
                             details: Some(serde_json::json!({
                                 "runId": thread_context.run_id,
@@ -588,6 +712,7 @@ pub fn run_analysis(app: AppHandle, input: RunAnalysisInput) -> Result<RunHandle
             }
         };
 
+        let _ = remove_registered_run(&thread_context.run_id);
         emit_new_log_lines(
             &app_handle,
             &run_log_path,
@@ -601,7 +726,10 @@ pub fn run_analysis(app: AppHandle, input: RunAnalysisInput) -> Result<RunHandle
         let summary = read_json_file(Path::new(&thread_context.summary_path)).ok();
         let finished_at = system_time_to_iso_like(SystemTime::now());
         let exit_code = exit_status.code();
-        let finished_status = if exit_status.success() {
+        let was_cancelled = cancel_requested.load(Ordering::SeqCst);
+        let finished_status = if was_cancelled {
+            "CANCELLED".to_string()
+        } else if exit_status.success() {
             "SUCCEEDED".to_string()
         } else {
             summary
@@ -612,7 +740,42 @@ pub fn run_analysis(app: AppHandle, input: RunAnalysisInput) -> Result<RunHandle
                 .to_string()
         };
 
-        if !exit_status.success() {
+        if was_cancelled {
+            let _ = app_handle.emit(
+                "analysis:state",
+                AnalysisStateEventPayload {
+                    run_id: thread_context.run_id.clone(),
+                    outdir: thread_context.outdir.clone(),
+                    request_path: thread_context.request_path.clone(),
+                    started_at: thread_context.started_at.clone(),
+                    state: "CANCELLED".to_string(),
+                    progress: workflow_progress("CANCELLED"),
+                },
+            );
+            let _ = app_handle.emit(
+                "analysis:error",
+                AnalysisErrorEventPayload {
+                    run_id: thread_context.run_id.clone(),
+                    outdir: thread_context.outdir.clone(),
+                    request_path: thread_context.request_path.clone(),
+                    started_at: thread_context.started_at.clone(),
+                    finished_at: Some(finished_at.clone()),
+                    exit_code,
+                    log_path: thread_context.log_path.clone(),
+                    summary_path: thread_context.summary_path.clone(),
+                    message: format!("run {} cancelled by user", thread_context.run_id),
+                    code: Some("cancelled".to_string()),
+                    details: Some(serde_json::json!({
+                        "runId": thread_context.run_id,
+                        "outdir": thread_context.outdir,
+                        "requestPath": thread_context.request_path,
+                        "exitCode": exit_code,
+                        "startedAt": thread_context.started_at,
+                        "finishedAt": finished_at,
+                    })),
+                },
+            );
+        } else if !exit_status.success() {
             let _ = app_handle.emit(
                 "analysis:error",
                 AnalysisErrorEventPayload {
@@ -919,11 +1082,15 @@ fn create_project_in_workspace(workspace: &Path, name: &str) -> Result<ProjectSu
 }
 
 fn list_artifacts_from_outdir(outdir: &Path) -> Result<Vec<ArtifactSummary>, String> {
-    let summary_path = outdir.join("report").join("run_summary.json");
+    let summary_path = PathBuf::from(summary_path_for_outdir(outdir));
     let summary_json = read_json_file(&summary_path)?;
-    let summary: RunArtifactSummaryDoc = serde_json::from_value(summary_json)
-        .map_err(|error| format!("parse run summary {}: {error}", summary_path.display()))?;
+    parse_artifacts_from_summary_json(&summary_json)
+        .map_err(|error| format!("parse run summary {}: {error}", summary_path.display()))
+}
 
+fn parse_artifacts_from_summary_json(summary_json: &Value) -> Result<Vec<ArtifactSummary>, String> {
+    let summary: RunArtifactSummaryDoc =
+        serde_json::from_value(summary_json.clone()).map_err(|error| error.to_string())?;
     let mut artifacts = Vec::new();
 
     for path in summary.final_figures {
@@ -945,6 +1112,61 @@ fn list_artifacts_from_outdir(outdir: &Path) -> Result<Vec<ArtifactSummary>, Str
     }
 
     Ok(artifacts)
+}
+
+fn summary_path_for_outdir(outdir: impl AsRef<Path>) -> String {
+    outdir
+        .as_ref()
+        .join("report")
+        .join("run_summary.json")
+        .to_string_lossy()
+        .to_string()
+}
+
+fn log_path_for_outdir(outdir: impl AsRef<Path>) -> String {
+    outdir
+        .as_ref()
+        .join("logs")
+        .join("run.log")
+        .to_string_lossy()
+        .to_string()
+}
+
+fn empty_run_log_snapshot(outdir: String, log_path: String) -> RunLogSnapshot {
+    RunLogSnapshot {
+        outdir,
+        log_path,
+        text: String::new(),
+        lines: Vec::new(),
+        truncated: false,
+        updated_at: None,
+    }
+}
+
+fn register_run(run_id: &str, registered_run: RegisteredRun) -> Result<(), String> {
+    let registry = RUN_REGISTRY.get_or_init(|| Mutex::new(HashMap::new()));
+    let mut registry = registry
+        .lock()
+        .map_err(|_| "run registry lock poisoned".to_string())?;
+    registry.insert(run_id.to_string(), registered_run);
+    Ok(())
+}
+
+fn get_registered_run(run_id: &str) -> Result<Option<RegisteredRun>, String> {
+    let registry = RUN_REGISTRY.get_or_init(|| Mutex::new(HashMap::new()));
+    let registry = registry
+        .lock()
+        .map_err(|_| "run registry lock poisoned".to_string())?;
+    Ok(registry.get(run_id).cloned())
+}
+
+fn remove_registered_run(run_id: &str) -> Result<(), String> {
+    let registry = RUN_REGISTRY.get_or_init(|| Mutex::new(HashMap::new()));
+    let mut registry = registry
+        .lock()
+        .map_err(|_| "run registry lock poisoned".to_string())?;
+    registry.remove(run_id);
+    Ok(())
 }
 
 fn read_run_log_tail(
@@ -1497,11 +1719,12 @@ fn system_time_to_iso_like(time: SystemTime) -> String {
 #[cfg(test)]
 mod tests {
     use super::{
-        command_path_variants, common_conda_env_roots, create_project_in_workspace,
+        cancel_run, command_path_variants, common_conda_env_roots, create_project_in_workspace,
         drain_buffered_log_lines, list_artifacts_from_outdir, list_projects_from_workspace,
         looks_like_path, map_log_line_to_state, normalize_project_name, read_request_preview,
-        read_run_log, render_resolution_error, validate_existing_file_input, CliTool,
-        ReadRequestPreviewInput, ReadRunLogInput, MAX_REQUEST_PREVIEW_BYTES,
+        read_run_log, read_run_snapshot, render_resolution_error, validate_existing_file_input,
+        CancelRunInput, CliTool, ReadRequestPreviewInput, ReadRunLogInput, ReadRunSnapshotInput,
+        MAX_REQUEST_PREVIEW_BYTES,
     };
     use serde_json::json;
     use std::path::{Path, PathBuf};
@@ -1769,6 +1992,16 @@ mod tests {
     }
 
     #[test]
+    fn cancel_run_rejects_unknown_run_id() {
+        let error = cancel_run(CancelRunInput {
+            run_id: "run-missing".to_string(),
+        })
+        .expect_err("unknown run id should fail");
+
+        assert!(error.contains("not active in this GUI session"));
+    }
+
+    #[test]
     fn read_run_log_returns_tail_lines_without_full_history() {
         let outdir = unique_temp_dir("run-log-tail");
         let log_dir = outdir.join("logs");
@@ -1803,6 +2036,60 @@ mod tests {
         );
 
         std::fs::remove_dir_all(&outdir).expect("cleanup run log temp dir");
+    }
+
+    #[test]
+    fn read_run_snapshot_restores_summary_log_and_artifacts() {
+        let outdir = unique_temp_dir("run-snapshot");
+        let report_dir = outdir.join("report");
+        let log_dir = outdir.join("logs");
+        std::fs::create_dir_all(&report_dir).expect("create report dir");
+        std::fs::create_dir_all(&log_dir).expect("create log dir");
+
+        let summary = json!({
+            "status": "SUCCEEDED",
+            "workflow": "mcscan_pairwise",
+            "final_figures": [
+                outdir.join("report").join("dotplot.png").to_string_lossy().to_string()
+            ],
+            "artifact_index": [
+                {
+                    "artifact_id": "dotplot",
+                    "artifact_type": "figure",
+                    "path": outdir.join("report").join("dotplot.png").to_string_lossy().to_string(),
+                    "format": "png",
+                    "preview": true
+                }
+            ]
+        });
+        std::fs::write(
+            report_dir.join("run_summary.json"),
+            serde_json::to_vec_pretty(&summary).expect("serialize summary"),
+        )
+        .expect("write summary");
+        std::fs::write(log_dir.join("run.log"), "alpha\nbeta\ngamma\n").expect("write log");
+
+        let snapshot = read_run_snapshot(ReadRunSnapshotInput {
+            outdir: outdir.to_string_lossy().to_string(),
+            tail_lines: Some(2),
+        })
+        .expect("read run snapshot");
+
+        assert_eq!(snapshot.outdir, outdir.to_string_lossy());
+        assert_eq!(
+            snapshot.log.lines,
+            vec!["beta".to_string(), "gamma".to_string()]
+        );
+        assert_eq!(snapshot.artifacts.len(), 1);
+        assert_eq!(
+            snapshot
+                .summary
+                .as_ref()
+                .and_then(|value| value.get("status")),
+            Some(&json!("SUCCEEDED"))
+        );
+
+        std::fs::remove_dir_all(&outdir).expect("cleanup run snapshot temp dir");
     }
 
     #[test]

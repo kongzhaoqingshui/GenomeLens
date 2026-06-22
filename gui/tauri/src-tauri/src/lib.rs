@@ -8,6 +8,7 @@ pub fn run() {
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_shell::init())
         .invoke_handler(tauri::generate_handler![
+            commands::cancel_run,
             commands::check_environment,
             commands::create_project,
             commands::get_analysis_schema,
@@ -18,6 +19,7 @@ pub fn run() {
             commands::open_path,
             commands::read_request_preview,
             commands::read_run_log,
+            commands::read_run_snapshot,
             commands::read_summary,
             commands::run_analysis
         ])
