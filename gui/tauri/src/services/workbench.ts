@@ -1,6 +1,7 @@
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 
+import type { ArtifactSummary, ListArtifactsInput } from "../models/artifact";
 import type { CheckReport } from "../models/check-report";
 import type { CreateProjectInput, ListProjectsInput, ProjectSummary } from "../models/project";
 import type {
@@ -26,6 +27,10 @@ export function listProjects(input: ListProjectsInput): Promise<ProjectSummary[]
 
 export function createProject(input: CreateProjectInput): Promise<ProjectSummary> {
   return invoke<ProjectSummary>("create_project", input);
+}
+
+export function listArtifacts(input: ListArtifactsInput): Promise<ArtifactSummary[]> {
+  return invoke<ArtifactSummary[]>("list_artifacts", input);
 }
 
 export function runAnalysis(input: RunAnalysisInput): Promise<RunHandle> {

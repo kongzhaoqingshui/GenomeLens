@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::collections::HashSet;
+use std::collections::{BTreeMap, HashSet};
 use std::env;
 use std::ffi::OsString;
 use std::fs::File;
@@ -49,6 +49,49 @@ pub struct RunHandle {
 #[serde(rename_all = "camelCase")]
 pub struct ReadSummaryInput {
     outdir: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ListProjectsInput {
+    workspace: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CreateProjectInput {
+    workspace: String,
+    name: String,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProjectSummary {
+    name: String,
+    path: String,
+    config_path: String,
+    jcvi_config_path: Option<String>,
+    updated_at: Option<String>,
+    created_at: Option<String>,
+    last_run_at: Option<String>,
+    #[serde(flatten)]
+    extra_fields: BTreeMap<String, Value>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ListArtifactsInput {
+    outdir: String,
+}
+
+#[derive(Debug, Serialize, Clone, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ArtifactSummary {
+    path: String,
+    name: String,
+    format: String,
+    source: String,
+    preview: bool,
 }
 
 #[derive(Debug, Deserialize)]
@@ -159,6 +202,37 @@ struct SpawnedCliProcess {
     child: Child,
 }
 
+#[derive(Debug, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+struct ProjectMetadataFile {
+    name: Option<String>,
+    path: Option<String>,
+    config_path: Option<String>,
+    jcvi_config_path: Option<String>,
+    updated_at: Option<String>,
+    created_at: Option<String>,
+    last_run_at: Option<String>,
+    #[serde(flatten)]
+    extra_fields: BTreeMap<String, Value>,
+}
+
+#[derive(Debug, Deserialize, Default)]
+struct RunArtifactSummaryDoc {
+    #[serde(default)]
+    final_figures: Vec<String>,
+    #[serde(default)]
+    global_figures: Vec<String>,
+    #[serde(default)]
+    artifact_index: Vec<ArtifactIndexEntry>,
+}
+
+#[derive(Debug, Deserialize, Default)]
+struct ArtifactIndexEntry {
+    path: String,
+    format: Option<String>,
+    preview: Option<bool>,
+}
+
 #[tauri::command]
 pub fn get_version() -> VersionInfo {
     VersionInfo {
@@ -183,11 +257,26 @@ pub fn check_environment() -> Result<Value, String> {
 }
 
 #[tauri::command]
+pub fn list_projects(input: ListProjectsInput) -> Result<Vec<ProjectSummary>, String> {
+    list_projects_from_workspace(Path::new(&input.workspace))
+}
+
+#[tauri::command]
+pub fn create_project(input: CreateProjectInput) -> Result<ProjectSummary, String> {
+    create_project_in_workspace(Path::new(&input.workspace), &input.name)
+}
+
+#[tauri::command]
 pub fn read_summary(input: ReadSummaryInput) -> Result<Value, String> {
     let summary_path = Path::new(&input.outdir)
         .join("report")
         .join("run_summary.json");
     read_json_file(&summary_path)
+}
+
+#[tauri::command]
+pub fn list_artifacts(input: ListArtifactsInput) -> Result<Vec<ArtifactSummary>, String> {
+    list_artifacts_from_outdir(Path::new(&input.outdir))
 }
 
 #[tauri::command]
@@ -640,6 +729,247 @@ fn workflow_progress(state: &str) -> f64 {
     }
 }
 
+fn list_projects_from_workspace(workspace: &Path) -> Result<Vec<ProjectSummary>, String> {
+    if !workspace.exists() {
+        return Ok(Vec::new());
+    }
+
+    if !workspace.is_dir() {
+        return Err(format!(
+            "workspace is not a directory: {}",
+            workspace.display()
+        ));
+    }
+
+    let mut projects = Vec::new();
+    let entries = std::fs::read_dir(workspace)
+        .map_err(|error| format!("read workspace {}: {error}", workspace.display()))?;
+
+    for entry in entries {
+        let entry = entry
+            .map_err(|error| format!("read workspace entry {}: {error}", workspace.display()))?;
+        let project_dir = entry.path();
+        if !project_dir.is_dir() {
+            continue;
+        }
+
+        let config_path = project_config_path(&project_dir);
+        if !config_path.is_file() {
+            continue;
+        }
+
+        let metadata = read_project_metadata(&project_dir, &config_path)?;
+        projects.push(metadata);
+    }
+
+    projects.sort_by(|left, right| {
+        left.name
+            .to_lowercase()
+            .cmp(&right.name.to_lowercase())
+            .then_with(|| left.path.cmp(&right.path))
+    });
+
+    Ok(projects)
+}
+
+fn create_project_in_workspace(workspace: &Path, name: &str) -> Result<ProjectSummary, String> {
+    let normalized_name = normalize_project_name(name)?;
+
+    if workspace.exists() && !workspace.is_dir() {
+        return Err(format!(
+            "workspace is not a directory: {}",
+            workspace.display()
+        ));
+    }
+
+    std::fs::create_dir_all(workspace)
+        .map_err(|error| format!("create workspace {}: {error}", workspace.display()))?;
+
+    let project_dir = workspace.join(&normalized_name);
+    if project_dir.exists() {
+        return Err(format!("project already exists: {}", project_dir.display()));
+    }
+
+    let project_meta_dir = project_dir.join(".genomelens");
+    std::fs::create_dir_all(&project_meta_dir).map_err(|error| {
+        format!(
+            "create project metadata dir {}: {error}",
+            project_meta_dir.display()
+        )
+    })?;
+
+    let now = system_time_to_iso_like(SystemTime::now());
+    let config_path = project_meta_dir.join("project.json");
+    let metadata = ProjectMetadataFile {
+        name: Some(normalized_name.clone()),
+        path: Some(project_dir.to_string_lossy().to_string()),
+        config_path: Some(config_path.to_string_lossy().to_string()),
+        jcvi_config_path: None,
+        updated_at: Some(now.clone()),
+        created_at: Some(now),
+        last_run_at: None,
+        extra_fields: BTreeMap::new(),
+    };
+
+    let serialized = serde_json::to_vec_pretty(&metadata).map_err(|error| {
+        format!(
+            "serialize project metadata {}: {error}",
+            config_path.display()
+        )
+    })?;
+    std::fs::write(&config_path, serialized)
+        .map_err(|error| format!("write project metadata {}: {error}", config_path.display()))?;
+
+    read_project_metadata(&project_dir, &config_path)
+}
+
+fn list_artifacts_from_outdir(outdir: &Path) -> Result<Vec<ArtifactSummary>, String> {
+    let summary_path = outdir.join("report").join("run_summary.json");
+    let summary_json = read_json_file(&summary_path)?;
+    let summary: RunArtifactSummaryDoc = serde_json::from_value(summary_json)
+        .map_err(|error| format!("parse run summary {}: {error}", summary_path.display()))?;
+
+    let mut artifacts = Vec::new();
+
+    for path in summary.final_figures {
+        merge_artifact_summary(&mut artifacts, path, None, "final_figures", true);
+    }
+
+    for path in summary.global_figures {
+        merge_artifact_summary(&mut artifacts, path, None, "global_figures", true);
+    }
+
+    for artifact in summary.artifact_index {
+        merge_artifact_summary(
+            &mut artifacts,
+            artifact.path,
+            artifact.format,
+            "artifact_index",
+            artifact.preview.unwrap_or(false),
+        );
+    }
+
+    Ok(artifacts)
+}
+
+fn read_project_metadata(project_dir: &Path, config_path: &Path) -> Result<ProjectSummary, String> {
+    let bytes = std::fs::read(config_path)
+        .map_err(|error| format!("read project metadata {}: {error}", config_path.display()))?;
+    let metadata: ProjectMetadataFile = serde_json::from_slice(&bytes)
+        .map_err(|error| format!("parse project metadata {}: {error}", config_path.display()))?;
+    Ok(project_metadata_to_summary(
+        project_dir,
+        config_path,
+        metadata,
+    ))
+}
+
+fn project_metadata_to_summary(
+    project_dir: &Path,
+    config_path: &Path,
+    metadata: ProjectMetadataFile,
+) -> ProjectSummary {
+    let fallback_name = project_dir
+        .file_name()
+        .map(|name| name.to_string_lossy().to_string())
+        .unwrap_or_else(|| project_dir.display().to_string());
+
+    ProjectSummary {
+        name: metadata.name.unwrap_or(fallback_name),
+        path: metadata
+            .path
+            .unwrap_or_else(|| project_dir.to_string_lossy().to_string()),
+        config_path: metadata
+            .config_path
+            .unwrap_or_else(|| config_path.to_string_lossy().to_string()),
+        jcvi_config_path: metadata.jcvi_config_path,
+        updated_at: metadata.updated_at,
+        created_at: metadata.created_at,
+        last_run_at: metadata.last_run_at,
+        extra_fields: metadata.extra_fields,
+    }
+}
+
+fn project_config_path(project_dir: &Path) -> PathBuf {
+    project_dir.join(".genomelens").join("project.json")
+}
+
+fn normalize_project_name(name: &str) -> Result<String, String> {
+    let normalized = name.trim();
+    if normalized.is_empty() {
+        return Err("project name must not be empty".to_string());
+    }
+
+    let invalid_chars = ['<', '>', ':', '"', '/', '\\', '|', '?', '*'];
+    if normalized
+        .chars()
+        .any(|character| character.is_control() || invalid_chars.contains(&character))
+    {
+        return Err(format!(
+            "project name contains invalid characters: {}",
+            name
+        ));
+    }
+
+    if normalized.ends_with('.') || normalized.ends_with(' ') {
+        return Err(format!(
+            "project name must not end with '.' or space: {}",
+            name
+        ));
+    }
+
+    Ok(normalized.to_string())
+}
+
+fn merge_artifact_summary(
+    artifacts: &mut Vec<ArtifactSummary>,
+    path: String,
+    format: Option<String>,
+    source: &str,
+    preview: bool,
+) {
+    if path.trim().is_empty() {
+        return;
+    }
+
+    if let Some(existing) = artifacts.iter_mut().find(|artifact| artifact.path == path) {
+        existing.preview |= preview;
+        if existing.format == "unknown" {
+            if let Some(candidate_format) = format.filter(|value| !value.trim().is_empty()) {
+                existing.format = candidate_format;
+            }
+        }
+        return;
+    }
+
+    let format = format
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or_else(|| infer_artifact_format(&path, "unknown"));
+
+    artifacts.push(ArtifactSummary {
+        name: basename(&path),
+        path,
+        format,
+        source: source.to_string(),
+        preview,
+    });
+}
+
+fn basename(path: &str) -> String {
+    Path::new(path)
+        .file_name()
+        .map(|name| name.to_string_lossy().to_string())
+        .unwrap_or_else(|| path.to_string())
+}
+
+fn infer_artifact_format(path: &str, fallback: &str) -> String {
+    Path::new(path)
+        .extension()
+        .map(|extension| extension.to_string_lossy().to_ascii_lowercase())
+        .filter(|extension| !extension.is_empty())
+        .unwrap_or_else(|| fallback.to_string())
+}
+
 impl CliTool {
     fn command_name(self) -> &'static str {
         match self {
@@ -966,10 +1296,13 @@ fn system_time_to_iso_like(time: SystemTime) -> String {
 #[cfg(test)]
 mod tests {
     use super::{
-        command_path_variants, common_conda_env_roots, drain_buffered_log_lines, looks_like_path,
-        map_log_line_to_state,
+        command_path_variants, common_conda_env_roots, create_project_in_workspace,
+        drain_buffered_log_lines, list_artifacts_from_outdir, list_projects_from_workspace,
+        looks_like_path, map_log_line_to_state, normalize_project_name,
     };
-    use std::path::Path;
+    use serde_json::json;
+    use std::path::{Path, PathBuf};
+    use std::time::{SystemTime, UNIX_EPOCH};
 
     #[test]
     fn drains_complete_lines_without_flushing_partial_tail() {
@@ -1079,5 +1412,86 @@ mod tests {
         assert!(variants[1].ends_with("genomelens.cmd"));
         assert!(variants[2].ends_with("genomelens.bat"));
         assert!(variants[3].ends_with("genomelens"));
+    }
+
+    #[test]
+    fn rejects_invalid_project_names() {
+        assert!(normalize_project_name("  ").is_err());
+        assert!(normalize_project_name("bad/name").is_err());
+        assert!(normalize_project_name("bad. ").is_err());
+    }
+
+    #[test]
+    fn creates_and_lists_workspace_projects() {
+        let workspace = unique_temp_dir("workspace-projects");
+        std::fs::create_dir_all(&workspace).expect("create workspace temp dir");
+
+        let created = create_project_in_workspace(&workspace, "Alpha").expect("create project");
+        assert_eq!(created.name, "Alpha");
+        assert!(Path::new(&created.path).is_dir());
+        assert!(Path::new(&created.config_path).is_file());
+
+        let listed = list_projects_from_workspace(&workspace).expect("list projects");
+        assert_eq!(listed.len(), 1);
+        assert_eq!(listed[0].name, "Alpha");
+        assert_eq!(listed[0].config_path, created.config_path);
+
+        std::fs::remove_dir_all(&workspace).expect("cleanup workspace temp dir");
+    }
+
+    #[test]
+    fn lists_artifacts_from_run_summary_without_duplicates() {
+        let outdir = unique_temp_dir("artifact-summary");
+        let report_dir = outdir.join("report");
+        std::fs::create_dir_all(&report_dir).expect("create report dir");
+        let summary_path = report_dir.join("run_summary.json");
+
+        let summary = json!({
+            "final_figures": [
+                outdir.join("report").join("dotplot.png").to_string_lossy().to_string()
+            ],
+            "global_figures": [
+                outdir.join("report").join("karyotype.svg").to_string_lossy().to_string()
+            ],
+            "artifact_index": [
+                {
+                    "artifact_id": "dotplot",
+                    "artifact_type": "figure",
+                    "path": outdir.join("report").join("dotplot.png").to_string_lossy().to_string(),
+                    "format": "png",
+                    "preview": true
+                },
+                {
+                    "artifact_id": "anchors",
+                    "artifact_type": "table",
+                    "path": outdir.join("report").join("anchors.tsv").to_string_lossy().to_string(),
+                    "format": "tsv",
+                    "preview": false
+                }
+            ]
+        });
+
+        std::fs::write(
+            &summary_path,
+            serde_json::to_vec_pretty(&summary).expect("serialize summary"),
+        )
+        .expect("write summary");
+
+        let artifacts = list_artifacts_from_outdir(&outdir).expect("list artifacts");
+        assert_eq!(artifacts.len(), 3);
+        assert_eq!(artifacts[0].source, "final_figures");
+        assert_eq!(artifacts[1].source, "global_figures");
+        assert_eq!(artifacts[2].source, "artifact_index");
+        assert_eq!(artifacts[2].format, "tsv");
+
+        std::fs::remove_dir_all(&outdir).expect("cleanup outdir temp dir");
+    }
+
+    fn unique_temp_dir(label: &str) -> PathBuf {
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("duration since epoch")
+            .as_nanos();
+        std::env::temp_dir().join(format!("genomelens-gui-{label}-{unique}"))
     }
 }
