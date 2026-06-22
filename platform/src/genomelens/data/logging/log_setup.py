@@ -21,6 +21,8 @@ class ConciseConsoleFilter(logging.Filter):
     _allowed_info_prefix: str = "Starting GenomeLens"
 
     def filter(self, record: logging.LogRecord) -> bool:
+        """仅允许 WARNING 及以上，或前缀为启动信息的日志通过"""
+
         if record.levelno >= logging.WARNING:
             return True
 

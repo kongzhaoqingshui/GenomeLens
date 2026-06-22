@@ -159,6 +159,7 @@ def prepare_inputs(
     """预处理输入或返回已准备好的输入"""
 
     def prepare_one(species: GenomeInputSpec) -> tuple[PreparedGenomeInputSpec, dict[str, object] | None]:
+        """预处理单个物种或返回已准备好的输入"""
         if species.prepared:
             return species.prepared, None
 

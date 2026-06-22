@@ -335,11 +335,11 @@ class ProgressAdapter(Protocol):
     label_width: int
 
     def current_frame(self) -> ProgressFrame:
-        """Return the current progress frame"""
+        """返回当前 progress frame(进度帧)"""
         ...
 
     def apply(self, event: Event) -> ProgressFrame | None:
-        """Update internal state from an event and return the next frame"""
+        """从事件更新内部状态并返回下一帧"""
         ...
 
 

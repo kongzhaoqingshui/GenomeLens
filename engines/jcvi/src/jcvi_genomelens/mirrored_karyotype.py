@@ -1,22 +1,10 @@
 #!/usr/bin/env python
 # -*- coding: UTF-8 -*-
 
-"""
-%prog seqids layout
+"""镜像核型图：在多个基因组轨道间展示宏共线性(macrosynteny)
 
-Illustrate macrosynteny between tracks which represent individual genomes.
-
-seqids contain the chromosomes to plot. Each line correspond to a track.
-layout provides configuration for placement of tracks and mapping file between tracks.
-
-Layout file example - first section specify how to draw each track. Then the "edges"
-section specify which connections to draw.
-
-# y, xstart, xend, rotation, color, label, va, bed, label_va
-.6, .1, .4, 0, m, Grape, top, grape.bed, center
-.4, .3, .6, 60, k, Athaliana, top, athaliana.bed, center
-# edges
-e, 0, 1, athaliana.grape.4x1.simple
+本模块消费 seqids(序列编号列表) 与 layout(布局文件)，绘制带旋转轨道的
+核型图，并通过 edges(边) 展示轨道间的共线性连接。
 """
 
 import sys
@@ -48,6 +36,8 @@ def _default_label_va(va: str) -> str:
 
 
 class LayoutLine:
+    """LayoutLine(布局行)：解析并保存单条轨道布局参数"""
+
     def __init__(self, row, delimiter=",", generank=True):
         args = row.rstrip().split(delimiter)
         args = [x.strip() for x in args]
@@ -73,6 +63,8 @@ class LayoutLine:
 
 
 class Layout(AbstractLayout):
+    """Layout(布局)：解析 seqids/layout 文件并构建边与轨道列表"""
+
     def __init__(self, filename, delimiter=",", generank=False, seed: int | None = None):
         super().__init__(filename)
         fp = open(filename)
@@ -108,6 +100,8 @@ class Layout(AbstractLayout):
         self.assign_colors(seed=seed)
 
     def parse_blocks(self, simplefile, i):
+        """从 simple 文件解析 blocks 并绑定到指定轨道"""
+
         order = self[i].order
         return SimpleFile(simplefile, order=order).blocks
 
@@ -146,6 +140,8 @@ def make_circle_name(sid, rev):
 
 
 class Track:
+    """Track(轨道)：一个基因组在核型图中的可视化表示"""
+
     def __init__(
         self,
         ax,
@@ -214,6 +210,8 @@ class Track:
         pad=0.03,
         vpad=0.05,
     ):
+        """绘制轨道上的染色体、标签与圆圈"""
+
         if self.empty:
             return
 
@@ -274,6 +272,8 @@ class Track:
             ax.text(x, y, label, ha="center", va="center", color=c, transform=tr)
 
     def update_offsets(self):
+        """更新每条染色体在轨道内的水平偏移"""
+
         self.offsets = {}
         xs = self.xstart
         gap = self.gap
@@ -283,6 +283,8 @@ class Track:
             xs += self.ratio * size + gap
 
     def get_coords(self, gene):
+        """返回基因在图中的坐标"""
+
         order_in_chr = self.order_in_chr
         seqid, i, _ = order_in_chr[gene]
         if seqid not in self.offsets:
@@ -301,6 +303,8 @@ class Track:
 
 
 class ShadeManager:
+    """ShadeManager(阴影管理器)：管理轨道间共线性阴影的绘制"""
+
     def __init__(self, ax, tracks, layout, heightpad=0, style="curve"):
         self.style = style
         for i, j, blocks, samearc in layout.edges:
@@ -308,6 +312,8 @@ class ShadeManager:
             self.draw_blocks(ax, blocks, tracks[i], tracks[j], samearc=samearc, heightpad=heightpad)
 
     def draw_blocks(self, ax, blocks, atrack, btrack, samearc: str | None, heightpad=0):
+        """在相邻轨道间绘制共线性 block 阴影"""
+
         for a, b, c, d, _, _, highlight in blocks:
             p = atrack.get_coords(a), atrack.get_coords(b)
             q = btrack.get_coords(c), btrack.get_coords(d)
@@ -341,6 +347,8 @@ class ShadeManager:
 
 
 class Karyotype:
+    """Karyotype(核型图)：根据 seqids 与 layout 组装并绘制完整核型"""
+
     def __init__(
         self,
         root,
@@ -416,6 +424,8 @@ class Karyotype:
 
 
 def main(args: list[str]):
+    """命令行入口：解析参数并生成核型图"""
+
     p = OptionParser(__doc__)
     p.add_argument(
         "--basepair",

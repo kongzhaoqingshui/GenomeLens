@@ -381,6 +381,8 @@ class PairwiseAggregatedMultiSpecies:
             target_names = [subject.name for _query, subject in pairs]
 
         def set_state(state: WorkflowState) -> None:
+            """通过 signal_bus 发射状态事件"""
+
             _set_state(signal_bus, state)
 
         layout, _manifest = _prepare_workspace(

@@ -24,29 +24,43 @@ def executable_candidates(name: str) -> list[str]:
 
 
 def blastn_candidates() -> list[str]:
+    """返回 blastn 可执行文件候选名称"""
+
     # 这些小包装函数把调用方从具体二进制名里解耦出来。
     return executable_candidates("blastn")
 
 
 def makeblastdb_candidates() -> list[str]:
+    """返回 makeblastdb 可执行文件候选名称"""
+
     return executable_candidates("makeblastdb")
 
 
 def magick_candidates() -> list[str]:
+    """返回 magick 可执行文件候选名称"""
+
     return executable_candidates("magick")
 
 
 def lastal_candidates() -> list[str]:
+    """返回 lastal 可执行文件候选名称"""
+
     return executable_candidates("lastal")
 
 
 def lastdb_candidates() -> list[str]:
+    """返回 lastdb 可执行文件候选名称"""
+
     return executable_candidates("lastdb")
 
 
 def jcvi_engine_candidates() -> list[str]:
+    """返回 jcvi-genomelens 引擎可执行文件候选名称"""
+
     return executable_candidates("jcvi-genomelens")
 
 
 def genomelens_runtime_candidates() -> list[str]:
+    """返回 GenomeLens 运行时可执行文件候选名称"""
+
     return executable_candidates("GenomeLens")

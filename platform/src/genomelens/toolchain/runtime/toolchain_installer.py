@@ -35,19 +35,27 @@ class ToolchainInstallResult:
 
     @property
     def ok(self) -> bool:
+        """安装是否成功"""
+
         return self.status == "ok"
 
 
 def downloads_root() -> Path:
+    """返回工具链下载缓存根目录"""
+
     # 下载缓存和安装目录分离，便于重复安装时复用归档包。
     return project_root() / "references" / "downloads" / "toolchains"
 
 
 def toolchains_root() -> Path:
+    """返回工具链安装根目录"""
+
     return project_root() / "toolchains"
 
 
 def _sha256(path: Path) -> str:
+    """计算文件 SHA256 摘要"""
+
     digest = hashlib.sha256()
     with path.open("rb") as handle:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
@@ -56,10 +64,14 @@ def _sha256(path: Path) -> str:
 
 
 def _manifest_path(target: Path) -> Path:
+    """返回下载归档对应的 manifest 路径"""
+
     return target.with_suffix(target.suffix + ".sha256.json")
 
 
 def _read_download_manifest(target: Path) -> dict[str, object]:
+    """读取下载 manifest，失败时返回空 dict"""
+
     path = _manifest_path(target)
     if not path.is_file():
         return {}
@@ -71,6 +83,8 @@ def _read_download_manifest(target: Path) -> dict[str, object]:
 
 
 def _write_download_manifest(name: str, url: str, target: Path, digest: str) -> None:
+    """写入下载 manifest 记录"""
+
     payload = {
         "name": name,
         "url": url,
@@ -81,6 +95,8 @@ def _write_download_manifest(name: str, url: str, target: Path, digest: str) -> 
 
 
 def _verify_archive(name: str, url: str, target: Path) -> bool:
+    """验证归档完整性，通过 SHA256 与 manifest 比对"""
+
     if not target.is_file() or target.stat().st_size <= 0:
         return False
     digest = _sha256(target)
@@ -100,6 +116,8 @@ def _verify_archive(name: str, url: str, target: Path) -> bool:
 
 
 def _download(name: str, url: str, target: Path) -> Path:
+    """下载 URL 到目标路径，并验证完整性"""
+
     target.parent.mkdir(parents=True, exist_ok=True)
     if _verify_archive(name, url, target):
         return target
@@ -116,6 +134,8 @@ def _download(name: str, url: str, target: Path) -> Path:
 
 
 def _ensure_within(root: Path, child: Path) -> None:
+    """确保子路径不逃出根目录，防止 zip slip"""
+
     root_resolved = root.resolve(strict=False)
     child_resolved = child.resolve(strict=False)
     if root_resolved == child_resolved:
@@ -125,6 +145,8 @@ def _ensure_within(root: Path, child: Path) -> None:
 
 
 def _safe_extract_tar(archive: Path, target: Path) -> None:
+    """安全解压 tar.gz，拒绝符号链接与越界路径"""
+
     with tarfile.open(archive, "r:gz") as tar:
         for member in tar.getmembers():
             if member.issym() or member.islnk():
@@ -135,6 +157,8 @@ def _safe_extract_tar(archive: Path, target: Path) -> None:
 
 
 def _safe_extract_zip(archive: Path, target: Path) -> None:
+    """安全解压 zip，拒绝越界路径"""
+
     with zipfile.ZipFile(archive) as zip_handle:
         for info in zip_handle.infolist():
             _ensure_within(target, target / info.filename)
@@ -142,6 +166,8 @@ def _safe_extract_zip(archive: Path, target: Path) -> None:
 
 
 def _safe_replace_dir(source: Path, target: Path) -> None:
+    """安全替换目录，限制在 toolchains_root 内"""
+
     root = toolchains_root().resolve(strict=False)
     resolved = target.resolve(strict=False)
     if not str(resolved).lower().startswith(str(root).lower()):
@@ -152,6 +178,8 @@ def _safe_replace_dir(source: Path, target: Path) -> None:
 
 
 def _find_child_with_files(root: Path, required: list[str]) -> Path:
+    """在解压目录中查找包含必需文件的子目录"""
+
     required_lower = {item.lower() for item in required}
     for candidate in [root, *[item for item in root.rglob("*") if item.is_dir()]]:
         names = {item.name.lower() for item in candidate.iterdir() if item.is_file()}
@@ -164,6 +192,8 @@ def _find_child_with_files(root: Path, required: list[str]) -> Path:
 
 
 def _latest_blast_windows_archive() -> str:
+    """从 NCBI LATEST 页面解析最新 Windows BLAST+ 归档 URL"""
+
     with urllib.request.urlopen(BLAST_LATEST_URL, timeout=60) as response:
         listing = response.read().decode("utf-8", errors="replace")
     matches = re.findall(r'href="([^"]*ncbi-blast-[^"]+-x64-win64\.tar\.gz)"', listing)

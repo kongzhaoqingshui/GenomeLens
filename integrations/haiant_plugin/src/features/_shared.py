@@ -97,6 +97,8 @@ def build_runtime_command(
 
 
 def run_runtime(argv: list[str]) -> int:
+    """运行外部命令并返回退出码"""
+
     completed = subprocess.run(argv, shell=False, check=False)
     return int(completed.returncode)
 

@@ -13,7 +13,10 @@ class _SupportsFromJson(Protocol):
     """支持 from_json 的 dataclass 协议，让 _nested 的泛型绑定更精确"""
 
     @classmethod
-    def from_json(cls, data: dict[str, object]) -> Self: ...
+    def from_json(cls, data: dict[str, object]) -> Self:
+        """从 JSON dict 构造自身实例"""
+
+        ...
 
 
 def _warn(value: object, expected: str) -> None:

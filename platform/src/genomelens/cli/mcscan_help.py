@@ -10,6 +10,8 @@ from genomelens.cli.ui import PALETTE, _paint, _supports_color
 
 @dataclass(frozen=True)
 class McscanHelpPage:
+    """MCscan help 分页：key(页键)、title(标题)、summary(摘要) 与 arguments(参数列表)"""
+
     key: str
     title: str
     summary: str

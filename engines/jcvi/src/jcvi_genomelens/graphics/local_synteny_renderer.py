@@ -1,10 +1,9 @@
-"""Chromosome-aware renderer for local synteny figures.
+"""染色体感知的局部共线性图渲染器（renderer）
 
-The renderer consumes JCVI-style ``blocks`` plus a merged BED file, but does
-not inherit the JCVI ``graphics.synteny`` assumption that every track is a
-single continuous chromosome interval.  Each track is split into chromosome
-segments, aligned to the reference row order, and long anchor-free gaps are
-compressed so cross-chromosome local windows remain readable.
+本渲染器消费 JCVI 风格的 ``blocks`` 与合并后的 BED 文件，但不继承
+JCVI ``graphics.synteny`` 中“每条轨道必须是单一连续染色体区间”的假设。
+每个轨道按真实染色体拆分为多个 segment（染色体片段），按参考物种的行顺序对齐，
+并对长锚点-free 间隙进行压缩，从而使跨染色体的局部窗口仍可阅读。
 """
 
 from __future__ import annotations
@@ -24,6 +23,7 @@ from matplotlib.collections import LineCollection  # noqa: E402
 from matplotlib.patches import FancyBboxPatch, PathPatch  # noqa: E402
 from matplotlib.path import Path as MplPath  # noqa: E402
 
+# region 常量与配色
 DEFAULT_TRACK_COLORS = ("#5f8f91", "#9a775f", "#718f6f", "#837a9d", "#9a9068", "#697d9b")
 TRACK_BAR_COLORS = ("#7d898b", "#817f7b", "#7c887f", "#827f89", "#87847a", "#7d838b")
 _CHROMOSOME_COLOR_PALETTE = (
@@ -89,10 +89,13 @@ ANCHOR_TICK_MIN_LW = 0.018
 SPECIES_LABEL_GAP = 0.014
 CONTENT_X_PADDING = 0.035
 
+# endregion
 
+
+# region 数据模型
 @dataclass(frozen=True)
 class GeneRecord:
-    """A single gene parsed from a BED file."""
+    """GeneRecord(基因记录)：从 BED 文件解析的单个基因"""
 
     accn: str
     chromosome: str
@@ -102,12 +105,14 @@ class GeneRecord:
 
     @property
     def length_bp(self) -> int:
+        """返回基因长度(bp)"""
+
         return max(1, self.end - self.start)
 
 
 @dataclass
 class MappedGene:
-    """A gene placed in visual coordinates inside a chromosome segment."""
+    """MappedGene(映射基因)：在染色体片段内已放置到视觉坐标的基因"""
 
     gene: GeneRecord
     x: float
@@ -117,14 +122,14 @@ class MappedGene:
 
     @property
     def display_strand(self) -> str:
-        """Return the strand after any visual segment reversal."""
+        """返回经视觉片段反转后的链方向"""
 
         return self.visual_strand or self.gene.strand
 
 
 @dataclass
 class ChromosomeSegment:
-    """One chromosome interval rendered inside a track."""
+    """ChromosomeSegment(染色体片段)：轨道内渲染的一个染色体区间"""
 
     chromosome: str
     genes: list[MappedGene]
@@ -141,12 +146,14 @@ class ChromosomeSegment:
 
     @property
     def span_bp(self) -> float:
+        """返回区间跨度(bp)"""
+
         return max(1.0, abs(self.end_bp - self.start_bp))
 
 
 @dataclass
 class TrackWindow:
-    """All visual information needed to draw one species/track."""
+    """TrackWindow(轨道窗口)：绘制一个物种/轨道所需的全部视觉信息"""
 
     name: str
     index: int
@@ -162,7 +169,7 @@ class TrackWindow:
 
 @dataclass
 class RenderBlock:
-    """One row of the blocks file, normalised for rendering."""
+    """RenderBlock(渲染行)：规范化后的 blocks 文件单行"""
 
     query_gene: str
     subject_genes: list[str | None]
@@ -171,7 +178,7 @@ class RenderBlock:
 
 @dataclass(frozen=True)
 class AnchorLink:
-    """A drawable connection between adjacent tracks."""
+    """AnchorLink(锚点连线)：相邻轨道间可绘制的连接"""
 
     row_index: int
     left_track: int
@@ -182,7 +189,7 @@ class AnchorLink:
 
 @dataclass(frozen=True)
 class TargetLegendEntry:
-    """A highlighted target gene shown in the bottom legend."""
+    """TargetLegendEntry(目标图例项)：底部图例中展示的高亮目标基因"""
 
     gene_id: str
     color: str
@@ -191,7 +198,7 @@ class TargetLegendEntry:
 
 @dataclass(frozen=True)
 class PositionedGene:
-    """A mapped gene plus rendered y coordinate."""
+    """PositionedGene(定位基因)：MappedGene 加上渲染后的 y 坐标"""
 
     mapped: MappedGene
     y: float
@@ -199,7 +206,7 @@ class PositionedGene:
 
 @dataclass(frozen=True)
 class TrackIntervalGenes:
-    """BED genes selected for one rendered chromosome interval."""
+    """TrackIntervalGenes(轨道区间基因)：为单个渲染染色体区间筛选的 BED 基因"""
 
     items: list[tuple[GeneRecord, int]]
     start_bp: float
@@ -210,7 +217,7 @@ class TrackIntervalGenes:
 
 @dataclass
 class LocalSyntenyScene:
-    """Parsed local synteny data before visual placement."""
+    """LocalSyntenyScene(局部共线性场景)：视觉放置前解析好的局部共线性数据"""
 
     genes: dict[str, GeneRecord]
     block_rows: list[RenderBlock]
@@ -220,7 +227,7 @@ class LocalSyntenyScene:
 
 @dataclass
 class LocalSyntenyLayout:
-    """Computed chromosome-aware local synteny scene."""
+    """LocalSyntenyLayout(局部共线性布局)：计算完成的染色体感知局部共线性场景"""
 
     tracks: list[TrackWindow]
     block_rows: list[RenderBlock]
@@ -231,6 +238,10 @@ class LocalSyntenyLayout:
     max_track_width: float = MAX_TRACK_WIDTH
 
 
+# endregion
+
+
+# region 场景构建与布局求解
 class LocalSyntenySceneBuilder:
     """Build a chromosome-aware scene from JCVI-style input files."""
 
@@ -241,6 +252,8 @@ class LocalSyntenySceneBuilder:
         track_names: list[str],
         target_gene_ids: list[str],
     ) -> LocalSyntenyScene:
+        """从 blocks 与 BED 构建局部共线性场景"""
+
         genes = _read_bed(bed_path)
         block_rows = _read_blocks(blocks_path, len(track_names))
         highlighted = {row.query_gene for row in block_rows if row.highlighted}
@@ -256,6 +269,8 @@ class LocalSyntenyLayoutSolver:
     """Place chromosome segments, compressed gaps, lanes, and adjacent links."""
 
     def solve(self, scene: LocalSyntenyScene, *, figsize: str = "", dpi: int = 300) -> LocalSyntenyLayout:
+        """求解染色体片段位置、压缩间隙、lane 与相邻连线"""
+
         del dpi
         track_items = _collect_track_gene_rows(scene.genes, scene.block_rows, len(scene.track_names))
         track_spans = [_total_track_span(items) for items in track_items]
@@ -316,6 +331,8 @@ class MatplotlibLocalSyntenyRenderer:
         dpi: int = 900,
         fmt: str = "svg",
     ) -> Path:
+        """将求解后的布局渲染为紧凑的出版级图件"""
+
         fig, ax = plt.subplots(figsize=layout.figsize)
         ax.axis("off")
 
@@ -354,6 +371,8 @@ class MatplotlibLocalSyntenyRenderer:
         return output_path
 
     def _assign_track_y(self, layout: LocalSyntenyLayout) -> None:
+        """为每条轨道分配垂直 y 位置"""
+
         usable_height = 0.78
         lane_units = sum(max(1, track.lane_count) for track in layout.tracks)
         unit_gap = usable_height / max(1, lane_units + len(layout.tracks) - 1)
@@ -368,6 +387,8 @@ class MatplotlibLocalSyntenyRenderer:
         layout: LocalSyntenyLayout,
         track_positions: list[dict[str, PositionedGene]],
     ) -> None:
+        """绘制相邻轨道间的共线性连线"""
+
         drawable_links: list[tuple[AnchorLink, PositionedGene, PositionedGene]] = []
         for link in layout.links:
             if link.left_track >= len(track_positions) or link.right_track >= len(track_positions):
@@ -401,6 +422,10 @@ class MatplotlibLocalSyntenyRenderer:
             )
 
 
+# endregion
+
+
+# region 输入解析与工具函数
 def _strip_highlight_prefix(value: str) -> tuple[bool, str]:
     """Return ``(is_highlighted, accn)`` after stripping a JCVI ``r*`` prefix."""
 
@@ -1009,9 +1034,7 @@ def _build_target_track(
 
     segments: list[ChromosomeSegment] = []
     all_mapped: list[MappedGene] = []
-    segment_specs: list[
-        tuple[str, list[tuple[GeneRecord, int]], list[tuple[GeneRecord, int]], float, float, float]
-    ] = []
+    segment_specs: list[tuple[str, list[tuple[GeneRecord, int]], TrackIntervalGenes, float, float, float]] = []
     for chromosome, group in _chromosome_ordered_groups(_dedupe_gene_rows(items)):
         start_bp = min(gene.start for gene, _ in group)
         end_bp = max(gene.end for gene, _ in group)
@@ -1217,6 +1240,10 @@ def _build_links(block_rows: list[RenderBlock], track_count: int) -> list[Anchor
     return links
 
 
+# endregion
+
+
+# region 布局与渲染工具函数
 def _compute_layout(
     blocks_path: Path,
     bed_path: Path,
@@ -1225,14 +1252,14 @@ def _compute_layout(
     figsize: str = "",
     dpi: int = 900,
 ) -> LocalSyntenyLayout:
-    """Build the chromosome-aware scene from blocks + BED."""
+    """从 blocks + BED 构建染色体感知的局部共线性场景"""
 
     scene = LocalSyntenySceneBuilder().build(blocks_path, bed_path, track_names, target_gene_ids)
     return LocalSyntenyLayoutSolver().solve(scene, figsize=figsize, dpi=dpi)
 
 
 def _effective_dpi(dpi: int, fmt: str) -> int:
-    """Return at least 2x raster DPI while leaving vector output unaffected."""
+    """光栅格式返回至少 2x DPI，矢量格式不受影响"""
 
     if fmt.lower() in {"png", "jpg", "jpeg", "tif", "tiff", "webp"}:
         return max(900, dpi)
@@ -1240,7 +1267,7 @@ def _effective_dpi(dpi: int, fmt: str) -> int:
 
 
 def _layout_visual_audit(layout: LocalSyntenyLayout) -> dict[str, object]:
-    """Return compact geometry facts for visual regression checks."""
+    """返回紧凑的几何事实，用于视觉回归检查"""
 
     track_records: list[dict[str, object]] = []
     for track in layout.tracks:
@@ -1279,7 +1306,7 @@ def _derive_figsize(
     figsize: str,
     tracks: list[TrackWindow] | None = None,
 ) -> tuple[float, float]:
-    """Return a sensible figure size in inches."""
+    """返回合理的画布尺寸(英寸)"""
 
     if figsize:
         parts = figsize.lower().split("x")
@@ -1294,8 +1321,12 @@ def _derive_figsize(
     return width, height
 
 
+# endregion
+
+
+# region 绘图原语
 def _draw_break_marker(ax: Axes, x: float, y: float, color: str = "#777777") -> None:
-    """Draw a small double-slash break marker on a compressed chromosome bar."""
+    """在压缩染色体条上绘制小双斜线断裂标记"""
 
     dx = BREAK_MARK_WIDTH / 2.0
     dy = BREAK_MARK_HEIGHT / 2.0
@@ -1311,7 +1342,7 @@ def _draw_break_marker(ax: Axes, x: float, y: float, color: str = "#777777") -> 
 
 
 def _draw_segment_truncation_markers(ax: Axes, segment: ChromosomeSegment, y: float) -> None:
-    """Draw compact break markers when a context-expanded segment is still clipped."""
+    """当上下文扩展片段仍被裁剪时绘制紧凑断裂标记"""
 
     if segment.left_truncated:
         _draw_terminal_break_marker(ax, segment.visual_start - 0.0040, y, side="left")
@@ -1320,7 +1351,7 @@ def _draw_segment_truncation_markers(ax: Axes, segment: ChromosomeSegment, y: fl
 
 
 def _draw_terminal_break_marker(ax: Axes, x: float, y: float, *, side: str) -> None:
-    """Draw an integrated terminal truncation marker."""
+    """绘制集成式末端截断标记"""
 
     del side
     color = "#728088"
@@ -1339,19 +1370,19 @@ def _draw_terminal_break_marker(ax: Axes, x: float, y: float, *, side: str) -> N
 
 
 def _track_bar_color(index: int) -> str:
-    """Return a muted per-track bar colour."""
+    """返回柔和的按轨道条颜色"""
 
     return TRACK_BAR_COLORS[index % len(TRACK_BAR_COLORS)]
 
 
 def _track_bar_edge_color(index: int) -> str:
-    """Return a muted per-track bar edge colour."""
+    """返回柔和的按轨道条边缘颜色"""
 
     return DEFAULT_TRACK_COLORS[index % len(DEFAULT_TRACK_COLORS)]
 
 
 def _is_special_truncated_segment(segment: ChromosomeSegment) -> bool:
-    """Return True for short context-expanded segments that lost true scale readability."""
+    """判断短上下文扩展片段是否失去真实比例可读性"""
 
     if not (segment.left_truncated or segment.right_truncated):
         return False
@@ -1367,7 +1398,7 @@ def _draw_gene_tick_collection(
     alpha: float,
     linewidth: float | list[float],
 ) -> None:
-    """Draw many background gene ticks efficiently."""
+    """高效绘制大量背景基因刻度"""
 
     if not ticks:
         return
@@ -1384,7 +1415,7 @@ def _draw_gene_tick_collection(
 
 
 def _typical_gene_length(mapped_genes: list[MappedGene]) -> float:
-    """Return a robust common gene length for local linewidth scaling."""
+    """返回稳健的常见基因长度，用于局部线宽缩放"""
 
     lengths = [max(1, mapped.gene.length_bp) for mapped in mapped_genes]
     if not lengths:
@@ -1398,14 +1429,14 @@ def _typical_gene_length(mapped_genes: list[MappedGene]) -> float:
 
 
 def _scaled_gene_tick_linewidth(mapped: MappedGene, typical_length: float, *, baseline: float, minimum: float) -> float:
-    """Scale a tick line width by gene length while preserving a visible floor."""
+    """按基因长度缩放刻度线宽，同时保留可见下限"""
 
     multiplier = max(0.01, mapped.gene.length_bp / max(1.0, typical_length))
     return max(minimum, baseline * multiplier)
 
 
 def _abbreviate_track_name(name: str) -> str:
-    """Produce a compact species label."""
+    """生成紧凑的物种标签"""
 
     raw = name.strip()
     species_part = raw.split("-", 1)[0]
@@ -1426,25 +1457,25 @@ def _abbreviate_track_name(name: str) -> str:
 
 
 def _estimate_label_box_width(text: str) -> float:
-    """Estimate axes-width of a chromosome label box."""
+    """估计染色体标签框的轴宽度"""
 
     return max(0.038, len(text) * 0.0078 + 0.012)
 
 
 def _estimate_range_label_width(text: str) -> float:
-    """Estimate axes-width of a compact range label."""
+    """估计紧凑范围标签的轴宽度"""
 
     return max(0.046, len(text) * 0.0054 + 0.010)
 
 
 def _estimate_species_label_width(text: str) -> float:
-    """Estimate axes-width of a bold species label."""
+    """估计粗体物种标签的轴宽度"""
 
     return max(0.050, len(text) * 0.0068 + 0.012)
 
 
 def _estimate_legend_label_width(text: str) -> float:
-    """Estimate axes-width of a bottom target legend label."""
+    """估计底部目标图例标签的轴宽度"""
 
     return max(0.035, len(text) * 0.0050 + 0.008)
 
@@ -1457,7 +1488,7 @@ def _draw_label_box(
     fontsize: int = 7,
     color: str = "#4b5963",
 ) -> None:
-    """Draw a compact chromosome label with a subtle white cushion."""
+    """绘制带微妙白色衬垫的紧凑染色体标签"""
 
     box_width = _estimate_label_box_width(text)
     ax.text(
@@ -1476,25 +1507,25 @@ def _draw_label_box(
 
 
 def _label_rect(x: float, y: float, width: float) -> tuple[float, float, float, float]:
-    """Return a label rectangle as ``(left, right, bottom, top)``."""
+    """返回标签矩形 ``(left, right, bottom, top)``"""
 
     return (x, x + width, y - LABEL_BOX_HEIGHT / 2.0, y + LABEL_BOX_HEIGHT / 2.0)
 
 
 def _centered_rect(x: float, y: float, width: float, height: float) -> tuple[float, float, float, float]:
-    """Return a center-anchored rectangle."""
+    """返回中心锚定矩形"""
 
     return (x - width / 2.0, x + width / 2.0, y - height / 2.0, y + height / 2.0)
 
 
 def _rects_overlap(a: tuple[float, float, float, float], b: tuple[float, float, float, float]) -> bool:
-    """Return True when two axes-coordinate rectangles overlap."""
+    """判断两个轴坐标矩形是否重叠"""
 
     return not (a[1] <= b[0] or b[1] <= a[0] or a[3] <= b[2] or b[3] <= a[2])
 
 
 def _clamp(value: float, lower: float, upper: float) -> float:
-    """Clamp a float into a closed interval."""
+    """将浮点数限制在闭区间内"""
 
     return min(max(value, lower), upper)
 
@@ -1504,7 +1535,7 @@ def _label_overlaps_segment_bar(
     segment: ChromosomeSegment,
     y: float,
 ) -> bool:
-    """Detect whether a label box covers the chromosome bar."""
+    """检测标签框是否覆盖染色体条"""
 
     bar_rect = (
         segment.visual_start - 0.004,
@@ -1516,7 +1547,7 @@ def _label_overlaps_segment_bar(
 
 
 def _label_overlaps_track_bar(rect: tuple[float, float, float, float], track: TrackWindow) -> bool:
-    """Detect whether a label box covers any chromosome bar in the track."""
+    """检测标签框是否覆盖轨道内的任何染色体条"""
 
     return any(_label_overlaps_segment_bar(rect, segment, _segment_y(track, segment)) for segment in track.segments)
 
@@ -1529,7 +1560,7 @@ def _draw_range_label(
     y: float,
     occupied: list[tuple[float, float, float, float]],
 ) -> None:
-    """Draw a range label at the nearest non-overlapping location."""
+    """在最近的非重叠位置绘制范围标签"""
 
     width = _estimate_range_label_width(text)
     center = (segment.visual_start + segment.visual_end) / 2.0
@@ -1572,10 +1603,9 @@ def _draw_range_label(
 
 
 def _target_star_rects(track: TrackWindow, target_gene_ids: set[str]) -> list[tuple[float, float, float, float]]:
-    """Return target marker occupied rectangles.
+    """返回目标标记占用的矩形区域
 
-    Target stars were removed in favour of a bottom colour legend, so labels no
-    longer need to reserve marker space.
+    目标星形标记已被底部颜色图例取代，因此标签不再需要预留标记空间
     """
 
     del track, target_gene_ids
@@ -1586,7 +1616,7 @@ def _label_positions_for_segments(
     track: TrackWindow,
     target_gene_ids: set[str],
 ) -> dict[int, tuple[float, float]]:
-    """Compute non-overlapping label positions that do not cover bars."""
+    """计算不覆盖条形的非重叠标签位置"""
 
     occupied: list[tuple[float, float, float, float]] = _target_star_rects(track, target_gene_ids)
     positions: dict[int, tuple[float, float]] = {}
@@ -1615,7 +1645,7 @@ def _label_positions_for_segments(
 
 
 def _track_visual_extent(track: TrackWindow, target_gene_ids: set[str]) -> tuple[float, float]:
-    """Return the visible horizontal extent of a track, including side labels."""
+    """返回轨道的可见水平范围，包括侧边标签"""
 
     left_edges = [segment.visual_start for segment in track.segments]
     right_edges = [segment.visual_end for segment in track.segments]
@@ -1627,7 +1657,7 @@ def _track_visual_extent(track: TrackWindow, target_gene_ids: set[str]) -> tuple
 
 
 def _species_label_anchor_x(tracks: list[TrackWindow], target_gene_ids: set[str]) -> float:
-    """Right-align species labels just left of the widest visible track extent."""
+    """将物种标签右对齐到最宽可见轨道范围的左侧"""
 
     if not tracks:
         return AXIS_LEFT - SPECIES_LABEL_GAP
@@ -1639,7 +1669,7 @@ def _species_label_anchor_x(tracks: list[TrackWindow], target_gene_ids: set[str]
 
 
 def _target_legend_extent(entries: list[TargetLegendEntry]) -> tuple[float, float] | None:
-    """Return the horizontal extent occupied by the bottom target legend."""
+    """返回底部目标图例占用的水平范围"""
 
     if not entries:
         return None
@@ -1659,7 +1689,7 @@ def _target_legend_extent(entries: list[TargetLegendEntry]) -> tuple[float, floa
 
 
 def _layout_visual_extent(layout: LocalSyntenyLayout, species_label_x: float) -> tuple[float, float]:
-    """Return the horizontal extent of all visible local-synteny content."""
+    """返回所有可见局部共线性内容的水平范围"""
 
     left_edges: list[float] = []
     right_edges: list[float] = []
@@ -1682,7 +1712,7 @@ def _layout_visual_extent(layout: LocalSyntenyLayout, species_label_x: float) ->
 
 
 def _centered_x_limits(layout: LocalSyntenyLayout, species_label_x: float) -> tuple[float, float]:
-    """Compute balanced x-axis limits around the visible content extent."""
+    """围绕可见内容范围计算平衡的 x 轴限制"""
 
     left, right = _layout_visual_extent(layout, species_label_x)
     return left - CONTENT_X_PADDING, right + CONTENT_X_PADDING
@@ -1696,7 +1726,7 @@ def _chromosome_label_candidates(
     width: float,
     y: float,
 ) -> list[tuple[float, float]]:
-    """Return chromosome label candidates following local synteny style rules."""
+    """返回遵循局部共线性风格规则的染色体标签候选位置"""
 
     has_long_name = len(segment.chromosome) > 8
     if len(track.segments) == 2 and not has_long_name:
@@ -1723,7 +1753,7 @@ def _chromosome_label_candidates(
 
 
 def _draw_star(ax: Axes, x: float, y: float, color: str = HIGHLIGHT_LINK_COLOR) -> None:
-    """Draw a target gene marker."""
+    """绘制目标基因标记"""
 
     ax.plot(
         x,
@@ -1739,7 +1769,7 @@ def _draw_star(ax: Axes, x: float, y: float, color: str = HIGHLIGHT_LINK_COLOR) 
 
 
 def _draw_target_gene_label(ax: Axes, text: str, x: float, y: float, segment: ChromosomeSegment) -> None:
-    """Draw a target gene label near a star without covering the bar."""
+    """在星形标记附近绘制目标基因标签，避免覆盖条形"""
 
     width = max(0.075, min(0.30, len(text) * 0.0080 + 0.024))
     candidates = [
@@ -1783,7 +1813,7 @@ def _draw_target_gene_label(ax: Axes, text: str, x: float, y: float, segment: Ch
 
 
 def _segment_y(track: TrackWindow, segment: ChromosomeSegment) -> float:
-    """Return y coordinate for a segment lane."""
+    """返回片段 lane 的 y 坐标"""
 
     if track.lane_count <= 1:
         return track.y
@@ -1799,7 +1829,7 @@ def _draw_track(
     *,
     species_label_x: float,
 ) -> dict[str, PositionedGene]:
-    """Draw one track and return gene centre positions."""
+    """绘制单个轨道并返回基因中心位置"""
 
     gene_positions: dict[str, PositionedGene] = {}
     label_positions = _label_positions_for_segments(track, target_gene_ids)
@@ -1931,7 +1961,7 @@ def _draw_track(
 
 
 def _gene_interval_points(positioned: PositionedGene) -> tuple[tuple[float, float], tuple[float, float]]:
-    """Return visual left/right endpoints for one mapped gene."""
+    """返回单个映射基因的可见左右端点"""
 
     width = max(MIN_RIBBON_GENE_WIDTH, positioned.mapped.width * RIBBON_WIDTH_SCALE)
     x1 = positioned.mapped.x - width / 2.0
@@ -1943,7 +1973,7 @@ def _ribbon_endpoint_pairs(
     left: PositionedGene,
     right: PositionedGene,
 ) -> tuple[tuple[float, float], tuple[float, float], tuple[float, float], tuple[float, float]]:
-    """Return ribbon endpoint pairs, reversing the right end for inversions."""
+    """返回 ribbon 端点对，倒位时反转右侧端点"""
 
     left_a, left_b = _gene_interval_points(left)
     right_a, right_b = _gene_interval_points(right)
@@ -1961,7 +1991,7 @@ def _draw_ribbon_link(
     alpha: float,
     zorder: int,
 ) -> None:
-    """Draw a JCVI-style synteny ribbon using gene interval endpoints."""
+    """使用基因区间端点绘制 JCVI 风格共线性 ribbon"""
 
     left_a, left_b, right_a, right_b = _ribbon_endpoint_pairs(left, right)
     verts, codes = _jcvi_shade_curve_path(left_a, left_b, right_a, right_b)
@@ -1984,7 +2014,7 @@ def _jcvi_shade_curve_path(
     right_a: tuple[float, float],
     right_b: tuple[float, float],
 ) -> tuple[list[tuple[float, float]], list[int]]:
-    """Return the same curve path shape used by ``jcvi.graphics.synteny.Shade``."""
+    """返回与 ``jcvi.graphics.synteny.Shade`` 相同的曲线路径形状"""
 
     mid_y1 = (left_a[1] + right_a[1]) / 2.0
     mid_y2 = (left_b[1] + right_b[1]) / 2.0
@@ -2010,11 +2040,11 @@ def _jcvi_shade_curve_path(
         MplPath.CURVE4,
         MplPath.CLOSEPOLY,
     ]
-    return verts, codes
+    return verts, [int(code) for code in codes]
 
 
 def _draw_target_legend(ax: Axes, entries: list[TargetLegendEntry], *, y_base: float = LEGEND_Y) -> None:
-    """Draw a bottom legend mapping highlight colours to target genes."""
+    """绘制底部图例，将高亮颜色映射到目标基因"""
 
     if not entries:
         return
@@ -2045,7 +2075,7 @@ def _draw_target_legend(ax: Axes, entries: list[TargetLegendEntry], *, y_base: f
 
 
 def _percentile(values: list[float], fraction: float) -> float:
-    """Return a simple percentile for a non-empty float list."""
+    """返回非空浮点列表的简单百分位数"""
 
     if not values:
         return 0.0
@@ -2055,7 +2085,7 @@ def _percentile(values: list[float], fraction: float) -> float:
 
 
 def _build_chromosome_color_map(chromosomes: list[str]) -> dict[str, str]:
-    """Assign stable colours within a figure."""
+    """在图内分配稳定的染色体颜色"""
 
     return {
         chromosome: _CHROMOSOME_COLOR_PALETTE[index % len(_CHROMOSOME_COLOR_PALETTE)]
@@ -2064,7 +2094,7 @@ def _build_chromosome_color_map(chromosomes: list[str]) -> dict[str, str]:
 
 
 def _draw_chromosome_legend(ax: Axes, chromosomes: list[str], color_map: dict[str, str]) -> None:
-    """Draw a compact chromosome colour legend."""
+    """绘制紧凑的染色体颜色图例"""
 
     if not chromosomes:
         return
@@ -2099,7 +2129,7 @@ def _draw_chromosome_legend(ax: Axes, chromosomes: list[str], color_map: dict[st
 
 
 def _infer_track_names(blocks_path: Path) -> list[str]:
-    """Infer generic track names from the first non-comment block row."""
+    """从第一个非注释 block 行推断通用轨道名称"""
 
     with blocks_path.open("r", encoding="utf-8") as handle:
         for raw_line in handle:
@@ -2109,6 +2139,10 @@ def _infer_track_names(blocks_path: Path) -> list[str]:
     return ["Reference", "Subject"]
 
 
+# endregion
+
+
+# region 公共入口
 def render_local_synteny(
     blocks_path: str | Path,
     bed_path: str | Path,
@@ -2121,7 +2155,7 @@ def render_local_synteny(
     dpi: int = 900,
     fmt: str = "svg",
 ) -> Path:
-    """Render a chromosome-aware local synteny figure."""
+    """渲染染色体感知的局部共线性图"""
 
     blocks_path = Path(blocks_path).expanduser().resolve(strict=False)
     bed_path = Path(bed_path).expanduser().resolve(strict=False)
@@ -2139,3 +2173,6 @@ def render_local_synteny(
         dpi=dpi,
         fmt=fmt,
     )
+
+
+# endregion

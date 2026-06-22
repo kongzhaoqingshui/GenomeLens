@@ -24,6 +24,8 @@ from genomelens.app.errors.exceptions import InputValidationError
 
 @dataclass
 class CdsFeature:
+    """CDS 片段：seqid(序列编号)、起止位置与链方向"""
+
     seqid: str
     start: int
     end: int
@@ -32,6 +34,8 @@ class CdsFeature:
 
 @dataclass
 class TranscriptRecord:
+    """TranscriptRecord(转录本记录)：基因下的一个转录本及其 CDS 列表"""
+
     gene_id: str
     transcript_id: str
     seqid: str

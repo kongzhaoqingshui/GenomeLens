@@ -139,6 +139,7 @@ def run_workbench(_args: argparse.Namespace | None = None) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
+    """GenomeLens 顶层入口：解析参数并分发到对应子命令"""
     if argv is None:
         argv = sys.argv[1:]
 

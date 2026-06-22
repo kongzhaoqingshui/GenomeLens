@@ -55,6 +55,8 @@ def run(manifest: EngineRunManifest, outdir: str | Path) -> tuple[list[CommandAu
     blast_dir = str(manifest.toolchain.blastn.parent) if manifest.toolchain.blastn else ""
 
     def blast_main_with_path(args: list[str], dbtype: str | None = None):
+        """在调用原始 blast_main 前注入 blast 目录路径"""
+
         injected = list(args)
         if blast_dir:
             injected.append(f"--path={blast_dir}")
