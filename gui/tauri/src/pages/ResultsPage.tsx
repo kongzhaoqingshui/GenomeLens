@@ -1,8 +1,8 @@
 import { useCallback, useMemo, useState } from "react";
 
-import type { ArtifactRecord, FigureAsset, RunSummaryViewModel } from "../models";
+import type { ArtifactRecord, ArtifactSummary, FigureAsset, RunSummaryViewModel } from "../models";
 import type { AppRoute } from "../routes/routes";
-import { openPath, readSummaryView } from "../services/workbench";
+import { listArtifacts, openPath, readSummaryView } from "../services/workbench";
 
 interface ResultsPageProps {
   route: AppRoute;
@@ -93,10 +93,45 @@ function ArtifactRow({
   );
 }
 
+function ArtifactSummaryRow({
+  artifact,
+  onOpen,
+}: {
+  artifact: ArtifactSummary;
+  onOpen: (path: string) => void;
+}) {
+  return (
+    <article className="grid gap-3 px-6 py-4 lg:grid-cols-[10rem_minmax(0,1fr)_auto]">
+      <div className="grid gap-1 text-sm">
+        <span className="font-medium text-slate-900">{artifact.name}</span>
+        <span className="text-slate-400">{artifact.source}</span>
+      </div>
+      <div className="min-w-0">
+        <p className="break-all text-sm text-slate-500">{artifact.path}</p>
+        <p className="mt-1 text-xs text-slate-400">{artifact.preview ? "Preview-ready result" : "Run output artifact"}</p>
+      </div>
+      <div className="flex items-center gap-2">
+        <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold uppercase text-slate-600">
+          {artifact.format || "unknown"}
+        </span>
+        <button
+          type="button"
+          className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
+          onClick={() => onOpen(artifact.path)}
+        >
+          Open
+        </button>
+      </div>
+    </article>
+  );
+}
+
 export default function ResultsPage({ route, onNavigate }: ResultsPageProps) {
   const [outdir, setOutdir] = useState("");
   const [queryState, setQueryState] = useState<QueryState>("idle");
   const [summary, setSummary] = useState<RunSummaryViewModel | null>(null);
+  const [artifacts, setArtifacts] = useState<ArtifactSummary[]>([]);
+  const [artifactError, setArtifactError] = useState<string | null>(null);
   const [queryError, setQueryError] = useState<string | null>(null);
   const [openError, setOpenError] = useState<string | null>(null);
 
@@ -105,6 +140,8 @@ export default function ResultsPage({ route, onNavigate }: ResultsPageProps) {
   const loadSummary = useCallback(async () => {
     if (!trimmedOutdir) {
       setSummary(null);
+      setArtifacts([]);
+      setArtifactError(null);
       setQueryState("idle");
       setQueryError(null);
       return;
@@ -112,12 +149,21 @@ export default function ResultsPage({ route, onNavigate }: ResultsPageProps) {
 
     setQueryState("loading");
     setQueryError(null);
+    setArtifactError(null);
     try {
-      const nextSummary = await readSummaryView({ outdir: trimmedOutdir });
+      const [nextSummary, nextArtifacts] = await Promise.all([
+        readSummaryView({ outdir: trimmedOutdir }),
+        listArtifacts({ outdir: trimmedOutdir }).catch((error: unknown) => {
+          setArtifactError(formatError(error));
+          return [] as ArtifactSummary[];
+        }),
+      ]);
       setSummary(nextSummary);
+      setArtifacts(nextArtifacts);
       setQueryState("ready");
     } catch (error: unknown) {
       setSummary(null);
+      setArtifacts([]);
       setQueryError(formatError(error));
       setQueryState("error");
     }
@@ -202,7 +248,7 @@ export default function ResultsPage({ route, onNavigate }: ResultsPageProps) {
             </div>
             <div className="flex items-center justify-between py-3 text-sm">
               <span className="text-slate-400">Artifacts</span>
-              <span className="font-medium text-slate-900">{summary?.artifactIndex.length ?? 0}</span>
+              <span className="font-medium text-slate-900">{artifacts.length || summary?.artifactIndex.length || 0}</span>
             </div>
           </div>
         </div>
@@ -215,7 +261,7 @@ export default function ResultsPage({ route, onNavigate }: ResultsPageProps) {
               <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-400">Results</p>
               <h2 className="mt-1 text-lg font-semibold text-slate-900">Status, figures, and artifacts</h2>
               <p className="mt-2 text-sm leading-6 text-slate-500">
-                This page reads `readSummaryView()` now and can later absorb additional artifact commands without changing the layout.
+                Inspect the run summary and the lightweight artifact index generated for the selected output directory.
               </p>
             </div>
             <span
@@ -229,6 +275,11 @@ export default function ResultsPage({ route, onNavigate }: ResultsPageProps) {
         </div>
 
         {queryError ? <div className="border-b border-slate-200/80 bg-rose-50 px-6 py-4 text-sm text-rose-700">{queryError}</div> : null}
+        {artifactError ? (
+          <div className="border-b border-slate-200/80 bg-amber-50 px-6 py-4 text-sm text-amber-700">
+            Artifact listing is unavailable: {artifactError}
+          </div>
+        ) : null}
         {openError ? <div className="border-b border-slate-200/80 bg-rose-50 px-6 py-4 text-sm text-rose-700">{openError}</div> : null}
 
         {!trimmedOutdir && queryState === "idle" ? (
@@ -282,7 +333,7 @@ export default function ResultsPage({ route, onNavigate }: ResultsPageProps) {
             <section>
               <div className="px-6 py-4">
                 <h3 className="text-sm font-semibold text-slate-900">Primary figures</h3>
-                <p className="mt-1 text-sm text-slate-500">Current lightweight results are driven by summary figures until dedicated artifact listing lands.</p>
+                <p className="mt-1 text-sm text-slate-500">Figure shortcuts come from the run summary primary figure set.</p>
               </div>
 
               {primaryAssets.length > 0 ? (
@@ -299,10 +350,16 @@ export default function ResultsPage({ route, onNavigate }: ResultsPageProps) {
             <section>
               <div className="px-6 py-4">
                 <h3 className="text-sm font-semibold text-slate-900">Artifacts</h3>
-                <p className="mt-1 text-sm text-slate-500">Artifact rows currently come from `artifact_index` in the summary payload.</p>
+                <p className="mt-1 text-sm text-slate-500">Artifact rows come from the GUI artifact command, with summary records as fallback context.</p>
               </div>
 
-              {summary.artifactIndex.length > 0 ? (
+              {artifacts.length > 0 ? (
+                <div className="divide-y divide-slate-200/80 border-y border-slate-200/80">
+                  {artifacts.map((artifact) => (
+                    <ArtifactSummaryRow key={`${artifact.source}-${artifact.path}`} artifact={artifact} onOpen={(path) => void handleOpenPath(path)} />
+                  ))}
+                </div>
+              ) : summary.artifactIndex.length > 0 ? (
                 <div className="divide-y divide-slate-200/80 border-y border-slate-200/80">
                   {summary.artifactIndex.map((artifact) => (
                     <ArtifactRow key={`${artifact.artifact_id}-${artifact.path}`} artifact={artifact} onOpen={(path) => void handleOpenPath(path)} />

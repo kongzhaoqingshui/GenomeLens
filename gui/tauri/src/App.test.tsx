@@ -56,6 +56,17 @@ vi.mock("@tauri-apps/api/core", () => ({
         truncated: false,
       });
     }
+    if (command === "list_artifacts") {
+      return Promise.resolve([
+        {
+          path: "/runs/demo/report/pairwise.png",
+          name: "pairwise.png",
+          format: "png",
+          source: "final_figures",
+          preview: true,
+        },
+      ]);
+    }
     if (command === "check_environment") {
       return Promise.resolve({
         status: "ok",
@@ -177,5 +188,6 @@ describe("App", () => {
 
     expect(await screen.findByText("Primary figures")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Artifacts" })).toBeInTheDocument();
+    expect(await screen.findByText("pairwise.png")).toBeInTheDocument();
   });
 });
