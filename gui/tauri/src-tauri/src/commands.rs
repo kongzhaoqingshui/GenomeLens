@@ -7,6 +7,7 @@ use std::fs::File;
 use std::io::{BufReader, Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
+use std::sync::{Mutex, OnceLock};
 use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Emitter};
@@ -249,6 +250,11 @@ struct ArtifactIndexEntry {
 }
 
 const MAX_REQUEST_PREVIEW_BYTES: u64 = 8 * 1024 * 1024;
+const LOG_TAIL_CHUNK_BYTES: usize = 16 * 1024;
+const MAX_LOG_TAIL_BYTES: usize = 512 * 1024;
+
+static ANALYSIS_SCHEMA_CACHE: OnceLock<Mutex<Option<Value>>> = OnceLock::new();
+static TEMPLATE_CACHE: OnceLock<Mutex<BTreeMap<String, Value>>> = OnceLock::new();
 
 #[tauri::command]
 pub fn get_version() -> VersionInfo {
@@ -260,12 +266,42 @@ pub fn get_version() -> VersionInfo {
 
 #[tauri::command]
 pub fn get_template(method: String) -> Result<Value, String> {
-    run_json_command(CliTool::Platform, &["analyze", "template", &method])
+    let cache = TEMPLATE_CACHE.get_or_init(|| Mutex::new(BTreeMap::new()));
+    {
+        let cached = cache
+            .lock()
+            .map_err(|_| "template cache lock poisoned".to_string())?;
+        if let Some(template) = cached.get(&method) {
+            return Ok(template.clone());
+        }
+    }
+
+    let template = run_json_command(CliTool::Platform, &["analyze", "template", &method])?;
+    let mut cached = cache
+        .lock()
+        .map_err(|_| "template cache lock poisoned".to_string())?;
+    cached.insert(method, template.clone());
+    Ok(template)
 }
 
 #[tauri::command]
 pub fn get_analysis_schema() -> Result<Value, String> {
-    run_json_command(CliTool::Platform, &["analyze", "schema"])
+    let cache = ANALYSIS_SCHEMA_CACHE.get_or_init(|| Mutex::new(None));
+    {
+        let cached = cache
+            .lock()
+            .map_err(|_| "analysis schema cache lock poisoned".to_string())?;
+        if let Some(schema) = cached.as_ref() {
+            return Ok(schema.clone());
+        }
+    }
+
+    let schema = run_json_command(CliTool::Platform, &["analyze", "schema"])?;
+    let mut cached = cache
+        .lock()
+        .map_err(|_| "analysis schema cache lock poisoned".to_string())?;
+    *cached = Some(schema.clone());
+    Ok(schema)
 }
 
 #[tauri::command]
@@ -350,21 +386,21 @@ pub fn read_run_log(input: ReadRunLogInput) -> Result<RunLogSnapshot, String> {
         });
     }
 
-    let contents = std::fs::read_to_string(&log_path)
-        .map_err(|error| format!("read run log {}: {error}", log_path.display()))?;
-
-    let all_lines = contents
-        .lines()
-        .map(|line| line.to_string())
-        .collect::<Vec<_>>();
-    let tail_count = input.tail_lines.unwrap_or(all_lines.len());
-    let start = all_lines.len().saturating_sub(tail_count);
-    let lines = all_lines[start..].to_vec();
-    let truncated = start > 0;
-    let text = if lines.is_empty() {
-        String::new()
+    let (text, lines, truncated) = if let Some(tail_lines) = input.tail_lines {
+        read_run_log_tail(&log_path, tail_lines)?
     } else {
-        format!("{}\n", lines.join("\n"))
+        let contents = std::fs::read_to_string(&log_path)
+            .map_err(|error| format!("read run log {}: {error}", log_path.display()))?;
+        let lines = contents
+            .lines()
+            .map(|line| line.to_string())
+            .collect::<Vec<_>>();
+        let text = if lines.is_empty() {
+            String::new()
+        } else {
+            format!("{}\n", lines.join("\n"))
+        };
+        (text, lines, false)
     };
 
     let updated_at = std::fs::metadata(&log_path)
@@ -911,6 +947,76 @@ fn list_artifacts_from_outdir(outdir: &Path) -> Result<Vec<ArtifactSummary>, Str
     Ok(artifacts)
 }
 
+fn read_run_log_tail(
+    log_path: &Path,
+    tail_lines: usize,
+) -> Result<(String, Vec<String>, bool), String> {
+    if tail_lines == 0 {
+        return Ok((String::new(), Vec::new(), false));
+    }
+
+    let mut file = File::open(log_path)
+        .map_err(|error| format!("open run log {}: {error}", log_path.display()))?;
+    let file_len = file
+        .metadata()
+        .map_err(|error| format!("read run log metadata {}: {error}", log_path.display()))?
+        .len();
+    let mut position = file_len;
+    let mut collected = Vec::new();
+    let mut newline_count = 0_usize;
+    let mut reached_budget = false;
+
+    while position > 0 && newline_count <= tail_lines {
+        let read_len = std::cmp::min(LOG_TAIL_CHUNK_BYTES as u64, position) as usize;
+        let next_len = collected.len() + read_len;
+        if next_len > MAX_LOG_TAIL_BYTES && !collected.is_empty() {
+            reached_budget = true;
+            break;
+        }
+
+        position -= read_len as u64;
+        file.seek(SeekFrom::Start(position))
+            .map_err(|error| format!("seek run log {}: {error}", log_path.display()))?;
+        let mut chunk = vec![0_u8; read_len];
+        file.read_exact(&mut chunk)
+            .map_err(|error| format!("read run log {}: {error}", log_path.display()))?;
+        newline_count += chunk.iter().filter(|&&byte| byte == b'\n').count();
+        chunk.extend_from_slice(&collected);
+        collected = chunk;
+
+        if collected.len() >= MAX_LOG_TAIL_BYTES {
+            reached_budget = true;
+            break;
+        }
+    }
+
+    let truncated_source = position > 0 || reached_budget;
+    let starts_mid_line = truncated_source
+        && collected
+            .first()
+            .map(|byte| *byte != b'\n' && *byte != b'\r')
+            .unwrap_or(false);
+    let text = String::from_utf8_lossy(&collected).to_string();
+    let mut lines = text
+        .lines()
+        .map(|line| line.to_string())
+        .collect::<Vec<_>>();
+    if starts_mid_line && !lines.is_empty() {
+        lines.remove(0);
+    }
+
+    let start = lines.len().saturating_sub(tail_lines);
+    let truncated = truncated_source || starts_mid_line || start > 0;
+    let lines = lines[start..].to_vec();
+    let text = if lines.is_empty() {
+        String::new()
+    } else {
+        format!("{}\n", lines.join("\n"))
+    };
+
+    Ok((text, lines, truncated))
+}
+
 fn read_project_metadata(project_dir: &Path, config_path: &Path) -> Result<ProjectSummary, String> {
     let bytes = std::fs::read(config_path)
         .map_err(|error| format!("read project metadata {}: {error}", config_path.display()))?;
@@ -1394,8 +1500,8 @@ mod tests {
         command_path_variants, common_conda_env_roots, create_project_in_workspace,
         drain_buffered_log_lines, list_artifacts_from_outdir, list_projects_from_workspace,
         looks_like_path, map_log_line_to_state, normalize_project_name, read_request_preview,
-        render_resolution_error, validate_existing_file_input, CliTool, ReadRequestPreviewInput,
-        MAX_REQUEST_PREVIEW_BYTES,
+        read_run_log, render_resolution_error, validate_existing_file_input, CliTool,
+        ReadRequestPreviewInput, ReadRunLogInput, MAX_REQUEST_PREVIEW_BYTES,
     };
     use serde_json::json;
     use std::path::{Path, PathBuf};
@@ -1660,6 +1766,43 @@ mod tests {
         assert!(directory_error.contains("is a directory"));
 
         std::fs::remove_dir_all(&temp_dir).expect("cleanup temp dir");
+    }
+
+    #[test]
+    fn read_run_log_returns_tail_lines_without_full_history() {
+        let outdir = unique_temp_dir("run-log-tail");
+        let log_dir = outdir.join("logs");
+        std::fs::create_dir_all(&log_dir).expect("create log dir");
+        let log_path = log_dir.join("run.log");
+        let log_text = (1..=200)
+            .map(|index| format!("line-{index}"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        std::fs::write(&log_path, format!("{log_text}\n")).expect("write run log");
+
+        let snapshot = read_run_log(ReadRunLogInput {
+            outdir: outdir.to_string_lossy().to_string(),
+            tail_lines: Some(5),
+        })
+        .expect("read tail snapshot");
+
+        assert_eq!(
+            snapshot.lines,
+            vec![
+                "line-196".to_string(),
+                "line-197".to_string(),
+                "line-198".to_string(),
+                "line-199".to_string(),
+                "line-200".to_string(),
+            ]
+        );
+        assert!(snapshot.truncated);
+        assert_eq!(
+            snapshot.text,
+            "line-196\nline-197\nline-198\nline-199\nline-200\n"
+        );
+
+        std::fs::remove_dir_all(&outdir).expect("cleanup run log temp dir");
     }
 
     #[test]
