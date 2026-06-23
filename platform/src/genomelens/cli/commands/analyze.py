@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import warnings
 from functools import partial
 from pathlib import Path
 
@@ -73,7 +74,7 @@ def register(subparsers: argparse._SubParsersAction) -> None:
             backends = method_parser.add_subparsers(dest="mcscan_backend", title="MCscan backend", required=True)
             jcvi_parser = backends.add_parser("jcvi", help="Run the JCVI synteny workflow")
             plugin.add_cli_arguments(jcvi_parser)
-            jcvi_parser.set_defaults(func=partial(_run_plugin, plugin=plugin))
+            jcvi_parser.set_defaults(func=partial(_run_jcvi_legacy, plugin=plugin))
         else:
             plugin.add_cli_arguments(method_parser)
             method_parser.set_defaults(func=partial(_run_plugin, plugin=plugin))
@@ -93,6 +94,14 @@ def _register_workflow_command(nested: argparse._SubParsersAction) -> None:
     workflow_parser.add_argument("--makeblastdb", default="", help="Explicit makeblastdb executable")
     workflow_parser.add_argument("--reference", default="", help="Reference species name or 1-based index")
     workflow_parser.add_argument("--target-genes", default="", help="Target gene IDs for local synteny workflows")
+    workflow_parser.add_argument("--up", type=int, default=None, help="Upstream window size for local synteny")
+    workflow_parser.add_argument("--down", type=int, default=None, help="Downstream window size for local synteny")
+    workflow_parser.add_argument("--align-soft", default="", help="Alignment backend: blast, last, diamond_blastp")
+    workflow_parser.add_argument("--dbtype", default="", help="Sequence type: nucl or prot")
+    workflow_parser.add_argument("--cscore", type=float, default=None, help="Homology cscore filter")
+    workflow_parser.add_argument("--dist", type=int, default=None, help="Synteny anchor distance")
+    workflow_parser.add_argument("--iter", type=int, default=None, help="Block filtering iterations")
+    workflow_parser.add_argument("--min-block-size", type=int, default=None, help="Minimum block size")
     workflow_parser.add_argument("--formats", default="", help="Output formats, e.g. svg or svg,pdf")
     workflow_parser.add_argument("--threads", type=int, default=None, help="Thread count")
     workflow_parser.add_argument("--params", default="{}", help="JSON object of extra method parameters")
@@ -117,6 +126,8 @@ def _register_submodule_command(nested: argparse._SubParsersAction) -> None:
     submodule_parser.add_argument("--jcvi-config", default="", help="JCVI method config JSON path")
     submodule_parser.add_argument("--jcvi-engine", default="", help="Explicit jcvi-genomelens executable")
     submodule_parser.add_argument("--formats", default="", help="Output formats, e.g. svg or svg,pdf")
+    submodule_parser.add_argument("--threads", type=int, default=None, help="Thread count")
+    submodule_parser.add_argument("--min-block-size", type=int, default=None, help="Minimum block size")
     submodule_parser.add_argument("--params", default="{}", help="JSON object of extra method parameters")
     submodule_parser.add_argument("--force", action="store_true", help="Reuse existing output directory")
     submodule_parser.add_argument("-j", "--json", action="store_true", help="Print the raw JSON summary")
@@ -152,6 +163,20 @@ def _dispatch_request(request: AnalysisRequest, *, json_output: bool) -> RunSumm
     finally:
         if reporter is not None:
             reporter.finish()
+
+
+def _run_jcvi_legacy(args: argparse.Namespace, plugin: MethodPlugin) -> int:
+    """Run the legacy `analyze mcscan jcvi ...` command with a deprecation warning."""
+
+    if getattr(args, "mcscan_backend", "") == "jcvi":
+        warnings.warn(
+            "`genomelens analyze mcscan jcvi ...` is deprecated and will be removed in a future release. "
+            "Use `genomelens analyze workflow <workflow_id> ...` or "
+            "`genomelens analyze submodule <module_id> ...` instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+    return _run_plugin(args, plugin)
 
 
 def _run_plugin(args: argparse.Namespace, plugin: MethodPlugin) -> int:
@@ -241,14 +266,14 @@ def _base_mcscan_namespace(args: argparse.Namespace, *, jcvi_workflow: str) -> a
     ns.threads = args.threads
     ns.jcvi_subtask = ""
     ns.jcvi_workflow = jcvi_workflow
-    ns.align_soft = ""
-    ns.dbtype = ""
-    ns.cscore = None
-    ns.dist = None
-    ns.iter = None
-    ns.min_block_size = None
-    ns.up = None
-    ns.down = None
+    ns.align_soft = getattr(args, "align_soft", "")
+    ns.dbtype = getattr(args, "dbtype", "")
+    ns.cscore = getattr(args, "cscore", None)
+    ns.dist = getattr(args, "dist", None)
+    ns.iter = getattr(args, "iter", None)
+    ns.min_block_size = getattr(args, "min_block_size", None)
+    ns.up = getattr(args, "up", None)
+    ns.down = getattr(args, "down", None)
     ns.split_targets = False
     ns.label_targets = False
     ns.glyphstyle = ""
@@ -416,7 +441,7 @@ def _run_submodule(args: argparse.Namespace) -> int:
             formats=_resolve_formats(args.formats, args.config),
         ),
         config=AnalysisConfigRef(project_config=args.config, method_config=args.jcvi_config),
-        options=AnalysisOptions(preset="auto"),
+        options=AnalysisOptions(preset="auto", threads=args.threads, min_block_size=args.min_block_size),
         method_config=method_config,
         task_kind="sub_module",
         sub_module_id=args.module_id,

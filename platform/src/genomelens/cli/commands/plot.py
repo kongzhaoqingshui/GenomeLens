@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import warnings
 from pathlib import Path
 from typing import cast
 
@@ -158,6 +159,14 @@ def _print_summary(summary: RunSummary, *, json_output: bool) -> int:
 
 def run_heatmap(args: argparse.Namespace) -> int:
     """运行独立 `graphics_heatmap` 工作流"""
+
+    warnings.warn(
+        "`genomelens plot heatmap ...` is deprecated and will be removed in a future release. "
+        "Use `genomelens analyze workflow heatmap_plot ...` or "
+        "`genomelens analyze submodule jcvi.graphics_heatmap ...` instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
 
     matrix = Path(args.matrix_csv).expanduser().resolve(strict=False)
     if not matrix.is_file():
