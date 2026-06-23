@@ -10,13 +10,18 @@ import argparse
 import warnings
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
 from genomelens.analysis.requests.models import AnalysisRequest
 from genomelens.app.controller.workflow_provider import WorkflowProvider
 from genomelens.core.summary_models import RunSummary
 
 # endregion
+
+
+if TYPE_CHECKING:
+    from genomelens.workflow.onestop_registry import OneStopWorkflowSpec
+    from genomelens.workflow.submodule_registry import SubModuleSpec
 
 
 @dataclass(frozen=True)
@@ -80,6 +85,15 @@ class MethodPlugin(Protocol):
 MethodRunner = Callable[[AnalysisRequest], RunSummary]
 
 
+def _call_optional(plugin: MethodPlugin, name: str) -> object:
+    """安全调用插件的可选方法，不存在时返回默认值"""
+
+    method = getattr(plugin, name, None)
+    if callable(method):
+        return method()
+    return None
+
+
 class MethodRegistry:
     """MethodRegistry(方法注册表)：管理所有可用的分析方法的注册与发现"""
 
@@ -141,6 +155,26 @@ class MethodRegistry:
 
         return list(self._plugins.values())
 
+    def list_submodules(self) -> list[SubModuleSpec]:
+        """收集所有方法插件暴露的可编排子模块"""
+
+        result: list[SubModuleSpec] = []
+        for plugin in self._plugins.values():
+            specs = _call_optional(plugin, "list_submodules")
+            if isinstance(specs, list):
+                result.extend(specs)
+        return result
+
+    def list_one_stop_workflows(self) -> list[OneStopWorkflowSpec]:
+        """收集所有方法插件暴露的一站式工作流"""
+
+        result: list[OneStopWorkflowSpec] = []
+        for plugin in self._plugins.values():
+            specs = _call_optional(plugin, "list_one_stop_workflows")
+            if isinstance(specs, list):
+                result.extend(specs)
+        return result
+
 
 # 模块级便捷函数，保持 cli/ui.py 等现有调用方不变
 _registry = MethodRegistry()
@@ -156,3 +190,15 @@ def list_methods() -> list[MethodPlugin]:
     """按注册顺序返回全部 method(方法)"""
 
     return _registry.list_all()
+
+
+def list_submodules() -> list[SubModuleSpec]:
+    """返回所有方法插件暴露的可编排子模块"""
+
+    return _registry.list_submodules()
+
+
+def list_one_stop_workflows() -> list[OneStopWorkflowSpec]:
+    """返回所有方法插件暴露的一站式工作流"""
+
+    return _registry.list_one_stop_workflows()

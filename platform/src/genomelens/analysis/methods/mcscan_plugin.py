@@ -12,6 +12,8 @@ from genomelens.analysis.requests.models import AnalysisRequest, McscanMethodCon
 from genomelens.analysis.requests.normalizer import mcscan_auto_request_from_cli
 from genomelens.app.controller.workflow_provider import WorkflowProvider
 from genomelens.core.validators import validate_histogram_request
+from genomelens.workflow.onestop_registry import get_onestop_registry
+from genomelens.workflow.submodule_registry import get_submodule_registry
 
 # endregion
 
@@ -225,3 +227,13 @@ class McscanPlugin(MethodPlugin):
             ArtifactDeclaration("figures", "image", "共线性图件", required=False),
             ArtifactDeclaration("global_karyotype", "image", "全局核型总图", required=False),
         ]
+
+    def list_submodules(self) -> list:
+        """返回 MCscan 方法暴露的 JCVI 子模块规范"""
+
+        return get_submodule_registry().list_all()
+
+    def list_one_stop_workflows(self) -> list:
+        """返回 MCscan 方法暴露的一站式工作流规范"""
+
+        return get_onestop_registry().list_all()
