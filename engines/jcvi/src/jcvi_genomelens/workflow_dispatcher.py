@@ -3,6 +3,7 @@
 # region import
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
 
 from jcvi_genomelens.manifest_models import EngineRunManifest
@@ -35,24 +36,24 @@ def dispatch(manifest: EngineRunManifest, outdir: str | Path) -> tuple[list[Comm
 
     # 入口先做 workflow 名称归一化，兼容上层别名和历史写法。
     workflow = normalize_workflow(manifest.workflow)
-    if workflow == "mcscan_pairwise":
-        return mcscan_pairwise.run(manifest, outdir)
-    if workflow == "graphics_synteny":
-        return graphics_synteny.run(manifest, outdir)
-    if workflow == "graphics_dotplot":
-        return graphics_dotplot.run(manifest, outdir)
-    if workflow == HISTOGRAM_WORKFLOW:
-        return graphics_histogram.run(manifest, outdir)
-    if workflow == "graphics_karyotype":
-        return graphics_karyotype.run(manifest, outdir)
-    if workflow == HEATMAP_WORKFLOW:
-        return graphics_heatmap.run(manifest, outdir)
-    if workflow == "catalog_ortholog":
-        return catalog_ortholog.run(manifest, outdir)
-    if workflow == "local_synteny":
-        return local_synteny.run(manifest, outdir)
-    if workflow == MULTI_LOCAL_SYNTENY_WORKFLOW:
-        return local_synteny_multi.run(manifest, outdir)
-    if workflow == GLOBAL_KARYOTYPE_WORKFLOW:
-        return graphics_karyotype_global.run(manifest, outdir)
-    raise ValueError(f"Unsupported workflow: {manifest.workflow}")
+    runner = _WORKFLOW_REGISTRY.get(workflow)
+    if runner is None:
+        raise ValueError(f"Unsupported workflow: {manifest.workflow}")
+    return runner(manifest, outdir)
+
+
+_WORKFLOW_REGISTRY: dict[
+    str,
+    Callable[[EngineRunManifest, str | Path], tuple[list[CommandAudit], dict[str, object]]],
+] = {
+    "mcscan_pairwise": mcscan_pairwise.run,
+    "graphics_synteny": graphics_synteny.run,
+    "graphics_dotplot": graphics_dotplot.run,
+    HISTOGRAM_WORKFLOW: graphics_histogram.run,
+    "graphics_karyotype": graphics_karyotype.run,
+    HEATMAP_WORKFLOW: graphics_heatmap.run,
+    "catalog_ortholog": catalog_ortholog.run,
+    "local_synteny": local_synteny.run,
+    MULTI_LOCAL_SYNTENY_WORKFLOW: local_synteny_multi.run,
+    GLOBAL_KARYOTYPE_WORKFLOW: graphics_karyotype_global.run,
+}
