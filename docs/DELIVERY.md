@@ -2,12 +2,17 @@
 
 ## 交付包
 
-构建脚本会把 release zip(发布压缩包) 写入 `app/`：
+构建脚本会把 release zip(发布压缩包) 写入 `app/`。实际版本号以 `platform/src/genomelens/_version.py` 与 `engines/jcvi/src/jcvi_genomelens/_version.py` 为准（当前为 `0.9.20`），以下示例中的 `X.Y.Z` 请替换为实际版本。
 
-- `GenomeLens-1.0.0-windows-core.zip`
-- `GenomeLens-1.0.0-windows-with-toolchains.zip`
-- `GenomeLens-toolchain-jcvi-genomelens-0.1.0-windows.zip`
-- `GenomeLens-HAIant-plugin-1.0.0.zip`
+- `GenomeLens-X.Y.Z-windows-core.zip`
+- `GenomeLens-X.Y.Z-windows-with-toolchains.zip`
+- `GenomeLens-toolchain-jcvi-genomelens-X.Y.Z-windows.zip`
+- `gljcvi-auto.zip`
+- `gljcvi-dotplot.zip`
+- `gljcvi-synteny.zip`
+- `gljcvi-karyotype.zip`
+- `gljcvi-local-synteny.zip`
+- `gljcvi-catalog-ortholog.zip`
 
 这些 zip 是构建产物，不进入 Git 跟踪。
 
@@ -29,7 +34,8 @@
 
 ```powershell
 conda run -n genomelens powershell -NoProfile -ExecutionPolicy Bypass -File scripts\build_split_packages.ps1
-conda run -n genomelens powershell -NoProfile -ExecutionPolicy Bypass -Command "Push-Location integrations\haiant_plugin; python -m PyInstaller pyinstaller\genomelens_haiant.spec --clean --noconfirm; Pop-Location; .\scripts\build_haiant_plugin.ps1"
+conda run -n genomelens powershell -NoProfile -ExecutionPolicy Bypass -File scripts\build_gljcvi_feature_plugin.ps1
+conda run -n genomelens powershell -NoProfile -ExecutionPolicy Bypass -File scripts\build_gui.ps1
 ```
 
 构建和 smoke 应使用 `genomelens` conda 环境，解释器版本为 Python 3.12。
