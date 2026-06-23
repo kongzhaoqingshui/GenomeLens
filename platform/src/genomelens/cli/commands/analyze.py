@@ -7,7 +7,12 @@ import argparse
 from functools import partial
 
 from genomelens.analysis.dispatcher import AnalysisDispatcher
-from genomelens.analysis.methods.registry import MethodPlugin, MethodRegistry
+from genomelens.analysis.methods.registry import (
+    MethodPlugin,
+    MethodRegistry,
+    list_one_stop_workflows,
+    list_submodules,
+)
 from genomelens.analysis.requests.loader import load_analysis_request
 from genomelens.analysis.requests.models import AnalysisRequest
 from genomelens.analysis.requests.normalizer import mcscan_template_request
@@ -38,6 +43,11 @@ def register(subparsers: argparse._SubParsersAction) -> None:
     template_parser.set_defaults(func=_print_template)
 
     schema_parser = nested.add_parser("schema", help="Print the AnalysisRequest JSON schema")
+    schema_parser.add_argument(
+        "--with-capabilities",
+        action="store_true",
+        help="Include submodule and one-stop workflow metadata alongside the schema",
+    )
     schema_parser.set_defaults(func=_print_schema)
 
     registry = MethodRegistry()
@@ -111,8 +121,17 @@ def _print_template(args: argparse.Namespace) -> int:
     raise ValueError(f"Unsupported template method: {args.method}")
 
 
-def _print_schema(_args: argparse.Namespace) -> int:
+def _print_schema(args: argparse.Namespace) -> int:
     """Print the AnalysisRequest JSON schema."""
 
-    _CONSOLE.print_json(analysis_request_json_schema())
+    schema = analysis_request_json_schema()
+    if getattr(args, "with_capabilities", False):
+        payload: dict[str, object] = {
+            "analysis_request_schema": schema,
+            "submodules": [spec.to_json() for spec in list_submodules()],
+            "one_stop_workflows": [spec.to_json() for spec in list_one_stop_workflows()],
+        }
+        _CONSOLE.print_json(payload)
+    else:
+        _CONSOLE.print_json(schema)
     return 0
