@@ -5,8 +5,13 @@ from __future__ import annotations
 
 from dataclasses import replace
 
-from genomelens.analysis.methods.mcscan_request_mapping import to_histogram_request, to_mcscan_request
+from genomelens.analysis.methods.mcscan_request_mapping import (
+    to_heatmap_request,
+    to_histogram_request,
+    to_mcscan_request,
+)
 from genomelens.analysis.requests.models import AnalysisInput, AnalysisRequest
+from genomelens.app.controller.runners.heatmap_runner import run_heatmap_workflow
 from genomelens.app.controller.runners.histogram_runner import run_histogram_workflow
 from genomelens.app.controller.runners.pairwise_runner import run_pairwise_mcscan
 from genomelens.app.controller.state_machine import WorkflowState
@@ -55,11 +60,14 @@ class SubModuleRunner:
 
         if spec.engine_workflow == "graphics_histogram":
             summary = run_histogram_workflow(_set_state, to_histogram_request(delegate))
+        elif spec.engine_workflow == "graphics_heatmap":
+            summary = run_heatmap_workflow(_set_state, to_heatmap_request(delegate))
         elif spec.engine_workflow == "mcscan_pairwise":
             summary = run_pairwise_mcscan(_set_state, to_mcscan_request(delegate))
         else:
             raise InputValidationError(
-                f"子模块 {module_id} 的独立执行路径尚未实现；当前仅支持 jcvi.mcscan_pairwise 与 jcvi.graphics_histogram"
+                f"子模块 {module_id} 的独立执行路径尚未实现；"
+                "当前仅支持 jcvi.mcscan_pairwise、jcvi.graphics_histogram 与 jcvi.graphics_heatmap"
             )
 
         return replace(summary, task={**summary.task, "sub_module_id": module_id})
@@ -83,6 +91,25 @@ class SubModuleRunner:
                 input=AnalysisInput(
                     mode="method_specific",
                     directory=str(numeric_files[0]),
+                    species=[],
+                    reference_index=0,
+                ),
+                method_config=method_config,
+                task_kind="analysis",
+                sub_module_id=None,
+                port_bindings={},
+            )
+
+        if spec.engine_workflow == "graphics_heatmap":
+            matrix = bindings.get("matrix_csv")
+            if not isinstance(matrix, str) or not matrix:
+                raise InputValidationError("graphics_heatmap 子模块缺少 matrix_csv 端口绑定")
+            method_config["matrix"] = matrix
+            return replace(
+                request,
+                input=AnalysisInput(
+                    mode="method_specific",
+                    directory=str(matrix),
                     species=[],
                     reference_index=0,
                 ),

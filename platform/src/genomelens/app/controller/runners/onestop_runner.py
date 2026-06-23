@@ -5,8 +5,13 @@ from __future__ import annotations
 
 from dataclasses import replace
 
-from genomelens.analysis.methods.mcscan_request_mapping import to_histogram_request, to_mcscan_request
+from genomelens.analysis.methods.mcscan_request_mapping import (
+    to_heatmap_request,
+    to_histogram_request,
+    to_mcscan_request,
+)
 from genomelens.analysis.requests.models import AnalysisRequest
+from genomelens.app.controller.runners.heatmap_runner import run_heatmap_workflow
 from genomelens.app.controller.runners.histogram_runner import run_histogram_workflow
 from genomelens.app.controller.runners.multi_species_runner import run_multi_species_mcscan
 from genomelens.app.controller.runners.pairwise_runner import run_pairwise_mcscan
@@ -48,8 +53,9 @@ class OneStopWorkflowRunner:
             summary = run_reference_vs_targets_mcscan(_set_state, to_mcscan_request(request))
         elif workflow_id == "histogram_plot":
             summary = run_histogram_workflow(_set_state, to_histogram_request(request))
-        elif workflow_id in {"pairwise_synteny", "heatmap_plot"}:
-            # heatmap_plot 目前与 pairwise 共享基础入口；后续可引入专用 heatmap runner
+        elif workflow_id == "heatmap_plot":
+            summary = run_heatmap_workflow(_set_state, to_heatmap_request(request))
+        elif workflow_id == "pairwise_synteny":
             summary = run_pairwise_mcscan(_set_state, to_mcscan_request(request))
         else:
             raise InputValidationError(f"未知的一站式工作流：{workflow_id}")

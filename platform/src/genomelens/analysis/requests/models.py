@@ -213,6 +213,10 @@ class McscanMethodConfig:
     shadestyle: str = ""
     figsize: str = ""
     dpi: int = 300
+    # 热图 workflow 参数
+    cmap: str = ""
+    groups: bool = False
+    horizontalbar: bool = False
     # GenomeLens 自动优化开关（嵌套，便于区分原生 JCVI 参数）
     auto_optimization: dict[str, bool] = field(default_factory=dict)
     use_native_local_synteny_renderer: bool = False
@@ -228,6 +232,8 @@ class McscanMethodConfig:
     histogram_base: int = 0
     histogram_facet: bool = False
     histogram_fill: str = "white"
+    # 热图 workflow 参数
+    matrix: str = ""
 
     def to_json(self) -> dict[str, object]:
         return {
@@ -253,6 +259,9 @@ class McscanMethodConfig:
             "shadestyle": self.shadestyle,
             "figsize": self.figsize,
             "dpi": self.dpi,
+            "cmap": self.cmap,
+            "groups": self.groups,
+            "horizontalbar": self.horizontalbar,
             "auto_optimization": dict(self.auto_optimization),
             "use_native_local_synteny_renderer": self.use_native_local_synteny_renderer,
             "histogram_inputs": list(self.histogram_inputs),
@@ -266,6 +275,7 @@ class McscanMethodConfig:
             "histogram_base": self.histogram_base,
             "histogram_facet": self.histogram_facet,
             "histogram_fill": self.histogram_fill,
+            "matrix": self.matrix,
         }
 
     @classmethod
@@ -294,6 +304,9 @@ class McscanMethodConfig:
             shadestyle=_str(data.get("shadestyle")),
             figsize=_str(data.get("figsize")),
             dpi=_int(data.get("dpi"), default=300),
+            cmap=_str(data.get("cmap")),
+            groups=_bool(data.get("groups"), default=False),
+            horizontalbar=_bool(data.get("horizontalbar"), default=False),
             auto_optimization=_bool_dict(data.get("auto_optimization")),
             use_native_local_synteny_renderer=_bool(data.get("use_native_local_synteny_renderer"), default=False),
             histogram_inputs=_str_list(data.get("histogram_inputs")),
@@ -311,6 +324,7 @@ class McscanMethodConfig:
             histogram_base=_int(data.get("histogram_base"), default=0),
             histogram_facet=_bool(data.get("histogram_facet"), default=False),
             histogram_fill=_str(data.get("histogram_fill"), default="white"),
+            matrix=_str(data.get("matrix")),
         )
 
 

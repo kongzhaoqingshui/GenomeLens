@@ -13,7 +13,7 @@ from genomelens.analysis.requests.models import (
 )
 from genomelens.app.errors import messages
 from genomelens.app.errors.exceptions import InputValidationError
-from genomelens.core.jcvi_adapter.adapter_models import HistogramRequest, McscanRequest
+from genomelens.core.jcvi_adapter.adapter_models import HeatmapPlotRequest, HistogramRequest, McscanRequest
 from genomelens.core.models import (
     GenomeInputSpec,
     PreparedGenomeInputSpec,
@@ -211,4 +211,32 @@ def to_histogram_request(request: AnalysisRequest) -> HistogramRequest:
         log_level=str(request.options.log_level or "INFO").upper(),
         verbose=bool(request.options.verbose),
         console_log=bool(request.options.console_log),
+    )
+
+
+def to_heatmap_request(request: AnalysisRequest) -> HeatmapPlotRequest:
+    """把 AnalysisRequest(分析请求) 转为热图绘制请求"""
+
+    method_config = McscanMethodConfig.from_json(request.method_config)
+    matrix = _path(method_config.matrix)
+    if not matrix.is_file():
+        raise InputValidationError(f"热图矩阵文件不存在：{matrix}")
+
+    rowgroups = _path(method_config.jcvi_layout) if str(method_config.jcvi_layout).strip() else None
+    if rowgroups is not None and not rowgroups.is_file():
+        raise InputValidationError(f"行分组文件不存在：{rowgroups}")
+
+    return HeatmapPlotRequest(
+        matrix=matrix,
+        outdir=_path(request.output.directory),
+        formats=request.output.formats,
+        jcvi_engine=method_config.jcvi_engine,
+        figsize=method_config.figsize,
+        dpi=method_config.dpi,
+        cmap=method_config.cmap,
+        groups=method_config.groups,
+        rowgroups=rowgroups,
+        horizontalbar=method_config.horizontalbar,
+        force=bool(request.output.force),
+        log_level=str(request.options.log_level or "INFO").upper(),
     )

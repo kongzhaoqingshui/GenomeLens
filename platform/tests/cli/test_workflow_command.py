@@ -1,10 +1,26 @@
-"""Tests for `genomelens workflow` CLI."""
+"""Tests for `genomelens workflow` and new `genomelens analyze workflow/submodule` CLI."""
 
 from __future__ import annotations
 
 import json
 
 from genomelens.cli.main import main
+from genomelens.core.summary_models import RunSummary, ScoringBlock, UiBlock
+
+
+def _dummy_summary(**extra) -> RunSummary:
+    return RunSummary(
+        status="SUCCEEDED",
+        schema_version=2,
+        workflow="mcscan",
+        task=dict(extra),
+        species=[],
+        final_figures=[],
+        artifact_index=[],
+        logs={},
+        ui=UiBlock("SUCCEEDED", 1.0, [], "summary.json", "run.log"),
+        scoring=ScoringBlock(),
+    )
 
 
 def test_workflow_list_json(capsys) -> None:
@@ -124,3 +140,97 @@ def test_analyze_schema_default_still_raw_schema(capsys) -> None:
     payload = json.loads(capsys.readouterr().out)
     assert payload["$schema"] == "https://json-schema.org/draft/2020-12/schema"
     assert "properties" in payload
+
+
+def test_analyze_workflow_unknown_returns_error(capsys) -> None:
+    code = main(["analyze", "workflow", "not_found", "in", "out"])
+    assert code == 3
+    err = capsys.readouterr().err
+    assert "未知的一站式工作流" in err or "not_found" in err
+
+
+def test_analyze_submodule_unknown_returns_error(capsys) -> None:
+    code = main(["analyze", "submodule", "not.found", "--input-ports", "{}", "--output-dir", "out"])
+    assert code == 3
+    err = capsys.readouterr().err
+    assert "未知的子模块" in err or "not.found" in err
+
+
+def test_analyze_submodule_missing_required_port_returns_error(capsys) -> None:
+    code = main(
+        [
+            "analyze",
+            "submodule",
+            "jcvi.graphics_histogram",
+            "--input-ports",
+            json.dumps({}),
+            "--output-dir",
+            "out",
+        ]
+    )
+    assert code == 3
+    err = capsys.readouterr().err
+    assert "numeric_files" in err or "histogram" in err
+
+
+def test_analyze_workflow_histogram_routes_to_one_stop(monkeypatch, tmp_path) -> None:
+    captured: dict[str, object] = {}
+
+    def fake_dispatch(self, request, signal_bus=None):
+        captured["request"] = request
+        return _dummy_summary()
+
+    monkeypatch.setattr("genomelens.analysis.dispatcher.AnalysisDispatcher.dispatch", fake_dispatch)
+
+    numeric = tmp_path / "values.txt"
+    numeric.write_text("1\n2\n3\n", encoding="utf-8")
+    outdir = tmp_path / "out"
+
+    code = main(
+        [
+            "analyze",
+            "workflow",
+            "histogram_plot",
+            str(numeric),
+            str(outdir),
+            "--force",
+            "--json",
+        ]
+    )
+    assert code == 0
+    request = captured["request"]
+    assert request.task_kind == "one_stop"
+    assert request.one_stop_workflow_id == "histogram_plot"
+
+
+def test_analyze_submodule_heatmap_routes_to_sub_module(monkeypatch, tmp_path) -> None:
+    captured: dict[str, object] = {}
+
+    def fake_dispatch(self, request, signal_bus=None):
+        captured["request"] = request
+        return _dummy_summary()
+
+    monkeypatch.setattr("genomelens.analysis.dispatcher.AnalysisDispatcher.dispatch", fake_dispatch)
+
+    matrix = tmp_path / "matrix.csv"
+    matrix.write_text("g,s1,s2\na,1,2\n", encoding="utf-8")
+    outdir = tmp_path / "out"
+
+    code = main(
+        [
+            "analyze",
+            "submodule",
+            "jcvi.graphics_heatmap",
+            "--input-ports",
+            json.dumps({"matrix_csv": str(matrix)}),
+            "--output-dir",
+            str(outdir),
+            "--force",
+            "--json",
+        ]
+    )
+    assert code == 0
+    request = captured["request"]
+    assert request.task_kind == "sub_module"
+    assert request.sub_module_id == "jcvi.graphics_heatmap"
+    assert request.port_bindings["matrix_csv"] == str(matrix)
