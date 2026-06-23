@@ -2,13 +2,13 @@
 
 ## 概述
 
-`gljcvi-auto` 是 GenomeLens 在 HAIant（智然体）平台上的 **MCscan JCVI 一键自动流**插件。它根据 `params.json` 动态生成 `output/jcvi.config.json`，并直接调用外部 `GenomeLens.exe`：
+`gljcvi-auto` 是 GenomeLens 在 HAIant（智然体）平台上的 **MCscan JCVI 一键自动流** 插件。它根据 `params.json` 动态生成 `output/jcvi.config.json`，并直接调用外部 `GenomeLens.exe`：
 
 ```text
 <genomelens_exe> analyze mcscan jcvi <input_dir> <output_dir> output/jcvi.config.json
 ```
 
-与其他单功能插件不同，`gljcvi-auto` **不生成 `genomelens_request.json`**，也不走 `analyze run` 流程。它封装了 GenomeLens 原生的 `analyze mcscan jcvi` 自动目录分析命令，自动完成物种发现、比对、共线性识别、绘图或局部共线性出图。
+与其他单一功能插件不同，`gljcvi-auto` **不生成 `genomelens_request.json`**，也不走 `analyze run` 流程。它封装了 GenomeLens 原生的 `analyze mcscan jcvi` 自动目录分析命令，自动完成物种发现、比对、共线性识别、绘图或局部共线性出图。
 
 本目录是 `gljcvi-auto` 插件包内容：
 
@@ -18,9 +18,11 @@
 
 插件本身不携带 GenomeLens 运行时或工具链，需单独安装 GenomeLens 并提供可执行文件路径。
 
+---
+
 ## 生物学意义
 
-比较基因组学的标准分析链路通常包括：序列比对 → 同源过滤 → 共线性区块识别 → 可视化出图。对于常规的物种对或物种集比较，研究者往往不需要反复调整每个子步骤的参数，只需要一条稳定的端到端流程即可获得全局或局部的共线性结果。
+比较基因组学的标准分析链路通常包括：序列比对() → 同源过滤 → 共线性区块识别 → 可视化出图。对于常规的物种对或物种集比较，研究者往往不需要反复调整每个子步骤的参数，只需要一条稳定的端到端流程即可获得全局或局部的共线性结果。
 
 `gljcvi-auto` 的价值在于：
 
@@ -29,46 +31,97 @@
 - **兼顾全局与局部**：未指定目标基因时输出全局共线性图；指定目标基因后自动切换到局部共线性图。
 - **一致的环境复用**：与所有 HAIant 插件共享同一份外部 GenomeLens 安装。
 
-## 工作流切换逻辑
+---
+
+## 工作流自动切换逻辑
 
 ```text
 未填写 target_gene_ids  →  workflow = graphics_synteny（全局共线性图）
 填写 target_gene_ids    →  workflow = local_synteny（目标基因局部共线性图）
 ```
 
-## 输入文件说明
+---
 
-### BED + CDS/PEP 模式
+## 输入目录使用方法说明
+
+`gljcvi-auto` 的输入就是一个**普通文件夹**，你只需把要分析的物种文件按规则放进去即可。系统会自动识别文件、配对物种、选择输入模式。
+
+### 支持的文件组合（可混用）
+
+每个物种需要**一组**文件，以下两种组合任选其一，同一个文件夹里也可以混着放：
+
+| 组合 | 需要的文件 | 说明 |
+|---|---|---|
+| BED + CDS/PEP | `物种名.bed` + `物种名.cds` | 最常用；CDS 也支持 `.cds.fa`、`.cds.fasta`；蛋白序列支持 `.pep`、`.pep.fa`、`.pep.fasta`、`.faa` |
+| GFF/GTF + 基因组 FASTA | `物种名.gff3` + `物种名.fa` | 也支持 `.gff`、`.gtf`、`.fasta`、`.fna` |
+
+### 命名的唯一规则：同一物种文件名前缀相同
+
+系统靠**去掉扩展名后的文件名前缀**来配对。例如：
 
 ```text
 input/
-├── speciesA.bed
-├── speciesA.cds
-├── speciesB.bed
-└── speciesB.cds
+├── Athaliana.bed
+├── Athaliana.cds
+├── Brapa.bed
+├── Brapa.cds
+├── Crubella.gff3
+└── Crubella.fa
 ```
 
-- **`.bed`**：基因坐标文件，至少包含 `chr`、`start`、`end`、`gene_id`。
-- **`.cds`**：CDS 序列 FASTA，基因 ID 需与 BED 一致；也支持蛋白序列扩展名。
+- `Athaliana.bed` 和 `Athaliana.cds` 会被识别为物种 **Athaliana**。
+- `Brapa.bed` 和 `Brapa.cds` 会被识别为物种 **Brapa**。
+- `Crubella.gff3` 和 `Crubella.fa` 会被识别为物种 **Crubella**。
+- 这个例子是 **BED/CDS 和 GFF/FA 混用**，`gljcvi-auto` 会自动处理。
 
-### GFF/GTF + 基因组 FASTA 模式
+### 自动处理规则
+
+1. **至少两个物种**：文件夹里必须能成功配出 ≥2 个物种，否则会报错。
+2. **自动配对**：只要前缀相同，系统就会自己找对应的 `.bed`/`.cds` 或 `.gff`/`.fa`。
+3. **混用优先 BED+CDS**：如果某个物种同时存在 BED+CDS 和 GFF+FA，系统会优先使用 BED+CDS。
+4. **路径解析以 `params.json` 为准**：`input_dir` 写 `input` 表示 `params.json` 所在目录下的 `input` 文件夹。
+
+### 快速检查清单
+
+- [ ] 一个文件夹里至少有 2 个物种。
+- [ ] 每个物种的两个文件前缀（去掉扩展名）完全一样。
+- [ ] 文件扩展名在支持列表内。
+- [ ] `params.json` 里的 `input_dir` 指向这个文件夹。
+
+### 常见错误
+
+- **文件前缀不同**：`Athaliana.bed` 配 `Ath.cds` → 系统会认为这是两个物种，且配对失败。
+- **只有一个物种** → 报 “输入物种不足”。
+- **缺少 CDS 或基因组 FASTA** → 该物种无法被识别。
+
+### 完整示例
 
 ```text
-input/
-├── speciesA.gff3
-├── speciesA.fa
-├── speciesB.gff3
-└── speciesB.fa
+my_project/
+├── params.json
+└── input/
+    ├── Arabidopsis.bed
+    ├── Arabidopsis.cds
+    ├── Brassica.gff3
+    └── Brassica.fa
 ```
 
-- **`.gff3` / `.gtf`**：基因结构注释。
-- **`.fa` / `.fasta`**：基因组序列，序列 ID 需与 GFF 中 `seqid` 匹配。
+对应的 `params.json`：
 
-### 输入目录要求
+```json
+{
+  "genomelens_exe": "C:/GenomeLens/GenomeLens.exe",
+  "input_dir": "input",
+  "output_dir": "output",
+  "reference": "1"
+}
+```
 
-- `input_dir` 中至少需要包含两个物种的文件。
-- 插件会自动发现同名物种文件对，与 `analyze mcscan jcvi` CLI 行为一致。
-- 相对路径以 `params.json` 所在目录为基准解析。
+系统会自动：
+
+1. 识别 `Arabidopsis`（BED+CDS）和 `Brassica`（GFF+FA）。
+2. 默认把排序后的第一个物种（`Arabidopsis`）作为参考物种。
+3. 开始自动分析。
 
 ## 主要参数说明
 
