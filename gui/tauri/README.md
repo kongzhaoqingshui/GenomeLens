@@ -2,6 +2,20 @@
 
 本目录是 GenomeLens 桌面 GUI 的 **Phase 1 先行版本**，代号 **JCVI meow**。GUI 只作为平台交互外壳，分析能力仍通过 `platform/` 暴露的 CLI / request / summary 协议完成。
 
+## Root build helper
+
+From the repository root, run the complete GUI verification flow with:
+
+```powershell
+.\scripts\build_gui.ps1
+```
+
+This installs dependencies, runs frontend lint/typecheck/tests/web build, and checks the Tauri Rust crate. To build a debug Tauri bundle from the root:
+
+```powershell
+.\scripts\build_gui.ps1 -TauriBuild -DebugBundle
+```
+
 当前版本：`0.9.20-preview.1`（见 `package.json`、`src-tauri/Cargo.toml`、`src-tauri/tauri.conf.json`）。
 
 ## 环境要求

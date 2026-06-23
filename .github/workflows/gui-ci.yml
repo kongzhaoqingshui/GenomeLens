@@ -1,0 +1,36 @@
+name: gui-ci
+
+on:
+  push:
+    branches: [main]
+    tags-ignore:
+      - '**'
+    paths:
+      - 'gui/**'
+      - 'scripts/build_gui.ps1'
+      - '.github/workflows/gui-ci.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'gui/**'
+      - 'scripts/build_gui.ps1'
+      - '.github/workflows/gui-ci.yml'
+  workflow_dispatch:
+
+jobs:
+  gui:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: pnpm
+          cache-dependency-path: gui/tauri/pnpm-lock.yaml
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Run GUI build flow
+        shell: pwsh
+        run: ./scripts/build_gui.ps1

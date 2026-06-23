@@ -11,6 +11,12 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: pnpm
+          cache-dependency-path: gui/tauri/pnpm-lock.yaml
+      - uses: dtolnay/rust-toolchain@stable
       - run: python -m pip install -e "platform[dev]" -e "engines/jcvi[dev]" pytest
       - run: python -m genomelens.cli.main --help
       - run: python -m genomelens.cli.main check --json --install-missing
@@ -30,6 +36,9 @@ jobs:
       - name: Build split packages
         shell: pwsh
         run: ./scripts/build_split_packages.ps1
+      - name: Build GUI preview
+        shell: pwsh
+        run: ./scripts/build_gui.ps1 -TauriBuild -DebugBundle
       - name: Build HAIant plugin package
         shell: pwsh
         run: |
