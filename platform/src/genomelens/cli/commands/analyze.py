@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import argparse
-import json
 from functools import partial
 
 from genomelens.analysis.dispatcher import AnalysisDispatcher
@@ -14,10 +13,13 @@ from genomelens.analysis.requests.models import AnalysisRequest
 from genomelens.analysis.requests.normalizer import mcscan_template_request
 from genomelens.analysis.requests.schema import analysis_request_json_schema
 from genomelens.app.events.signal_bus import SignalBus
-from genomelens.cli.ui import CliProgressReporter, render_analysis_summary
+from genomelens.cli.ui import CliProgressReporter, ConsoleWriter, render_analysis_summary
 from genomelens.core.summary_models import RunSummary
 
 # endregion
+
+
+_CONSOLE = ConsoleWriter()
 
 
 def register(subparsers: argparse._SubParsersAction) -> None:
@@ -56,10 +58,11 @@ def _print_summary(summary: RunSummary | dict[str, object], json_output: bool = 
 
     run_summary = summary if isinstance(summary, RunSummary) else RunSummary.from_json(summary)
 
+    writer = ConsoleWriter(json_mode=json_output)
     if json_output:
-        print(json.dumps(run_summary.to_json(), ensure_ascii=False, indent=2))
+        writer.print_json(run_summary.to_json())
     else:
-        print(render_analysis_summary(run_summary))
+        writer.print_text(render_analysis_summary(run_summary))
 
     return 0 if run_summary.status == "SUCCEEDED" else 7
 
@@ -102,7 +105,7 @@ def _print_template(args: argparse.Namespace) -> int:
     """Print the template request for the selected method."""
 
     if args.method == "mcscan":
-        print(json.dumps(mcscan_template_request().to_json(), ensure_ascii=False, indent=2))
+        _CONSOLE.print_json(mcscan_template_request().to_json())
         return 0
 
     raise ValueError(f"Unsupported template method: {args.method}")
@@ -111,5 +114,5 @@ def _print_template(args: argparse.Namespace) -> int:
 def _print_schema(_args: argparse.Namespace) -> int:
     """Print the AnalysisRequest JSON schema."""
 
-    print(json.dumps(analysis_request_json_schema(), ensure_ascii=False, indent=2))
+    _CONSOLE.print_json(analysis_request_json_schema())
     return 0

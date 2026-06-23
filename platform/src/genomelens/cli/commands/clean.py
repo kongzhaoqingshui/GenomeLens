@@ -8,8 +8,12 @@ import shutil
 from pathlib import Path
 
 from genomelens.app.errors.exceptions import WorkspaceError
+from genomelens.cli.ui import ConsoleWriter
 
 # endregion
+
+
+_CONSOLE = ConsoleWriter()
 
 
 def register(subparsers: argparse._SubParsersAction) -> None:
@@ -41,7 +45,7 @@ def run_clean(args: argparse.Namespace) -> int:
     for target in targets:
         if target.exists():
             shutil.rmtree(target)
-            print(f"已删除：{target}")
+            _CONSOLE.print_text(f"已删除：{target}")
         else:
-            print(f"不存在，跳过：{target}")
+            _CONSOLE.print_text(f"不存在，跳过：{target}")
     return 0

@@ -10,7 +10,7 @@ from typing import cast
 
 from genomelens.app.errors import messages
 from genomelens.app.errors.exceptions import InputValidationError, ToolchainError
-from genomelens.cli.ui import render_analysis_summary
+from genomelens.cli.ui import ConsoleWriter, render_analysis_summary
 from genomelens.core.jcvi_adapter.adapter import JcviEngineAdapter
 from genomelens.core.jcvi_adapter.adapter_models import HeatmapPlotRequest, JcviRunResult
 from genomelens.core.models import ArtifactRecord
@@ -24,6 +24,9 @@ from genomelens.toolchain.runtime.resource_locator import locate_engine
 from genomelens.utils.parsers import parse_formats
 
 # endregion
+
+
+_CONSOLE = ConsoleWriter()
 
 
 def register(subparsers: argparse._SubParsersAction) -> None:
@@ -146,10 +149,11 @@ def _build_run_summary(
 def _print_summary(summary: RunSummary, *, json_output: bool) -> int:
     """输出热图命令摘要"""
 
+    writer = ConsoleWriter(json_mode=json_output)
     if json_output:
-        print(json.dumps(summary.to_json(), ensure_ascii=False, indent=2))
+        writer.print_json(summary.to_json())
     else:
-        print(render_analysis_summary(summary))
+        writer.print_text(render_analysis_summary(summary))
     return 0 if summary.status == "SUCCEEDED" else 7
 
 

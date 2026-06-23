@@ -13,6 +13,7 @@ from genomelens.cli.commands import analyze, check, clean, config, plot
 from genomelens.cli.jcvi_subtasks import rewrite_jcvi_subtask_argv
 from genomelens.cli.mcscan_help import render_mcscan_help
 from genomelens.cli.ui import (
+    ConsoleWriter,
     StyledArgumentParser,
     clear_screen,
     prompt_text,
@@ -21,6 +22,9 @@ from genomelens.cli.ui import (
 )
 
 # endregion
+
+
+_CONSOLE = ConsoleWriter()
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -97,12 +101,12 @@ def run_help(args: argparse.Namespace) -> int:
     command_path = shlex.split(args.command) if args.command else list(args.command_path)
     mcscan_help = render_mcscan_help(command_path)
     if mcscan_help is not None:
-        print(mcscan_help, end="")
+        _CONSOLE.print_text(mcscan_help, file=sys.stdout)
         return 0
 
     parser = _find_parser(root, command_path) if command_path else root
     if parser is None:
-        print(f"未知命令：{' '.join(command_path)}", file=sys.stderr)
+        _CONSOLE.print_error(f"未知命令：{' '.join(command_path)}")
         return 2
     parser.print_help()
     return 0
@@ -111,12 +115,12 @@ def run_help(args: argparse.Namespace) -> int:
 def run_workbench(_args: argparse.Namespace | None = None) -> int:
     """运行一个轻量交互式 workbench(工作台)"""
 
-    print(render_workbench_banner())
+    _CONSOLE.print_text(render_workbench_banner(), file=sys.stdout)
     while True:
         try:
             line = input(prompt_text()).strip()
         except (EOFError, KeyboardInterrupt):
-            print()
+            _CONSOLE.print_text("")
             return 0
 
         if not line:
@@ -130,7 +134,7 @@ def run_workbench(_args: argparse.Namespace | None = None) -> int:
         # 交互工作台复用主入口，这样帮助、错误码和命令行为与普通 CLI 完全一致
         code = main(shlex.split(line))
         if code:
-            print(render_command_error(code))
+            _CONSOLE.print_error(render_command_error(code))
 
     return 0
 
@@ -151,7 +155,7 @@ def main(argv: list[str] | None = None) -> int:
         path = ["analyze", "mcscan", *[item for item in argv[2:] if item not in {"-h", "--help"}]]
         mcscan_help = render_mcscan_help(path)
         if mcscan_help is not None:
-            print(mcscan_help, end="")
+            _CONSOLE.print_text(mcscan_help, file=sys.stdout)
             return 0
 
     argv = rewrite_jcvi_subtask_argv(argv)
@@ -170,7 +174,7 @@ def main(argv: list[str] | None = None) -> int:
         return int(args.func(args) or 0)
     except Exception as exc:
         # CLI 边界统一转成用户可读错误与稳定退出码
-        print(format_user_error(exc), file=sys.stderr)
+        _CONSOLE.print_error(format_user_error(exc))
         return exit_code_for(exc)
 
 

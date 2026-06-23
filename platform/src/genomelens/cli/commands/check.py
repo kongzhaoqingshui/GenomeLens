@@ -4,9 +4,8 @@
 from __future__ import annotations
 
 import argparse
-import json
 
-from genomelens.cli.ui import render_check_report
+from genomelens.cli.ui import ConsoleWriter, render_check_report
 from genomelens.core.jcvi_adapter.adapter import JcviEngineAdapter
 from genomelens.core.summary_models import CheckReport, CheckToolItem
 from genomelens.data.config.config_store import read_optional_config
@@ -20,6 +19,9 @@ from genomelens.toolchain.runtime.resource_locator import locate_engine, locate_
 from genomelens.toolchain.runtime.toolchain_installer import install_toolchain
 
 # endregion
+
+
+_CONSOLE = ConsoleWriter()
 
 
 def register(subparsers: argparse._SubParsersAction) -> None:
@@ -128,7 +130,7 @@ def run_check(args: argparse.Namespace) -> int:
     )
 
     if args.json:
-        print(json.dumps(report.to_json(), ensure_ascii=False, indent=2))
+        _CONSOLE.print_json(report.to_json())
     else:
-        print(render_check_report(report))
+        _CONSOLE.print_text(render_check_report(report))
     return 0 if report.status == "ok" else 5

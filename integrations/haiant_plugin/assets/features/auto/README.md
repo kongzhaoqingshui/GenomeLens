@@ -79,14 +79,6 @@ input/
 1. **至少两个物种**：文件夹里必须能成功配出 ≥2 个物种，否则会报错。
 2. **自动配对**：只要前缀相同，系统就会自己找对应的 `.bed`/`.cds` 或 `.gff`/`.fa`。
 3. **混用优先 BED+CDS**：如果某个物种同时存在 BED+CDS 和 GFF+FA，系统会优先使用 BED+CDS。
-4. **路径解析以 `params.json` 为准**：`input_dir` 写 `input` 表示 `params.json` 所在目录下的 `input` 文件夹。
-
-### 快速检查清单
-
-- [ ] 一个文件夹里至少有 2 个物种。
-- [ ] 每个物种的两个文件前缀（去掉扩展名）完全一样。
-- [ ] 文件扩展名在支持列表内。
-- [ ] `params.json` 里的 `input_dir` 指向这个文件夹。
 
 ### 常见错误
 
@@ -123,11 +115,12 @@ my_project/
 2. 默认把排序后的第一个物种（`Arabidopsis`）作为参考物种。
 3. 开始自动分析。
 
+---
+
 ## 主要参数说明
 
 | 参数 | 类型 | 必填 | 默认值 | 说明 |
 |------|------|------|--------|------|
-| `genomelens_exe` | file | 是* | — | 外部 GenomeLens 路径 |
 | `input_dir` | dir | 是* | — | 输入目录 |
 | `output_dir` | dir | 否 | `output` | 输出目录 |
 | `reference` | str/int | 否 | `1` | 参考物种 |
@@ -148,7 +141,7 @@ my_project/
 | `allow_simplified_fallback` | bool | 否 | `false` | 诊断开关；正式流程保持关闭 |
 | `use_native_local_synteny_renderer` | bool | 否 | `false` | 局部共线性模式下使用原生 matplotlib 渲染器 |
 
-\* `genomelens_exe` 未设置时读取 `GENOMELENS_EXE`。
+---
 
 ## 局部共线性专属参数
 
@@ -163,6 +156,8 @@ my_project/
 | `label_targets` | bool | 否 | `false` | 在图中标注目标基因 |
 
 完整字段映射参见 [`../../PARAMETER_MAPPING.md`](../../PARAMETER_MAPPING.md)。
+
+---
 
 ## 输出文件说明
 
@@ -184,13 +179,14 @@ output/
 - **`intermediates.zip`**：分析完成后，插件把除 `results` 外的中间文件（比对数据库、anchors、blocks、临时图等）打包到此压缩包。
 - **`intermediates.zip.deletable`**：标记文件，提示用户可以安全删除 `intermediates.zip` 以释放空间。
 
+---
+
 ## 使用示例
 
 ### 全局共线性模式
 
 ```json
 {
-  "genomelens_exe": "C:/GenomeLens/GenomeLens.exe",
   "input_dir": "input",
   "output_dir": "output",
   "reference": "1",
@@ -208,7 +204,6 @@ output/
 
 ```json
 {
-  "genomelens_exe": "C:/GenomeLens/GenomeLens.exe",
   "input_dir": "input",
   "output_dir": "output",
   "reference": "1",
