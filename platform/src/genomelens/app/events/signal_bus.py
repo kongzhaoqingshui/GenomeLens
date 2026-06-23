@@ -13,15 +13,17 @@ from dataclasses import dataclass
 class Event:
     """Event(事件)：状态或诊断通知"""
 
-    name: str
-    payload: dict[str, object]
+    # fmt: off
+    name: str  # 事件名称
+    payload: dict[str, object]  # 事件负载数据
+    # fmt: on
 
 
 class SignalBus:
     """SignalBus(事件总线)：供 CLI(命令行接口)、workbench(工作台) 和 plugin(插件) 复用的同步回调"""
 
     def __init__(self) -> None:
-        self._subscribers: list[Callable[[Event], None]] = []
+        self._subscribers: list[Callable[[Event], None]] = []  # 已注册的回调列表
 
     def subscribe(self, callback: Callable[[Event], None]) -> None:
         """注册一个回调"""

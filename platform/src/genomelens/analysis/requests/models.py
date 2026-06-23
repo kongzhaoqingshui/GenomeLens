@@ -27,12 +27,14 @@ from genomelens.core.json_utils import (
 class AnalysisSpeciesInput:
     """AnalysisSpeciesInput(分析物种输入)：单个物种的文件描述"""
 
-    name: str
-    input_mode: str
-    bed: str = ""
-    cds: str = ""
-    gff: str = ""
-    genome: str = ""
+    # fmt: off
+    name: str         # 物种公开名称
+    input_mode: str   # 输入模式（bed_cds 或 gff_genome）
+    bed: str = ""     # BED 文件路径（input_mode=bed_cds 时必填）
+    cds: str = ""     # CDS FASTA 路径（input_mode=bed_cds 时必填）
+    gff: str = ""     # GFF/GTF 路径（input_mode=gff_genome 时必填）
+    genome: str = ""  # 基因组 FASTA 路径（input_mode=gff_genome 时必填）
+    # fmt: on
 
     def to_json(self) -> dict[str, object]:
         """转为 JSON object(JSON 对象)"""
@@ -69,10 +71,12 @@ class AnalysisSpeciesInput:
 class AnalysisInput:
     """AnalysisInput(分析输入)：输入模式、目录与物种列表"""
 
-    mode: str
-    directory: str = ""
-    species: list[AnalysisSpeciesInput] = field(default_factory=list)
-    reference_index: int = 0
+    # fmt: off
+    mode: str            # 输入模式（auto_directory/method_specific/bed_cds 等）
+    directory: str = ""  # 输入目录或主文件路径
+    species: list[AnalysisSpeciesInput] = field(default_factory=list)  # 显式指定的物种列表
+    reference_index: int = 0  # 物种列表中参考物种的索引
+    # fmt: on
 
     def to_json(self) -> dict[str, object]:
         data: dict[str, object] = {
@@ -101,9 +105,11 @@ class AnalysisInput:
 class AnalysisOutput:
     """AnalysisOutput(分析输出)：输出目录、覆盖策略和格式"""
 
-    directory: str
-    force: bool = False
-    formats: list[str] = field(default_factory=lambda: ["svg"])
+    # fmt: off
+    directory: str       # 输出目录路径
+    force: bool = False  # 是否允许覆盖已有输出目录
+    formats: list[str] = field(default_factory=lambda: ["svg"])  # 输出图件格式列表
+    # fmt: on
 
     def to_json(self) -> dict[str, object]:
         return {
@@ -125,8 +131,10 @@ class AnalysisOutput:
 class AnalysisConfigRef:
     """AnalysisConfigRef(分析配置引用)：主配置与方法配置路径"""
 
-    project_config: str = ""
-    method_config: str = ""
+    # fmt: off
+    project_config: str = ""  # GenomeLens 项目级配置 JSON 路径
+    method_config: str = ""   # 方法专属配置（如 jcvi.config.json）路径
+    # fmt: on
 
     def to_json(self) -> dict[str, object]:
         return {
@@ -151,12 +159,14 @@ class AnalysisOptions:
     不应再向本类添加字段。
     """
 
-    preset: str = "auto"
-    threads: int | None = None
-    min_block_size: int | None = None
-    log_level: str = "INFO"
-    verbose: bool = False
-    console_log: bool = False
+    # fmt: off
+    preset: str = "auto"               # 分析预设策略
+    threads: int | None = None         # 并行线程数
+    min_block_size: int | None = None  # 最小 block 大小
+    log_level: str = "INFO"            # 日志级别
+    verbose: bool = False              # 是否启用详细日志
+    console_log: bool = False          # 是否同时输出日志到控制台
+    # fmt: on
 
     def to_json(self) -> dict[str, object]:
         return {
@@ -188,52 +198,54 @@ class McscanMethodConfig:
     （syri / pangenome 等）接入时各自定义对应的 method config 类型，互不污染。
     """
 
-    workflow: str = "graphics_synteny"
-    jcvi_engine: str = ""
-    blastn: str = ""
-    makeblastdb: str = ""
-    jcvi_layout: str = ""
-    jcvi_seqids: str = ""
-    allow_simplified_fallback: bool = False
+    # fmt: off
+    workflow: str = "graphics_synteny"  # 要调用的 JCVI workflow 名称
+    jcvi_engine: str = ""  # 显式指定的引擎可执行文件路径
+    blastn: str = ""       # 显式指定的 blastn 路径
+    makeblastdb: str = ""  # 显式指定的 makeblastdb 路径
+    jcvi_layout: str = ""  # JCVI layout 文件路径（synteny/karyotype/heatmap 行分组）
+    jcvi_seqids: str = ""  # JCVI seqids 文件路径
+    allow_simplified_fallback: bool = False  # 是否允许简化回退（生产环境应关闭）
     # 同源搜索与共线性参数
-    align_soft: str = "blast"
-    dbtype: str = "nucl"
-    cscore: float = 0.7
-    dist: int = 20
-    iter: int = 1
+    align_soft: str = "blast"  # 同源搜索后端
+    dbtype: str = "nucl"       # 序列类型
+    cscore: float = 0.7        # 同源比对 cscore 阈值
+    dist: int = 20             # 共线性锚点距离阈值
+    iter: int = 1              # block 过滤迭代次数
     # 目标基因局部共线性参数
-    target_gene_ids: list[str] = field(default_factory=list)
-    up: int = 20
-    down: int = 20
-    split_targets: bool = False
-    label_targets: bool = False
+    target_gene_ids: list[str] = field(default_factory=list)  # 目标基因 ID 列表
+    up: int = 20    # 目标基因上游窗口大小
+    down: int = 20  # 目标基因下游窗口大小
+    split_targets: bool = False  # 每个目标基因是否单独出图
+    label_targets: bool = False  # 是否标注目标基因名称
     # 图件样式参数
-    glyphstyle: str = ""
-    glyphcolor: str = ""
-    shadestyle: str = ""
-    figsize: str = ""
-    dpi: int = 300
+    glyphstyle: str = ""  # 基因形状
+    glyphcolor: str = ""  # 基因着色策略
+    shadestyle: str = ""  # 连线样式
+    figsize: str = ""     # 画布尺寸
+    dpi: int = 300        # 图件分辨率
     # 热图 workflow 参数
-    cmap: str = ""
-    groups: bool = False
-    horizontalbar: bool = False
+    cmap: str = ""               # 颜色映射
+    groups: bool = False         # 是否对列分组聚类
+    horizontalbar: bool = False  # 是否绘制顶部水平颜色条
     # GenomeLens 自动优化开关（嵌套，便于区分原生 JCVI 参数）
-    auto_optimization: dict[str, bool] = field(default_factory=dict)
-    use_native_local_synteny_renderer: bool = False
+    auto_optimization: dict[str, bool] = field(default_factory=dict)  # 自动优化开关集合
+    use_native_local_synteny_renderer: bool = False  # 是否使用原生 matplotlib 局部渲染器
     # 直方图 workflow 参数
-    histogram_inputs: list[str] = field(default_factory=list)
-    histogram_columns: list[int] = field(default_factory=lambda: [0])
-    histogram_skip: int = 0
-    histogram_bins: int = 20
-    histogram_vmin: float | None = 0.0
-    histogram_vmax: float | None = None
-    histogram_xlabel: str = "value"
-    histogram_title: str = ""
-    histogram_base: int = 0
-    histogram_facet: bool = False
-    histogram_fill: str = "white"
+    histogram_inputs: list[str] = field(default_factory=list)          # 直方图输入文件路径列表
+    histogram_columns: list[int] = field(default_factory=lambda: [0])  # 要绘制的列索引
+    histogram_skip: int = 0              # 直方图要跳过的行数
+    histogram_bins: int = 20             # 分箱数量
+    histogram_vmin: float | None = 0.0   # 最小值截断
+    histogram_vmax: float | None = None  # 最大值截断
+    histogram_xlabel: str = "value"      # X 轴标签
+    histogram_title: str = ""            # 图标题
+    histogram_base: int = 0              # 对数底数（0 为线性）
+    histogram_facet: bool = False        # 是否按文件分面
+    histogram_fill: str = "white"        # 柱状填充色
     # 热图 workflow 参数
-    matrix: str = ""
+    matrix: str = ""  # 热图矩阵 CSV 路径
+    # fmt: on
 
     def to_json(self) -> dict[str, object]:
         return {
@@ -336,8 +348,10 @@ class PortBinding:
     键为 port_id，值为运行时值。本 dataclass 用于代码层显式转换。
     """
 
-    port_id: str
-    value: object
+    # fmt: off
+    port_id: str   # 子模块端口唯一标识
+    value: object  # 运行时绑定的端口值
+    # fmt: on
 
     def to_json(self) -> dict[str, object]:
         return {"port_id": self.port_id, "value": self.value}
@@ -355,8 +369,10 @@ class WorkflowComposition:
     端口之间的数据流动。
     """
 
-    nodes: list[dict[str, object]] = field(default_factory=list)
-    edges: list[dict[str, object]] = field(default_factory=list)
+    # fmt: off
+    nodes: list[dict[str, object]] = field(default_factory=list)  # 子模块实例节点列表
+    edges: list[dict[str, object]] = field(default_factory=list)  # 端口连接边列表
+    # fmt: on
 
     def to_json(self) -> dict[str, object]:
         return {
@@ -383,19 +399,21 @@ class AnalysisRequest:
     - "composition"：子模块组合（未来 GUI 编排），由 `composition` 驱动。
     """
 
-    method: str
-    input: AnalysisInput
-    output: AnalysisOutput
-    config: AnalysisConfigRef = field(default_factory=AnalysisConfigRef)
-    options: AnalysisOptions = field(default_factory=AnalysisOptions)
-    method_config: dict[str, object] = field(default_factory=dict)
-    schema_version: int = 1
-    kind: str = "analysis_request"
-    task_kind: str = "analysis"
-    one_stop_workflow_id: str | None = None
-    sub_module_id: str | None = None
-    port_bindings: dict[str, object] = field(default_factory=dict)
-    composition: WorkflowComposition | None = None
+    # fmt: off
+    method: str             # 分析方法名（如 mcscan）
+    input: AnalysisInput    # 输入配置
+    output: AnalysisOutput  # 输出配置
+    config: AnalysisConfigRef = field(default_factory=AnalysisConfigRef)  # 配置引用
+    options: AnalysisOptions = field(default_factory=AnalysisOptions)     # 通用分析选项
+    method_config: dict[str, object] = field(default_factory=dict)        # 方法专属配置载荷
+    schema_version: int = 1         # 请求 JSON schema 版本
+    kind: str = "analysis_request"  # 请求类型常量
+    task_kind: str = "analysis"     # 任务模式（analysis/one_stop/sub_module/composition）
+    one_stop_workflow_id: str | None = None  # one_stop 模式下的一站式工作流 ID
+    sub_module_id: str | None = None         # sub_module 模式下的子模块 ID
+    port_bindings: dict[str, object] = field(default_factory=dict)  # 子模块端口绑定
+    composition: WorkflowComposition | None = None  # 可视化编排组合（预留）
+    # fmt: on
 
     def to_json(self) -> dict[str, object]:
         data: dict[str, object] = {

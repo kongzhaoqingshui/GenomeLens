@@ -532,22 +532,21 @@ def build_mcscan_jcvi_command(
     output_dir: str | Path,
     jcvi_config_path: str | Path,
     *,
-    allow_simplified_fallback: bool = False,
+    workflow_id: str = "pairwise_synteny",
 ) -> list[str]:
-    """Build the ``<GenomeLens.exe> analyze mcscan jcvi <in> <out> <jcvi.config>`` argv."""
+    """Build the ``<GenomeLens.exe> analyze workflow <workflow_id> <in> <out> --jcvi-config ...`` argv."""
 
     exe = Path(genomelens_exe)
     args = [
         "analyze",
-        "mcscan",
-        "jcvi",
+        "workflow",
+        workflow_id,
         str(input_dir),
         str(output_dir),
+        "--jcvi-config",
         str(jcvi_config_path),
         "--force",
     ]
-    if allow_simplified_fallback:
-        args.append("--allow-simplified-fallback")
     if exe.suffix.lower() in {".cmd", ".bat"}:
         return ["cmd.exe", "/c", str(exe), *args]
     return [str(exe), *args]

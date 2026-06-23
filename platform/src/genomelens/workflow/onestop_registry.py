@@ -19,17 +19,19 @@ from genomelens.workflow.submodule_registry import ParameterDeclaration
 class OneStopWorkflowSpec:
     """一站式工作流规范"""
 
-    workflow_id: str
-    name: str
-    description: str
-    category: str
-    runner: str
-    engine_workflow: str | None
-    equivalent_modules: list[str]
-    optimization_notes: str
-    inputs: list = field(default_factory=list)
-    outputs: list = field(default_factory=list)
-    parameters: list[ParameterDeclaration] = field(default_factory=list)
+    # fmt: off
+    workflow_id: str  # 一站式工作流唯一标识
+    name: str         # 面向用户展示的工作流名称
+    description: str  # 工作流功能描述
+    category: str     # 工作流分类
+    runner: str       # 专用 runner 名称
+    engine_workflow: str | None    # 映射的底层引擎 workflow（plot-only 可能为 None）
+    equivalent_modules: list[str]  # 等价子模块组合（仅用于文档/GUI 展示）
+    optimization_notes: str        # 该工作流的优化说明
+    inputs: list = field(default_factory=list)   # 输入端口声明
+    outputs: list = field(default_factory=list)  # 输出端口声明
+    parameters: list[ParameterDeclaration] = field(default_factory=list)  # 可调参数声明
+    # fmt: on
 
     def to_json(self) -> dict[str, object]:
         return {

@@ -29,16 +29,18 @@ from genomelens.core.summary_models import CheckReport, PairwiseJobSummary, RunS
 class CliPalette:
     """终端字段配色，只保存 ANSI 控制序列"""
 
-    reset: str = "\033[0m"
-    bold: str = "\033[1m"
-    dim: str = "\033[2m"
-    blue: str = "\033[38;2;122;162;247m"
-    cyan: str = "\033[38;2;125;211;217m"
-    green: str = "\033[38;2;166;218;149m"
-    yellow: str = "\033[38;2;238;212;139m"
-    magenta: str = "\033[38;2;203;166;247m"
-    red: str = "\033[38;2;238;135;135m"
-    gray: str = "\033[38;2;156;163;175m"
+    # fmt: off
+    reset: str = "\033[0m"  # 重置 ANSI 样式
+    bold: str = "\033[1m"   # 粗体
+    dim: str = "\033[2m"    # 暗淡
+    blue: str = "\033[38;2;122;162;247m"     # 蓝色
+    cyan: str = "\033[38;2;125;211;217m"     # 青色
+    green: str = "\033[38;2;166;218;149m"    # 绿色
+    yellow: str = "\033[38;2;238;212;139m"   # 黄色
+    magenta: str = "\033[38;2;203;166;247m"  # 洋红
+    red: str = "\033[38;2;238;135;135m"      # 红色
+    gray: str = "\033[38;2;156;163;175m"     # 灰色
+    # fmt: on
 
 
 PALETTE = CliPalette()
@@ -200,24 +202,28 @@ class ConsoleWriter:
 class ProgressTheme:
     """Visual theme for compact CLI progress lines"""
 
-    label_color: str = PALETTE.blue
-    meta_color: str = PALETTE.cyan
-    detail_color: str = PALETTE.gray
-    bar_color: str = PALETTE.blue
-    bar_accent_color: str = PALETTE.cyan
-    empty_color: str = PALETTE.gray
-    bar_width: int = 24
-    field_gap: int = 2
+    # fmt: off
+    label_color: str = PALETTE.blue       # 标签颜色
+    meta_color: str = PALETTE.cyan        # 元信息颜色
+    detail_color: str = PALETTE.gray      # 细节颜色
+    bar_color: str = PALETTE.blue         # 进度条填充色
+    bar_accent_color: str = PALETTE.cyan  # 进度条高亮色
+    empty_color: str = PALETTE.gray       # 进度条空白色
+    bar_width: int = 24  # 进度条宽度
+    field_gap: int = 2   # 字段间距
+    # fmt: on
 
 
 @dataclass(frozen=True)
 class ProgressFrame:
     """Generic progress snapshot rendered by the CLI"""
 
-    label: str
-    progress: float
-    summary: str = ""
-    detail: str = ""
+    # fmt: off
+    label: str         # 当前状态标签
+    progress: float    # 进度百分比（0.0-1.0）
+    summary: str = ""  # 概要文本
+    detail: str = ""   # 详细文本
+    # fmt: on
 
 
 class ProgressAdapter(Protocol):
@@ -547,7 +553,7 @@ def render_workbench_banner(*, color: bool | None = None) -> str:
 
     # 工作台支持的常用命令示例
     commands = [
-        ("analyze mcscan jcvi <in> <out>", "自动发现物种并运行共线性分析"),
+        ("analyze workflow pairwise_synteny <in> <out>", "自动发现物种并运行共线性分析"),
         ("analyze run <request.json>", "运行外部 AnalysisRequest"),
         ("analyze template mcscan", "输出 JSON 请求示例"),
         ("check", "检查环境与工具链"),

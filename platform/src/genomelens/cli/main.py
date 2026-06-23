@@ -9,9 +9,7 @@ import sys
 
 from genomelens._version import __version__
 from genomelens.app.errors.error_reporter import exit_code_for, format_user_error
-from genomelens.cli.commands import analyze, check, clean, config, plot, workflow
-from genomelens.cli.jcvi_subtasks import rewrite_jcvi_subtask_argv
-from genomelens.cli.mcscan_help import render_mcscan_help
+from genomelens.cli.commands import analyze, check, clean, config, workflow
 from genomelens.cli.ui import (
     ConsoleWriter,
     StyledArgumentParser,
@@ -48,7 +46,6 @@ def build_parser() -> argparse.ArgumentParser:
     check.register(subparsers)
     config.register(subparsers)
     analyze.register(subparsers)  # 核心功能命令 - 分析
-    plot.register(subparsers)
     clean.register(subparsers)
     workflow.register(subparsers)
 
@@ -57,8 +54,8 @@ def build_parser() -> argparse.ArgumentParser:
     # region 仅在 main 下注册的辅助功能类命令树
     # 帮助
     help_parser = subparsers.add_parser("help", help="显示指定命令的参数说明")
-    help_parser.add_argument("command_path", nargs="*", metavar="COMMAND", help="命令路径，例如 analyze mcscan")
-    help_parser.add_argument("-c", "--command", default="", help='命令路径字符串，例如 "analyze mcscan"')
+    help_parser.add_argument("command_path", nargs="*", metavar="COMMAND", help="命令路径，例如 analyze workflow")
+    help_parser.add_argument("-c", "--command", default="", help='命令路径字符串，例如 "analyze workflow"')
     help_parser.set_defaults(func=run_help)
 
     # 进入交互式工作台
@@ -98,13 +95,7 @@ def run_help(args: argparse.Namespace) -> int:
 
     root = build_parser()
 
-    # `help analyze mcscan` 和 `help -c "analyze mcscan"` 走同一条路径解析逻辑
     command_path = shlex.split(args.command) if args.command else list(args.command_path)
-    mcscan_help = render_mcscan_help(command_path)
-    if mcscan_help is not None:
-        _CONSOLE.print_text(mcscan_help, file=sys.stdout)
-        return 0
-
     parser = _find_parser(root, command_path) if command_path else root
     if parser is None:
         _CONSOLE.print_error(f"未知命令：{' '.join(command_path)}")
@@ -152,14 +143,6 @@ def main(argv: list[str] | None = None) -> int:
     if not argv:
         return run_workbench()
 
-    if argv[:2] == ["analyze", "mcscan"] and any(item in {"-h", "--help"} for item in argv[2:]):
-        path = ["analyze", "mcscan", *[item for item in argv[2:] if item not in {"-h", "--help"}]]
-        mcscan_help = render_mcscan_help(path)
-        if mcscan_help is not None:
-            _CONSOLE.print_text(mcscan_help, file=sys.stdout)
-            return 0
-
-    argv = rewrite_jcvi_subtask_argv(argv)
     parser = build_parser()
     try:
         args = parser.parse_args(argv)

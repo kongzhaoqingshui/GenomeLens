@@ -50,7 +50,7 @@
 
 - 大多只需新增一个 `engines/jcvi/src/jcvi_genomelens/workflows/*.py`。
 - Manifest 选项可复用 `EngineRunManifest` 中的 `tracks`、`formats`、`figsize`、`dpi`。
-- CLI 侧通过 `analyze mcscan jcvi <subtask>` 或新增顶层 `genomelens plot <type>` 暴露。
+- CLI 侧通过 `analyze workflow <onestop_id>`、`analyze submodule <module_id>` 或新增顶层命令组（如 `genomelens assembly`）暴露。
 - GUI 可作为“新增一张图”卡片，无需改动核心分析流程。
 
 ---
@@ -82,7 +82,7 @@
 
 - 需要在 `EngineRunManifest` 中新增字段（如 `newick`、`enzyme`、`quota`、`genetic_map`）。
 - 部分依赖（`Bio.Align.Applications`、GATK、freebayes）需在 conda env 或文档中声明。
-- 建议通过 `analyze mcscan jcvi <subtask>` 扩展，或新增独立命令组（如 `genomelens assembly`、`genomelens annotation`）。
+- 建议通过 `analyze submodule <module_id>` 扩展，或新增独立命令组（如 `genomelens assembly`、`genomelens annotation`）。
 - GUI 需要新增配置面板，但逻辑与现有分析向导模式一致。
 
 ---

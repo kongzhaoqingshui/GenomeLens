@@ -14,7 +14,9 @@ from pathlib import Path
 class TempManager:
     """TempManager(临时目录管理器)：持有安全临时根目录"""
 
-    root: Path
+    # fmt: off
+    root: Path  # 临时根目录
+    # fmt: on
 
     def create(self) -> Path:
         """创建并返回临时根目录"""

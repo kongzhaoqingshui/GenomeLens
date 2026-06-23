@@ -73,6 +73,7 @@ def _run_reference_vs_targets_mcscan(
     final_figures.extend(multi_species_local_figures)
 
     reference = request.query
+    targets = [request.subject, *request.additional_species]
     logger = logging.getLogger(logger_name_for_path(layout.logs / "run.log"))
     with task_scope(logger, task_id=request.task_id, step="write_reference_summary"):
         run_summary = build_multi_run_summary(
@@ -83,6 +84,9 @@ def _run_reference_vs_targets_mcscan(
             pairing_strategy="reference_vs_targets",
             reference_name=reference.name,
             multi_species_local_figures=multi_species_local_figures,
+            task_type_override="reference_vs_targets",
+            species_a_name=reference.name,
+            species_b_name=targets[0].name if targets else None,
         )
 
     write_run_summary(layout, run_summary)

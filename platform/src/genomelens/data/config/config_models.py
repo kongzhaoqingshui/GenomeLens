@@ -15,72 +15,84 @@ from genomelens.core.json_utils import _bool, _dict, _float, _int, _str, _str_li
 class WorkspaceConfig:
     """WorkspaceConfig(工作区配置)：runtime files(运行时文件) 的默认根目录"""
 
-    workspace_root: str
-    temp_root: str
-    default_output_root: str
-    jcvi_config_path: str = ""
+    # fmt: off
+    workspace_root: str         # 工作区根目录
+    temp_root: str              # 临时文件根目录
+    default_output_root: str    # 默认输出根目录
+    jcvi_config_path: str = ""  # 可选的 JCVI 子配置文件路径
+    # fmt: on
 
 
 @dataclass
 class ToolchainConfig:
     """ToolchainConfig(工具链配置)：显式 executable(可执行文件) 覆盖项"""
 
-    jcvi_engine_path: str = ""
-    blastn_path: str = ""
-    makeblastdb_path: str = ""
-    lastal_path: str = ""
-    lastdb_path: str = ""
-    magick_path: str = ""
+    # fmt: off
+    jcvi_engine_path: str = ""  # jcvi-genomelens 可执行文件路径
+    blastn_path: str = ""       # BLAST+ blastn 路径
+    makeblastdb_path: str = ""  # BLAST+ makeblastdb 路径
+    lastal_path: str = ""       # LAST lastal 路径
+    lastdb_path: str = ""       # LAST lastdb 路径
+    magick_path: str = ""       # ImageMagick convert 路径
+    # fmt: on
 
 
 @dataclass
 class RuntimeDefaults:
     """RuntimeDefaults(运行默认值)：通用运行级默认值"""
 
-    default_threads: int = 4
-    default_formats: list[str] = field(default_factory=lambda: ["svg"])
-    log_level: str = "INFO"
+    # fmt: off
+    default_threads: int = 4  # 默认并行线程数
+    default_formats: list[str] = field(default_factory=lambda: ["svg"])  # 默认输出图件格式
+    log_level: str = "INFO"  # 默认日志级别
+    # fmt: on
 
 
 @dataclass
 class McscanDefaults:
     """McscanDefaults(MCscan 默认参数)：共线性分析核心参数"""
 
-    workflow: str = "graphics_synteny"
-    min_block_size: int = 5
-    align_soft: str = "blast"
-    dbtype: str = "nucl"
-    cscore: float = 0.7
-    dist: int = 20
-    iter: int = 1
-    reference: str = ""
+    # fmt: off
+    workflow: str = "graphics_synteny"  # 默认 JCVI workflow
+    min_block_size: int = 5    # 默认最小 block 基因数
+    align_soft: str = "blast"  # 默认同源搜索后端
+    dbtype: str = "nucl"       # 默认序列类型
+    cscore: float = 0.7        # 默认 cscore 阈值
+    dist: int = 20             # 默认锚点距离
+    iter: int = 1              # 默认 block 过滤迭代次数
+    reference: str = ""        # 默认参考物种
+    # fmt: on
 
 
 @dataclass
 class AutoOptimizationDefaults:
     """AutoOptimizationDefaults(出图自动优化开关)：本工具添加的非原生选项"""
 
-    optimize_figsize: bool = False
-    rewrite_layout_links: bool = False
-    optimize_karyotype_labels: bool = False
+    # fmt: off
+    optimize_figsize: bool = False           # 自动推导 synteny 图件尺寸
+    rewrite_layout_links: bool = False       # 改写跨轨道 layout 连线为邻接轨道链
+    optimize_karyotype_labels: bool = False  # 自动优化核型图轨道标签位置
+    # fmt: on
 
 
 @dataclass
 class LocalSyntenyDefaults:
     """LocalSyntenyDefaults(目标基因局部共线性默认参数)"""
 
-    target_gene_ids: list[str] = field(default_factory=list)
-    up: int = 20
-    down: int = 20
-    split_targets: bool = False
-    label_targets: bool = False
-    glyphstyle: str = ""
-    glyphcolor: str = ""
-    shadestyle: str = ""
-    figsize: str = ""
-    dpi: int = 300
-    auto_optimization: AutoOptimizationDefaults = field(default_factory=AutoOptimizationDefaults)
-    use_native_local_synteny_renderer: bool = False
+    # fmt: off
+    target_gene_ids: list[str] = field(default_factory=list)  # 默认目标基因 ID 列表
+    up: int = 20    # 默认上游窗口大小
+    down: int = 20  # 默认下游窗口大小
+    split_targets: bool = False  # 每个目标基因是否单独出图
+    label_targets: bool = False  # 是否标注目标基因名称
+    glyphstyle: str = ""         # 基因形状
+    glyphcolor: str = ""         # 基因着色策略
+    shadestyle: str = ""         # 连线样式
+    figsize: str = ""            # 画布尺寸
+    dpi: int = 300               # 图件分辨率
+    auto_optimization: AutoOptimizationDefaults = field(default_factory=AutoOptimizationDefaults)  # 自动优化开关
+    use_native_local_synteny_renderer: bool = False  # 是否使用原生 matplotlib 渲染器
+    # fmt: on
 
 
 @dataclass
@@ -90,12 +102,14 @@ class ConfigModel:
     第 2 版 JCVI 子配置按用途分组：toolchain、runtime、mcscan、local_synteny。
     """
 
-    workspace: WorkspaceConfig
-    toolchain: ToolchainConfig = field(default_factory=ToolchainConfig)
-    runtime: RuntimeDefaults = field(default_factory=RuntimeDefaults)
-    mcscan: McscanDefaults = field(default_factory=McscanDefaults)
-    local_synteny: LocalSyntenyDefaults = field(default_factory=LocalSyntenyDefaults)
-    schema_version: int = 2
+    # fmt: off
+    workspace: WorkspaceConfig  # 工作区路径配置
+    toolchain: ToolchainConfig = field(default_factory=ToolchainConfig)  # 工具链路径配置
+    runtime: RuntimeDefaults = field(default_factory=RuntimeDefaults)    # 运行默认参数
+    mcscan: McscanDefaults = field(default_factory=McscanDefaults)       # MCscan 默认参数
+    local_synteny: LocalSyntenyDefaults = field(default_factory=LocalSyntenyDefaults)  # 局部共线性默认参数
+    schema_version: int = 2  # 配置 JSON schema 版本
+    # fmt: on
 
     def to_project_json_dict(self) -> dict[str, object]:
         """序列化为工具本身配置文件"""

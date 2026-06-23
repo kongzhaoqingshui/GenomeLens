@@ -18,11 +18,13 @@ from genomelens.workflow.port_system import PortDeclaration, PortSystem
 class ParameterDeclaration:
     """参数声明：子模块或工作流的可调参数"""
 
-    param_id: str
-    param_type: str
-    required: bool
-    default: object = None
-    description: str = ""
+    # fmt: off
+    param_id: str           # 参数唯一标识
+    param_type: str         # 参数类型（string/integer/number/boolean/array）
+    required: bool          # 是否必填
+    default: object = None  # 默认值
+    description: str = ""   # 参数用途描述
+    # fmt: on
 
     def to_json(self) -> dict[str, object]:
         data: dict[str, object] = {
@@ -40,15 +42,17 @@ class ParameterDeclaration:
 class SubModuleSpec:
     """子模块规范：单个可编排子模块的完整元数据"""
 
-    module_id: str
-    name: str
-    description: str
-    category: str
-    engine_workflow: str
-    standalone: bool
-    inputs: list[PortDeclaration] = field(default_factory=list)
-    outputs: list[PortDeclaration] = field(default_factory=list)
-    parameters: list[ParameterDeclaration] = field(default_factory=list)
+    # fmt: off
+    module_id: str        # 子模块唯一标识（如 jcvi.graphics_dotplot）
+    name: str             # 面向用户展示的子模块名称
+    description: str      # 子模块功能描述
+    category: str         # 子模块分类（visualization/homology_search/synteny_analysis）
+    engine_workflow: str  # 映射到底层引擎的 workflow 名称
+    standalone: bool      # 是否可独立运行
+    inputs: list[PortDeclaration] = field(default_factory=list)           # 输入端口声明
+    outputs: list[PortDeclaration] = field(default_factory=list)          # 输出端口声明
+    parameters: list[ParameterDeclaration] = field(default_factory=list)  # 可调参数声明
+    # fmt: on
 
     def to_json(self) -> dict[str, object]:
         return {

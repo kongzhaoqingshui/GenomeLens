@@ -26,25 +26,30 @@ from genomelens.app.errors.exceptions import InputValidationError
 class CdsFeature:
     """CDS 片段：seqid(序列编号)、起止位置与链方向"""
 
-    seqid: str
-    start: int
-    end: int
-    strand: str
+    # fmt: off
+    seqid: str   # 序列编号（染色体/ scaffold）
+    start: int   # 起始位置
+    end: int     # 终止位置
+    strand: str  # 链方向
+    # fmt: on
 
 
 @dataclass
 class TranscriptRecord:
     """TranscriptRecord(转录本记录)：基因下的一个转录本及其 CDS 列表"""
 
-    gene_id: str
-    transcript_id: str
-    seqid: str
-    start: int
-    end: int
-    strand: str = "+"
-    cds: list[CdsFeature] = field(default_factory=list)
+    # fmt: off
+    gene_id: str        # 所属基因 ID
+    transcript_id: str  # 转录本 ID
+    seqid: str          # 序列编号
+    start: int          # 起始位置
+    end: int            # 终止位置
+    strand: str = "+"   # 链方向，默认正链
+    cds: list[CdsFeature] = field(default_factory=list)  # CDS 片段列表
 
     @property
+    # fmt: on
+
     def cds_length(self) -> int:
         """返回 CDS 总长度"""
 
@@ -61,9 +66,11 @@ class TranscriptRecord:
 class PreprocessResult:
     """PreprocessResult(预处理结果)：一个或两个基因组的路径与摘要"""
 
-    bed: Path
-    cds: Path
-    summary: dict[str, object]
+    # fmt: off
+    bed: Path  # 生成的 BED 文件路径
+    cds: Path  # 生成的 CDS FASTA 文件路径
+    summary: dict[str, object]  # 预处理摘要字典
+    # fmt: on
 
 
 def normalize_id(value: str) -> str:

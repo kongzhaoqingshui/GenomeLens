@@ -19,51 +19,53 @@ class McscanSummaryExtension:
     使顶层摘要保持方法无关，同时通过 `to_dict()` 扁平展开保持 JSON 兼容。
     """
 
+    # fmt: off
     # 引擎元数据
-    jcvi_backend: str = ""
-    jcvi_workflow: str = ""
-    jcvi_engine_path: str = ""
-    jcvi_distribution: str = ""
-    jcvi_engine_version: str = ""
-    jcvi_upstream_version: str = ""
-    jcvi_patchset: str = ""
-    jcvi_runtime_mode: str = ""
-    jcvi_loaded_extensions: list[str] = field(default_factory=list)
-    jcvi_missing_extensions: list[str] = field(default_factory=list)
+    jcvi_backend: str = ""           # 引擎后端标识
+    jcvi_workflow: str = ""          # 实际运行的 JCVI workflow 名称
+    jcvi_engine_path: str = ""       # 引擎可执行文件路径
+    jcvi_distribution: str = ""      # 引擎分发方式（source/wheel 等）
+    jcvi_engine_version: str = ""    # 引擎版本
+    jcvi_upstream_version: str = ""  # 上游 JCVI 版本
+    jcvi_patchset: str = ""          # 当前 patchset 标识
+    jcvi_runtime_mode: str = ""      # 引擎运行模式（core/accelerated）
+    jcvi_loaded_extensions: list[str] = field(default_factory=list)   # 已加载扩展
+    jcvi_missing_extensions: list[str] = field(default_factory=list)  # 缺失扩展
 
     # 通用产物字段
-    engine_summary_path: str = ""
-    blast_table: str = ""
-    anchors_path: str = ""
-    simple_path: str = ""
-    blocks_path: str = ""
-    query_bed: str = ""
-    subject_bed: str = ""
-    preprocess_summaries: list[dict[str, object]] = field(default_factory=list)
-    preprocessing_summary_path: str = ""
-    simplified_fallback: bool = False
+    engine_summary_path: str = ""  # 引擎 summary JSON 路径
+    blast_table: str = ""          # BLAST 比对表路径
+    anchors_path: str = ""         # 共线性锚点文件路径
+    simple_path: str = ""          # 简化共线性边文件路径
+    blocks_path: str = ""          # 共线性 blocks 文件路径
+    query_bed: str = ""            # query 物种 BED 路径
+    subject_bed: str = ""          # subject 物种 BED 路径
+    preprocess_summaries: list[dict[str, object]] = field(default_factory=list)  # 预处理摘要列表
+    preprocessing_summary_path: str = ""  # 预处理汇总文件路径
+    simplified_fallback: bool = False     # 是否使用了简化回退路径
 
     # pairwise 特有字段
-    species_a_name: str | None = None
-    species_b_name: str | None = None
-    species_a_input_mode: str | None = None
-    species_b_input_mode: str | None = None
-    species_a_bed: str | None = None
-    species_b_bed: str | None = None
+    species_a_name: str | None = None        # 第一物种名称
+    species_b_name: str | None = None        # 第二物种名称
+    species_a_input_mode: str | None = None  # 第一物种输入模式
+    species_b_input_mode: str | None = None  # 第二物种输入模式
+    species_a_bed: str | None = None         # 第一物种 BED 路径
+    species_b_bed: str | None = None         # 第二物种 BED 路径
 
     # multi-species / reference-vs-targets 特有字段
-    species_count: int | None = None
-    pairing_strategy: str | None = None
-    pairwise_jobs: list[PairwiseJobSummary] | None = None
-    pairwise_job_count: int | None = None
-    global_figures: list[str] | None = None
-    multi_species_local_figures: list[str] | None = None
-    reference_name: str | None = None
+    species_count: int | None = None     # 物种总数
+    pairing_strategy: str | None = None  # 配对策略（all_vs_all_pairwise/reference_vs_targets）
+    pairwise_jobs: list[PairwiseJobSummary] | None = None  # 各 pairwise 子任务摘要
+    pairwise_job_count: int | None = None    # 子任务数量（序列化时自动计算）
+    global_figures: list[str] | None = None  # 全局多物种图件路径
+    multi_species_local_figures: list[str] | None = None  # 多物种局部共线性图件路径
+    reference_name: str | None = None  # reference_vs_targets 中的参考物种名
 
     # 原生多物种标记；当前 MCscan 只走 pairwise 聚合，因此默认 False
-    native_multi_species: bool = False
-    native_edges: list[dict[str, object]] | None = None
-    native_layout: dict[str, object] | None = None
+    native_multi_species: bool = False  # 是否由引擎原生支持多物种
+    native_edges: list[dict[str, object]] | None = None  # 原生多物种边数据
+    native_layout: dict[str, object] | None = None       # 原生多物种布局数据
+    # fmt: on
 
     def to_dict(self) -> dict[str, object]:
         """转成可合并进 RunSummary.method_data 的字典"""

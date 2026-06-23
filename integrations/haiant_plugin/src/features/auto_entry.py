@@ -1,10 +1,10 @@
-"""Lightweight HAIant feature entry for the ``analyze mcscan jcvi`` auto workflow.
+"""Lightweight HAIant feature entry for the ``analyze workflow`` auto flow.
 
 This entry does **not** write a ``genomelens_request.json``.  Instead it dynamically
 builds a ``jcvi.config.json`` from the HAIant ``params.json`` and directly invokes the
 external GenomeLens executable with:
 
-    <genomelens_exe> analyze mcscan jcvi <input_dir> <output_dir> <jcvi.config.json>
+    <genomelens_exe> analyze workflow <workflow_id> <input_dir> <output_dir> --jcvi-config <jcvi.config.json>
 """
 
 from __future__ import annotations
@@ -17,6 +17,7 @@ if __package__ in {None, ""}:
 
 from genomelens_haiant_plugin._core import (
     PluginError,
+    _target_gene_ids,
     build_auto_jcvi_config,
     build_mcscan_jcvi_command,
     close_adapter_logging,
@@ -39,7 +40,7 @@ def plugin_root() -> Path:
 
 
 def build_runtime_command(params_path: str | Path) -> list[str]:
-    """Build the ``analyze mcscan jcvi`` auto command from HAIant params."""
+    """Build the ``analyze workflow`` auto command from HAIant params."""
 
     params, base = load_params(params_path)
     output_dir = Path(resolve_param_path(base, params.get("output_dir") or "output"))
@@ -55,14 +56,15 @@ def build_runtime_command(params_path: str | Path) -> list[str]:
         Path(output_dir).mkdir(parents=True, exist_ok=True)
 
         jcvi_config_path = build_auto_jcvi_config(params, base, output_dir)
+        workflow_id = (
+            "reference_vs_targets" if _target_gene_ids(params) else "pairwise_synteny"
+        )
         argv = build_mcscan_jcvi_command(
             genomelens_exe,
             input_dir,
             output_dir,
             jcvi_config_path,
-            allow_simplified_fallback=bool(
-                params.get("allow_simplified_fallback", False)
-            ),
+            workflow_id=workflow_id,
         )
         logger.info("Dispatching GenomeLens: %s", argv)
         return argv
@@ -80,7 +82,7 @@ def run_runtime(argv: list[str]) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
-    """Run the ``analyze mcscan jcvi`` auto workflow entry."""
+    """Run the ``analyze workflow`` auto workflow entry."""
 
     args = sys.argv[1:] if argv is None else argv
     try:

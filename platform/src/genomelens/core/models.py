@@ -13,27 +13,34 @@ from pathlib import Path
 class RawAnnotationInputSpec:
     """RawAnnotationInputSpec(原始注释输入)：GFF/GTF 加 genome FASTA(基因组序列)"""
 
-    gff: Path
-    genome: Path
+    # fmt: off
+    gff: Path     # GFF/GTF 注释文件路径
+    genome: Path  # 基因组 FASTA 序列路径
+    # fmt: on
 
 
 @dataclass(frozen=True)
 class PreparedGenomeInputSpec:
     """PreparedGenomeInputSpec(标准输入)：BED 加 CDS FASTA"""
 
-    bed: Path
-    cds: Path
+    # fmt: off
+    bed: Path  # BED 格式注释文件路径
+    cds: Path  # CDS FASTA 序列路径
+    # fmt: on
 
 
 @dataclass(frozen=True)
 class GenomeInputSpec:
     """GenomeInputSpec(基因组输入)：比较中的一个具名物种侧"""
 
-    name: str
-    prepared: PreparedGenomeInputSpec | None = None
-    raw: RawAnnotationInputSpec | None = None
+    # fmt: off
+    name: str  # 物种公开名称（用于图件、报告与配对标识）
+    prepared: PreparedGenomeInputSpec | None = None  # 已预处理的标准输入
+    raw: RawAnnotationInputSpec | None = None        # 原始注释输入，与 prepared 互斥
 
     @property
+    # fmt: on
+
     def mode(self) -> str:
         """返回公开输入模式名称"""
 
@@ -49,11 +56,13 @@ class GenomeInputSpec:
 class AnalysisTaskSpec:
     """AnalysisTaskSpec(分析任务规格)：面向平台核心的稳定任务描述"""
 
-    task_id: str
-    task_type: str
-    workflow: str
-    species: list[GenomeInputSpec]
-    source: str = "genomelens-shell"
+    # fmt: off
+    task_id: str    # 跨层稳定的任务标识（通常由物种名与 workflow 拼接）
+    task_type: str  # 面向顶层摘要的任务类型（如 pairwise_synteny）
+    workflow: str   # 底层 engine workflow 名称
+    species: list[GenomeInputSpec]    # 当前任务涉及的物种列表
+    source: str = "genomelens-shell"  # 任务来源标识，用于区分 CLI/GUI/插件
+    # fmt: on
 
     def to_manifest_json(self) -> dict[str, object]:
         """转成 engine manifest(引擎清单) 可直接写入的公开字段"""
@@ -71,14 +80,16 @@ class AnalysisTaskSpec:
 class ArtifactRecord:
     """ArtifactRecord(产物记录)：供报告、GUI 和后续评分模块统一读取"""
 
-    artifact_id: str
-    artifact_type: str
-    path: str
-    produced_by: str
-    format: str = ""
-    preview: bool = False
-    input_refs: list[str] = field(default_factory=list)
-    metadata: dict[str, object] = field(default_factory=dict)
+    # fmt: off
+    artifact_id: str       # 产物在报告与 GUI 中的唯一键
+    artifact_type: str     # 产物类型（figure/table/log 等）
+    path: str              # 产物文件路径
+    produced_by: str       # 产生该产物的 workflow 或子模块
+    format: str = ""       # 文件格式后缀（如 svg、tsv）
+    preview: bool = False  # 是否推荐在 GUI 中预览
+    input_refs: list[str] = field(default_factory=list)        # 上游输入产物引用
+    metadata: dict[str, object] = field(default_factory=dict)  # 产物额外元数据
+    # fmt: on
 
     def to_json(self) -> dict[str, object]:
         """转成稳定 JSON(结构化数据)"""

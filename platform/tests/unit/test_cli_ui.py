@@ -27,7 +27,7 @@ def test_workbench_banner_plain_text() -> None:
     assert "GenomeLens" in banner
     assert f"Version {__version__}" in banner
     assert "常用命令" in banner
-    assert "analyze mcscan" in banner
+    assert "analyze workflow" in banner
     assert "analyze run" in banner
     assert "analyze template" in banner
     assert "可用分析方法" in banner

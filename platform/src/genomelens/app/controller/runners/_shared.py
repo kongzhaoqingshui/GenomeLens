@@ -17,7 +17,7 @@ from genomelens.core.jcvi_adapter.adapter_models import McscanRequest
 from genomelens.core.mcscan_summary import McscanSummaryExtension
 from genomelens.core.models import ArtifactRecord, GenomeInputSpec, PreparedGenomeInputSpec
 from genomelens.core.preprocessing.annotation_preprocessor import preprocess_one, write_preprocessing_summary
-from genomelens.core.summary_models import RunSummary, ScoringBlock, UiBlock
+from genomelens.core.summary_models import PairwiseJobSummary, RunSummary, ScoringBlock, UiBlock
 from genomelens.core.validators import validate_request
 from genomelens.data.logging.log_setup import logger_name_for_path, setup_logging
 from genomelens.data.logging.task_log import task_scope
@@ -368,6 +368,9 @@ def build_multi_run_summary(
     native_multi_species: bool = False,
     native_layout: dict[str, object] | None = None,
     multi_species_local_figures: list[str] | None = None,
+    task_type_override: str | None = None,
+    species_a_name: str | None = None,
+    species_b_name: str | None = None,
 ) -> RunSummary:
     """为 multi-species 或 reference-vs-targets 构造顶层 RunSummary"""
 
@@ -389,6 +392,10 @@ def build_multi_run_summary(
         if record:
             artifact_index.append(record)
 
+    task = request.task_spec.to_manifest_json()
+    if task_type_override:
+        task = {**task, "task_type": task_type_override}
+
     extension = McscanSummaryExtension(
         jcvi_backend="jcvi-genomelens-engine",
         jcvi_workflow=request.jcvi_workflow,
@@ -400,13 +407,15 @@ def build_multi_run_summary(
         reference_name=reference_name,
         native_multi_species=native_multi_species,
         native_layout=native_layout,
+        species_a_name=species_a_name,
+        species_b_name=species_b_name,
     )
 
     return build_run_summary(
         status=status,
         workflow="mcscan",
         method="mcscan",
-        task=request.task_spec.to_manifest_json(),
+        task=task,
         species=species_summary(request),
         final_figures=final_figures,
         artifact_index=artifact_index,

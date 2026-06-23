@@ -25,10 +25,12 @@ from genomelens.core.json_utils import (
 class CheckToolItem:
     """CheckToolItem(检查工具项)：单个工具/引擎的诊断结果"""
 
-    status: str
-    path: str = ""
-    message: str = ""
-    extra: dict[str, object] = field(default_factory=dict)
+    # fmt: off
+    status: str        # 工具/引擎诊断状态（ok/missing/error/unknown）
+    path: str = ""     # 可执行文件路径，缺失时为空
+    message: str = ""  # 面向用户的诊断说明
+    extra: dict[str, object] = field(default_factory=dict)  # 扩展字段（版本、候选名等）
+    # fmt: on
 
     def to_json(self) -> dict[str, object]:
         """转为 JSON object(JSON 对象)"""
@@ -60,13 +62,15 @@ class CheckToolItem:
 class CheckReport:
     """CheckReport(检查报告)：check 命令的结构化输出"""
 
-    status: str
-    blastn: CheckToolItem
-    makeblastdb: CheckToolItem
-    magick: CheckToolItem
-    jcvi_engine: CheckToolItem
-    install_attempts: list[dict[str, object]] = field(default_factory=list)
-    engine_candidate_names: list[str] = field(default_factory=list)
+    # fmt: off
+    status: str                 # 整体环境检查结果（ok/partial/failed）
+    blastn: CheckToolItem       # BLAST+ blastn 诊断结果
+    makeblastdb: CheckToolItem  # BLAST+ makeblastdb 诊断结果
+    magick: CheckToolItem       # ImageMagick 诊断结果
+    jcvi_engine: CheckToolItem  # jcvi-genomelens 引擎诊断结果
+    install_attempts: list[dict[str, object]] = field(default_factory=list)  # 自动安装尝试记录
+    engine_candidate_names: list[str] = field(default_factory=list)          # 引擎可执行文件名候选列表
+    # fmt: on
 
     def to_json(self) -> dict[str, object]:
         """转为 JSON object(JSON 对象)"""
@@ -105,21 +109,23 @@ class CheckReport:
 class PairwiseJobSummary:
     """PairwiseJobSummary(配对子任务摘要)：多物种/reference-vs-targets 中的单对结果"""
 
-    pair_id: str
-    species_a_name: str
-    species_b_name: str
-    status: str
-    outdir: str
-    run_summary_path: str = ""
-    engine_summary_path: str = ""
-    blast_table: str = ""
-    anchors_path: str = ""
-    simple_path: str = ""
-    blocks_path: str = ""
-    query_bed: str = ""
-    subject_bed: str = ""
-    final_figures: list[str] = field(default_factory=list)
-    error: dict[str, str] | None = None
+    # fmt: off
+    pair_id: str         # 配对唯一标识（如 query__subject）
+    species_a_name: str  # 配对中的第一物种名称
+    species_b_name: str  # 配对中的第二物种名称
+    status: str          # 该配对子任务的执行状态
+    outdir: str          # 配对子任务的输出目录
+    run_summary_path: str = ""     # 子任务 run_summary.json 路径
+    engine_summary_path: str = ""  # 引擎返回的 summary 路径
+    blast_table: str = ""          # BLAST 比对表路径
+    anchors_path: str = ""         # 共线性锚点文件路径
+    simple_path: str = ""          # 简化共线性边文件路径
+    blocks_path: str = ""          # 共线性 blocks 文件路径
+    query_bed: str = ""            # query 物种 BED 路径
+    subject_bed: str = ""          # subject 物种 BED 路径
+    final_figures: list[str] = field(default_factory=list)  # 该配对产出的图件路径列表
+    error: dict[str, str] | None = None  # 失败时的错误类型与消息
+    # fmt: on
 
     def to_json(self) -> dict[str, object]:
         """转为 JSON object(JSON 对象)"""
@@ -182,11 +188,13 @@ class PairwiseJobSummary:
 class UiBlock:
     """UiBlock(UI 块)：供 GUI/工作台读取的渲染契约"""
 
-    state: str
-    progress: float
-    primary_figures: list[str]
-    summary_path: str
-    log_path: str
+    # fmt: off
+    state: str       # 工作流状态（SUCCEEDED/FAILED/RUNNING 等）
+    progress: float  # 0~1 的进度值，供进度条渲染
+    primary_figures: list[str]  # 需要优先展示的主要图件路径
+    summary_path: str           # run_summary.json 路径
+    log_path: str               # 运行日志路径
+    # fmt: on
 
     def to_json(self) -> dict[str, object]:
         """转为 JSON object(JSON 对象)"""
@@ -216,12 +224,14 @@ class UiBlock:
 class ScoringBlock:
     """ScoringBlock(评分块)：未来 ML Scoring Layer 接入前的占位结构"""
 
-    status: str = "not_run"
-    scores: list[object] = field(default_factory=list)
-    ranking: list[object] = field(default_factory=list)
-    message: str = messages.SCORING_NOT_RUN
-    artifact_path: str = ""
-    model_version: str = ""
+    # fmt: off
+    status: str = "not_run"  # 评分执行状态
+    scores: list[object] = field(default_factory=list)   # 各维度评分结果
+    ranking: list[object] = field(default_factory=list)  # 排序后的推荐列表
+    message: str = messages.SCORING_NOT_RUN  # 面向用户的评分说明
+    artifact_path: str = ""  # 评分产物文件路径
+    model_version: str = ""  # 评分模型版本
+    # fmt: on
 
     def to_json(self) -> dict[str, object]:
         """转为 JSON object(JSON 对象)"""
@@ -258,19 +268,20 @@ class RunSummary:
     JSON 兼容；反序列化时未知字段会被收集回 `method_data`，实现前向兼容。
     """
 
-    status: str
-    schema_version: int
-    workflow: str
-    task: dict[str, object]
-    species: list[dict[str, object]]
-    final_figures: list[str]
-    artifact_index: list[dict[str, object]]
-    logs: dict[str, str]
-    ui: UiBlock
-    scoring: ScoringBlock
-    method: str = ""
-    method_data: dict[str, object] = field(default_factory=dict)
-    analysis_request_path: str = ""
+    # fmt: off
+    status: str                       # 整个分析任务的顶层状态
+    schema_version: int               # 摘要 JSON schema 版本
+    workflow: str                     # 实际运行的工作流/方法标识
+    task: dict[str, object]           # 任务元数据（task_id、task_type 等）
+    species: list[dict[str, object]]  # 参与分析的物种角色与名称列表
+    final_figures: list[str]          # 最终产出的所有图件路径
+    artifact_index: list[dict[str, object]]  # 结构化产物索引
+    logs: dict[str, str]   # 各类日志文件路径
+    ui: UiBlock            # 供 GUI 渲染的状态块
+    scoring: ScoringBlock  # 评分结果块
+    method: str = ""       # 方法名（如 mcscan）
+    method_data: dict[str, object] = field(default_factory=dict)  # 方法专属扩展字段
+    analysis_request_path: str = ""  # 实际执行的 AnalysisRequest 快照路径
 
     _KNOWN_TOP_KEYS: ClassVar[set[str]] = {
         "status",
@@ -287,6 +298,7 @@ class RunSummary:
         "method_data",
         "analysis_request_path",
     }
+    # fmt: on
 
     def to_json(self) -> dict[str, object]:
         """转为 JSON object(JSON 对象)"""

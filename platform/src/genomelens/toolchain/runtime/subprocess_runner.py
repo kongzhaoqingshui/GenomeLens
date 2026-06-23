@@ -15,13 +15,16 @@ from pathlib import Path
 class CommandResult:
     """CommandResult(命令结果)：结构化 subprocess(子进程) 输出"""
 
-    argv: list[str]
-    returncode: int
-    stdout: str
-    stderr: str
-    cwd: str | None = None
+    # fmt: off
+    argv: list[str]  # 实际执行的参数向量
+    returncode: int  # 进程退出码
+    stdout: str      # 标准输出内容
+    stderr: str      # 标准错误内容
+    cwd: str | None = None  # 工作目录
 
     @property
+    # fmt: on
+
     def ok(self) -> bool:
         """命令成功退出时返回 True"""
 

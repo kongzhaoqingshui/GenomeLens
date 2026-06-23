@@ -3,7 +3,11 @@
 # region import
 from __future__ import annotations
 
-from genomelens.analysis.methods.mcscan_request_mapping import to_histogram_request, to_mcscan_request
+from genomelens.analysis.methods.mcscan_request_mapping import (
+    to_heatmap_request,
+    to_histogram_request,
+    to_mcscan_request,
+)
 from genomelens.analysis.requests.models import AnalysisRequest
 from genomelens.app.controller.state_machine import WorkflowState
 from genomelens.app.controller.workflow_provider import WorkflowProvider
@@ -35,6 +39,7 @@ class McscanWorkflowProvider(WorkflowProvider):
     def run(self, request: AnalysisRequest, signal_bus: SignalBus) -> RunSummary:
         """运行一次 MCscan 分析任务（预期为 2 个物种的 pairwise 请求）"""
 
+        from genomelens.app.controller.runners.heatmap_runner import run_heatmap_workflow
         from genomelens.app.controller.runners.histogram_runner import run_histogram_workflow
         from genomelens.app.controller.runners.pairwise_runner import run_pairwise_mcscan
 
@@ -45,6 +50,9 @@ class McscanWorkflowProvider(WorkflowProvider):
         if workflow == "graphics_histogram":
             histogram_request = to_histogram_request(request)
             return run_histogram_workflow(_set_state, histogram_request)
+        if workflow == "graphics_heatmap":
+            heatmap_request = to_heatmap_request(request)
+            return run_heatmap_workflow(_set_state, heatmap_request)
 
         mcscan_request = to_mcscan_request(request)
         return run_pairwise_mcscan(_set_state, mcscan_request)

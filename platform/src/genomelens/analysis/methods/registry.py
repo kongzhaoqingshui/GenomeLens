@@ -6,7 +6,6 @@
 # region import
 from __future__ import annotations
 
-import argparse
 import warnings
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -28,10 +27,12 @@ if TYPE_CHECKING:
 class ArtifactDeclaration:
     """ArtifactDeclaration(产物声明)：方法对外暴露的可生成产物元数据"""
 
-    artifact_id: str
-    artifact_type: str
-    description: str = ""
-    required: bool = False
+    # fmt: off
+    artifact_id: str        # 产物唯一标识
+    artifact_type: str      # 产物类型（如 figures、blocks、anchors）
+    description: str = ""   # 产物用途描述
+    required: bool = False  # 是否为必产物
+    # fmt: on
 
 
 @runtime_checkable
@@ -63,16 +64,6 @@ class MethodPlugin(Protocol):
 
     def get_provider(self) -> WorkflowProvider:
         """返回该方法对应的工作流提供者"""
-
-        ...
-
-    def add_cli_arguments(self, parser: argparse.ArgumentParser) -> None:
-        """为 CLI 子命令注册该方法专属参数"""
-
-        ...
-
-    def build_request(self, args: argparse.Namespace) -> AnalysisRequest:
-        """把解析后的 CLI 参数转成 AnalysisRequest"""
 
         ...
 

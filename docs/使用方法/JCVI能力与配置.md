@@ -15,9 +15,9 @@ GenomeLens engine(引擎) 当前可调度的 workflow(工作流) 包括：
 
 兼容别名 `dotplot`、`heatmap`、`histogram` 和 `karyotype` 会被规范化为对应的 `graphics_*` workflow 名称。
 
-## 独立热图命令：`plot heatmap`
+## 独立热图命令：`analyze workflow heatmap_plot`
 
-`graphics_heatmap` 不走 `mcscan` 的 `species[]` / `query` / `subject` 协议，而是作为独立绘图 workflow 由 `genomelens plot heatmap` 调度。适用场景包括：
+`graphics_heatmap` 不走 `mcscan` 的 `species[]` / `query` / `subject` 协议，而是作为独立绘图 workflow 由 `analyze workflow heatmap_plot` 调度。适用场景包括：
 
 - 基因表达矩阵
 - 共线性分数矩阵
@@ -26,7 +26,7 @@ GenomeLens engine(引擎) 当前可调度的 workflow(工作流) 包括：
 命令形态：
 
 ```powershell
-GenomeLens.exe plot heatmap <matrix.csv> <outdir> [options]
+GenomeLens.exe analyze workflow heatmap_plot <matrix.csv> <outdir> [options]
 ```
 
 当前支持的公开参数包括：
@@ -34,10 +34,7 @@ GenomeLens.exe plot heatmap <matrix.csv> <outdir> [options]
 - `--formats`：输出格式列表，默认继承 `runtime.formats` 或回退到 `svg`
 - `--figsize`：画布尺寸
 - `--dpi`：分辨率
-- `--cmap`：colormap 名称，默认 `jet`
-- `--groups`：把 CSV 第一行解释为列分组
-- `--rowgroups`：提供额外的行分组文件
-- `--horizontalbar`：改用水平色条
+- `--params '{"cmap":"viridis","groups":true,"rowgroups":"groups.tsv","horizontalbar":true}'`：热图专属参数
 
 该命令仍通过 shell(外壳) 写出 `task_manifest_v2`，再调用 `jcvi-genomelens run --manifest ... --outdir ...`。输出目录中会保留：
 
@@ -53,20 +50,18 @@ GenomeLens.exe plot heatmap <matrix.csv> <outdir> [options]
 常见用法：
 
 ```powershell
-GenomeLens.exe analyze mcscan jcvi graphics_histogram numbers.txt output `
+GenomeLens.exe analyze workflow histogram_plot numbers.txt output `
   --formats png,svg `
-  --histogram-columns 0 `
-  --histogram-bins 40 `
-  --histogram-title "Ks histogram" `
+  --params '{"histogram_columns":[0],"histogram_bins":40,"histogram_title":"Ks histogram"}' `
   --force
 ```
 
 补充说明：
 
-- 第一个位置参数在该子任务下表示数值文件路径，而不是物种输入目录。
-- 可通过 `--histogram-inputs a.txt,b.txt` 追加更多文件。
-- 可通过 `--histogram-columns 0,1` 从同一个文件中读取多列并叠加/分面展示。
-- `--histogram-facet` 会把多序列拆成多个子图；默认是叠加在同一张图上。
+- 第一个位置参数表示数值文件路径。
+- 可通过 `--params '{"histogram_inputs":["a.txt","b.txt"]}'` 追加更多文件。
+- 可通过 `--params '{"histogram_columns":[0,1]}'` 从同一个文件中读取多列并叠加/分面展示。
+- `--params '{"histogram_facet":true}'` 会把多序列拆成多个子图；默认是叠加在同一张图上。
 - 当前实现使用 Python/matplotlib 后端，避免依赖未随环境分发的 `Rscript`。
 
 ## 一站式流程：多物种局部共线性分析

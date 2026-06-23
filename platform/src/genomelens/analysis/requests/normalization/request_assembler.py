@@ -126,7 +126,7 @@ def _build_mcscan_method_config(args: argparse.Namespace, config: ConfigModel | 
 
 
 def mcscan_auto_request_from_cli(args: argparse.Namespace) -> AnalysisRequest:
-    """把 `analyze mcscan jcvi` CLI 参数转成 AnalysisRequest(分析请求)"""
+    """把 MCscan 相关 CLI 参数转成 AnalysisRequest(分析请求)"""
 
     jcvi_config_path = _resolve_jcvi_config(args)
     config_ref = AnalysisConfigRef(project_config=args.config, method_config=jcvi_config_path)

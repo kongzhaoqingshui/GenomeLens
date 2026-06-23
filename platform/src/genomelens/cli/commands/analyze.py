@@ -5,14 +5,10 @@ from __future__ import annotations
 
 import argparse
 import json
-import warnings
-from functools import partial
 from pathlib import Path
 
 from genomelens.analysis.dispatcher import AnalysisDispatcher
 from genomelens.analysis.methods.registry import (
-    MethodPlugin,
-    MethodRegistry,
     list_one_stop_workflows,
     list_submodules,
 )
@@ -67,18 +63,6 @@ def register(subparsers: argparse._SubParsersAction) -> None:
     _register_workflow_command(nested)
     _register_submodule_command(nested)
 
-    registry = MethodRegistry()
-    for plugin in registry.list_all():
-        method_parser = nested.add_parser(plugin.name, help=plugin.description)
-        if plugin.name == "mcscan":
-            backends = method_parser.add_subparsers(dest="mcscan_backend", title="MCscan backend", required=True)
-            jcvi_parser = backends.add_parser("jcvi", help="Run the JCVI synteny workflow")
-            plugin.add_cli_arguments(jcvi_parser)
-            jcvi_parser.set_defaults(func=partial(_run_jcvi_legacy, plugin=plugin))
-        else:
-            plugin.add_cli_arguments(method_parser)
-            method_parser.set_defaults(func=partial(_run_plugin, plugin=plugin))
-
 
 def _register_workflow_command(nested: argparse._SubParsersAction) -> None:
     """注册 `analyze workflow` 一站式工作流命令"""
@@ -102,10 +86,34 @@ def _register_workflow_command(nested: argparse._SubParsersAction) -> None:
     workflow_parser.add_argument("--dist", type=int, default=None, help="Synteny anchor distance")
     workflow_parser.add_argument("--iter", type=int, default=None, help="Block filtering iterations")
     workflow_parser.add_argument("--min-block-size", type=int, default=None, help="Minimum block size")
+    workflow_parser.add_argument("--split-targets", action="store_true", help="每个目标基因单独出图")
+    workflow_parser.add_argument("--label-targets", action="store_true", help="在图中标注目标基因名称")
+    workflow_parser.add_argument("--glyphstyle", choices=["box", "arrow"], default="", help="基因形状")
+    workflow_parser.add_argument("--glyphcolor", choices=["orientation", "orthogroup"], default="", help="基因着色")
+    workflow_parser.add_argument("--shadestyle", choices=["curve", "line"], default="", help="连线样式")
+    workflow_parser.add_argument("--figsize", default="", help="画布尺寸，例如 10x5")
+    workflow_parser.add_argument("--dpi", type=int, default=None, help="图片分辨率，默认 300")
+    workflow_parser.add_argument("--optimize-figsize", action="store_true", help="自动推导 synteny 图件尺寸")
+    workflow_parser.add_argument(
+        "--rewrite-layout-links", action="store_true", help="将跨轨道 layout 连线改写为邻接轨道链"
+    )
+    workflow_parser.add_argument(
+        "--optimize-karyotype-labels", action="store_true", help="自动优化全局核型图的轨道标签位置"
+    )
+    workflow_parser.add_argument(
+        "--trim-cross-chromosome-blocks", action="store_true", help="切除跨染色体 block 基因行"
+    )
+    workflow_parser.add_argument(
+        "--use-native-local-synteny-renderer",
+        action="store_true",
+        help="使用原生 matplotlib 局部共线性渲染器",
+    )
     workflow_parser.add_argument("--formats", default="", help="Output formats, e.g. svg or svg,pdf")
     workflow_parser.add_argument("--threads", type=int, default=None, help="Thread count")
     workflow_parser.add_argument("--params", default="{}", help="JSON object of extra method parameters")
     workflow_parser.add_argument("--force", action="store_true", help="Reuse existing output directory")
+    workflow_parser.add_argument("--verbose", action="store_true", help="Enable verbose engine logging")
+    workflow_parser.add_argument("--log-level", default="", help="Set log level (DEBUG/INFO/WARNING/ERROR)")
     workflow_parser.add_argument("-j", "--json", action="store_true", help="Print the raw JSON summary")
     workflow_parser.set_defaults(func=_run_one_stop_workflow)
 
@@ -163,29 +171,6 @@ def _dispatch_request(request: AnalysisRequest, *, json_output: bool) -> RunSumm
     finally:
         if reporter is not None:
             reporter.finish()
-
-
-def _run_jcvi_legacy(args: argparse.Namespace, plugin: MethodPlugin) -> int:
-    """Run the legacy `analyze mcscan jcvi ...` command with a deprecation warning."""
-
-    if getattr(args, "mcscan_backend", "") == "jcvi":
-        warnings.warn(
-            "`genomelens analyze mcscan jcvi ...` is deprecated and will be removed in a future release. "
-            "Use `genomelens analyze workflow <workflow_id> ...` or "
-            "`genomelens analyze submodule <module_id> ...` instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-    return _run_plugin(args, plugin)
-
-
-def _run_plugin(args: argparse.Namespace, plugin: MethodPlugin) -> int:
-    """Run a registered method command."""
-
-    request = plugin.build_request(args)
-    json_output = bool(getattr(args, "json", False))
-    summary = _dispatch_request(request, json_output=json_output)
-    return _print_summary(summary, json_output=json_output)
 
 
 def _run_request_json(args: argparse.Namespace) -> int:
@@ -264,7 +249,6 @@ def _base_mcscan_namespace(args: argparse.Namespace, *, jcvi_workflow: str) -> a
     ns.formats = args.formats
     ns.force = bool(args.force)
     ns.threads = args.threads
-    ns.jcvi_subtask = ""
     ns.jcvi_workflow = jcvi_workflow
     ns.align_soft = getattr(args, "align_soft", "")
     ns.dbtype = getattr(args, "dbtype", "")
@@ -274,17 +258,17 @@ def _base_mcscan_namespace(args: argparse.Namespace, *, jcvi_workflow: str) -> a
     ns.min_block_size = getattr(args, "min_block_size", None)
     ns.up = getattr(args, "up", None)
     ns.down = getattr(args, "down", None)
-    ns.split_targets = False
-    ns.label_targets = False
-    ns.glyphstyle = ""
-    ns.glyphcolor = ""
-    ns.shadestyle = ""
-    ns.figsize = ""
-    ns.dpi = None
-    ns.optimize_figsize = False
-    ns.rewrite_layout_links = False
-    ns.optimize_karyotype_labels = False
-    ns.trim_cross_chromosome_blocks = False
+    ns.split_targets = bool(getattr(args, "split_targets", False))
+    ns.label_targets = bool(getattr(args, "label_targets", False))
+    ns.glyphstyle = getattr(args, "glyphstyle", "")
+    ns.glyphcolor = getattr(args, "glyphcolor", "")
+    ns.shadestyle = getattr(args, "shadestyle", "")
+    ns.figsize = getattr(args, "figsize", "")
+    ns.dpi = getattr(args, "dpi", None)
+    ns.optimize_figsize = bool(getattr(args, "optimize_figsize", False))
+    ns.rewrite_layout_links = bool(getattr(args, "rewrite_layout_links", False))
+    ns.optimize_karyotype_labels = bool(getattr(args, "optimize_karyotype_labels", False))
+    ns.trim_cross_chromosome_blocks = bool(getattr(args, "trim_cross_chromosome_blocks", False))
     ns.histogram_inputs = ""
     ns.histogram_columns = "0"
     ns.histogram_skip = 0
@@ -297,11 +281,11 @@ def _base_mcscan_namespace(args: argparse.Namespace, *, jcvi_workflow: str) -> a
     ns.histogram_facet = False
     ns.histogram_fill = "white"
     ns.allow_simplified_fallback = False
-    ns.verbose = False
-    ns.log_level = ""
+    ns.verbose = bool(getattr(args, "verbose", False))
+    ns.log_level = getattr(args, "log_level", "")
     ns.jcvi_layout = ""
     ns.jcvi_seqids = ""
-    ns.use_native_local_synteny_renderer = False
+    ns.use_native_local_synteny_renderer = bool(getattr(args, "use_native_local_synteny_renderer", False))
     return ns
 
 
@@ -330,7 +314,14 @@ def _run_one_stop_workflow(args: argparse.Namespace) -> int:
 def _build_mcscan_one_stop_request(args: argparse.Namespace, params: dict[str, object]) -> AnalysisRequest:
     """为 MCscan 类一站式工作流构造 AnalysisRequest"""
 
-    ns = _base_mcscan_namespace(args, jcvi_workflow="graphics_synteny")
+    # reference_vs_targets 需要 pairwise 子任务产出局部共线性产物，
+    # 因此底层 JCVI workflow 使用 local_synteny；其余 MCscan 类工作流默认 graphics_synteny
+    if args.workflow_id == "reference_vs_targets":
+        jcvi_workflow = "local_synteny"
+    else:
+        jcvi_workflow = "graphics_synteny"
+
+    ns = _base_mcscan_namespace(args, jcvi_workflow=jcvi_workflow)
     request = mcscan_auto_request_from_cli(ns)
     method_config = dict(request.method_config)
     method_config.update(params)
@@ -383,6 +374,9 @@ def _build_heatmap_one_stop_request(args: argparse.Namespace, params: dict[str, 
         matrix=str(matrix),
     ).to_json()
     method_config.update(params)
+    # --params 中的 rowgroups 对应 McscanMethodConfig.jcvi_layout
+    if "rowgroups" in method_config:
+        method_config["jcvi_layout"] = method_config.pop("rowgroups")
 
     return AnalysisRequest(
         method="mcscan",

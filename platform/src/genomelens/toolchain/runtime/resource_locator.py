@@ -19,12 +19,15 @@ from genomelens.toolchain.runtime.platform_names import jcvi_engine_candidates
 class LocatedResource:
     """LocatedResource(定位结果)：路径与状态 metadata(元数据)"""
 
-    name: str
-    status: str
-    path: str = ""
-    message: str = ""
+    # fmt: off
+    name: str          # 资源名称
+    status: str        # 定位状态（ok/missing）
+    path: str = ""     # 资源路径
+    message: str = ""  # 状态说明或错误信息
 
     @property
+    # fmt: on
+
     def ok(self) -> bool:
         """资源可用时返回 True"""
 

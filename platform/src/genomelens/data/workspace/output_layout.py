@@ -13,24 +13,26 @@ from pathlib import Path
 class OutputLayout:
     """OutputLayout(输出布局)：命名所有稳定目录和文件"""
 
-    root: Path
-    inputs: Path
-    prepared: Path
-    intermediate: Path
-    blast: Path
-    cache: Path
-    jcvi: Path
-    ortholog: Path
-    mcscan: Path
-    local: Path
-    logs: Path
-    report: Path
-    results: Path
-    figures: Path
-    manifest: Path
-    engine_summary: Path
-    run_summary: Path
-    preprocessing_summary: Path
+    # fmt: off
+    root: Path                   # 输出根目录
+    inputs: Path                 # 用户输入拷贝目录
+    prepared: Path               # 预处理后的输入目录
+    intermediate: Path           # 中间产物根目录
+    blast: Path                  # BLAST 相关中间文件目录
+    cache: Path                  # 缓存目录
+    jcvi: Path                   # JCVI 引擎工作目录
+    ortholog: Path               # 同源基因分析中间目录
+    mcscan: Path                 # MCscan 中间目录
+    local: Path                  # 局部共线性中间目录
+    logs: Path                   # 日志目录
+    report: Path                 # 报告目录
+    results: Path                # 最终结果根目录
+    figures: Path                # 图件输出目录
+    manifest: Path               # 引擎运行清单文件路径
+    engine_summary: Path         # 引擎 summary JSON 路径
+    run_summary: Path            # 运行总摘要 JSON 路径
+    preprocessing_summary: Path  # 预处理摘要 JSON 路径
+    # fmt: on
 
 
 def build_output_layout(outdir: str | Path) -> OutputLayout:

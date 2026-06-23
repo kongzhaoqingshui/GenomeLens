@@ -28,12 +28,15 @@ KNOWN_ARCHIVE_SHA256: dict[str, str] = {}
 class ToolchainInstallResult:
     """toolchain(工具链) 安装尝试的结果"""
 
-    name: str
-    status: str
-    path: str = ""
-    message: str = ""
+    # fmt: off
+    name: str          # 工具链名称
+    status: str        # 安装状态（ok/error/unsupported）
+    path: str = ""     # 安装路径
+    message: str = ""  # 状态说明或错误信息
 
     @property
+    # fmt: on
+
     def ok(self) -> bool:
         """安装是否成功"""
 

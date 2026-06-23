@@ -112,12 +112,14 @@ def test_auto_entry_builds_mcscan_jcvi_command(tmp_path: Path) -> None:
     argv = auto_entry.build_runtime_command(params_path)
 
     assert argv[:4] == ["cmd.exe", "/c", str(tmp_path / "GenomeLens.cmd"), "analyze"]
-    assert argv[4:6] == ["mcscan", "jcvi"]
+    assert argv[4] == "workflow"
+    assert argv[5] == "reference_vs_targets"
     assert Path(argv[6]).is_dir()
     assert Path(argv[7]) == tmp_path / "output"
-    jcvi_config_path = Path(argv[8])
+    assert argv[8] == "--jcvi-config"
+    jcvi_config_path = Path(argv[9])
     assert jcvi_config_path == tmp_path / "output" / "jcvi.config.json"
-    assert argv[9] == "--force"
+    assert argv[10] == "--force"
 
     config = json.loads(jcvi_config_path.read_text(encoding="utf-8"))
     assert config["schema_version"] == 2
@@ -135,8 +137,9 @@ def test_auto_entry_global_synteny_without_targets(tmp_path: Path) -> None:
 
     argv = auto_entry.build_runtime_command(params_path)
 
-    assert argv[4:6] == ["mcscan", "jcvi"]
-    config = json.loads(Path(argv[8]).read_text(encoding="utf-8"))
+    assert argv[4] == "workflow"
+    assert argv[5] == "pairwise_synteny"
+    config = json.loads(Path(argv[9]).read_text(encoding="utf-8"))
     assert config["mcscan"]["workflow"] == "graphics_synteny"
     assert config["local_synteny"]["target_gene_ids"] == []
 
@@ -146,7 +149,7 @@ def test_auto_entry_optimize_auto_maps_all_flags(tmp_path: Path) -> None:
 
     argv = auto_entry.build_runtime_command(params_path)
 
-    config = json.loads(Path(argv[8]).read_text(encoding="utf-8"))
+    config = json.loads(Path(argv[9]).read_text(encoding="utf-8"))
     auto_opt = config["local_synteny"]["auto_optimization"]
     assert auto_opt["optimize_figsize"] is True
     assert auto_opt["rewrite_layout_links"] is True
@@ -173,7 +176,7 @@ def test_auto_entry_split_targets_maps_to_config(tmp_path: Path) -> None:
 
     argv = auto_entry.build_runtime_command(params_path)
 
-    config = json.loads(Path(argv[8]).read_text(encoding="utf-8"))
+    config = json.loads(Path(argv[9]).read_text(encoding="utf-8"))
     assert config["local_synteny"]["split_targets"] is True
 
 

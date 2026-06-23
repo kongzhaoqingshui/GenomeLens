@@ -13,12 +13,14 @@ from typing import Literal
 class PortDeclaration:
     """端口声明：描述子模块的某个输入或输出端口"""
 
-    port_id: str
-    port_kind: Literal["species_pair", "species_list", "artifact", "value", "config"]
-    required: bool
-    description: str
-    artifact_type: str | None = None
-    accepted_formats: list[str] = field(default_factory=list)
+    # fmt: off
+    port_id: str  # 端口唯一标识
+    port_kind: Literal["species_pair", "species_list", "artifact", "value", "config"]  # 端口数据类型
+    required: bool    # 是否为必填端口
+    description: str  # 端口用途描述
+    artifact_type: str | None = None  # 产物类型（port_kind=artifact 时有效）
+    accepted_formats: list[str] = field(default_factory=list)  # 接受的文件格式后缀列表
+    # fmt: on
 
     def to_json(self) -> dict[str, object]:
         data: dict[str, object] = {
@@ -38,8 +40,10 @@ class PortDeclaration:
 class PortBinding:
     """端口绑定：运行时某个端口的具体值"""
 
-    port_id: str
-    value: object
+    # fmt: off
+    port_id: str   # 端口唯一标识
+    value: object  # 运行时绑定的端口值
+    # fmt: on
 
     def to_json(self) -> dict[str, object]:
         return {"port_id": self.port_id, "value": self.value}

@@ -26,9 +26,11 @@ if TYPE_CHECKING:
 class _TargetAggregate:
     """单个目标基因窗口的多物种聚合缓存"""
 
-    order: list[str] = field(default_factory=list)
-    seen: set[str] = field(default_factory=set)
-    species_hits: dict[str, dict[str, list[str]]] = field(default_factory=dict)
+    # fmt: off
+    order: list[str] = field(default_factory=list)  # reference 基因出现顺序
+    seen: set[str] = field(default_factory=set)     # 已记录的 reference 基因集合
+    species_hits: dict[str, dict[str, list[str]]] = field(default_factory=dict)  # 每个物种在每个 reference 基因上的命中
+    # fmt: on
 
     def add(self, species_name: str, reference_gene: str, subject_gene: str) -> None:
         """记录一行 reference -> subject 命中"""
@@ -217,11 +219,12 @@ def build_multi_species_local_synteny(
 ) -> list[str]:
     """把 reference-vs-targets 局部共线性结果聚合成多物种总图"""
 
-    if len(request.species) < 3 or not request.target_gene_ids:
+    # reference_vs_targets 场景下，参考物种至少需要一个目标物种即可生成局部共线性总图
+    if len(request.species) < 2 or not request.target_gene_ids:
         return []
 
     successful_targets = [job for job in pairwise_jobs if job.status == "SUCCEEDED" and job.species_b_name]
-    if len({job.species_b_name for job in successful_targets}) < 2:
+    if not successful_targets:
         return []
 
     try:
