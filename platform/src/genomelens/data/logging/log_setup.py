@@ -6,6 +6,8 @@ from __future__ import annotations
 import hashlib
 import logging
 import sys
+from collections.abc import Generator
+from contextlib import contextmanager
 from pathlib import Path
 
 # endregion
@@ -93,3 +95,27 @@ def setup_logging(
         logger.addHandler(file_handler)
 
     return logger
+
+
+@contextmanager
+def run_with_logging(
+    log_file: str | Path,
+    *,
+    level: str = "INFO",
+    console: bool = True,
+    concise: bool = True,
+) -> Generator[logging.Logger, None, None]:
+    """Setup logging for a run and guarantee cleanup via a context manager."""
+
+    logger_name = logger_name_for_path(log_file)
+    logger = setup_logging(
+        log_file,
+        level=level,
+        logger_name=logger_name,
+        console=console,
+        concise=concise,
+    )
+    try:
+        yield logger
+    finally:
+        close_logging(logger_name)

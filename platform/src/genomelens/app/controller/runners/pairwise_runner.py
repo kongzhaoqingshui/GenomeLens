@@ -21,7 +21,6 @@ from genomelens.app.controller.runners._shared import (
     write_run_summary,
 )
 from genomelens.app.controller.state_machine import WorkflowState
-from genomelens.app.errors import messages
 from genomelens.app.errors.error_codes import ErrorCode
 from genomelens.app.errors.exceptions import ToolchainError
 from genomelens.core.jcvi_adapter.adapter import JcviEngineAdapter
@@ -34,18 +33,8 @@ from genomelens.core.visualization.figure_archiver import archive_figures
 from genomelens.data.logging.log_setup import close_logging, logger_name_for_path, setup_logging
 from genomelens.data.logging.task_log import task_scope
 from genomelens.data.workspace.output_layout import OutputLayout, build_output_layout, create_output_layout
-from genomelens.toolchain.runtime.platform_names import (
-    blastn_candidates,
-    lastal_candidates,
-    lastdb_candidates,
-    makeblastdb_candidates,
-)
-from genomelens.toolchain.runtime.resource_locator import (
-    LocatedResource,
-    locate_engine,
-    locate_tool,
-)
-from genomelens.toolchain.runtime.toolchain_installer import install_toolchain
+from genomelens.toolchain.runtime.resource_locator import LocatedResource
+from genomelens.toolchain.runtime.toolchain_resolver import resolve_pairwise_toolchain
 
 # endregion
 
@@ -102,47 +91,14 @@ def _resolve_pairwise_toolchain(
 ) -> tuple[LocatedResource, LocatedResource, LocatedResource, str, str]:
     """定位引擎与 BLAST/LAST 工具链，必要时自动安装 BLAST+"""
 
-    engine = locate_engine(explicit=request.jcvi_engine)
-    blastn = locate_tool("blast", explicit=request.blastn_path, packaged_names=blastn_candidates())
-    makeblastdb = locate_tool("blast", explicit=request.makeblastdb_path, packaged_names=makeblastdb_candidates())
-
-    if not blastn.ok or not makeblastdb.ok:
-        # BLAST+ 是当前主链必需依赖，因此先尝试自动安装，再决定是否报错
-        install_result = install_toolchain("blast")
-        if not install_result.ok:
-            raise ToolchainError(
-                messages.TOOLCHAIN_BLAST_NOT_FOUND.format(message=install_result.message),
-            )
-        blastn = locate_tool("blast", explicit=request.blastn_path, packaged_names=blastn_candidates())
-        makeblastdb = locate_tool("blast", explicit=request.makeblastdb_path, packaged_names=makeblastdb_candidates())
-
-    lastal_path = ""
-    lastdb_path = ""
-    if request.align_soft == "last":
-        lastal = locate_tool("last", explicit=request.lastal_path, packaged_names=lastal_candidates())
-        lastdb = locate_tool("last", explicit=request.lastdb_path, packaged_names=lastdb_candidates())
-        if not lastal.ok or not lastdb.ok:
-            raise ToolchainError(
-                messages.TOOLCHAIN_LAST_NOT_FOUND,
-                code=ErrorCode.TOOLCHAIN_MISSING,
-            )
-        lastal_path = lastal.path
-        lastdb_path = lastdb.path
-
-    if not engine.ok:
-        raise ToolchainError(
-            messages.TOOLCHAIN_ENGINE_NOT_FOUND.format(message=engine.message),
-        )
-    if not blastn.ok:
-        raise ToolchainError(
-            messages.TOOLCHAIN_GENERIC_NOT_FOUND.format(message=blastn.message),
-        )
-    if not makeblastdb.ok:
-        raise ToolchainError(
-            messages.TOOLCHAIN_GENERIC_NOT_FOUND.format(message=makeblastdb.message),
-        )
-
-    return engine, blastn, makeblastdb, lastal_path, lastdb_path
+    return resolve_pairwise_toolchain(
+        jcvi_engine=request.jcvi_engine,
+        blastn_path=request.blastn_path,
+        makeblastdb_path=request.makeblastdb_path,
+        lastal_path=request.lastal_path,
+        lastdb_path=request.lastdb_path,
+        align_soft=request.align_soft,
+    )
 
 
 def _resolve_pairwise_task_and_species(
