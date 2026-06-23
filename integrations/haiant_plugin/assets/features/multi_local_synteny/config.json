@@ -1,0 +1,86 @@
+{
+  "title": "GenomeLens 多物种局部共线性",
+  "title_en": "GenomeLens Multi-Species Local Synteny",
+  "description": "对应 ``jcvi.local_synteny_multi`` 子模块：在多个物种间以目标基因为中心绘制局部共线性总图。",
+  "description_en": "Matches the ``jcvi.local_synteny_multi`` submodule: draw a multi-species local synteny figure centered on target genes.",
+  "version": "v1.0.0",
+  "context": "多物种局部共线性总图",
+  "context_en": "Multi-species local synteny figure",
+  "env": "Python",
+  "outputType": "dir",
+  "params": [
+    {
+      "label": "输出目录",
+      "label_en": "Output Directory",
+      "key": "output_dir",
+      "valueType": "dir_selector",
+      "example_value": "output",
+      "description": "结果输出目录。",
+      "description_en": "Output directory for results."
+    },
+    {
+      "label": "Tracks",
+      "label_en": "Tracks",
+      "key": "tracks",
+      "valueType": "str",
+      "example_value": "[{\"name\": \"speciesA\", \"bed\": \"A.bed\"}]",
+      "description": "多物种轨道列表 JSON 字符串。",
+      "description_en": "Multi-species track list as a JSON string."
+    },
+    {
+      "label": "Blocks 文件",
+      "label_en": "Blocks File",
+      "key": "blocks",
+      "valueType": "file_selector",
+      "example_value": "all.blocks",
+      "description": "共线性 block 文件路径。",
+      "description_en": "Path to the synteny blocks file."
+    },
+    {
+      "label": "合并 BED 文件",
+      "label_en": "Merged BED File",
+      "key": "bed",
+      "valueType": "file_selector",
+      "example_value": "all.bed",
+      "description": "合并后的 BED 文件路径。",
+      "description_en": "Path to the merged BED file."
+    },
+    {
+      "label": "目标基因 ID",
+      "label_en": "Target Gene IDs",
+      "key": "target_genes",
+      "valueType": "str",
+      "example_value": "gene1,gene2",
+      "description": "目标基因 ID，多个用逗号分隔。",
+      "description_en": "Target gene IDs, comma-separated."
+    },
+    {
+      "label": "上游窗口基因数",
+      "label_en": "Upstream Window",
+      "key": "up",
+      "valueType": "int",
+      "example_value": 20,
+      "description": "目标基因上游取多少个基因。",
+      "description_en": "Number of genes upstream of each target gene."
+    },
+    {
+      "label": "下游窗口基因数",
+      "label_en": "Downstream Window",
+      "key": "down",
+      "valueType": "int",
+      "example_value": 20,
+      "description": "目标基因下游取多少个基因。",
+      "description_en": "Number of genes downstream of each target gene."
+    },
+    {
+      "label": "输出格式",
+      "label_en": "Output Format",
+      "key": "formats",
+      "valueType": "customer_selector",
+      "example_value": "svg",
+      "description": "输出图片格式。",
+      "description_en": "Output image format.",
+      "options": ["svg", "png", "pdf", "eps", "jpg"]
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "GenomeLens_Path": "C:/GenomeLens/GenomeLens.exe",
+  "output_dir": "output",
+  "formats": "svg",
+  "tracks": "[{\"name\": \"speciesA\", \"bed\": \"A.bed\"}]",
+  "blocks": "all.blocks",
+  "bed": "all.bed",
+  "target_genes": "gene1",
+  "up": 20,
+  "down": 20
+}

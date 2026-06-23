@@ -20,10 +20,10 @@ class McscanRequest:
     subject: GenomeInputSpec  # 目标/比较物种输入
     outdir: Path  # 工作流输出根目录
     additional_species: list[GenomeInputSpec] = field(default_factory=list)  # 除 query/subject 外的额外物种
-    threads: int = 4         # 并行线程数
-    min_block_size: int = 5  # 共线性 block 最小基因数
+    threads: int = 4          # 并行线程数
+    min_block_size: int = 5   # 共线性 block 最小基因数
     formats: list[str] = field(default_factory=lambda: ["svg"])  # 输出图件格式列表
-    jcvi_engine: str = ""  # 显式指定的 jcvi-genomelens 可执行文件路径
+    jcvi_engine: str = ""     # 显式指定的 jcvi-genomelens 可执行文件路径
     jcvi_workflow: str = "graphics_synteny"  # 要调用的 JCVI workflow 名称
     blastn_path: str = ""       # 显式指定的 blastn 路径
     makeblastdb_path: str = ""  # 显式指定的 makeblastdb 路径
@@ -37,7 +37,7 @@ class McscanRequest:
     # 同源搜索与共线性参数
     align_soft: str = "blast"  # 同源搜索后端（blast/last/diamond_blastp）
     dbtype: str = "nucl"       # 序列类型（nucl/prot）
-    cscore: float = 0.7        # 同源比对的 cscore 阈值
+    cscore: float = 0.7   # 同源比对的 cscore 阈值
     dist: int = 20             # 共线性锚点距离阈值
     iter: int = 1              # block 过滤迭代次数
 

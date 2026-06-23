@@ -145,12 +145,12 @@ def test_submodule_spec_to_json_is_serializable() -> None:
 # region OneStopWorkflowRegistry
 
 
-def test_onestop_registry_contains_pairwise_synteny() -> None:
+def test_onestop_registry_contains_synteny() -> None:
     registry = OneStopWorkflowRegistry()
-    spec = registry.get("pairwise_synteny")
+    spec = registry.get("synteny")
     assert spec is not None
-    assert spec.workflow_id == "pairwise_synteny"
-    assert spec.runner == "pairwise_runner"
+    assert spec.workflow_id == "synteny"
+    assert spec.runner == "synteny_router"
     assert "jcvi.mcscan_pairwise" in spec.equivalent_modules
     assert spec.optimization_notes
 
@@ -158,14 +158,7 @@ def test_onestop_registry_contains_pairwise_synteny() -> None:
 def test_onestop_registry_list_all_has_expected_workflows() -> None:
     registry = OneStopWorkflowRegistry()
     ids = {spec.workflow_id for spec in registry.list_all()}
-    expected = {
-        "pairwise_synteny",
-        "multi_species_synteny",
-        "reference_vs_targets",
-        "histogram_plot",
-        "heatmap_plot",
-    }
-    assert ids == expected
+    assert ids == {"synteny"}
 
 
 def test_onestop_registry_get_returns_none_for_unknown() -> None:
@@ -173,11 +166,11 @@ def test_onestop_registry_get_returns_none_for_unknown() -> None:
 
 
 def test_onestop_spec_to_json_is_serializable() -> None:
-    spec = get_onestop_registry().get("reference_vs_targets")
+    spec = get_onestop_registry().get("synteny")
     assert spec is not None
     data = spec.to_json()
-    assert data["workflow_id"] == "reference_vs_targets"
-    assert data["runner"] == "reference_vs_targets_runner"
+    assert data["workflow_id"] == "synteny"
+    assert data["runner"] == "synteny_router"
     assert "equivalent_modules" in data
     assert "optimization_notes" in data
 
@@ -231,15 +224,15 @@ def test_analysis_request_round_trip_with_one_stop_fields() -> None:
         {
             **_minimal_analysis_request_data(),
             "task_kind": "one_stop",
-            "one_stop_workflow_id": "pairwise_synteny",
+            "one_stop_workflow_id": "synteny",
         }
     )
     assert request.task_kind == "one_stop"
-    assert request.one_stop_workflow_id == "pairwise_synteny"
+    assert request.one_stop_workflow_id == "synteny"
 
     json_data = request.to_json()
     assert json_data["task_kind"] == "one_stop"
-    assert json_data["one_stop_workflow_id"] == "pairwise_synteny"
+    assert json_data["one_stop_workflow_id"] == "synteny"
 
 
 def test_analysis_request_round_trip_with_composition() -> None:
@@ -299,8 +292,7 @@ def test_list_one_stop_workflows_includes_expected() -> None:
     from genomelens.analysis.methods.registry import list_one_stop_workflows
 
     ids = {spec.workflow_id for spec in list_one_stop_workflows()}
-    assert "pairwise_synteny" in ids
-    assert "multi_species_synteny" in ids
+    assert "synteny" in ids
 
 
 # endregion

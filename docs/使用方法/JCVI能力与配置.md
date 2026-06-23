@@ -15,9 +15,9 @@ GenomeLens engine(引擎) 当前可调度的 workflow(工作流) 包括：
 
 兼容别名 `dotplot`、`heatmap`、`histogram` 和 `karyotype` 会被规范化为对应的 `graphics_*` workflow 名称。
 
-## 独立热图命令：`analyze workflow heatmap_plot`
+## 独立热图：`analyze submodule jcvi.graphics_heatmap`
 
-`graphics_heatmap` 不走 `mcscan` 的 `species[]` / `query` / `subject` 协议，而是作为独立绘图 workflow 由 `analyze workflow heatmap_plot` 调度。适用场景包括：
+`graphics_heatmap` 不走 `mcscan` 的 `species[]` / `query` / `subject` 协议，而是作为独立绘图子模块由 `analyze submodule jcvi.graphics_heatmap` 调度。适用场景包括：
 
 - 基因表达矩阵
 - 共线性分数矩阵
@@ -26,7 +26,8 @@ GenomeLens engine(引擎) 当前可调度的 workflow(工作流) 包括：
 命令形态：
 
 ```powershell
-GenomeLens.exe analyze workflow heatmap_plot <matrix.csv> <outdir> [options]
+GenomeLens.exe analyze submodule jcvi.graphics_heatmap `
+  --input-ports '{"matrix_csv":"matrix.csv"}' --output-dir <outdir> [options]
 ```
 
 当前支持的公开参数包括：
@@ -36,7 +37,7 @@ GenomeLens.exe analyze workflow heatmap_plot <matrix.csv> <outdir> [options]
 - `--dpi`：分辨率
 - `--params '{"cmap":"viridis","groups":true,"rowgroups":"groups.tsv","horizontalbar":true}'`：热图专属参数
 
-该命令仍通过 shell(外壳) 写出 `task_manifest_v2`，再调用 `jcvi-genomelens run --manifest ... --outdir ...`。输出目录中会保留：
+该命令通过 shell(外壳) 写出 `task_manifest_v2`，再调用 `jcvi-genomelens run --manifest ... --outdir ...`。输出目录中会保留：
 
 - `inputs/input_manifest.json`
 - `intermediate/jcvi/engine_run_summary.json`
@@ -50,7 +51,8 @@ GenomeLens.exe analyze workflow heatmap_plot <matrix.csv> <outdir> [options]
 常见用法：
 
 ```powershell
-GenomeLens.exe analyze workflow histogram_plot numbers.txt output `
+GenomeLens.exe analyze submodule jcvi.graphics_histogram `
+  --input-ports '{"numeric_files":["numbers.txt"]}' --output-dir output `
   --formats png,svg `
   --params '{"histogram_columns":[0],"histogram_bins":40,"histogram_title":"Ks histogram"}' `
   --force
@@ -67,6 +69,13 @@ GenomeLens.exe analyze workflow histogram_plot numbers.txt output `
 ## 一站式流程：多物种局部共线性分析
 
 HAIant/Tauri 侧如果只开放一个入口，建议把它命名为“GenomeLens 一站式 JCVI 多物种局部共线性分析”。这个入口不是单个 JCVI 命令，而是由 shell(外壳) 编排多个 pairwise worker(成对工作单元)，再由 engine(引擎) 调用真实 BLAST+ 与 JCVI 完成计算和绘图。
+
+CLI 入口：
+
+```powershell
+GenomeLens.exe analyze workflow synteny <input_dir> <output_dir> `
+  --reference <ref> --target-genes AT1G01010,AT1G01020 --up 20 --down 20 --force
+```
 
 用户视角只需要提供：
 
@@ -91,7 +100,7 @@ HAIant/Tauri 侧如果只开放一个入口，建议把它命名为“GenomeLens
 
 2. 参数归一化与参考物种选择
 
-   shell 会合并 CLI、配置文件和平台参数，确定参考物种、目标物种列表、线程数、比对后端、共线性参数和绘图参数。多物种局部共线性采用 `reference_vs_targets` 策略：固定一个参考物种，分别与每个目标物种运行局部共线性子任务。
+   shell 会合并 CLI、配置文件和平台参数，确定参考物种、目标物种列表、线程数、比对后端、共线性参数和绘图参数。多物种局部共线性采用 `reference_vs_targets` 策略（`synteny` 工作流在提供 `target_gene_ids` 时自动进入该路径）：固定一个参考物种，分别与每个目标物种运行局部共线性子任务。
 
 3. 输入校验与工作区创建
 

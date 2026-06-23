@@ -97,7 +97,7 @@ GenomeLens.exe analyze schema > analysis-request.schema.json
   "kind": "analysis_request",
   "method": "mcscan",
   "task_kind": "one_stop",
-  "one_stop_workflow_id": "pairwise_synteny",
+  "one_stop_workflow_id": "synteny",
   "input": { "mode": "auto_directory", "directory": "input" },
   "output": { "directory": "output", "force": true, "formats": ["svg"] },
   "config": {},
@@ -108,11 +108,9 @@ GenomeLens.exe analyze schema > analysis-request.schema.json
 
 可用的 `one_stop_workflow_id`：
 
-- `pairwise_synteny`
-- `multi_species_synteny`
-- `reference_vs_targets`
-- `histogram_plot`
-- `heatmap_plot`
+- `synteny`（根据输入自动路由：2 物种 → pairwise；≥3 物种 → 多物种聚合；提供 `target_gene_ids` → reference-vs-targets）
+
+直方图与热图等纯绘图能力请使用 `task_kind="sub_module"`，对应 `jcvi.graphics_histogram`、`jcvi.graphics_heatmap` 等子模块。
 
 ## sub_module：可编排子模块
 

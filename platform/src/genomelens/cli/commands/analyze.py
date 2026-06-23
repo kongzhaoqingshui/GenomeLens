@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import argparse
 import json
-from pathlib import Path
 
 from genomelens.analysis.dispatcher import AnalysisDispatcher
 from genomelens.analysis.methods.registry import (
@@ -67,8 +66,8 @@ def register(subparsers: argparse._SubParsersAction) -> None:
 def _register_workflow_command(nested: argparse._SubParsersAction) -> None:
     """注册 `analyze workflow` 一站式工作流命令"""
 
-    workflow_parser = nested.add_parser("workflow", help="Run a one-stop workflow")
-    workflow_parser.add_argument("workflow_id", help="One-stop workflow ID, e.g. pairwise_synteny")
+    workflow_parser = nested.add_parser("workflow", help="Run the integrated synteny one-stop workflow")
+    workflow_parser.add_argument("workflow_id", help="One-stop workflow ID, e.g. synteny")
     workflow_parser.add_argument("input", help="Input directory or primary file")
     workflow_parser.add_argument("output_dir", help="Output directory")
     workflow_parser.add_argument("-c", "--config", default="", help="GenomeLens project config JSON path")
@@ -290,7 +289,7 @@ def _base_mcscan_namespace(args: argparse.Namespace, *, jcvi_workflow: str) -> a
 
 
 def _run_one_stop_workflow(args: argparse.Namespace) -> int:
-    """执行一站式工作流"""
+    """执行单一集成一站式工作流"""
 
     registry = get_onestop_registry()
     spec = registry.get(args.workflow_id)
@@ -298,30 +297,21 @@ def _run_one_stop_workflow(args: argparse.Namespace) -> int:
         raise InputValidationError(f"未知的一站式工作流：{args.workflow_id}")
 
     params = _parse_params(args.params)
-
-    if args.workflow_id == "histogram_plot":
-        request = _build_histogram_one_stop_request(args, params)
-    elif args.workflow_id == "heatmap_plot":
-        request = _build_heatmap_one_stop_request(args, params)
-    else:
-        request = _build_mcscan_one_stop_request(args, params)
+    request = _build_synteny_one_stop_request(args, params)
 
     json_output = bool(args.json)
     summary = _dispatch_request(request, json_output=json_output)
     return _print_summary(summary, json_output=json_output)
 
 
-def _build_mcscan_one_stop_request(args: argparse.Namespace, params: dict[str, object]) -> AnalysisRequest:
-    """为 MCscan 类一站式工作流构造 AnalysisRequest"""
+def _build_synteny_one_stop_request(args: argparse.Namespace, params: dict[str, object]) -> AnalysisRequest:
+    """为 synteny 一站式工作流构造 AnalysisRequest
 
-    # reference_vs_targets 需要 pairwise 子任务产出局部共线性产物，
-    # 因此底层 JCVI workflow 使用 local_synteny；其余 MCscan 类工作流默认 graphics_synteny
-    if args.workflow_id == "reference_vs_targets":
-        jcvi_workflow = "local_synteny"
-    else:
-        jcvi_workflow = "graphics_synteny"
+    底层实际执行路径由 OneStopWorkflowRunner 根据物种数与目标基因自动路由，
+    CLI 层只需统一构造 mcscan 请求并标记 one_stop_workflow_id="synteny"。
+    """
 
-    ns = _base_mcscan_namespace(args, jcvi_workflow=jcvi_workflow)
+    ns = _base_mcscan_namespace(args, jcvi_workflow="graphics_synteny")
     request = mcscan_auto_request_from_cli(ns)
     method_config = dict(request.method_config)
     method_config.update(params)
@@ -335,62 +325,7 @@ def _build_mcscan_one_stop_request(args: argparse.Namespace, params: dict[str, o
         schema_version=request.schema_version,
         kind=request.kind,
         task_kind="one_stop",
-        one_stop_workflow_id=args.workflow_id,
-    )
-
-
-def _build_histogram_one_stop_request(args: argparse.Namespace, params: dict[str, object]) -> AnalysisRequest:
-    """为 histogram_plot 一站式工作流构造 AnalysisRequest"""
-
-    ns = _base_mcscan_namespace(args, jcvi_workflow="graphics_histogram")
-    request = mcscan_auto_request_from_cli(ns)
-    method_config = dict(request.method_config)
-    method_config.update(params)
-    return AnalysisRequest(
-        method=request.method,
-        input=request.input,
-        output=request.output,
-        config=request.config,
-        options=request.options,
-        method_config=method_config,
-        schema_version=request.schema_version,
-        kind=request.kind,
-        task_kind="one_stop",
-        one_stop_workflow_id="histogram_plot",
-    )
-
-
-def _build_heatmap_one_stop_request(args: argparse.Namespace, params: dict[str, object]) -> AnalysisRequest:
-    """为 heatmap_plot 一站式工作流构造 AnalysisRequest"""
-
-    matrix = Path(args.input).expanduser().resolve(strict=False)
-    if not matrix.is_file():
-        raise InputValidationError(f"热图矩阵文件不存在：{matrix}")
-
-    config_ref = AnalysisConfigRef(project_config=args.config, method_config=args.jcvi_config)
-    method_config = McscanMethodConfig(
-        workflow="graphics_heatmap",
-        jcvi_engine=args.jcvi_engine,
-        matrix=str(matrix),
-    ).to_json()
-    method_config.update(params)
-    # --params 中的 rowgroups 对应 McscanMethodConfig.jcvi_layout
-    if "rowgroups" in method_config:
-        method_config["jcvi_layout"] = method_config.pop("rowgroups")
-
-    return AnalysisRequest(
-        method="mcscan",
-        input=AnalysisInput(mode="method_specific", directory=str(matrix), species=[]),
-        output=AnalysisOutput(
-            directory=args.output_dir,
-            force=bool(args.force),
-            formats=_resolve_formats(args.formats, args.config),
-        ),
-        config=config_ref,
-        options=AnalysisOptions(preset="auto"),
-        method_config=method_config,
-        task_kind="one_stop",
-        one_stop_workflow_id="heatmap_plot",
+        one_stop_workflow_id="synteny",
     )
 
 

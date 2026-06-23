@@ -535,4 +535,5 @@ def get_submodule_registry() -> SubModuleRegistry:
     global _SUBMODULE_REGISTRY
     if _SUBMODULE_REGISTRY is None:
         _SUBMODULE_REGISTRY = SubModuleRegistry()
+    assert _SUBMODULE_REGISTRY is not None
     return _SUBMODULE_REGISTRY

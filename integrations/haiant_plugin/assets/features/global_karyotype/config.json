@@ -1,0 +1,50 @@
+{
+  "title": "GenomeLens 全局核型图",
+  "title_en": "GenomeLens Global Karyotype",
+  "description": "对应 ``jcvi.graphics_karyotype_global`` 子模块：基于 tracks 与 edges 聚合全局核型总图。",
+  "description_en": "Matches the ``jcvi.graphics_karyotype_global`` submodule: aggregate a global karyotype figure from tracks and edges.",
+  "version": "v1.0.0",
+  "context": "全局核型总图",
+  "context_en": "Global karyotype figure",
+  "env": "Python",
+  "outputType": "dir",
+  "params": [
+    {
+      "label": "输出目录",
+      "label_en": "Output Directory",
+      "key": "output_dir",
+      "valueType": "dir_selector",
+      "example_value": "output",
+      "description": "结果输出目录。",
+      "description_en": "Output directory for results."
+    },
+    {
+      "label": "Tracks",
+      "label_en": "Tracks",
+      "key": "tracks",
+      "valueType": "str",
+      "example_value": "[{\"name\": \"speciesA\", \"bed\": \"A.bed\"}]",
+      "description": "轨道列表 JSON 字符串（每个 track 包含 name 与 bed 路径）。",
+      "description_en": "Track list as a JSON string (each track has name and bed path)."
+    },
+    {
+      "label": "Edges",
+      "label_en": "Edges",
+      "key": "edges",
+      "valueType": "str",
+      "example_value": "[{\"i\": 0, \"j\": 1, \"simple\": \"A__B.simple\"}]",
+      "description": "共线性边列表 JSON 字符串（每个 edge 包含 i/j/simple 路径）。",
+      "description_en": "Synteny edge list as a JSON string (each edge has i/j/simple path)."
+    },
+    {
+      "label": "输出格式",
+      "label_en": "Output Format",
+      "key": "formats",
+      "valueType": "customer_selector",
+      "example_value": "svg",
+      "description": "输出图片格式。",
+      "description_en": "Output image format.",
+      "options": ["svg", "png", "pdf", "eps", "jpg"]
+    }
+  ]
+}

@@ -1,0 +1,77 @@
+{
+  "title": "GenomeLens 热图",
+  "title_en": "GenomeLens Heatmap",
+  "description": "对应 ``jcvi.graphics_heatmap`` 子模块：将矩阵 CSV 渲染为热图。",
+  "description_en": "Matches the ``jcvi.graphics_heatmap`` submodule: render a matrix CSV as a heatmap.",
+  "version": "v1.0.0",
+  "context": "矩阵热图",
+  "context_en": "Matrix heatmap",
+  "env": "Python",
+  "outputType": "dir",
+  "params": [
+    {
+      "label": "矩阵 CSV",
+      "label_en": "Matrix CSV",
+      "key": "input_file",
+      "valueType": "file_selector",
+      "example_value": "matrix.csv",
+      "description": "待渲染的矩阵 CSV 文件路径。",
+      "description_en": "Path to the matrix CSV file to render."
+    },
+    {
+      "label": "输出目录",
+      "label_en": "Output Directory",
+      "key": "output_dir",
+      "valueType": "dir_selector",
+      "example_value": "output",
+      "description": "结果输出目录。",
+      "description_en": "Output directory for results."
+    },
+    {
+      "label": "输出格式",
+      "label_en": "Output Format",
+      "key": "formats",
+      "valueType": "customer_selector",
+      "example_value": "svg",
+      "description": "输出图片格式。",
+      "description_en": "Output image format.",
+      "options": ["svg", "png", "pdf", "eps", "jpg"]
+    },
+    {
+      "label": "colormap",
+      "label_en": "Colormap",
+      "key": "cmap",
+      "valueType": "str",
+      "example_value": "jet",
+      "description": "matplotlib colormap，例如 jet / viridis。",
+      "description_en": "matplotlib colormap, e.g. jet / viridis."
+    },
+    {
+      "label": "行分组文件",
+      "label_en": "Row Groups File",
+      "key": "rowgroups",
+      "valueType": "file_selector",
+      "example_value": "",
+      "description": "行分组 TSV 文件路径。",
+      "description_en": "Path to row groups TSV file."
+    },
+    {
+      "label": "首行作为列分组",
+      "label_en": "Groups",
+      "key": "groups",
+      "valueType": "bool",
+      "example_value": false,
+      "description": "是否将首行作为列分组。",
+      "description_en": "Whether to use the first row as column groups."
+    },
+    {
+      "label": "水平色条",
+      "label_en": "Horizontal Bar",
+      "key": "horizontalbar",
+      "valueType": "bool",
+      "example_value": false,
+      "description": "是否显示水平色条。",
+      "description_en": "Whether to display a horizontal color bar."
+    }
+  ]
+}

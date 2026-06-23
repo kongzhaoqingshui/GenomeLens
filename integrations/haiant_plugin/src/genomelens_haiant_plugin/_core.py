@@ -347,6 +347,82 @@ def write_analysis_request(
     return target
 
 
+def build_submodule_analysis_request(
+    params: Mapping[str, object],
+    base: Path,
+    *,
+    sub_module_id: str,
+    port_bindings: dict[str, object],
+    extra_method_config: dict[str, object] | None = None,
+) -> dict[str, object]:
+    """Translate HAIant params into a ``task_kind=sub_module`` AnalysisRequest payload."""
+
+    output_dir = Path(resolve_param_path(base, params.get("output_dir") or "output"))
+    method_config: dict[str, object] = dict(extra_method_config or {})
+    return {
+        "schema_version": 1,
+        "kind": "analysis_request",
+        "method": "mcscan",
+        "task_kind": "sub_module",
+        "sub_module_id": sub_module_id,
+        "port_bindings": port_bindings,
+        "input": {
+            "mode": "method_specific",
+            "directory": "",
+            "species": [],
+            "reference_index": 0,
+        },
+        "output": {
+            "directory": str(output_dir),
+            "force": parse_bool(params.get("force", True)),
+            "formats": _parse_formats(params.get("formats")),
+        },
+        "config": {
+            "project_config": _optional_path(base, params.get("config")),
+            "method_config": _optional_path(base, params.get("jcvi_config")),
+        },
+        "options": {
+            "preset": "auto",
+            "threads": _int_value(
+                params.get("threads"), default=4, label="threads", minimum=1
+            ),
+            "min_block_size": _int_value(
+                params.get("min_block_size"),
+                default=5,
+                label="min_block_size",
+                minimum=1,
+            ),
+        },
+        "method_config": method_config,
+    }
+
+
+def write_submodule_request(
+    params: Mapping[str, object],
+    base: Path,
+    *,
+    sub_module_id: str,
+    port_bindings: dict[str, object],
+    extra_method_config: dict[str, object] | None = None,
+) -> Path:
+    """Write genomelens_request.json for a submodule plugin entry."""
+
+    request = build_submodule_analysis_request(
+        params,
+        base,
+        sub_module_id=sub_module_id,
+        port_bindings=port_bindings,
+        extra_method_config=extra_method_config,
+    )
+    output_dir = Path(resolve_param_path(base, params.get("output_dir") or "output"))
+    output_dir.mkdir(parents=True, exist_ok=True)
+    target = output_dir / "genomelens_request.json"
+    target.write_text(
+        json.dumps(request, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+    )
+    return target
+
+
 def setup_adapter_logging(
     output_dir: str | Path, *, logger_name: str = LOGGER_NAME
 ) -> logging.Logger:
@@ -444,7 +520,7 @@ def build_auto_jcvi_config(
     base: Path,
     output_dir: str | Path,
 ) -> Path:
-    """Dynamically build ``jcvi.config.json`` for the ``analyze mcscan jcvi`` auto flow.
+    """Dynamically build ``jcvi.config.json`` for the ``analyze workflow synteny`` flow.
 
     The config is derived from the HAIant ``params.json`` and the species auto-discovered
     from ``input_dir``.  No per-species request files are generated.
@@ -532,7 +608,7 @@ def build_mcscan_jcvi_command(
     output_dir: str | Path,
     jcvi_config_path: str | Path,
     *,
-    workflow_id: str = "pairwise_synteny",
+    workflow_id: str = "synteny",
 ) -> list[str]:
     """Build the ``<GenomeLens.exe> analyze workflow <workflow_id> <in> <out> --jcvi-config ...`` argv."""
 

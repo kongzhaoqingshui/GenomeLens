@@ -553,7 +553,7 @@ def render_workbench_banner(*, color: bool | None = None) -> str:
 
     # 工作台支持的常用命令示例
     commands = [
-        ("analyze workflow pairwise_synteny <in> <out>", "自动发现物种并运行共线性分析"),
+        ("analyze workflow", "运行一站式共线性分析"),
         ("analyze run <request.json>", "运行外部 AnalysisRequest"),
         ("analyze template mcscan", "输出 JSON 请求示例"),
         ("check", "检查环境与工具链"),

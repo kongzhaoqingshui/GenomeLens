@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Self
 
 from genomelens.core.json_utils import (
     _bool,
@@ -54,7 +55,7 @@ class AnalysisSpeciesInput:
         return data
 
     @classmethod
-    def from_json(cls, data: dict[str, object]) -> AnalysisSpeciesInput:
+    def from_json(cls, data: dict[str, object]) -> Self:
         """从 JSON object(JSON 对象) 读取"""
 
         return cls(
@@ -90,7 +91,7 @@ class AnalysisInput:
         return data
 
     @classmethod
-    def from_json(cls, data: dict[str, object]) -> AnalysisInput:
+    def from_json(cls, data: dict[str, object]) -> Self:
         species = _dict_list(data.get("species"))
 
         return cls(
@@ -119,7 +120,7 @@ class AnalysisOutput:
         }
 
     @classmethod
-    def from_json(cls, data: dict[str, object]) -> AnalysisOutput:
+    def from_json(cls, data: dict[str, object]) -> Self:
         return cls(
             directory=_str(data.get("directory")),
             force=_bool(data.get("force"), default=False),
@@ -143,7 +144,7 @@ class AnalysisConfigRef:
         }
 
     @classmethod
-    def from_json(cls, data: dict[str, object]) -> AnalysisConfigRef:
+    def from_json(cls, data: dict[str, object]) -> Self:
         return cls(
             project_config=_str(data.get("project_config")),
             method_config=_str(data.get("method_config")),
@@ -179,7 +180,7 @@ class AnalysisOptions:
         }
 
     @classmethod
-    def from_json(cls, data: dict[str, object]) -> AnalysisOptions:
+    def from_json(cls, data: dict[str, object]) -> Self:
         return cls(
             preset=_str(data.get("preset"), default="auto"),
             threads=_optional_int(data.get("threads")),
@@ -209,7 +210,7 @@ class McscanMethodConfig:
     # 同源搜索与共线性参数
     align_soft: str = "blast"  # 同源搜索后端
     dbtype: str = "nucl"       # 序列类型
-    cscore: float = 0.7        # 同源比对 cscore 阈值
+    cscore: float = 0.7   # 同源比对 cscore 阈值
     dist: int = 20             # 共线性锚点距离阈值
     iter: int = 1              # block 过滤迭代次数
     # 目标基因局部共线性参数

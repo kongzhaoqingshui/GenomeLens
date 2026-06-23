@@ -1,0 +1,86 @@
+{
+  "title": "GenomeLens 直方图",
+  "title_en": "GenomeLens Histogram",
+  "description": "对应 ``jcvi.graphics_histogram`` 子模块：将数值文件渲染为直方图。",
+  "description_en": "Matches the ``jcvi.graphics_histogram`` submodule: render numeric files as histograms.",
+  "version": "v1.0.0",
+  "context": "数值分布直方图",
+  "context_en": "Numeric distribution histogram",
+  "env": "Python",
+  "outputType": "dir",
+  "params": [
+    {
+      "label": "输入文件",
+      "label_en": "Input Files",
+      "key": "input_files",
+      "valueType": "str",
+      "example_value": "data1.txt,data2.txt",
+      "description": "待绘制的数值文件路径，多个文件用逗号分隔。",
+      "description_en": "Numeric file paths to plot, comma-separated."
+    },
+    {
+      "label": "输出目录",
+      "label_en": "Output Directory",
+      "key": "output_dir",
+      "valueType": "dir_selector",
+      "example_value": "output",
+      "description": "结果输出目录。",
+      "description_en": "Output directory for results."
+    },
+    {
+      "label": "输出格式",
+      "label_en": "Output Format",
+      "key": "formats",
+      "valueType": "customer_selector",
+      "example_value": "svg",
+      "description": "输出图片格式。",
+      "description_en": "Output image format.",
+      "options": ["svg", "png", "pdf", "eps", "jpg"]
+    },
+    {
+      "label": "bin 数",
+      "label_en": "Bin Count",
+      "key": "histogram_bins",
+      "valueType": "int",
+      "example_value": 20,
+      "description": "直方图 bin 数量。",
+      "description_en": "Number of histogram bins."
+    },
+    {
+      "label": "读取列号",
+      "label_en": "Columns",
+      "key": "histogram_columns",
+      "valueType": "str",
+      "example_value": "0",
+      "description": "读取的列号，多个用逗号分隔。",
+      "description_en": "Column indices to read, comma-separated."
+    },
+    {
+      "label": "X 轴标签",
+      "label_en": "X-axis Label",
+      "key": "histogram_xlabel",
+      "valueType": "str",
+      "example_value": "value",
+      "description": "X 轴标签。",
+      "description_en": "X-axis label."
+    },
+    {
+      "label": "图标题",
+      "label_en": "Title",
+      "key": "histogram_title",
+      "valueType": "str",
+      "example_value": "",
+      "description": "图标题。",
+      "description_en": "Figure title."
+    },
+    {
+      "label": "柱体填充色",
+      "label_en": "Fill Color",
+      "key": "histogram_fill",
+      "valueType": "str",
+      "example_value": "white",
+      "description": "柱体填充色。",
+      "description_en": "Bar fill color."
+    }
+  ]
+}

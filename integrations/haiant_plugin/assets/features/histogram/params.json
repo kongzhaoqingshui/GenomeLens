@@ -1,0 +1,11 @@
+{
+  "GenomeLens_Path": "C:/GenomeLens/GenomeLens.exe",
+  "input_files": "data.txt",
+  "output_dir": "output",
+  "formats": "svg",
+  "histogram_bins": 20,
+  "histogram_columns": "0",
+  "histogram_xlabel": "value",
+  "histogram_title": "",
+  "histogram_fill": "white"
+}

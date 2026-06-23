@@ -1,12 +1,16 @@
-# gljcvi-synteny — 双物种共线性图插件
+# gljcvi-auto — MCscan JCVI 一键自动流插件
 
 ## 概述
 
-`gljcvi-synteny` 是 GenomeLens 在 HAIant（智然体）平台上的**双物种共线性图**插件。它把 `params.json` 翻译成 GenomeLens `AnalysisRequest`，调用外部 `GenomeLens.exe` 执行 `analyze run`，最终基于 JCVI `graphics_synteny` 生成双物种共线性图。
+`gljcvi-auto` 是 GenomeLens 在 HAIant（智然体）平台上的 **MCscan JCVI 一键自动流** 插件。它根据 `params.json` 动态生成 `output/jcvi.config.json`，并直接调用外部 `GenomeLens.exe`：
 
-与共线性点图不同，共线性图（synteny figure）以染色体条带或轨道的形式展示两个物种之间的保守基因区块（syntenic blocks），并通过连线把同源基因对连接起来。它更强调已识别的共线性区块及其在染色体上的相对位置，是发表级比较基因组学文章中最常用的图型之一。
+```text
+<GenomeLens_Path> analyze mcscan jcvi <input_dir> <output_dir> output/jcvi.config.json
+```
 
-本目录是 `gljcvi-synteny` 插件包内容：
+与其他单一功能插件不同，`gljcvi-auto` **不生成 `genomelens_request.json`**，也不走 `analyze run` 流程。它封装了 GenomeLens 原生的 `analyze mcscan jcvi` 自动目录分析命令，自动完成物种发现、比对、共线性识别、绘图或局部共线性出图。
+
+本目录是 `gljcvi-auto` 插件包内容：
 
 - `config.json`：HAIant 表单元数据。
 - `params.json`：可运行的示例参数。
@@ -14,62 +18,114 @@
 
 插件本身不携带 GenomeLens 运行时或工具链，需单独安装 GenomeLens 并提供可执行文件路径。
 
+---
+
 ## 生物学意义
 
-- **保守基因顺序**：共线性区块代表两个物种从共同祖先继承下来的保守基因排列。区块越大、越连续，说明基因组结构越保守。
-- **染色体结构变异**：通过观察同源区块在参考物种与目标物种染色体上的排列，可以推断倒位、易位、染色体融合/断裂等事件。
-- **重复与缺失**：某些区块的复制、片段缺失或物种特异性插入会在图中表现为连线中断、区块大小变化或孤立区块。
-- **下游基因家族研究**：在识别目标基因所在的共线性区块后，可以进一步挖掘旁系同源和直系同源，支撑基因功能演化研究。
+比较基因组学的标准分析链路通常包括：序列比对() → 同源过滤 → 共线性区块识别 → 可视化出图。对于常规的物种对或物种集比较，研究者往往不需要反复调整每个子步骤的参数，只需要一条稳定的端到端流程即可获得全局或局部的共线性结果。
 
-## 固定工作流
+`gljcvi-auto` 的价值在于：
+
+- **降低使用门槛**：无需分别学习多个子命令的调用方式。
+- **标准化分析流程**：自动复用 GenomeLens `analyze mcscan jcvi` 的目录发现、物种解析、比对、过滤、出图逻辑。
+- **兼顾全局与局部**：未指定目标基因时输出全局共线性图；指定目标基因后自动切换到局部共线性图。
+- **一致的环境复用**：与所有 HAIant 插件共享同一份外部 GenomeLens 安装。
+
+---
+
+## 工作流自动切换逻辑
 
 ```text
-workflow = graphics_synteny
+未填写 target_gene_ids  →  workflow = graphics_synteny（全局共线性图）
+填写 target_gene_ids    →  workflow = local_synteny（目标基因局部共线性图）
 ```
 
-## 输入文件说明
+---
 
-### BED + CDS/PEP 模式
+## 输入目录使用方法说明
+
+`gljcvi-auto` 的输入是一个**普通文件夹**，只需把要分析的物种文件按规则放进去即可。系统会自动识别文件、配对物种、选择输入模式。
+
+### 支持的文件组合（可混用）
+
+每个物种需要**一组**文件，以下两种组合任选其一，同一个文件夹里也可以混着放：
+
+| 组合 | 需要的文件 | 说明 |
+|---|---|---|
+| BED + CDS/PEP | `物种名.bed` + `物种名.cds` | 最常用；CDS 也支持 `.cds.fa`、`.cds.fasta`；蛋白序列支持 `.pep`、`.pep.fa`、`.pep.fasta`、`.faa` |
+| GFF/GTF + 基因组 FASTA | `物种名.gff3` + `物种名.fa` | 也支持 `.gff`、`.gtf`、`.fasta`、`.fna` |
+
+### 命名的唯一规则：同一物种文件名前缀相同
+
+系统靠**去掉扩展名后的文件名前缀**来配对。例如：
 
 ```text
 input/
-├── speciesA.bed
-├── speciesA.cds
-├── speciesB.bed
-└── speciesB.cds
+├── Athaliana.bed
+├── Athaliana.cds
+├── Brapa.bed
+├── Brapa.cds
+├── Crubella.gff3
+└── Crubella.fa
 ```
 
-- **`.bed`**：基因坐标文件，至少包含 `chr`、`start`、`end`、`gene_id`。
-- **`.cds`**：CDS 序列 FASTA，基因 ID 需与 BED 一致；也支持 `.pep`、`.pep.fa`、`.faa`。
+- `Athaliana.bed` 和 `Athaliana.cds` 会被识别为物种 **Athaliana**。
+- `Brapa.bed` 和 `Brapa.cds` 会被识别为物种 **Brapa**。
+- `Crubella.gff3` 和 `Crubella.fa` 会被识别为物种 **Crubella**。
+- 这个例子是 **BED/CDS 和 GFF/FA 混用**，`gljcvi-auto` 会自动处理。
 
-### GFF/GTF + 基因组 FASTA 模式
+### 自动处理规则
+
+1. **至少两个物种**：文件夹里必须能成功配出 ≥2 个物种，否则会报错。
+2. **自动配对**：只要前缀相同，系统就会自己找对应的 `.bed`/`.cds` 或 `.gff`/`.fa`。
+3. **混用优先 BED+CDS**：如果某个物种同时存在 BED+CDS 和 GFF+FA，系统会优先使用 BED+CDS。
+
+### 常见错误
+
+- **文件前缀不同**：`Athaliana.bed` 配 `Ath.cds` → 系统会认为这是两个物种，且配对失败。
+- **只有一个物种** → 报 “输入物种不足”。
+- **缺少 CDS 或基因组 FASTA** → 该物种无法被识别。
+
+### 完整示例
 
 ```text
-input/
-├── speciesA.gff3
-├── speciesA.fa
-├── speciesB.gff3
-└── speciesB.fa
+my_project/
+├── params.json
+└── input/
+    ├── Arabidopsis.bed
+    ├── Arabidopsis.cds
+    ├── Brassica.gff3
+    └── Brassica.fa
 ```
 
-- **`.gff3` / `.gtf`**：基因结构注释。
-- **`.fa` / `.fasta`**：基因组序列，序列 ID 需与 GFF 中 `seqid` 匹配。
+对应的 `params.json`：
 
-### 输入目录要求
+```json
+{
+  "GenomeLens_Path": "C:/GenomeLens/GenomeLens.exe",
+  "input_dir": "input",
+  "output_dir": "output",
+  "reference": "1"
+}
+```
 
-- 同一目录内恰好包含两个物种。
-- 相对路径以 `params.json` 所在目录为基准解析。
+系统会自动：
+
+1. 识别 `Arabidopsis`（BED+CDS）和 `Brassica`（GFF+FA）。
+2. 默认把排序后的第一个物种（`Arabidopsis`）作为参考物种。
+3. 开始自动分析。
+
+---
 
 ## 主要参数说明
 
 | 参数 | 类型 | 必填 | 默认值 | 说明 |
 |------|------|------|--------|------|
-| `GenomeLens_Path` | file | 是* | — | 外部 GenomeLens 路径 |
 | `input_dir` | dir | 是* | — | 输入目录 |
 | `output_dir` | dir | 否 | `output` | 输出目录 |
 | `reference` | str/int | 否 | `1` | 参考物种 |
 | `threads` | int | 否 | `4` | 线程数 |
-| `min_block_size` | int | 否 | `1` | 保留共线性 block 的最小基因数 |
+| `min_block_size` | int | 否 | `1` | 最小 block 基因数 |
 | `formats` | enum | 否 | `svg` | 输出格式 |
 | `align_soft` | enum | 否 | `blast` | 比对后端 |
 | `dbtype` | enum | 否 | `nucl` | 序列类型 |
@@ -81,30 +137,53 @@ input/
 | `shadestyle` | enum | 否 | `""` | 连线样式：`curve` / `line` |
 | `figsize` | str | 否 | `""` | 画布尺寸 |
 | `dpi` | int | 否 | `300` | 分辨率 |
-| `optimize_figsize` | bool | 否 | `false` | 自动推导尺寸 |
-| `rewrite_layout_links` | bool | 否 | `false` | 改写 layout 连线 |
-| `optimize_karyotype_labels` | bool | 否 | `false` | 优化核型标签 |
+| `optimize_auto` | bool | 否 | `false` | 一键开启图件尺寸、layout 连线、核型标签三项自动优化 |
+| `allow_simplified_fallback` | bool | 否 | `false` | 诊断开关；正式流程保持关闭 |
+| `use_native_local_synteny_renderer` | bool | 否 | `false` | 局部共线性模式下使用原生 matplotlib 渲染器 |
 
-\* `GenomeLens_Path` 未设置时读取 `GENOMELENS_EXE`。
+---
+
+## 局部共线性专属参数
+
+填写 `target_gene_ids` 时生效：
+
+| 参数 | 类型 | 必填 | 默认值 | 说明 |
+|------|------|------|--------|------|
+| `target_gene_ids` | str | 否 | `""` | 目标基因 ID，多个用逗号分隔 |
+| `up` | int | 否 | `20` | 上游窗口基因数 |
+| `down` | int | 否 | `20` | 下游窗口基因数 |
+| `split_targets` | bool | 否 | `false` | 每个目标单独出图（`gljcvi-auto` 默认单图全出） |
+| `label_targets` | bool | 否 | `false` | 在图中标注目标基因 |
 
 完整字段映射参见 [`../../PARAMETER_MAPPING.md`](../../PARAMETER_MAPPING.md)。
+
+---
 
 ## 输出文件说明
 
 ```text
 output/
-├── genomelens_request.json
-├── run.log
-└── results/figures/
-    ├── query.subject.synteny.svg    # 共线性图主文件
-    └── ...
+├── jcvi.config.json             # 自动生成的 MCscan JCVI 配置
+├── run.log                      # 运行日志
+├── intermediates.zip            # 中间文件归档（可安全删除）
+├── intermediates.zip.deletable  # 可删除标记
+└── results/
+    └── figures/
+        ├── query.subject.synteny.svg    # 全局共线性图（未填 target_gene_ids）
+        └── local_synteny.<target>.svg   # 局部共线性图（填写 target_gene_ids）
 ```
 
-- `genomelens_request.json`：可重放的请求 JSON。
-- `run.log`：运行日志。
-- `results/figures/`：最终共线性图文件。
+- **`jcvi.config.json`**：由插件根据 `params.json` 动态生成的 MCscan JCVI 配置文件，schema_version = 2。可直接用于 `GenomeLens.exe analyze mcscan jcvi` CLI。
+- **`run.log`**：插件与外部 GenomeLens 的运行日志。
+- **`results/figures/`**：最终图片文件。全局模式下为共线性图；局部模式下为局部共线性图。
+- **`intermediates.zip`**：分析完成后，插件把除 `results` 外的中间文件（比对数据库、anchors、blocks、临时图等）打包到此压缩包。
+- **`intermediates.zip.deletable`**：标记文件，提示用户可以安全删除 `intermediates.zip` 以释放空间。
+
+---
 
 ## 使用示例
+
+### 全局共线性模式
 
 ```json
 {
@@ -118,11 +197,28 @@ output/
   "align_soft": "blast",
   "cscore": 0.7,
   "dist": 20,
-  "glyphstyle": "arrow",
-  "glyphcolor": "orientation",
-  "shadestyle": "curve",
-  "figsize": "10x5",
-  "dpi": 300
+  "optimize_auto": true
+}
+```
+
+### 局部共线性模式
+
+```json
+{
+  "GenomeLens_Path": "C:/GenomeLens/GenomeLens.exe",
+  "input_dir": "input",
+  "output_dir": "output",
+  "reference": "1",
+  "threads": 8,
+  "min_block_size": 5,
+  "formats": "svg",
+  "align_soft": "blast",
+  "cscore": 0.7,
+  "target_gene_ids": "geneA",
+  "up": 15,
+  "down": 15,
+  "label_targets": true,
+  "use_native_local_synteny_renderer": true
 }
 ```
 
@@ -133,17 +229,23 @@ main.exe params.json
 等价 CLI：
 
 ```powershell
-GenomeLens.exe analyze mcscan jcvi graphics_synteny input output --force
+GenomeLens.exe analyze mcscan jcvi input output output\jcvi.config.json --force
 ```
+
+---
 
 ## 何时使用
 
-- 需要发表级的双物种共线性可视化。
-- 希望突出显示共线性区块而不是所有同源散点。
-- 需要结合基因方向、orthogroup 着色或曲线/直线连线风格进行美化。
+- 希望一条命令跑完比对、过滤、共线性识别与出图。
+- 不需要分别调用 `gljcvi-dotplot`、`gljcvi-synteny` 等单功能插件。
+- 需要在全局共线性与局部共线性之间快速切换。
+
+---
 
 ## 注意事项
 
-1. `glyphstyle`、`glyphcolor`、`shadestyle` 留空时使用 JCVI 默认样式。
-2. `min_block_size` 越大，图中保留的共线性区块越少但越可靠。
-3. 本插件面向双物种；多物种请使用 `gljcvi-auto`。
+1. `gljcvi-auto` 直接调用 CLI，不生成 `genomelens_request.json`，因此不能通过 `analyze run` 重放。
+2. `optimize_auto` 会同时开启 `optimize_figsize`、`rewrite_layout_links`、`optimize_karyotype_labels`，适合快速出图；如需精细控制，请改用单功能插件。
+3. 在局部共线性模式下，`split_targets` 默认关闭，多个目标会绘制在一张图中；如需单图，可显式开启。
+4. `allow_simplified_fallback` 仅用于诊断，正式分析请保持 `false`。
+5. 中间文件归档后原始文件会被删除。

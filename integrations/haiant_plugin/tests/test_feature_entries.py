@@ -6,12 +6,17 @@ from typing import Any, Protocol, cast
 import pytest
 
 from features import (
-    auto_entry,
     catalog_ortholog_entry,
     dotplot_entry,
+    global_karyotype_entry,
+    heatmap_entry,
+    histogram_entry,
     karyotype_entry,
     local_synteny_entry,
+    mcscan_pairwise_entry,
+    multi_local_synteny_entry,
     synteny_entry,
+    synteny_figure_entry,
 )
 
 
@@ -61,9 +66,9 @@ def _write_params_from_sample(
             "gljcvi_dotplot",
         ),
         (
-            cast(FeatureEntryModule, synteny_entry),
+            cast(FeatureEntryModule, synteny_figure_entry),
             "graphics_synteny",
-            "gljcvi_synteny",
+            "gljcvi_synteny_figure",
         ),
         (
             cast(FeatureEntryModule, karyotype_entry),
@@ -106,14 +111,14 @@ def test_feature_entry_builds_request_and_command(
     assert logging.getLogger(logger_name).handlers == []
 
 
-def test_auto_entry_builds_mcscan_jcvi_command(tmp_path: Path) -> None:
+def test_synteny_entry_builds_workflow_command(tmp_path: Path) -> None:
     params_path = _write_params_from_sample(tmp_path)
 
-    argv = auto_entry.build_runtime_command(params_path)
+    argv = synteny_entry.build_runtime_command(params_path)
 
     assert argv[:4] == ["cmd.exe", "/c", str(tmp_path / "GenomeLens.cmd"), "analyze"]
     assert argv[4] == "workflow"
-    assert argv[5] == "reference_vs_targets"
+    assert argv[5] == "synteny"
     assert Path(argv[6]).is_dir()
     assert Path(argv[7]) == tmp_path / "output"
     assert argv[8] == "--jcvi-config"
@@ -129,25 +134,25 @@ def test_auto_entry_builds_mcscan_jcvi_command(tmp_path: Path) -> None:
     assert config["runtime"]["formats"] == ["png"]
     assert config["mcscan"]["min_block_size"] == 1
     assert config["mcscan"]["reference"] == "query"
-    assert logging.getLogger("gljcvi_auto").handlers == []
+    assert logging.getLogger("gljcvi_synteny").handlers == []
 
 
-def test_auto_entry_global_synteny_without_targets(tmp_path: Path) -> None:
+def test_synteny_entry_routes_without_targets(tmp_path: Path) -> None:
     params_path = _write_params_from_sample(tmp_path, overrides={"target_gene_ids": ""})
 
-    argv = auto_entry.build_runtime_command(params_path)
+    argv = synteny_entry.build_runtime_command(params_path)
 
     assert argv[4] == "workflow"
-    assert argv[5] == "pairwise_synteny"
+    assert argv[5] == "synteny"
     config = json.loads(Path(argv[9]).read_text(encoding="utf-8"))
     assert config["mcscan"]["workflow"] == "graphics_synteny"
     assert config["local_synteny"]["target_gene_ids"] == []
 
 
-def test_auto_entry_optimize_auto_maps_all_flags(tmp_path: Path) -> None:
+def test_synteny_entry_optimize_auto_maps_all_flags(tmp_path: Path) -> None:
     params_path = _write_params_from_sample(tmp_path, overrides={"optimize_auto": True})
 
-    argv = auto_entry.build_runtime_command(params_path)
+    argv = synteny_entry.build_runtime_command(params_path)
 
     config = json.loads(Path(argv[9]).read_text(encoding="utf-8"))
     auto_opt = config["local_synteny"]["auto_optimization"]
@@ -156,7 +161,7 @@ def test_auto_entry_optimize_auto_maps_all_flags(tmp_path: Path) -> None:
     assert auto_opt["optimize_karyotype_labels"] is True
 
 
-def test_auto_entry_uses_genomelens_path(tmp_path: Path) -> None:
+def test_synteny_entry_uses_genomelens_path(tmp_path: Path) -> None:
     params_path = _write_params_from_sample(
         tmp_path,
         overrides={
@@ -166,24 +171,24 @@ def test_auto_entry_uses_genomelens_path(tmp_path: Path) -> None:
     )
     (tmp_path / "GenomeLens.exe").write_text("", encoding="utf-8")
 
-    argv = auto_entry.build_runtime_command(params_path)
+    argv = synteny_entry.build_runtime_command(params_path)
 
     assert argv[0] == str(tmp_path / "GenomeLens.exe")
 
 
-def test_auto_entry_split_targets_maps_to_config(tmp_path: Path) -> None:
+def test_synteny_entry_split_targets_maps_to_config(tmp_path: Path) -> None:
     params_path = _write_params_from_sample(tmp_path, overrides={"split_targets": True})
 
-    argv = auto_entry.build_runtime_command(params_path)
+    argv = synteny_entry.build_runtime_command(params_path)
 
     config = json.loads(Path(argv[9]).read_text(encoding="utf-8"))
     assert config["local_synteny"]["split_targets"] is True
 
 
-def test_auto_entry_main_compresses_intermediates(tmp_path: Path) -> None:
+def test_synteny_entry_main_compresses_intermediates(tmp_path: Path) -> None:
     params_path = _write_params_from_sample(tmp_path, overrides={"target_gene_ids": ""})
 
-    exit_code = auto_entry.main([str(params_path)])
+    exit_code = synteny_entry.main([str(params_path)])
 
     assert exit_code == 0
     output_dir = tmp_path / "output"
@@ -200,7 +205,7 @@ def test_auto_entry_main_compresses_intermediates(tmp_path: Path) -> None:
         assert "run.log" in names
 
 
-def test_auto_entry_main_skips_compression_on_failure(tmp_path: Path) -> None:
+def test_synteny_entry_main_skips_compression_on_failure(tmp_path: Path) -> None:
     params_path = _write_params_from_sample(
         tmp_path,
         overrides={"target_gene_ids": ""},
@@ -208,7 +213,7 @@ def test_auto_entry_main_skips_compression_on_failure(tmp_path: Path) -> None:
     genomelens_exe = tmp_path / "GenomeLens.cmd"
     genomelens_exe.write_text("@echo off\r\nexit /b 1\r\n", encoding="utf-8")
 
-    exit_code = auto_entry.main([str(params_path)])
+    exit_code = synteny_entry.main([str(params_path)])
 
     assert exit_code == 1
     output_dir = tmp_path / "output"
@@ -217,11 +222,119 @@ def test_auto_entry_main_skips_compression_on_failure(tmp_path: Path) -> None:
     assert (output_dir / "run.log").is_file()
 
 
+def test_mcscan_pairwise_entry_builds_submodule_request(tmp_path: Path) -> None:
+    params_path = _write_params_from_sample(tmp_path)
+
+    argv = mcscan_pairwise_entry.build_runtime_command(params_path)
+
+    assert argv[:4] == ["cmd.exe", "/c", str(tmp_path / "GenomeLens.cmd"), "analyze"]
+    assert argv[4] == "run"
+    request_path = Path(argv[5])
+    request = json.loads(request_path.read_text(encoding="utf-8"))
+    assert request["task_kind"] == "sub_module"
+    assert request["sub_module_id"] == "jcvi.mcscan_pairwise"
+    assert "species_pair" in request["port_bindings"]
+    assert logging.getLogger("gljcvi_mcscan_pairwise").handlers == []
+
+
+def test_histogram_entry_builds_submodule_request(tmp_path: Path) -> None:
+    numbers = tmp_path / "numbers.txt"
+    numbers.write_text("1\n2\n3\n", encoding="utf-8")
+    params_path = _write_params_from_sample(
+        tmp_path,
+        overrides={
+            "input_files": str(numbers),
+            "histogram_bins": 4,
+            "histogram_title": "Test",
+        },
+    )
+
+    argv = histogram_entry.build_runtime_command(params_path)
+
+    assert argv[4] == "run"
+    request = json.loads(Path(argv[5]).read_text(encoding="utf-8"))
+    assert request["task_kind"] == "sub_module"
+    assert request["sub_module_id"] == "jcvi.graphics_histogram"
+    assert request["port_bindings"]["numeric_files"] == [str(numbers)]
+    assert request["method_config"]["histogram_bins"] == 4
+    assert request["method_config"]["histogram_title"] == "Test"
+    assert logging.getLogger("gljcvi_histogram").handlers == []
+
+
+def test_heatmap_entry_builds_submodule_request(tmp_path: Path) -> None:
+    matrix = tmp_path / "matrix.csv"
+    matrix.write_text("a,b,c\n1,2,3\n", encoding="utf-8")
+    params_path = _write_params_from_sample(
+        tmp_path,
+        overrides={
+            "input_file": str(matrix),
+            "cmap": "viridis",
+            "groups": True,
+        },
+    )
+
+    argv = heatmap_entry.build_runtime_command(params_path)
+
+    assert argv[4] == "run"
+    request = json.loads(Path(argv[5]).read_text(encoding="utf-8"))
+    assert request["task_kind"] == "sub_module"
+    assert request["sub_module_id"] == "jcvi.graphics_heatmap"
+    assert request["port_bindings"]["matrix_csv"] == str(matrix)
+    assert request["method_config"]["cmap"] == "viridis"
+    assert request["method_config"]["groups"] is True
+    assert logging.getLogger("gljcvi_heatmap").handlers == []
+
+
+def test_global_karyotype_entry_builds_submodule_request(tmp_path: Path) -> None:
+    params_path = _write_params_from_sample(
+        tmp_path,
+        overrides={
+            "tracks": '[{"name": "A", "bed": "A.bed"}]',
+            "edges": '[{"i": 0, "j": 1, "simple": "A__B.simple"}]',
+        },
+    )
+
+    argv = global_karyotype_entry.build_runtime_command(params_path)
+
+    assert argv[4] == "run"
+    request = json.loads(Path(argv[5]).read_text(encoding="utf-8"))
+    assert request["task_kind"] == "sub_module"
+    assert request["sub_module_id"] == "jcvi.graphics_karyotype_global"
+    assert request["port_bindings"]["tracks"] == [{"name": "A", "bed": "A.bed"}]
+    assert logging.getLogger("gljcvi_global_karyotype").handlers == []
+
+
+def test_multi_local_synteny_entry_builds_submodule_request(tmp_path: Path) -> None:
+    blocks = tmp_path / "all.blocks"
+    blocks.write_text("", encoding="utf-8")
+    bed = tmp_path / "all.bed"
+    bed.write_text("", encoding="utf-8")
+    params_path = _write_params_from_sample(
+        tmp_path,
+        overrides={
+            "tracks": '[{"name": "A", "bed": "A.bed"}]',
+            "blocks": str(blocks),
+            "bed": str(bed),
+            "target_genes": "gene1,gene2",
+        },
+    )
+
+    argv = multi_local_synteny_entry.build_runtime_command(params_path)
+
+    assert argv[4] == "run"
+    request = json.loads(Path(argv[5]).read_text(encoding="utf-8"))
+    assert request["task_kind"] == "sub_module"
+    assert request["sub_module_id"] == "jcvi.local_synteny_multi"
+    assert request["port_bindings"]["target_genes"] == ["gene1", "gene2"]
+    assert request["port_bindings"]["blocks"] == str(blocks)
+    assert logging.getLogger("gljcvi_multi_local_synteny").handlers == []
+
+
 @pytest.mark.parametrize(
     ("module", "label"),
     [
         (cast(FeatureEntryModule, dotplot_entry), "dotplot"),
-        (cast(FeatureEntryModule, synteny_entry), "synteny"),
+        (cast(FeatureEntryModule, synteny_figure_entry), "synteny figure"),
         (cast(FeatureEntryModule, karyotype_entry), "karyotype"),
         (
             cast(FeatureEntryModule, catalog_ortholog_entry),
@@ -232,8 +345,28 @@ def test_auto_entry_main_skips_compression_on_failure(tmp_path: Path) -> None:
             "local synteny",
         ),
         (
-            cast(FeatureEntryModule, auto_entry),
-            "MCscan auto workflow",
+            cast(FeatureEntryModule, synteny_entry),
+            "synteny workflow",
+        ),
+        (
+            cast(FeatureEntryModule, mcscan_pairwise_entry),
+            "MCscan pairwise",
+        ),
+        (
+            cast(FeatureEntryModule, histogram_entry),
+            "histogram",
+        ),
+        (
+            cast(FeatureEntryModule, heatmap_entry),
+            "heatmap",
+        ),
+        (
+            cast(FeatureEntryModule, global_karyotype_entry),
+            "global karyotype",
+        ),
+        (
+            cast(FeatureEntryModule, multi_local_synteny_entry),
+            "multi-species local synteny",
         ),
     ],
 )

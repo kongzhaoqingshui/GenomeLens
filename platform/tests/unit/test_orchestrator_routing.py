@@ -72,7 +72,7 @@ def test_orchestrator_routes_sub_module_histogram(monkeypatch) -> None:
     assert summary.task["sub_module_id"] == "jcvi.graphics_histogram"
 
 
-def test_orchestrator_routes_one_stop_pairwise(monkeypatch) -> None:
+def test_orchestrator_routes_one_stop_synteny_pairwise(monkeypatch) -> None:
     captured: dict[str, object] = {}
 
     def fake_to_mcscan(request):
@@ -94,14 +94,89 @@ def test_orchestrator_routes_one_stop_pairwise(monkeypatch) -> None:
 
     request = _minimal_request(
         task_kind="one_stop",
-        one_stop_workflow_id="pairwise_synteny",
+        one_stop_workflow_id="synteny",
+        input=AnalysisInput(
+            mode="auto_directory",
+            species=[{"name": "a"}, {"name": "b"}],
+        ),
     )
     provider = MagicMock()
     summary = WorkflowOrchestrator().run(request, provider, SignalBus())
 
     assert captured["called"] is True
     assert captured["to_mcscan"] is not None
-    assert summary.task["one_stop_workflow_id"] == "pairwise_synteny"
+    assert summary.task["one_stop_workflow_id"] == "synteny"
+
+
+def test_orchestrator_routes_one_stop_synteny_reference_vs_targets(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+
+    def fake_to_mcscan(request):
+        captured["to_mcscan"] = request
+        return MagicMock()
+
+    def fake_run_reference_vs_targets(set_state, request):
+        captured["called"] = True
+        return _dummy_summary(task_type="reference_vs_targets")
+
+    monkeypatch.setattr(
+        "genomelens.app.controller.runners.onestop_runner.to_mcscan_request",
+        fake_to_mcscan,
+    )
+    monkeypatch.setattr(
+        "genomelens.app.controller.runners.onestop_runner.run_reference_vs_targets_mcscan",
+        fake_run_reference_vs_targets,
+    )
+
+    request = _minimal_request(
+        task_kind="one_stop",
+        one_stop_workflow_id="synteny",
+        input=AnalysisInput(
+            mode="auto_directory",
+            species=[{"name": "ref"}, {"name": "tgt"}],
+        ),
+        method_config={"target_gene_ids": ["g1"]},
+    )
+    provider = MagicMock()
+    summary = WorkflowOrchestrator().run(request, provider, SignalBus())
+
+    assert captured["called"] is True
+    assert summary.task["one_stop_workflow_id"] == "synteny"
+
+
+def test_orchestrator_routes_one_stop_synteny_multi_species(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+
+    def fake_to_mcscan(request):
+        captured["to_mcscan"] = request
+        return MagicMock()
+
+    def fake_run_multi_species(set_state, request):
+        captured["called"] = True
+        return _dummy_summary(task_type="multi_species_synteny")
+
+    monkeypatch.setattr(
+        "genomelens.app.controller.runners.onestop_runner.to_mcscan_request",
+        fake_to_mcscan,
+    )
+    monkeypatch.setattr(
+        "genomelens.app.controller.runners.onestop_runner.run_multi_species_mcscan",
+        fake_run_multi_species,
+    )
+
+    request = _minimal_request(
+        task_kind="one_stop",
+        one_stop_workflow_id="synteny",
+        input=AnalysisInput(
+            mode="auto_directory",
+            species=[{"name": "a"}, {"name": "b"}, {"name": "c"}],
+        ),
+    )
+    provider = MagicMock()
+    summary = WorkflowOrchestrator().run(request, provider, SignalBus())
+
+    assert captured["called"] is True
+    assert summary.task["one_stop_workflow_id"] == "synteny"
 
 
 def test_orchestrator_routes_composition_raises() -> None:
@@ -141,6 +216,31 @@ def test_submodule_runner_validates_missing_required_port() -> None:
     )
     with pytest.raises(InputValidationError):
         SubModuleRunner().run(request, MagicMock(), SignalBus())
+
+
+def test_onestop_runner_rejects_unknown_workflow() -> None:
+    from genomelens.app.controller.runners.onestop_runner import OneStopWorkflowRunner
+
+    request = _minimal_request(
+        task_kind="one_stop",
+        one_stop_workflow_id="pairwise_synteny",
+    )
+    with pytest.raises(InputValidationError):
+        OneStopWorkflowRunner().run(request, MagicMock(), SignalBus())
+
+
+def test_onestop_runner_rejects_too_few_species(tmp_path: Path) -> None:
+    from genomelens.app.controller.runners.onestop_runner import OneStopWorkflowRunner
+
+    (tmp_path / "a.bed").write_text("", encoding="utf-8")
+    (tmp_path / "a.cds").write_text("", encoding="utf-8")
+    request = _minimal_request(
+        task_kind="one_stop",
+        one_stop_workflow_id="synteny",
+        input=AnalysisInput(mode="auto_directory", directory=str(tmp_path), species=[]),
+    )
+    with pytest.raises(InputValidationError):
+        OneStopWorkflowRunner().run(request, MagicMock(), SignalBus())
 
 
 def test_onestop_runner_rejects_missing_workflow_id() -> None:

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "genomelens"
-version = "0.9.21"
+version = "0.9.22"
 description = "Windows-first shell for GenomeLens synteny workflows"
 readme = "README.md"
 license = "MIT"

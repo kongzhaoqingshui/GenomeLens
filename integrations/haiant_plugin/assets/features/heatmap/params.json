@@ -1,0 +1,10 @@
+{
+  "GenomeLens_Path": "C:/GenomeLens/GenomeLens.exe",
+  "input_file": "matrix.csv",
+  "output_dir": "output",
+  "formats": "svg",
+  "cmap": "jet",
+  "rowgroups": "",
+  "groups": false,
+  "horizontalbar": false
+}

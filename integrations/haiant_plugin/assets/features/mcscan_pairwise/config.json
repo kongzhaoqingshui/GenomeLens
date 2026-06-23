@@ -1,0 +1,115 @@
+{
+  "title": "GenomeLens MCscan Pairwise",
+  "title_en": "GenomeLens MCscan Pairwise",
+  "description": "对应 ``jcvi.mcscan_pairwise`` 子模块：对两个物种执行 BLAST/LAST/Diamond 比对、锚点扫描与 block 计算。",
+  "description_en": "Matches the ``jcvi.mcscan_pairwise`` submodule: run BLAST/LAST/Diamond alignment, anchor scanning, and block computation for two species.",
+  "version": "v1.0.0",
+  "context": "双物种同源搜索与共线性 block 计算",
+  "context_en": "Pairwise homology search and synteny block computation",
+  "env": "Python",
+  "outputType": "dir",
+  "params": [
+    {
+      "label": "输入目录",
+      "label_en": "Input Directory",
+      "key": "input_dir",
+      "valueType": "dir_selector",
+      "example_value": "input",
+      "description": "自动发现同名物种文件对的输入目录。",
+      "description_en": "Directory where same-stem species file pairs are auto-discovered."
+    },
+    {
+      "label": "输出目录",
+      "label_en": "Output Directory",
+      "key": "output_dir",
+      "valueType": "dir_selector",
+      "example_value": "output",
+      "description": "结果输出目录。",
+      "description_en": "Output directory for results."
+    },
+    {
+      "label": "参考物种",
+      "label_en": "Reference Species",
+      "key": "reference",
+      "valueType": "str",
+      "example_value": "1",
+      "description": "参考物种名称或 1-based 索引；默认第一个物种。",
+      "description_en": "Reference species name or 1-based index; defaults to the first species."
+    },
+    {
+      "label": "线程数",
+      "label_en": "Threads",
+      "key": "threads",
+      "valueType": "int",
+      "example_value": 4,
+      "description": "运行时工作线程数。",
+      "description_en": "Number of worker threads."
+    },
+    {
+      "label": "最小共线性区块大小",
+      "label_en": "Minimum Block Size",
+      "key": "min_block_size",
+      "valueType": "int",
+      "example_value": 1,
+      "description": "保留 block 所需的最小基因数。",
+      "description_en": "Minimum gene count for retained synteny blocks."
+    },
+    {
+      "label": "输出格式",
+      "label_en": "Output Format",
+      "key": "formats",
+      "valueType": "customer_selector",
+      "example_value": "svg",
+      "description": "输出图片格式。",
+      "description_en": "Output image format.",
+      "options": ["svg", "png", "pdf", "eps", "jpg"]
+    },
+    {
+      "label": "比对后端",
+      "label_en": "Alignment Backend",
+      "key": "align_soft",
+      "valueType": "customer_selector",
+      "options": ["blast", "last", "diamond_blastp"],
+      "example_value": "blast",
+      "description": "同源搜索比对后端。",
+      "description_en": "Homology search alignment backend."
+    },
+    {
+      "label": "序列类型",
+      "label_en": "Sequence Type",
+      "key": "dbtype",
+      "valueType": "customer_selector",
+      "options": ["nucl", "prot"],
+      "example_value": "nucl",
+      "description": "序列数据库类型：nucl（核酸）或 prot（蛋白）。",
+      "description_en": "Sequence database type: nucl or prot."
+    },
+    {
+      "label": "同源匹配过滤强度",
+      "label_en": "C-score Threshold",
+      "key": "cscore",
+      "valueType": "float",
+      "example_value": 0.7,
+      "description": "同源匹配过滤强度。",
+      "description_en": "Homology match filtering strength."
+    },
+    {
+      "label": "共线性锚点最大基因距离",
+      "label_en": "Max Gene Distance",
+      "key": "dist",
+      "valueType": "int",
+      "example_value": 20,
+      "description": "共线性锚点间允许的最大基因距离。",
+      "description_en": "Maximum gene distance between synteny anchors."
+    },
+    {
+      "label": "Block 过滤迭代次数",
+      "label_en": "Filter Iterations",
+      "key": "iter",
+      "valueType": "int",
+      "example_value": 1,
+      "description": "Block 过滤迭代次数。",
+      "description_en": "Number of block filtering iterations."
+    }
+  ]
+}

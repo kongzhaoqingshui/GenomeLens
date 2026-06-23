@@ -30,7 +30,7 @@ def test_workflow_list_json(capsys) -> None:
     assert "one_stop_workflows" in payload
     assert "submodules" in payload
     workflow_ids = {item["workflow_id"] for item in payload["one_stop_workflows"]}
-    assert "pairwise_synteny" in workflow_ids
+    assert "synteny" in workflow_ids
     module_ids = {item["module_id"] for item in payload["submodules"]}
     assert "jcvi.mcscan_pairwise" in module_ids
 
@@ -50,9 +50,9 @@ def test_workflow_list_sub_module_only(capsys) -> None:
 
 
 def test_workflow_describe_one_stop_json(capsys) -> None:
-    assert main(["workflow", "describe", "pairwise_synteny", "--json"]) == 0
+    assert main(["workflow", "describe", "synteny", "--json"]) == 0
     payload = json.loads(capsys.readouterr().out)
-    assert payload["workflow_id"] == "pairwise_synteny"
+    assert payload["workflow_id"] == "synteny"
     assert payload["kind"] == "one_stop"
     assert "equivalent_modules" in payload
 
@@ -133,7 +133,7 @@ def test_analyze_schema_with_capabilities(capsys) -> None:
     assert "analysis_request_schema" in payload
     assert "submodules" in payload
     assert "one_stop_workflows" in payload
-    assert any(spec["workflow_id"] == "pairwise_synteny" for spec in payload["one_stop_workflows"])
+    assert any(spec["workflow_id"] == "synteny" for spec in payload["one_stop_workflows"])
 
 
 def test_analyze_schema_default_still_raw_schema(capsys) -> None:
@@ -174,7 +174,7 @@ def test_analyze_submodule_missing_required_port_returns_error(capsys) -> None:
     assert "numeric_files" in err or "histogram" in err
 
 
-def test_analyze_workflow_histogram_routes_to_one_stop(monkeypatch, tmp_path) -> None:
+def test_analyze_workflow_synteny_routes_to_one_stop(monkeypatch, tmp_path) -> None:
     captured: dict[str, AnalysisRequest] = {}
 
     def fake_dispatch(self, request, signal_bus=None):
@@ -183,16 +183,18 @@ def test_analyze_workflow_histogram_routes_to_one_stop(monkeypatch, tmp_path) ->
 
     monkeypatch.setattr("genomelens.analysis.dispatcher.AnalysisDispatcher.dispatch", fake_dispatch)
 
-    numeric = tmp_path / "values.txt"
-    numeric.write_text("1\n2\n3\n", encoding="utf-8")
+    (tmp_path / "a.bed").write_text("", encoding="utf-8")
+    (tmp_path / "a.cds").write_text("", encoding="utf-8")
+    (tmp_path / "b.bed").write_text("", encoding="utf-8")
+    (tmp_path / "b.cds").write_text("", encoding="utf-8")
     outdir = tmp_path / "out"
 
     code = main(
         [
             "analyze",
             "workflow",
-            "histogram_plot",
-            str(numeric),
+            "synteny",
+            str(tmp_path),
             str(outdir),
             "--force",
             "--json",
@@ -201,7 +203,7 @@ def test_analyze_workflow_histogram_routes_to_one_stop(monkeypatch, tmp_path) ->
     assert code == 0
     request = captured["request"]
     assert request.task_kind == "one_stop"
-    assert request.one_stop_workflow_id == "histogram_plot"
+    assert request.one_stop_workflow_id == "synteny"
 
 
 def test_analyze_submodule_heatmap_routes_to_sub_module(monkeypatch, tmp_path) -> None:
