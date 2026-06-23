@@ -44,6 +44,30 @@ ANALYSIS_REQUEST_JSON_SCHEMA: dict[str, object] = {
         "method_config": {
             "$ref": "#/$defs/mcscan_method_config",
         },
+        "task_kind": {
+            "type": "string",
+            "enum": ["analysis", "one_stop", "sub_module", "composition"],
+            "default": "analysis",
+        },
+        "one_stop_workflow_id": {
+            "type": ["string", "null"],
+            "default": None,
+        },
+        "sub_module_id": {
+            "type": ["string", "null"],
+            "default": None,
+        },
+        "port_bindings": {
+            "type": "object",
+            "default": {},
+        },
+        "composition": {
+            "oneOf": [
+                {"type": "null"},
+                {"$ref": "#/$defs/workflow_composition"},
+            ],
+            "default": None,
+        },
     },
     "$defs": {
         "input": {
@@ -315,6 +339,26 @@ ANALYSIS_REQUEST_JSON_SCHEMA: dict[str, object] = {
                 "histogram_fill": {
                     "type": "string",
                     "default": "white",
+                },
+            },
+        },
+        "workflow_composition": {
+            "type": "object",
+            "additionalProperties": False,
+            "properties": {
+                "nodes": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                    },
+                    "default": [],
+                },
+                "edges": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                    },
+                    "default": [],
                 },
             },
         },

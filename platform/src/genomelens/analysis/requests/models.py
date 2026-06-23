@@ -12,8 +12,10 @@ from genomelens.core.json_utils import (
     _dict_list,
     _float,
     _int,
+    _list,
     _nested,
     _optional_int,
+    _optional_str,
     _str,
     _str_list,
 )
@@ -313,8 +315,59 @@ class McscanMethodConfig:
 
 
 @dataclass(frozen=True)
+class PortBinding:
+    """PortBinding(端口绑定)：运行时子模块端口的具体值
+
+    在 AnalysisRequest 中通常以 `port_bindings: dict[str, object]` 平铺存储，
+    键为 port_id，值为运行时值。本 dataclass 用于代码层显式转换。
+    """
+
+    port_id: str
+    value: object
+
+    def to_json(self) -> dict[str, object]:
+        return {"port_id": self.port_id, "value": self.value}
+
+    @classmethod
+    def from_json(cls, data: dict[str, object]) -> PortBinding:
+        return cls(port_id=_str(data.get("port_id")), value=data.get("value"))
+
+
+@dataclass(frozen=True)
+class WorkflowComposition:
+    """WorkflowComposition(工作流组合)：多个子模块按 DAG 连接
+
+    当前为面向未来 GUI 可视化编排的预留结构。节点表示子模块实例，边表示
+    端口之间的数据流动。
+    """
+
+    nodes: list[dict[str, object]] = field(default_factory=list)
+    edges: list[dict[str, object]] = field(default_factory=list)
+
+    def to_json(self) -> dict[str, object]:
+        return {
+            "nodes": list(self.nodes),
+            "edges": list(self.edges),
+        }
+
+    @classmethod
+    def from_json(cls, data: dict[str, object]) -> WorkflowComposition:
+        return cls(
+            nodes=[dict(item) for item in _list(data.get("nodes")) if isinstance(item, dict)],
+            edges=[dict(item) for item in _list(data.get("edges")) if isinstance(item, dict)],
+        )
+
+
+@dataclass(frozen=True)
 class AnalysisRequest:
-    """AnalysisRequest(分析请求)：CLI、GUI、插件和 Agent 共用的稳定入口"""
+    """AnalysisRequest(分析请求)：CLI、GUI、插件和 Agent 共用的稳定入口
+
+    1.X 架构新增 `task_kind` 字段以区分三种使用模式：
+    - "analysis"：旧模式/兼容模式，由 `method` + `method_config` 驱动。
+    - "one_stop"：一站式工作流，由 `one_stop_workflow_id` 驱动。
+    - "sub_module"：可编排子模块，由 `sub_module_id` + `port_bindings` 驱动。
+    - "composition"：子模块组合（未来 GUI 编排），由 `composition` 驱动。
+    """
 
     method: str
     input: AnalysisInput
@@ -324,9 +377,14 @@ class AnalysisRequest:
     method_config: dict[str, object] = field(default_factory=dict)
     schema_version: int = 1
     kind: str = "analysis_request"
+    task_kind: str = "analysis"
+    one_stop_workflow_id: str | None = None
+    sub_module_id: str | None = None
+    port_bindings: dict[str, object] = field(default_factory=dict)
+    composition: WorkflowComposition | None = None
 
     def to_json(self) -> dict[str, object]:
-        return {
+        data: dict[str, object] = {
             "schema_version": self.schema_version,
             "kind": self.kind,
             "method": self.method,
@@ -336,9 +394,26 @@ class AnalysisRequest:
             "options": self.options.to_json(),
             "method_config": dict(self.method_config),
         }
+        # 1.X 扩展字段仅在非默认值时写出，保持旧请求体精简
+        if self.task_kind != "analysis":
+            data["task_kind"] = self.task_kind
+        if self.one_stop_workflow_id is not None:
+            data["one_stop_workflow_id"] = self.one_stop_workflow_id
+        if self.sub_module_id is not None:
+            data["sub_module_id"] = self.sub_module_id
+        if self.port_bindings:
+            data["port_bindings"] = dict(self.port_bindings)
+        if self.composition is not None:
+            data["composition"] = self.composition.to_json()
+        return data
 
     @classmethod
     def from_json(cls, data: dict[str, object]) -> AnalysisRequest:
+        composition_raw = data.get("composition")
+        composition = None
+        if isinstance(composition_raw, dict):
+            composition = WorkflowComposition.from_json(composition_raw)
+
         return cls(
             schema_version=_int(data.get("schema_version"), default=1),
             kind=_str(data.get("kind"), default="analysis_request"),
@@ -348,4 +423,9 @@ class AnalysisRequest:
             config=_nested(AnalysisConfigRef, data.get("config")),
             options=_nested(AnalysisOptions, data.get("options")),
             method_config=_dict(data.get("method_config")),
+            task_kind=_str(data.get("task_kind"), default="analysis"),
+            one_stop_workflow_id=_optional_str(data.get("one_stop_workflow_id")),
+            sub_module_id=_optional_str(data.get("sub_module_id")),
+            port_bindings=_dict(data.get("port_bindings")),
+            composition=composition,
         )
