@@ -120,3 +120,4 @@ class EngineRunManifest:
     blocks: Path | None = None
     bed: Path | None = None
     matrix: Path | None = None
+    sub_module_id: str | None = None

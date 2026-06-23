@@ -315,4 +315,5 @@ def load_manifest(path: str | Path) -> EngineRunManifest:
         blocks=blocks,
         bed=bed,
         matrix=matrix,
+        sub_module_id=_string(raw.get("sub_module_id")),
     )

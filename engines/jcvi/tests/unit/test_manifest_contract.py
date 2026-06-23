@@ -130,3 +130,27 @@ def test_manifest_loader_heatmap(tmp_path: Path) -> None:
     assert loaded.options.groups is True
     assert loaded.options.rowgroups == rowgroups.resolve(strict=False)
     assert loaded.options.horizontalbar is True
+
+
+def test_manifest_loader_sub_module_id(tmp_path: Path) -> None:
+    bed = tmp_path / "a.bed"
+    cds = tmp_path / "a.cds"
+    bed.write_text("chr1\t0\t3\tgene1\t0\t+\n", encoding="utf-8")
+    cds.write_text(">gene1\nATG\n", encoding="utf-8")
+    manifest = tmp_path / "submodule_manifest.json"
+    manifest.write_text(
+        json.dumps(
+            {
+                "schema_version": 2,
+                "workflow": "graphics_dotplot",
+                "sub_module_id": "jcvi.graphics_dotplot",
+                "query": {"name": "q", "bed": str(bed), "cds": str(cds)},
+                "subject": {"name": "s", "bed": str(bed), "cds": str(cds)},
+                "toolchain": {},
+                "options": {"formats": ["svg"]},
+            }
+        ),
+        encoding="utf-8",
+    )
+    loaded = load_manifest(manifest)
+    assert loaded.sub_module_id == "jcvi.graphics_dotplot"
