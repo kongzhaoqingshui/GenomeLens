@@ -16,7 +16,8 @@ from itertools import combinations
 from pathlib import Path
 from typing import Any, cast
 
-from genomelens.analysis.methods.mcscan_request_mapping import to_mcscan_request
+from genomelens.analysis.execution_models import McscanExecutionRequest
+from genomelens.analysis.methods.execution_request_mapping import to_mcscan_request
 from genomelens.analysis.requests.models import AnalysisRequest, AnalysisSpeciesInput
 from genomelens.app.controller.runners._shared import (
     build_multi_run_summary,
@@ -30,7 +31,6 @@ from genomelens.app.controller.state_machine import WorkflowState
 from genomelens.app.controller.workflow_provider import WorkflowProvider
 from genomelens.app.events.signal_bus import SignalBus
 from genomelens.core.jcvi_adapter.adapter import JcviEngineAdapter
-from genomelens.core.jcvi_adapter.adapter_models import McscanRequest
 from genomelens.core.services.layout_optimizer import LayoutOptimizer, NoOpLayoutOptimizer
 from genomelens.core.summary_models import PairwiseJobSummary, RunSummary
 from genomelens.data.logging.log_setup import close_logging, logger_name_for_path, setup_logging
@@ -48,7 +48,7 @@ def _set_state(signal_bus: SignalBus, state: WorkflowState) -> None:
 
 
 def _build_global_karyotype(
-    request: McscanRequest,
+    request: McscanExecutionRequest,
     pairwise_jobs: list[PairwiseJobSummary],
     layout: OutputLayout,
 ) -> list[str]:
@@ -132,7 +132,7 @@ def _build_global_karyotype(
 
 def _prepare_workspace(
     set_state: Callable[[WorkflowState], None],
-    request: McscanRequest,
+    request: McscanExecutionRequest,
     pairing_strategy: str,
     pair_count: int,
     reference_name: str | None,

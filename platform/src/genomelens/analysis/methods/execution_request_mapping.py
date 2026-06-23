@@ -1,4 +1,4 @@
-"""mcscan 请求映射：把 AnalysisRequest 转换为 McscanRequest"""
+"""mcscan 请求映射：把 AnalysisRequest 转换为内部执行请求"""
 
 # region import
 from __future__ import annotations
@@ -6,6 +6,11 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from genomelens.analysis.execution_models import (
+    HeatmapExecutionRequest,
+    HistogramExecutionRequest,
+    McscanExecutionRequest,
+)
 from genomelens.analysis.requests.models import (
     AnalysisRequest,
     AnalysisSpeciesInput,
@@ -13,7 +18,6 @@ from genomelens.analysis.requests.models import (
 )
 from genomelens.app.errors import messages
 from genomelens.app.errors.exceptions import InputValidationError
-from genomelens.core.jcvi_adapter.adapter_models import HeatmapPlotRequest, HistogramRequest, McscanRequest
 from genomelens.core.models import (
     GenomeInputSpec,
     PreparedGenomeInputSpec,
@@ -102,10 +106,10 @@ def _map_method_config_to_request(
     method_config: McscanMethodConfig,
     config: ConfigModel | None,
 ) -> dict[str, Any]:
-    """把 McscanMethodConfig + ConfigModel 映射成 McscanRequest 构造参数子集
+    """把 McscanMethodConfig + ConfigModel 映射成 McscanExecutionRequest 构造参数子集
 
     这是当前唯一的显式跨层字段映射层：method_config/ConfigModel 的字段名
-    与 McscanRequest 不同（如 blastn -> blastn_path），所有转换集中在这里，
+    与 McscanExecutionRequest 不同（如 blastn -> blastn_path），所有转换集中在这里，
     避免在多个地方散落。
     """
 
@@ -146,8 +150,8 @@ def _map_method_config_to_request(
     return mapped
 
 
-def to_mcscan_request(request: AnalysisRequest) -> McscanRequest:
-    """把 AnalysisRequest(分析请求) 转为现有 McscanRequest(共线性请求)"""
+def to_mcscan_request(request: AnalysisRequest) -> McscanExecutionRequest:
+    """把 AnalysisRequest(分析请求) 转为现有 McscanExecutionRequest(共线性请求)"""
 
     from genomelens.analysis.requests.normalizer import read_request_config
 
@@ -167,7 +171,7 @@ def to_mcscan_request(request: AnalysisRequest) -> McscanRequest:
     method_config = McscanMethodConfig.from_json(request.method_config)
     mapped = _map_method_config_to_request(method_config, config)
     _validate_target_genes_in_reference(request, ref_index, list(method_config.target_gene_ids))
-    return McscanRequest(
+    return McscanExecutionRequest(
         query=reference,
         subject=targets[0],
         additional_species=targets[1:],
@@ -183,7 +187,7 @@ def to_mcscan_request(request: AnalysisRequest) -> McscanRequest:
     )
 
 
-def to_histogram_request(request: AnalysisRequest) -> HistogramRequest:
+def to_histogram_request(request: AnalysisRequest) -> HistogramExecutionRequest:
     """把 AnalysisRequest(分析请求) 转为 plot-only histogram(直方图) 请求"""
 
     method_config = McscanMethodConfig.from_json(request.method_config)
@@ -191,7 +195,7 @@ def to_histogram_request(request: AnalysisRequest) -> HistogramRequest:
     if not inputs:
         raise InputValidationError("graphics_histogram requires at least one histogram input file")
 
-    return HistogramRequest(
+    return HistogramExecutionRequest(
         inputs=inputs,
         outdir=_path(request.output.directory),
         columns=list(method_config.histogram_columns) or [0],
@@ -214,7 +218,7 @@ def to_histogram_request(request: AnalysisRequest) -> HistogramRequest:
     )
 
 
-def to_heatmap_request(request: AnalysisRequest) -> HeatmapPlotRequest:
+def to_heatmap_request(request: AnalysisRequest) -> HeatmapExecutionRequest:
     """把 AnalysisRequest(分析请求) 转为热图绘制请求"""
 
     method_config = McscanMethodConfig.from_json(request.method_config)
@@ -226,7 +230,7 @@ def to_heatmap_request(request: AnalysisRequest) -> HeatmapPlotRequest:
     if rowgroups is not None and not rowgroups.is_file():
         raise InputValidationError(f"行分组文件不存在：{rowgroups}")
 
-    return HeatmapPlotRequest(
+    return HeatmapExecutionRequest(
         matrix=matrix,
         outdir=_path(request.output.directory),
         formats=request.output.formats,

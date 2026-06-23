@@ -18,7 +18,7 @@ from genomelens.toolchain.runtime.resource_locator import locate_engine
 
 
 if TYPE_CHECKING:
-    from genomelens.core.jcvi_adapter.adapter_models import McscanRequest
+    from genomelens.analysis.execution_models import McscanExecutionRequest
     from genomelens.data.workspace.output_layout import OutputLayout
 
 
@@ -161,7 +161,11 @@ def _rewrite_bed_lines(source: Path, species_name: str, seen: set[str]) -> list[
     return lines
 
 
-def _write_multi_local_bed(path: Path, request: McscanRequest, pairwise_jobs: list[PairwiseJobSummary]) -> Path:
+def _write_multi_local_bed(
+    path: Path,
+    request: McscanExecutionRequest,
+    pairwise_jobs: list[PairwiseJobSummary],
+) -> Path:
     """写出多物种局部图使用的合并 BED"""
 
     seen: set[str] = set()
@@ -181,7 +185,7 @@ def _write_multi_local_bed(path: Path, request: McscanRequest, pairwise_jobs: li
 
 def _write_multi_local_blocks(
     path: Path,
-    request: McscanRequest,
+    request: McscanExecutionRequest,
     pairwise_jobs: list[PairwiseJobSummary],
     aggregates: dict[str, _TargetAggregate],
 ) -> tuple[Path, list[str]]:
@@ -213,7 +217,7 @@ def _write_multi_local_blocks(
 
 
 def build_multi_species_local_synteny(
-    request: McscanRequest,
+    request: McscanExecutionRequest,
     pairwise_jobs: list[PairwiseJobSummary],
     layout: OutputLayout,
 ) -> list[str]:

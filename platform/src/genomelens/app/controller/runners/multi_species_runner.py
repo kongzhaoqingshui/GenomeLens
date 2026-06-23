@@ -9,6 +9,7 @@ from itertools import combinations
 from pathlib import Path
 from typing import Any, cast
 
+from genomelens.analysis.execution_models import McscanExecutionRequest
 from genomelens.app.controller.runners._shared import (
     build_multi_run_summary,
     copy_pairwise_figures,
@@ -19,7 +20,6 @@ from genomelens.app.controller.runners._shared import (
 )
 from genomelens.app.controller.state_machine import WorkflowState
 from genomelens.core.jcvi_adapter.adapter import JcviEngineAdapter
-from genomelens.core.jcvi_adapter.adapter_models import McscanRequest
 from genomelens.core.summary_models import PairwiseJobSummary, RunSummary
 from genomelens.data.logging.log_setup import close_logging, logger_name_for_path
 from genomelens.data.logging.task_log import task_scope
@@ -30,7 +30,7 @@ from genomelens.toolchain.runtime.resource_locator import locate_engine
 
 
 def _build_global_karyotype(
-    request: McscanRequest,
+    request: McscanExecutionRequest,
     pairwise_jobs: list[PairwiseJobSummary],
     layout: OutputLayout,
 ) -> list[str]:
@@ -123,7 +123,7 @@ def _build_global_karyotype(
 
 def _prepare_multi_species_workspace(
     set_state: Callable[[WorkflowState], None],
-    request: McscanRequest,
+    request: McscanExecutionRequest,
 ) -> tuple[OutputLayout, dict[str, object]]:
     """校验请求、创建工作区并写入顶层 manifest"""
 
@@ -139,7 +139,7 @@ def _prepare_multi_species_workspace(
 
 def _run_multi_pairwise_jobs(
     set_state: Callable[[WorkflowState], None],
-    request: McscanRequest,
+    request: McscanExecutionRequest,
     layout: OutputLayout,
 ) -> tuple[list[PairwiseJobSummary], list[str]]:
     """把多物种拆成多个 pairwise 子任务运行，汇总各子任务产物"""
@@ -154,7 +154,7 @@ def _run_multi_pairwise_jobs(
 
 def _run_multi_species_mcscan(
     set_state: Callable[[WorkflowState], None],
-    request: McscanRequest,
+    request: McscanExecutionRequest,
 ) -> RunSummary:
     """把多物种任务拆成多个 pairwise(两两比较) 任务并汇总结果"""
 
@@ -184,7 +184,7 @@ def _run_multi_species_mcscan(
 
 def run_multi_species_mcscan(
     set_state: Callable[[WorkflowState], None],
-    request: McscanRequest,
+    request: McscanExecutionRequest,
 ) -> RunSummary:
     """Run multi-species MCscan and release task log handles."""
 

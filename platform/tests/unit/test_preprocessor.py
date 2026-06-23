@@ -3,6 +3,7 @@ import json
 from pathlib import Path
 from types import SimpleNamespace
 
+from genomelens.analysis.execution_models import McscanExecutionRequest
 from genomelens.analysis.requests.models import AnalysisSpeciesInput
 from genomelens.analysis.requests.normalization.input_resolver import discover_species_from_directory
 from genomelens.analysis.requests.normalization.option_merger import (
@@ -21,7 +22,6 @@ from genomelens.analysis.requests.normalization.reference_resolver import _resol
 from genomelens.analysis.requests.normalization.request_assembler import mcscan_auto_request_from_cli
 from genomelens.app.controller.runners import _shared as runner_shared
 from genomelens.app.controller.state_machine import WorkflowState
-from genomelens.core.jcvi_adapter.adapter_models import McscanRequest
 from genomelens.core.models import GenomeInputSpec, PreparedGenomeInputSpec, RawAnnotationInputSpec
 from genomelens.core.preprocessing.annotation_preprocessor import (
     CdsFeature,
@@ -187,7 +187,7 @@ def test_validate_request_accepts_mixed_input_modes(tmp_path: Path) -> None:
     subject_genome.write_text(">chr1\nATG\n", encoding="utf-8")
 
     validate_request(
-        McscanRequest(
+        McscanExecutionRequest(
             query=GenomeInputSpec("query", prepared=PreparedGenomeInputSpec(query_bed, query_cds)),
             subject=GenomeInputSpec("subject", raw=RawAnnotationInputSpec(subject_gff, subject_genome)),
             outdir=tmp_path / "out",
@@ -224,7 +224,7 @@ def test_prepare_inputs_preprocesses_only_raw_side(tmp_path: Path, monkeypatch) 
 
     states: list[WorkflowState] = []
     layout = create_output_layout(tmp_path / "out", force=True)
-    request = McscanRequest(
+    request = McscanExecutionRequest(
         query=GenomeInputSpec("query", prepared=PreparedGenomeInputSpec(query_bed, query_cds)),
         subject=GenomeInputSpec("subject", raw=RawAnnotationInputSpec(subject_gff, subject_genome)),
         outdir=tmp_path / "out",

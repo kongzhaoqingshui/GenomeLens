@@ -1,10 +1,10 @@
-"""测试 McscanMethodConfig -> McscanRequest 的字段映射层。"""
+"""测试 McscanMethodConfig -> McscanExecutionRequest 的字段映射层。"""
 
 from pathlib import Path
 
 import pytest
 
-from genomelens.analysis.methods.mcscan_request_mapping import (
+from genomelens.analysis.methods.execution_request_mapping import (
     _map_method_config_to_request,
     to_histogram_request,
     to_mcscan_request,
@@ -29,7 +29,7 @@ from genomelens.data.config.config_models import (
 
 
 def test_map_method_config_to_request_field_names() -> None:
-    """映射层应把 method_config 字段名转成 McscanRequest 字段名。"""
+    """映射层应把 method_config 字段名转成 McscanExecutionRequest 字段名。"""
 
     method_config = McscanMethodConfig(
         workflow="graphics_synteny",
@@ -135,7 +135,7 @@ def test_map_method_config_uses_toolchain_fallback() -> None:
 
 
 def test_to_mcscan_request_applies_mapping() -> None:
-    """to_mcscan_request 应通过映射层正确构造 McscanRequest。"""
+    """to_mcscan_request 应通过映射层正确构造 McscanExecutionRequest。"""
 
     request = AnalysisRequest(
         method="mcscan",

@@ -8,6 +8,7 @@ import shutil
 from collections.abc import Callable
 from typing import cast
 
+from genomelens.analysis.execution_models import HistogramExecutionRequest
 from genomelens.app.controller.runners._shared import (
     artifact_record,
     build_run_summary,
@@ -17,7 +18,6 @@ from genomelens.app.controller.runners._shared import (
 )
 from genomelens.app.controller.state_machine import WorkflowState
 from genomelens.core.jcvi_adapter.adapter import JcviEngineAdapter
-from genomelens.core.jcvi_adapter.adapter_models import HistogramRequest
 from genomelens.core.summary_models import RunSummary
 from genomelens.core.validators import validate_histogram_request
 from genomelens.core.visualization.figure_archiver import archive_figures
@@ -30,7 +30,7 @@ from genomelens.toolchain.runtime.resource_locator import locate_engine
 
 
 def _build_artifact_index(
-    request: HistogramRequest,
+    request: HistogramExecutionRequest,
     *,
     manifest_path: str,
     engine_summary_path: str,
@@ -63,7 +63,7 @@ def _build_artifact_index(
 
 
 def _build_run_summary(
-    request: HistogramRequest,
+    request: HistogramExecutionRequest,
     *,
     manifest_path: str,
     engine_summary_path: str,
@@ -124,7 +124,7 @@ def _build_run_summary(
 
 def _run_histogram(
     set_state: Callable[[WorkflowState], None],
-    request: HistogramRequest,
+    request: HistogramExecutionRequest,
     logger: logging.Logger,
 ) -> RunSummary:
     """运行 plot-only histogram 工作流并写出 run_summary.json"""
@@ -180,7 +180,7 @@ def _run_histogram(
 
 def run_histogram_workflow(
     set_state: Callable[[WorkflowState], None],
-    request: HistogramRequest,
+    request: HistogramExecutionRequest,
 ) -> RunSummary:
     """运行 histogram 工作流并释放日志句柄"""
 

@@ -3,7 +3,8 @@
 # region import
 from __future__ import annotations
 
-from genomelens.analysis.methods.mcscan_request_mapping import (
+from genomelens.analysis.execution_models import HistogramExecutionRequest, McscanExecutionRequest
+from genomelens.analysis.methods.execution_request_mapping import (
     to_heatmap_request,
     to_histogram_request,
     to_mcscan_request,
@@ -12,7 +13,6 @@ from genomelens.analysis.requests.models import AnalysisRequest
 from genomelens.app.controller.state_machine import WorkflowState
 from genomelens.app.controller.workflow_provider import WorkflowProvider
 from genomelens.app.events.signal_bus import SignalBus
-from genomelens.core.jcvi_adapter.adapter_models import HistogramRequest, McscanRequest
 from genomelens.core.summary_models import RunSummary
 
 # endregion
@@ -58,13 +58,13 @@ class McscanWorkflowProvider(WorkflowProvider):
         return run_pairwise_mcscan(_set_state, mcscan_request)
 
 
-def _to_mcscan_request(request: AnalysisRequest) -> McscanRequest:
-    """把 AnalysisRequest 转成 McscanRequest（provider 内部使用的便利函数）"""
+def _to_mcscan_request(request: AnalysisRequest) -> McscanExecutionRequest:
+    """把 AnalysisRequest 转成 McscanExecutionRequest（provider 内部使用的便利函数）"""
 
     return to_mcscan_request(request)
 
 
-def _to_histogram_request(request: AnalysisRequest) -> HistogramRequest:
-    """把 AnalysisRequest 转成 HistogramRequest（provider 内部使用的便利函数）"""
+def _to_histogram_request(request: AnalysisRequest) -> HistogramExecutionRequest:
+    """把 AnalysisRequest 转成 HistogramExecutionRequest（provider 内部使用的便利函数）"""
 
     return to_histogram_request(request)

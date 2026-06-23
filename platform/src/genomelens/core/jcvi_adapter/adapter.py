@@ -18,14 +18,14 @@ from pathlib import Path
 from typing import cast
 
 from genomelens._version import __version__
+from genomelens.analysis.execution_models import (
+    HeatmapExecutionRequest,
+    HistogramExecutionRequest,
+    McscanExecutionRequest,
+)
 from genomelens.app.errors.exceptions import EngineProbeError, EngineRunError, SummaryParseError
 from genomelens.core.constants import ENGINE_RUN_TIMEOUT_SECONDS, PROBE_TIMEOUT_SECONDS
-from genomelens.core.jcvi_adapter.adapter_models import (
-    HeatmapPlotRequest,
-    HistogramRequest,
-    JcviRunResult,
-    McscanRequest,
-)
+from genomelens.core.jcvi_adapter.adapter_models import JcviRunResult
 from genomelens.core.jcvi_adapter.command_mapping import normalize_workflow
 from genomelens.core.jcvi_adapter.path_patch import absolute_path
 from genomelens.core.models import GenomeInputSpec, PreparedGenomeInputSpec
@@ -77,7 +77,7 @@ class JcviEngineAdapter:
 
     def build_manifest(
         self,
-        request: McscanRequest,
+        request: McscanExecutionRequest,
         *,
         query: PreparedGenomeInputSpec,
         subject: PreparedGenomeInputSpec,
@@ -160,7 +160,7 @@ class JcviEngineAdapter:
             },
         }
 
-    def build_histogram_manifest(self, request: HistogramRequest) -> dict[str, object]:
+    def build_histogram_manifest(self, request: HistogramExecutionRequest) -> dict[str, object]:
         """构建 histogram workflow 的公开 engine manifest(引擎清单)"""
 
         workflow = normalize_workflow(request.workflow)
@@ -306,7 +306,7 @@ class JcviEngineAdapter:
             },
         }
 
-    def build_heatmap_manifest(self, request: HeatmapPlotRequest) -> dict[str, object]:
+    def build_heatmap_manifest(self, request: HeatmapExecutionRequest) -> dict[str, object]:
         """构建独立 heatmap plot manifest(热图清单)"""
 
         options: dict[str, object] = {

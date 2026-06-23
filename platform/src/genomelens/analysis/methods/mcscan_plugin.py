@@ -3,12 +3,12 @@
 # region import
 from __future__ import annotations
 
-from genomelens.analysis.methods.mcscan_provider import McscanWorkflowProvider
-from genomelens.analysis.methods.mcscan_request_mapping import (
+from genomelens.analysis.methods.execution_request_mapping import (
     to_heatmap_request,
     to_histogram_request,
     to_mcscan_request,
 )
+from genomelens.analysis.methods.mcscan_provider import McscanWorkflowProvider
 from genomelens.analysis.methods.registry import ArtifactDeclaration, MethodPlugin
 from genomelens.analysis.requests.models import AnalysisRequest, McscanMethodConfig
 from genomelens.app.controller.workflow_provider import WorkflowProvider
@@ -41,7 +41,7 @@ class McscanPlugin(MethodPlugin):
         return True
 
     def validate_request(self, request: AnalysisRequest) -> None:
-        """通过构造 McscanRequest 来校验输入是否满足 MCscan 要求"""
+        """通过构造 McscanExecutionRequest 来校验输入是否满足 MCscan 要求"""
 
         workflow = McscanMethodConfig.from_json(request.method_config).workflow
         if workflow == "graphics_histogram":

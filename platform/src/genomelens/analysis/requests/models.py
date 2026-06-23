@@ -342,27 +342,6 @@ class McscanMethodConfig:
 
 
 @dataclass(frozen=True)
-class PortBinding:
-    """PortBinding(端口绑定)：运行时子模块端口的具体值
-
-    在 AnalysisRequest 中通常以 `port_bindings: dict[str, object]` 平铺存储，
-    键为 port_id，值为运行时值。本 dataclass 用于代码层显式转换。
-    """
-
-    # fmt: off
-    port_id: str   # 子模块端口唯一标识
-    value: object  # 运行时绑定的端口值
-    # fmt: on
-
-    def to_json(self) -> dict[str, object]:
-        return {"port_id": self.port_id, "value": self.value}
-
-    @classmethod
-    def from_json(cls, data: dict[str, object]) -> PortBinding:
-        return cls(port_id=_str(data.get("port_id")), value=data.get("value"))
-
-
-@dataclass(frozen=True)
 class WorkflowComposition:
     """WorkflowComposition(工作流组合)：多个子模块按 DAG 连接
 

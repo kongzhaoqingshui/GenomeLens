@@ -48,6 +48,10 @@ class PortBinding:
     def to_json(self) -> dict[str, object]:
         return {"port_id": self.port_id, "value": self.value}
 
+    @classmethod
+    def from_json(cls, data: dict[str, object]) -> PortBinding:
+        return cls(port_id=str(data.get("port_id")), value=data.get("value"))
+
 
 class PortSystem:
     """端口系统：提供端口绑定验证与兼容性检查"""

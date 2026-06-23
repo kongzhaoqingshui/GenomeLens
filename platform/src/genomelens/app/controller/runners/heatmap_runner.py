@@ -8,6 +8,7 @@ import shutil
 from collections.abc import Callable
 from typing import cast
 
+from genomelens.analysis.execution_models import HeatmapExecutionRequest
 from genomelens.app.controller.runners._shared import (
     artifact_record,
     build_run_summary,
@@ -17,7 +18,6 @@ from genomelens.app.controller.runners._shared import (
 )
 from genomelens.app.controller.state_machine import WorkflowState
 from genomelens.core.jcvi_adapter.adapter import JcviEngineAdapter
-from genomelens.core.jcvi_adapter.adapter_models import HeatmapPlotRequest
 from genomelens.core.summary_models import RunSummary
 from genomelens.core.visualization.figure_archiver import archive_figures
 from genomelens.data.logging.log_setup import run_with_logging
@@ -29,7 +29,7 @@ from genomelens.toolchain.runtime.resource_locator import locate_engine
 
 
 def _build_artifact_index(
-    request: HeatmapPlotRequest,
+    request: HeatmapExecutionRequest,
     *,
     manifest_path: str,
     engine_summary_path: str,
@@ -63,7 +63,7 @@ def _build_artifact_index(
 
 
 def _build_run_summary(
-    request: HeatmapPlotRequest,
+    request: HeatmapExecutionRequest,
     *,
     manifest_path: str,
     engine_summary_path: str,
@@ -123,7 +123,7 @@ def _build_run_summary(
 
 def _run_heatmap(
     set_state: Callable[[WorkflowState], None],
-    request: HeatmapPlotRequest,
+    request: HeatmapExecutionRequest,
     logger: logging.Logger,
 ) -> RunSummary:
     """运行 plot-only heatmap 工作流并写出 run_summary.json"""
@@ -180,7 +180,7 @@ def _run_heatmap(
 
 def run_heatmap_workflow(
     set_state: Callable[[WorkflowState], None],
-    request: HeatmapPlotRequest,
+    request: HeatmapExecutionRequest,
 ) -> RunSummary:
     """运行 heatmap 工作流并释放日志句柄"""
 

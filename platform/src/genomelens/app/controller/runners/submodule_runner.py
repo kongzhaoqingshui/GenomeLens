@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 
-from genomelens.analysis.methods.mcscan_request_mapping import (
+from genomelens.analysis.methods.execution_request_mapping import (
     to_heatmap_request,
     to_histogram_request,
     to_mcscan_request,

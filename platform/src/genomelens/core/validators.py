@@ -5,8 +5,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from genomelens.analysis.execution_models import HistogramExecutionRequest, McscanExecutionRequest
 from genomelens.app.errors.exceptions import InputValidationError
-from genomelens.core.jcvi_adapter.adapter_models import HistogramRequest, McscanRequest
 from genomelens.core.jcvi_adapter.command_mapping import SUPPORTED_WORKFLOWS, normalize_workflow
 from genomelens.core.models import GenomeInputSpec
 
@@ -34,7 +34,7 @@ def validate_genome_input(spec: GenomeInputSpec, label: str) -> None:
         require_existing_file(spec.raw.genome, f"{label} genome FASTA")
 
 
-def validate_request(request: McscanRequest) -> None:
+def validate_request(request: McscanExecutionRequest) -> None:
     """校验完整 MCscan 请求"""
 
     species = request.species
@@ -65,7 +65,7 @@ def validate_request(request: McscanRequest) -> None:
             raise InputValidationError(f"{label} path does not exist: {optional_path}")
 
 
-def validate_histogram_request(request: HistogramRequest) -> None:
+def validate_histogram_request(request: HistogramExecutionRequest) -> None:
     """校验 plot-only histogram(纯绘图直方图) 请求"""
 
     if not request.inputs:

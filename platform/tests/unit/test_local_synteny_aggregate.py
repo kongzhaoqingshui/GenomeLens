@@ -1,12 +1,12 @@
 import json
 from pathlib import Path
 
+from genomelens.analysis.execution_models import McscanExecutionRequest
 from genomelens.app.controller.runners.local_synteny_aggregate import (
     _collect_target_aggregates,
     _write_multi_local_bed,
     _write_multi_local_blocks,
 )
-from genomelens.core.jcvi_adapter.adapter_models import McscanRequest
 from genomelens.core.models import GenomeInputSpec, PreparedGenomeInputSpec
 from genomelens.core.summary_models import PairwiseJobSummary
 
@@ -56,7 +56,7 @@ def test_multi_local_aggregate_scopes_gene_ids_per_species(tmp_path: Path) -> No
     query_bed = _write_bed(tmp_path / "query.bed", "q")
     subject_bed = _write_bed(tmp_path / "subject.bed", "s")
     third_bed = _write_bed(tmp_path / "third.bed", "t")
-    request = McscanRequest(
+    request = McscanExecutionRequest(
         query=_prepared("query", query_bed),
         subject=_prepared("subject", subject_bed),
         additional_species=[_prepared("third", third_bed)],
@@ -84,7 +84,7 @@ def test_multi_local_aggregate_preserves_multiple_subject_hits(tmp_path: Path) -
     query_bed = _write_bed(tmp_path / "query.bed", "q")
     subject_bed = _write_bed(tmp_path / "subject.bed", "s")
     third_bed = _write_bed(tmp_path / "third.bed", "t")
-    request = McscanRequest(
+    request = McscanExecutionRequest(
         query=_prepared("query", query_bed),
         subject=_prepared("subject", subject_bed),
         additional_species=[_prepared("third", third_bed)],

@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 
-from genomelens.analysis.methods.mcscan_request_mapping import to_mcscan_request
+from genomelens.analysis.methods.execution_request_mapping import to_mcscan_request
 from genomelens.analysis.requests.models import AnalysisRequest
 from genomelens.app.controller.runners.multi_species_runner import run_multi_species_mcscan
 from genomelens.app.controller.runners.pairwise_runner import run_pairwise_mcscan

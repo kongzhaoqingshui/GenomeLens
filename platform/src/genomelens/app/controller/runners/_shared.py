@@ -11,9 +11,9 @@ from dataclasses import replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from genomelens.analysis.execution_models import McscanExecutionRequest
 from genomelens.app.controller.state_machine import WorkflowState
 from genomelens.app.errors import messages
-from genomelens.core.jcvi_adapter.adapter_models import McscanRequest
 from genomelens.core.mcscan_summary import McscanSummaryExtension
 from genomelens.core.models import ArtifactRecord, GenomeInputSpec, PreparedGenomeInputSpec
 from genomelens.core.preprocessing.annotation_preprocessor import preprocess_one, write_preprocessing_summary
@@ -33,7 +33,7 @@ if TYPE_CHECKING:
 
 
 # region 请求元数据辅助函数
-def species_summary(request: McscanRequest) -> list[dict[str, object]]:
+def species_summary(request: McscanExecutionRequest) -> list[dict[str, object]]:
     """把 request.species 转成 summary 列表"""
 
     # 顶层 summary 统一使用 query / subject / additional 三段式角色，兼容现有 pairwise 执行层
@@ -74,7 +74,7 @@ def artifact_record(
 
 
 def artifact_index(
-    request: McscanRequest,
+    request: McscanExecutionRequest,
     engine_result: JcviRunResult,
     final_figures: list[str],
     *,
@@ -192,7 +192,7 @@ def copy_pairwise_figures(pair_id: str, figures: list[str], target_dir: Path) ->
 
 def prepare_composite_workspace(
     set_state: Callable[[WorkflowState], None],
-    request: McscanRequest,
+    request: McscanExecutionRequest,
     *,
     pairing_strategy: str,
     logger_message: str,
@@ -237,7 +237,7 @@ def prepare_composite_workspace(
 
 def run_composite_pairwise_jobs(
     set_state: Callable[[WorkflowState], None],
-    request: McscanRequest,
+    request: McscanExecutionRequest,
     layout: OutputLayout,
     pairs: list[tuple[Any, Any]],
 ) -> tuple[list[PairwiseJobSummary], list[str]]:
@@ -319,7 +319,7 @@ def run_composite_pairwise_jobs(
 
 def prepare_inputs(
     set_state: Callable[[WorkflowState], None],
-    request: McscanRequest,
+    request: McscanExecutionRequest,
     layout: OutputLayout,
 ) -> tuple[PreparedGenomeInputSpec, PreparedGenomeInputSpec, list[dict[str, object]]]:
     """预处理输入或返回已准备好的输入"""
@@ -357,7 +357,7 @@ def write_run_summary(layout: OutputLayout, summary: RunSummary) -> None:
 
 
 def build_multi_run_summary(
-    request: McscanRequest,
+    request: McscanExecutionRequest,
     layout: OutputLayout,
     pairwise_jobs: list[PairwiseJobSummary],
     final_figures: list[str],

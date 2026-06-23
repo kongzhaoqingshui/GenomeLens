@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from genomelens.analysis.requests.models import AnalysisRequest, PortBinding, WorkflowComposition
+from genomelens.analysis.requests.models import AnalysisRequest, WorkflowComposition
 from genomelens.workflow.onestop_registry import OneStopWorkflowRegistry, get_onestop_registry
-from genomelens.workflow.port_system import PortDeclaration, PortSystem
+from genomelens.workflow.port_system import PortBinding, PortDeclaration, PortSystem
 from genomelens.workflow.submodule_registry import SubModuleRegistry, get_submodule_registry
 
 # region PortSystem

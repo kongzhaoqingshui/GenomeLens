@@ -9,6 +9,7 @@ from collections.abc import Callable
 from dataclasses import replace
 from typing import Any, cast
 
+from genomelens.analysis.execution_models import McscanExecutionRequest
 from genomelens.app.controller.runners._shared import (
     artifact_index as build_artifact_index,
 )
@@ -24,7 +25,7 @@ from genomelens.app.controller.state_machine import WorkflowState
 from genomelens.app.errors.error_codes import ErrorCode
 from genomelens.app.errors.exceptions import ToolchainError
 from genomelens.core.jcvi_adapter.adapter import JcviEngineAdapter
-from genomelens.core.jcvi_adapter.adapter_models import JcviRunResult, McscanRequest
+from genomelens.core.jcvi_adapter.adapter_models import JcviRunResult
 from genomelens.core.mcscan_summary import McscanSummaryExtension
 from genomelens.core.models import PreparedGenomeInputSpec
 from genomelens.core.summary_models import RunSummary
@@ -41,11 +42,11 @@ from genomelens.toolchain.runtime.toolchain_resolver import resolve_pairwise_too
 
 def _prepare_pairwise_inputs(
     set_state: Callable[[WorkflowState], None],
-    request: McscanRequest,
+    request: McscanExecutionRequest,
 ) -> tuple[
     OutputLayout,
     logging.Logger,
-    McscanRequest,
+    McscanExecutionRequest,
     PreparedGenomeInputSpec,
     PreparedGenomeInputSpec,
     list[dict[str, object]],
@@ -87,7 +88,7 @@ def _prepare_pairwise_inputs(
 
 
 def _resolve_pairwise_toolchain(
-    request: McscanRequest,
+    request: McscanExecutionRequest,
 ) -> tuple[LocatedResource, LocatedResource, LocatedResource, str, str]:
     """定位引擎与 BLAST/LAST 工具链，必要时自动安装 BLAST+"""
 
@@ -104,7 +105,7 @@ def _resolve_pairwise_toolchain(
 def _resolve_pairwise_task_and_species(
     engine_result: JcviRunResult,
     manifest: dict[str, object],
-    request: McscanRequest,
+    request: McscanExecutionRequest,
 ) -> tuple[dict[str, object], list[dict[str, object]]]:
     """优先使用引擎返回的 task/species，缺失时回退到 manifest 或请求本身"""
 
@@ -123,8 +124,8 @@ def _resolve_pairwise_task_and_species(
 
 
 def _build_pairwise_run_summary(
-    request: McscanRequest,
-    effective_request: McscanRequest,
+    request: McscanExecutionRequest,
+    effective_request: McscanExecutionRequest,
     layout: OutputLayout,
     engine_result: JcviRunResult,
     manifest: dict[str, object],
@@ -196,7 +197,7 @@ def _build_pairwise_run_summary(
 
 def _run_pairwise_mcscan(
     set_state: Callable[[WorkflowState], None],
-    request: McscanRequest,
+    request: McscanExecutionRequest,
 ) -> RunSummary:
     """运行一对物种的真实 JCVI 工作流并写出 `run_summary.json`"""
 
@@ -274,7 +275,7 @@ def _run_pairwise_mcscan(
 
 def run_pairwise_mcscan(
     set_state: Callable[[WorkflowState], None],
-    request: McscanRequest,
+    request: McscanExecutionRequest,
 ) -> RunSummary:
     """Run pairwise MCscan and release task log handles."""
 

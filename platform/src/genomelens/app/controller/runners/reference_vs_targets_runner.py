@@ -6,6 +6,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable
 
+from genomelens.analysis.execution_models import McscanExecutionRequest
 from genomelens.app.controller.runners._shared import (
     build_multi_run_summary,
     prepare_composite_workspace,
@@ -14,7 +15,6 @@ from genomelens.app.controller.runners._shared import (
 )
 from genomelens.app.controller.runners.local_synteny_aggregate import build_multi_species_local_synteny
 from genomelens.app.controller.state_machine import WorkflowState
-from genomelens.core.jcvi_adapter.adapter_models import McscanRequest
 from genomelens.core.summary_models import PairwiseJobSummary, RunSummary
 from genomelens.data.logging.log_setup import close_logging, logger_name_for_path
 from genomelens.data.logging.task_log import task_scope
@@ -25,7 +25,7 @@ from genomelens.data.workspace.output_layout import OutputLayout, build_output_l
 
 def _prepare_reference_workspace(
     set_state: Callable[[WorkflowState], None],
-    request: McscanRequest,
+    request: McscanExecutionRequest,
 ) -> tuple[OutputLayout, dict[str, object]]:
     """校验请求、创建工作区并写入顶层 manifest"""
 
@@ -46,7 +46,7 @@ def _prepare_reference_workspace(
 
 def _run_reference_pairwise_jobs(
     set_state: Callable[[WorkflowState], None],
-    request: McscanRequest,
+    request: McscanExecutionRequest,
     layout: OutputLayout,
 ) -> tuple[list[PairwiseJobSummary], list[str]]:
     """以参考物种为中心，分别与每个目标物种运行 pairwise 子任务"""
@@ -63,7 +63,7 @@ def _run_reference_pairwise_jobs(
 
 def _run_reference_vs_targets_mcscan(
     set_state: Callable[[WorkflowState], None],
-    request: McscanRequest,
+    request: McscanExecutionRequest,
 ) -> RunSummary:
     """以参考物种为中心，分别与每个目标物种运行局部共线性"""
 
@@ -97,7 +97,7 @@ def _run_reference_vs_targets_mcscan(
 
 def run_reference_vs_targets_mcscan(
     set_state: Callable[[WorkflowState], None],
-    request: McscanRequest,
+    request: McscanExecutionRequest,
 ) -> RunSummary:
     """Run reference-vs-targets MCscan and release task log handles."""
 
