@@ -8,13 +8,14 @@ import json
 from pathlib import Path
 from typing import cast
 
+from genomelens.app.controller.runners._shared import build_run_summary, scoring_placeholder, ui_block
 from genomelens.app.errors import messages
 from genomelens.app.errors.exceptions import InputValidationError, ToolchainError
 from genomelens.cli.ui import ConsoleWriter, render_analysis_summary
 from genomelens.core.jcvi_adapter.adapter import JcviEngineAdapter
 from genomelens.core.jcvi_adapter.adapter_models import HeatmapPlotRequest, JcviRunResult
 from genomelens.core.models import ArtifactRecord
-from genomelens.core.summary_models import RunSummary, ScoringBlock, UiBlock
+from genomelens.core.summary_models import RunSummary
 from genomelens.core.visualization.figure_archiver import archive_figures
 from genomelens.data.config.config_store import read_optional_config
 from genomelens.data.logging.log_setup import close_logging, logger_name_for_path, setup_logging
@@ -115,9 +116,8 @@ def _build_run_summary(
     run_log = layout.logs / "run.log"
     task = engine_result.task or cast(dict[str, object], manifest.get("task") or {})
     status = "SUCCEEDED" if engine_result.status == "ok" else "FAILED"
-    return RunSummary(
+    return build_run_summary(
         status=status,
-        schema_version=2,
         workflow=workflow,
         method="plot",
         task=task,
@@ -128,14 +128,13 @@ def _build_run_summary(
             "run_log": str(run_log),
             "run_summary": str(layout.run_summary),
         },
-        ui=UiBlock(
-            state=status,
-            progress=1.0 if status == "SUCCEEDED" else 0.0,
-            primary_figures=list(final_figures),
-            summary_path=str(layout.run_summary),
-            log_path=str(run_log),
+        ui=ui_block(
+            status,
+            final_figures,
+            summary_path=layout.run_summary,
+            log_path=run_log,
         ),
-        scoring=ScoringBlock(),
+        scoring=scoring_placeholder(),
         method_data={
             "backend": str(engine_result.artifacts.get("backend") or ""),
             "heatmap_cmap": str(engine_result.artifacts.get("heatmap_cmap") or ""),

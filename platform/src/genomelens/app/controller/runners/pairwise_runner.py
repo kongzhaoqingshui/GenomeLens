@@ -13,6 +13,7 @@ from genomelens.app.controller.runners._shared import (
     artifact_index as build_artifact_index,
 )
 from genomelens.app.controller.runners._shared import (
+    build_run_summary,
     prepare_inputs,
     scoring_placeholder,
     species_summary,
@@ -222,9 +223,8 @@ def _build_pairwise_run_summary(
         species_b_bed=str(subject.bed),
     )
 
-    return RunSummary(
+    return build_run_summary(
         status=status,
-        schema_version=2,
         workflow="mcscan",
         method="mcscan",
         task=task,

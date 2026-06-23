@@ -9,6 +9,7 @@ from typing import cast
 
 from genomelens.app.controller.runners._shared import (
     artifact_record,
+    build_run_summary,
     scoring_placeholder,
     ui_block,
     write_run_summary,
@@ -72,9 +73,8 @@ def _build_run_summary(
 ) -> RunSummary:
     """根据 histogram 运行结果构建 RunSummary"""
 
-    return RunSummary(
+    return build_run_summary(
         status=status,
-        schema_version=2,
         workflow="mcscan",
         method="mcscan",
         task=request.task_spec.to_manifest_json(),

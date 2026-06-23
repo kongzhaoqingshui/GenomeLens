@@ -4,23 +4,30 @@
 from __future__ import annotations
 
 import json
+import logging
 import shutil
 from collections.abc import Callable
+from dataclasses import replace
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from genomelens.app.controller.state_machine import WorkflowState
 from genomelens.app.errors import messages
+from genomelens.core.jcvi_adapter.adapter_models import McscanRequest
 from genomelens.core.mcscan_summary import McscanSummaryExtension
 from genomelens.core.models import ArtifactRecord, GenomeInputSpec, PreparedGenomeInputSpec
 from genomelens.core.preprocessing.annotation_preprocessor import preprocess_one, write_preprocessing_summary
 from genomelens.core.summary_models import RunSummary, ScoringBlock, UiBlock
+from genomelens.core.validators import validate_request
+from genomelens.data.logging.log_setup import logger_name_for_path, setup_logging
+from genomelens.data.logging.task_log import task_scope
+from genomelens.data.workspace.output_layout import create_output_layout
 
 # endregion
 
 
 if TYPE_CHECKING:
-    from genomelens.core.jcvi_adapter.adapter_models import JcviRunResult, McscanRequest
+    from genomelens.core.jcvi_adapter.adapter_models import JcviRunResult
     from genomelens.core.summary_models import PairwiseJobSummary
     from genomelens.data.workspace.output_layout import OutputLayout
 
@@ -128,6 +135,38 @@ def ui_block(
     )
 
 
+def build_run_summary(
+    *,
+    status: str,
+    workflow: str,
+    method: str,
+    task: dict[str, object],
+    species: list[dict[str, object]],
+    final_figures: list[str],
+    artifact_index: list[dict[str, object]],
+    logs: dict[str, str],
+    ui: UiBlock,
+    scoring: ScoringBlock,
+    method_data: dict[str, object],
+) -> RunSummary:
+    """统一构造 RunSummary，消除各 runner 和 CLI 命令中的重复拼装"""
+
+    return RunSummary(
+        status=status,
+        schema_version=2,
+        workflow=workflow,
+        method=method,
+        task=task,
+        species=species,
+        final_figures=final_figures,
+        artifact_index=artifact_index,
+        logs=logs,
+        ui=ui,
+        scoring=scoring,
+        method_data=method_data,
+    )
+
+
 def pair_id(species_a_name: str, species_b_name: str) -> str:
     """两个物种名称组成 pair id"""
 
@@ -149,6 +188,133 @@ def copy_pairwise_figures(pair_id: str, figures: list[str], target_dir: Path) ->
             copied.append(str(target))
 
     return copied
+
+
+def prepare_composite_workspace(
+    set_state: Callable[[WorkflowState], None],
+    request: McscanRequest,
+    *,
+    pairing_strategy: str,
+    logger_message: str,
+    extra_manifest_fields: dict[str, object] | None = None,
+) -> tuple[OutputLayout, dict[str, object]]:
+    """校验请求、创建工作区并写入顶层 manifest。
+
+    供 multi-species 与 reference-vs-targets runner 共用，差异通过
+    `pairing_strategy` / `logger_message` / `extra_manifest_fields` 注入。
+    """
+
+    set_state(WorkflowState.VALIDATING_INPUTS)
+    validate_request(request)
+
+    set_state(WorkflowState.PREPARING_WORKSPACE)
+    layout = create_output_layout(request.outdir, force=request.force)
+    logger = setup_logging(
+        layout.logs / "run.log",
+        level=request.log_level,
+        logger_name=logger_name_for_path(layout.logs / "run.log"),
+        console=request.console_log,
+        concise=True,
+    )
+    logger.info(logger_message)
+
+    manifest: dict[str, object] = {
+        "schema_version": 2,
+        "workflow": "mcscan",
+        "task": request.task_spec.to_manifest_json(),
+        "species": species_summary(request),
+        "pairing_strategy": pairing_strategy,
+    }
+    if extra_manifest_fields:
+        manifest.update(extra_manifest_fields)
+
+    with task_scope(logger, task_id=request.task_id, step=f"prepare_{pairing_strategy}_workspace"):
+        layout.manifest.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        shutil.copy2(layout.manifest, layout.inputs / "input_manifest.json")
+
+    return layout, manifest
+
+
+def run_composite_pairwise_jobs(
+    set_state: Callable[[WorkflowState], None],
+    request: McscanRequest,
+    layout: OutputLayout,
+    pairs: list[tuple[Any, Any]],
+) -> tuple[list[PairwiseJobSummary], list[str]]:
+    """把复合任务拆成多个 pairwise 子任务运行，汇总各子任务产物。
+
+    `pairs` 由调用方决定是 all-vs-all 组合还是 reference-vs-targets 列表。
+    每个 pair 元素只需支持 `.name` 属性，用于构造 pair_id 与 PairwiseJobSummary。
+    """
+
+    # 延迟导入避免与 pairwise_runner 的循环引用
+    from genomelens.app.controller.runners.pairwise_runner import run_pairwise_mcscan
+
+    pairwise_jobs: list[PairwiseJobSummary] = []
+    final_figures: list[str] = []
+    pairwise_root = layout.intermediate / "pairwise"
+    logger = logging.getLogger(logger_name_for_path(layout.logs / "run.log"))
+
+    for query, subject in pairs:
+        name = pair_id(query.name, subject.name)
+        pair_outdir = pairwise_root / name
+
+        pair_request = replace(
+            request,
+            query=query,
+            subject=subject,
+            additional_species=[],
+            outdir=pair_outdir,
+            force=True,
+        )
+
+        try:
+            with task_scope(
+                logger,
+                task_id=name,
+                step="run_pairwise_job",
+                context={"pair_id": name, "outdir": str(pair_outdir)},
+            ):
+                pair_summary = run_pairwise_mcscan(set_state, pair_request)
+        except Exception as exc:  # noqa: BLE001 - 汇总需要记录单个 pair 失败原因
+            pairwise_jobs.append(
+                PairwiseJobSummary(
+                    pair_id=name,
+                    species_a_name=query.name,
+                    species_b_name=subject.name,
+                    status="FAILED",
+                    outdir=str(pair_outdir),
+                    run_summary_path=str(pair_outdir / "report" / "run_summary.json"),
+                    error={"type": exc.__class__.__name__, "message": str(exc)},
+                    final_figures=[],
+                )
+            )
+            continue
+
+        with task_scope(logger, task_id=name, step="copy_pairwise_figures", context={"pair_id": name}):
+            copied_figures = copy_pairwise_figures(name, list(pair_summary.final_figures), layout.figures)
+            final_figures.extend(copied_figures)
+
+        pairwise_jobs.append(
+            PairwiseJobSummary(
+                pair_id=name,
+                species_a_name=query.name,
+                species_b_name=subject.name,
+                status=pair_summary.status,
+                outdir=str(pair_outdir),
+                run_summary_path=str(pair_outdir / "report" / "run_summary.json"),
+                engine_summary_path=str(pair_summary.method_data.get("engine_summary_path", "")),
+                blast_table=str(pair_summary.method_data.get("blast_table", "")),
+                anchors_path=str(pair_summary.method_data.get("anchors_path", "")),
+                simple_path=str(pair_summary.method_data.get("simple_path", "")),
+                blocks_path=str(pair_summary.method_data.get("blocks_path", "")),
+                query_bed=str(pair_summary.method_data.get("query_bed", "")),
+                subject_bed=str(pair_summary.method_data.get("subject_bed", "")),
+                final_figures=copied_figures,
+            )
+        )
+
+    return pairwise_jobs, final_figures
 
 
 def prepare_inputs(
@@ -236,9 +402,8 @@ def build_multi_run_summary(
         native_layout=native_layout,
     )
 
-    return RunSummary(
+    return build_run_summary(
         status=status,
-        schema_version=2,
         workflow="mcscan",
         method="mcscan",
         task=request.task_spec.to_manifest_json(),

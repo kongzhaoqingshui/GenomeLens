@@ -3,11 +3,8 @@
 # region import
 from __future__ import annotations
 
-import json
 import logging
-import shutil
 from collections.abc import Callable
-from dataclasses import replace
 from itertools import combinations
 from pathlib import Path
 from typing import Any, cast
@@ -15,19 +12,18 @@ from typing import Any, cast
 from genomelens.app.controller.runners._shared import (
     build_multi_run_summary,
     copy_pairwise_figures,
-    pair_id,
+    prepare_composite_workspace,
+    run_composite_pairwise_jobs,
     species_summary,
     write_run_summary,
 )
-from genomelens.app.controller.runners.pairwise_runner import run_pairwise_mcscan
 from genomelens.app.controller.state_machine import WorkflowState
 from genomelens.core.jcvi_adapter.adapter import JcviEngineAdapter
 from genomelens.core.jcvi_adapter.adapter_models import McscanRequest
 from genomelens.core.summary_models import PairwiseJobSummary, RunSummary
-from genomelens.core.validators import validate_request
-from genomelens.data.logging.log_setup import close_logging, logger_name_for_path, setup_logging
+from genomelens.data.logging.log_setup import close_logging, logger_name_for_path
 from genomelens.data.logging.task_log import task_scope
-from genomelens.data.workspace.output_layout import OutputLayout, build_output_layout, create_output_layout
+from genomelens.data.workspace.output_layout import OutputLayout, build_output_layout
 from genomelens.toolchain.runtime.resource_locator import locate_engine
 
 # endregion
@@ -131,33 +127,14 @@ def _prepare_multi_species_workspace(
 ) -> tuple[OutputLayout, dict[str, object]]:
     """校验请求、创建工作区并写入顶层 manifest"""
 
-    set_state(WorkflowState.VALIDATING_INPUTS)
-    validate_request(request)
-
-    set_state(WorkflowState.PREPARING_WORKSPACE)
-    layout = create_output_layout(request.outdir, force=request.force)
-    logger = setup_logging(
-        layout.logs / "run.log",
-        level=request.log_level,
-        logger_name=logger_name_for_path(layout.logs / "run.log"),
-        console=request.console_log,
-        concise=True,
+    pair_count = len(request.species) * (len(request.species) - 1) // 2
+    return prepare_composite_workspace(
+        set_state,
+        request,
+        pairing_strategy="all_vs_all_pairwise",
+        logger_message="Starting GenomeLens multi-species workflow",
+        extra_manifest_fields={"pair_count": pair_count},
     )
-    logger.info("Starting GenomeLens multi-species workflow")
-
-    with task_scope(logger, task_id=request.task_id, step="prepare_multi_species_workspace"):
-        manifest = {
-            "schema_version": 2,
-            "workflow": "mcscan",
-            "task": request.task_spec.to_manifest_json(),
-            "species": species_summary(request),
-            "pairing_strategy": "all_vs_all_pairwise",
-            "pair_count": len(request.species) * (len(request.species) - 1) // 2,
-        }
-        layout.manifest.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-        shutil.copy2(layout.manifest, layout.inputs / "input_manifest.json")
-
-    return layout, manifest
 
 
 def _run_multi_pairwise_jobs(
@@ -167,73 +144,12 @@ def _run_multi_pairwise_jobs(
 ) -> tuple[list[PairwiseJobSummary], list[str]]:
     """把多物种拆成多个 pairwise 子任务运行，汇总各子任务产物"""
 
-    pairwise_jobs: list[PairwiseJobSummary] = []
-    final_figures: list[str] = []
-    pairwise_root = layout.intermediate / "pairwise"
-    logger = logging.getLogger(logger_name_for_path(layout.logs / "run.log"))
-
-    for query, subject in combinations(request.species, 2):
-        name = pair_id(query.name, subject.name)
-        pair_outdir = pairwise_root / name
-
-        # 多物种顶层 request 在这里被收缩成单对 request，pairwise runner 无需知道全局上下文
-        pair_request = replace(
-            request,
-            query=query,
-            subject=subject,
-            additional_species=[],
-            outdir=pair_outdir,
-            force=True,
-        )
-
-        try:
-            with task_scope(
-                logger,
-                task_id=name,
-                step="run_pairwise_job",
-                context={"pair_id": name, "outdir": str(pair_outdir)},
-            ):
-                pair_summary = run_pairwise_mcscan(set_state, pair_request)
-        except Exception as exc:  # noqa: BLE001 - 多物种汇总需要记录单个 pairwise 子任务失败原因
-            pairwise_jobs.append(
-                PairwiseJobSummary(
-                    pair_id=name,
-                    species_a_name=query.name,
-                    species_b_name=subject.name,
-                    status="FAILED",
-                    outdir=str(pair_outdir),
-                    run_summary_path=str(pair_outdir / "report" / "run_summary.json"),
-                    error={"type": exc.__class__.__name__, "message": str(exc)},
-                    final_figures=[],
-                )
-            )
-            continue
-
-        with task_scope(logger, task_id=name, step="copy_pairwise_figures", context={"pair_id": name}):
-            # 每对图件复制到顶层 results/figures，同时保留原 pairwise 目录中的完整结果
-            copied_figures = copy_pairwise_figures(name, list(pair_summary.final_figures), layout.figures)
-            final_figures.extend(copied_figures)
-
-        pairwise_jobs.append(
-            PairwiseJobSummary(
-                pair_id=name,
-                species_a_name=query.name,
-                species_b_name=subject.name,
-                status=pair_summary.status,
-                outdir=str(pair_outdir),
-                run_summary_path=str(pair_outdir / "report" / "run_summary.json"),
-                engine_summary_path=str(pair_summary.method_data.get("engine_summary_path", "")),
-                blast_table=str(pair_summary.method_data.get("blast_table", "")),
-                anchors_path=str(pair_summary.method_data.get("anchors_path", "")),
-                simple_path=str(pair_summary.method_data.get("simple_path", "")),
-                blocks_path=str(pair_summary.method_data.get("blocks_path", "")),
-                query_bed=str(pair_summary.method_data.get("query_bed", "")),
-                subject_bed=str(pair_summary.method_data.get("subject_bed", "")),
-                final_figures=copied_figures,
-            )
-        )
-
-    return pairwise_jobs, final_figures
+    return run_composite_pairwise_jobs(
+        set_state,
+        request,
+        layout,
+        list(combinations(request.species, 2)),
+    )
 
 
 def _run_multi_species_mcscan(
