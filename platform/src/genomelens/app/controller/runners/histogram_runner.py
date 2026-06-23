@@ -3,6 +3,7 @@
 # region import
 from __future__ import annotations
 
+import logging
 import shutil
 from collections.abc import Callable
 from typing import cast
@@ -20,7 +21,7 @@ from genomelens.core.jcvi_adapter.adapter_models import HistogramRequest
 from genomelens.core.summary_models import RunSummary
 from genomelens.core.validators import validate_histogram_request
 from genomelens.core.visualization.figure_archiver import archive_figures
-from genomelens.data.logging.log_setup import close_logging, logger_name_for_path, setup_logging
+from genomelens.data.logging.log_setup import run_with_logging
 from genomelens.data.logging.task_log import task_scope
 from genomelens.data.workspace.output_layout import build_output_layout, create_output_layout
 from genomelens.toolchain.runtime.resource_locator import locate_engine
@@ -124,6 +125,7 @@ def _build_run_summary(
 def _run_histogram(
     set_state: Callable[[WorkflowState], None],
     request: HistogramRequest,
+    logger: logging.Logger,
 ) -> RunSummary:
     """运行 plot-only histogram 工作流并写出 run_summary.json"""
 
@@ -132,13 +134,6 @@ def _run_histogram(
 
     set_state(WorkflowState.PREPARING_WORKSPACE)
     layout = create_output_layout(request.outdir, force=request.force)
-    logger = setup_logging(
-        layout.logs / "run.log",
-        level=request.log_level,
-        logger_name=logger_name_for_path(layout.logs / "run.log"),
-        console=request.console_log,
-        concise=True,
-    )
 
     set_state(WorkflowState.CHECKING_TOOLCHAIN)
     with task_scope(logger, task_id=request.task_id, step="resolve_toolchain"):
@@ -190,8 +185,10 @@ def run_histogram_workflow(
     """运行 histogram 工作流并释放日志句柄"""
 
     log_path = build_output_layout(request.outdir).logs / "run.log"
-    logger_name = logger_name_for_path(log_path)
-    try:
-        return _run_histogram(set_state, request)
-    finally:
-        close_logging(logger_name)
+    with run_with_logging(
+        log_path,
+        level=request.log_level,
+        console=request.console_log,
+        concise=True,
+    ) as logger:
+        return _run_histogram(set_state, request, logger)

@@ -18,7 +18,7 @@ from genomelens.core.models import ArtifactRecord
 from genomelens.core.summary_models import RunSummary
 from genomelens.core.visualization.figure_archiver import archive_figures
 from genomelens.data.config.config_store import read_optional_config
-from genomelens.data.logging.log_setup import close_logging, logger_name_for_path, setup_logging
+from genomelens.data.logging.log_setup import run_with_logging
 from genomelens.data.logging.task_log import task_scope
 from genomelens.data.workspace.output_layout import build_output_layout, create_output_layout
 from genomelens.toolchain.runtime.resource_locator import locate_engine
@@ -190,16 +190,13 @@ def run_heatmap(args: argparse.Namespace) -> int:
     )
 
     layout = build_output_layout(request.outdir)
-    logger_name = logger_name_for_path(layout.logs / "run.log")
-    try:
-        create_output_layout(request.outdir, force=request.force)
-        logger = setup_logging(
-            layout.logs / "run.log",
-            level=request.log_level,
-            logger_name=logger_name,
-            console=False,
-            concise=True,
-        )
+    create_output_layout(request.outdir, force=request.force)
+    with run_with_logging(
+        layout.logs / "run.log",
+        level=request.log_level,
+        console=False,
+        concise=True,
+    ) as logger:
         adapter = JcviEngineAdapter(request.jcvi_engine)
         with task_scope(logger, task_id=request.task_id, step="probe_engine", context={"engine": request.jcvi_engine}):
             adapter.probe()
@@ -236,7 +233,5 @@ def run_heatmap(args: argparse.Namespace) -> int:
                 json.dumps(summary.to_json(), ensure_ascii=False, indent=2) + "\n",
                 encoding="utf-8",
             )
-    finally:
-        close_logging(logger_name)
 
     return _print_summary(summary, json_output=bool(args.json))
