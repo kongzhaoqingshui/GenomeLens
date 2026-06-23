@@ -69,7 +69,7 @@ input/
 
 | 参数 | 类型 | 必填 | 默认值 | 说明 |
 |------|------|------|--------|------|
-| `genomelens_exe` | file | 是* | — | 外部 GenomeLens 可执行文件路径 |
+| `GenomeLens_Path` | file | 是* | — | 外部 GenomeLens 可执行文件路径 |
 | `input_dir` | dir | 是* | — | 输入目录，自动发现物种文件对 |
 | `output_dir` | dir | 否 | `output` | 结果输出目录 |
 | `reference` | str/int | 否 | `1` | 参考物种名称或 1-based 索引 |
@@ -87,7 +87,7 @@ input/
 | `rewrite_layout_links` | bool | 否 | `false` | 改写跨轨道 layout 连线（GenomeLens 扩展） |
 | `optimize_karyotype_labels` | bool | 否 | `false` | 优化全局核型标签（GenomeLens 扩展） |
 
-\* `genomelens_exe` 未设置时读取 `GENOMELENS_EXE` 环境变量；`input_dir` 与 `species` 至少提供一个。
+\* `GenomeLens_Path` 未设置时读取 `GENOMELENS_EXE` 环境变量；`input_dir` 与 `species` 至少提供一个。
 
 完整字段映射参见 [`../../PARAMETER_MAPPING.md`](../../PARAMETER_MAPPING.md)。
 
@@ -115,7 +115,7 @@ output/
 
 ```json
 {
-  "genomelens_exe": "C:/GenomeLens/GenomeLens.exe",
+  "GenomeLens_Path": "C:/GenomeLens/GenomeLens.exe",
   "input_dir": "input",
   "output_dir": "output",
   "reference": "1",
@@ -155,4 +155,4 @@ GenomeLens.exe analyze mcscan jcvi graphics_dotplot input output --force
 1. 点图只展示**双物种**关系；若输入目录中出现两个以上物种，插件会按 `reference` 与第一个非参考物种生成请求，结果可能不符合预期。
 2. `formats` 当前为单选；如需多格式输出，建议分多次运行或直接使用 CLI。
 3. `optimize_figsize`、`rewrite_layout_links`、`optimize_karyotype_labels` 是 GenomeLens 扩展参数，不改变 JCVI 核心算法，只影响图件布局和标注。
-4. 若 `genomelens_exe` 指向 `.cmd` / `.bat`，插件会自动通过 `cmd.exe /c` 分派，保证命令行参数正确传递。
+4. 若 `GenomeLens_Path` 指向 `.cmd` / `.bat`，插件会自动通过 `cmd.exe /c` 分派，保证命令行参数正确传递。

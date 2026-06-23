@@ -392,13 +392,13 @@ def resolve_genomelens_exe(params: Mapping[str, object], base: Path) -> Path:
     """Locate the external GenomeLens executable from params or environment."""
 
     raw = str(
-        params.get("genomelens_exe")
-        or params.get("GenomeLens_Path")
+        params.get("GenomeLens_Path")
+        or params.get("genomelens_exe")
         or os.environ.get(GENOMELENS_EXE_ENV, "")
     ).strip()
     if not raw:
         raise PluginError(
-            "genomelens_exe is required: set it in params.json (genomelens_exe or GenomeLens_Path) "
+            "GenomeLens_Path is required: set it in params.json (GenomeLens_Path or genomelens_exe) "
             "or via GENOMELENS_EXE environment variable"
         )
     path = Path(raw)

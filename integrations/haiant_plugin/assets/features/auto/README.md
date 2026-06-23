@@ -5,7 +5,7 @@
 `gljcvi-auto` 是 GenomeLens 在 HAIant（智然体）平台上的 **MCscan JCVI 一键自动流** 插件。它根据 `params.json` 动态生成 `output/jcvi.config.json`，并直接调用外部 `GenomeLens.exe`：
 
 ```text
-<genomelens_exe> analyze mcscan jcvi <input_dir> <output_dir> output/jcvi.config.json
+<GenomeLens_Path> analyze mcscan jcvi <input_dir> <output_dir> output/jcvi.config.json
 ```
 
 与其他单一功能插件不同，`gljcvi-auto` **不生成 `genomelens_request.json`**，也不走 `analyze run` 流程。它封装了 GenomeLens 原生的 `analyze mcscan jcvi` 自动目录分析命令，自动完成物种发现、比对、共线性识别、绘图或局部共线性出图。
@@ -44,7 +44,7 @@
 
 ## 输入目录使用方法说明
 
-`gljcvi-auto` 的输入就是一个**普通文件夹**，你只需把要分析的物种文件按规则放进去即可。系统会自动识别文件、配对物种、选择输入模式。
+`gljcvi-auto` 的输入是一个**普通文件夹**，只需把要分析的物种文件按规则放进去即可。系统会自动识别文件、配对物种、选择输入模式。
 
 ### 支持的文件组合（可混用）
 
@@ -102,7 +102,7 @@ my_project/
 
 ```json
 {
-  "genomelens_exe": "C:/GenomeLens/GenomeLens.exe",
+  "GenomeLens_Path": "C:/GenomeLens/GenomeLens.exe",
   "input_dir": "input",
   "output_dir": "output",
   "reference": "1"
@@ -187,6 +187,7 @@ output/
 
 ```json
 {
+  "GenomeLens_Path": "C:/GenomeLens/GenomeLens.exe",
   "input_dir": "input",
   "output_dir": "output",
   "reference": "1",
@@ -204,6 +205,7 @@ output/
 
 ```json
 {
+  "GenomeLens_Path": "C:/GenomeLens/GenomeLens.exe",
   "input_dir": "input",
   "output_dir": "output",
   "reference": "1",
@@ -230,11 +232,15 @@ main.exe params.json
 GenomeLens.exe analyze mcscan jcvi input output output\jcvi.config.json --force
 ```
 
+---
+
 ## 何时使用
 
 - 希望一条命令跑完比对、过滤、共线性识别与出图。
 - 不需要分别调用 `gljcvi-dotplot`、`gljcvi-synteny` 等单功能插件。
 - 需要在全局共线性与局部共线性之间快速切换。
+
+---
 
 ## 注意事项
 
@@ -242,4 +248,4 @@ GenomeLens.exe analyze mcscan jcvi input output output\jcvi.config.json --force
 2. `optimize_auto` 会同时开启 `optimize_figsize`、`rewrite_layout_links`、`optimize_karyotype_labels`，适合快速出图；如需精细控制，请改用单功能插件。
 3. 在局部共线性模式下，`split_targets` 默认关闭，多个目标会绘制在一张图中；如需单图，可显式开启。
 4. `allow_simplified_fallback` 仅用于诊断，正式分析请保持 `false`。
-5. 中间文件归档后原始文件会被删除；若需保留完整中间产物，请在运行前备份输出目录或避免使用 `gljcvi-auto`。
+5. 中间文件归档后原始文件会被删除。

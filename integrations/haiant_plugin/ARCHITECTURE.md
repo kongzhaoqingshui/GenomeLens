@@ -1,7 +1,7 @@
 # HAIant 插件架构：完全独立的轻量插件
 
 > 本文件描述 GenomeLens 在智然体（HAIant）平台的新插件发布模型。
-> GenomeLens 平台与工具链被视为外部软件；每个 HAIant 插件只携带自己的入口与配置，运行时通过 `genomelens_exe`（或 `GENOMELENS_EXE` 环境变量）调用外部 GenomeLens 可执行文件。
+> GenomeLens 平台与工具链被视为外部软件；每个 HAIant 插件只携带自己的入口与配置，运行时通过 `GenomeLens_Path`（或 `GENOMELENS_EXE` 环境变量）调用外部 GenomeLens 可执行文件。
 > 旧单包插件与重型中心模型已被移除，当前所有插件均为独立外部 GenomeLens 调用模型。
 
 ---
@@ -31,7 +31,7 @@ GenomeLens 平台（包含 `GenomeLens.exe` 或 `genomelens.cmd` / `genomelens.e
 
 ```json
 {
-  "genomelens_exe": "C:/GenomeLens/GenomeLens.exe"
+  "GenomeLens_Path": "C:/GenomeLens/GenomeLens.exe"
 }
 ```
 
@@ -41,9 +41,9 @@ GenomeLens 平台（包含 `GenomeLens.exe` 或 `genomelens.cmd` / `genomelens.e
 $env:GENOMELENS_EXE = "C:\GenomeLens\GenomeLens.exe"
 ```
 
-插件优先读取 `params.json` 中的 `genomelens_exe`；未设置时回退到 `GENOMELENS_EXE` 环境变量。
+插件优先读取 `params.json` 中的 `GenomeLens_Path`；未设置时回退到 `GENOMELENS_EXE` 环境变量。
 
-如果 `genomelens_exe` 指向 `.cmd` / `.bat` 文件，插件会自动通过 `cmd.exe /c` 分派，保证命令行参数正确传递。
+如果 `GenomeLens_Path` 指向 `.cmd` / `.bat` 文件，插件会自动通过 `cmd.exe /c` 分派，保证命令行参数正确传递。
 
 ### 2.2 单功能插件
 
@@ -72,7 +72,7 @@ gljcvi-dotplot/
 `gljcvi-auto` 是一个统一的 MCscan 自动流插件，直接对应 `analyze mcscan jcvi` 一键分析流程。它根据 `params.json` 动态生成 `output/jcvi.config.json`，然后直接调用外部 GenomeLens：
 
 ```powershell
-<genomelens_exe> analyze mcscan jcvi <input_dir> <output_dir> <output/jcvi.config.json>
+<GenomeLens_Path> analyze mcscan jcvi <input_dir> <output_dir> <output/jcvi.config.json>
 ```
 
 未填写 `target_gene_ids` 时生成 `workflow = graphics_synteny` 的全局共线性配置；填写 `target_gene_ids` 时自动切换到 `local_synteny`。该插件不再生成 `genomelens_request.json`，也不提供 workflow 选择器。
@@ -87,13 +87,13 @@ gljcvi-dotplot/
 ## 3. 运行流程
 
 1. HAIant 解压插件 zip。
-2. 用户填写 `params.json`（至少设置 `genomelens_exe`）。
+2. 用户填写 `params.json`（至少设置 `GenomeLens_Path`）。
 3. HAIant 调用 `main.exe params.json`。
 4. `main.exe` 内的 Python 逻辑：
    - 解析 `params.json`
-   - 从 `params.json` 的 `genomelens_exe` / `GenomeLens_Path` 或 `GENOMELENS_EXE` 环境变量解析外部 GenomeLens 可执行文件路径
-   - 对 `gljcvi-auto`：动态生成 `output/jcvi.config.json`，并调用 `<genomelens_exe> analyze mcscan jcvi <input> <output> output/jcvi.config.json`
-   - 对单功能插件：生成 `output/genomelens_request.json`，并调用 `<genomelens_exe> analyze run output\genomelens_request.json`
+   - 从 `params.json` 的 `GenomeLens_Path` / `GenomeLens_Path` 或 `GENOMELENS_EXE` 环境变量解析外部 GenomeLens 可执行文件路径
+   - 对 `gljcvi-auto`：动态生成 `output/jcvi.config.json`，并调用 `<GenomeLens_Path> analyze mcscan jcvi <input> <output> output/jcvi.config.json`
+   - 对单功能插件：生成 `output/genomelens_request.json`，并调用 `<GenomeLens_Path> analyze run output\genomelens_request.json`
 5. 返回外部 GenomeLens 的退出码。
 
 ---
@@ -117,7 +117,7 @@ gljcvi-dotplot/
 
 | 变量 | 设置者 | 使用者 | 说明 |
 |---|---|---|---|
-| `GENOMELENS_EXE` | 用户或 HAIant | 所有插件 | 外部 GenomeLens 可执行文件路径；`params.json` 中的 `genomelens_exe` 或 HAIant 注入的 `GenomeLens_Path` 优先级更高 |
+| `GENOMELENS_EXE` | 用户或 HAIant | 所有插件 | 外部 GenomeLens 可执行文件路径；`params.json` 中的 `GenomeLens_Path` 或 HAIant 注入的 `GenomeLens_Path` 优先级更高 |
 
 旧环境变量 `GENOMELENS_PLUGIN_RUNTIME`、`GLJCVIMCSCAN_HOME` 随重型中心与单包插件一起移除，新插件不再使用。
 
@@ -146,7 +146,7 @@ scripts/build_gljcvi_feature_plugin.ps1 -Feature auto
 ## 7. 开发注意事项
 
 1. 所有插件入口必须接收 `params.json` 路径作为唯一命令行参数。
-2. `params.json` 中必须提供 `genomelens_exe` 或预先设置 `GENOMELENS_EXE` 环境变量。
+2. `params.json` 中必须提供 `GenomeLens_Path` 或预先设置 `GENOMELENS_EXE` 环境变量。
 3. 必须输出 `run.log` 到 `output_dir/run.log`。
 4. 必须使用 `try/except` 捕获异常并写入日志，退出码非 0 表示失败。
 5. PyInstaller 打包后使用 `sys._MEIPASS` 定位资源文件。
