@@ -133,8 +133,8 @@ class SubModuleRunner:
                 input=AnalysisInput(
                     mode="auto_directory",
                     directory=input_dir,
-                    species=[],
-                    reference_index=0,
+                    species=list(request.input.species),
+                    reference_index=request.input.reference_index,
                 ),
                 method_config=method_config,
                 task_kind="analysis",

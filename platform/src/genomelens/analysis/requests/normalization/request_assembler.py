@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+from dataclasses import replace
 
 from genomelens.analysis.requests.models import (
     AnalysisConfigRef,
@@ -43,6 +44,8 @@ from genomelens.analysis.requests.normalization.reference_resolver import (
 from genomelens.app.errors.exceptions import InputValidationError
 from genomelens.data.config.config_models import ConfigModel
 from genomelens.data.config.config_store import read_optional_config
+from genomelens.workflow.port_system import PortSystem
+from genomelens.workflow.submodule_registry import get_submodule_registry
 
 # endregion
 
@@ -175,11 +178,90 @@ def mcscan_auto_request_from_cli(args: argparse.Namespace) -> AnalysisRequest:
     )
 
 
+def _expand_submodule_ports(request: AnalysisRequest) -> AnalysisRequest:
+    """把子模块端口绑定展开到 request 的 input/method_config，使 dispatcher 可校验"""
+
+    if request.task_kind != "sub_module" or not request.sub_module_id:
+        return request
+
+    registry = get_submodule_registry()
+    spec = registry.get(request.sub_module_id)
+    if spec is None:
+        return request
+
+    errors = PortSystem.validate_bindings(spec.inputs, request.port_bindings)
+    if errors:
+        raise InputValidationError("; ".join(errors))
+
+    bindings = request.port_bindings
+    method_config = dict(request.method_config)
+    method_config["workflow"] = spec.engine_workflow
+
+    if spec.engine_workflow == "graphics_histogram":
+        raw_numeric = bindings.get("numeric_files")
+        numeric_files = list(raw_numeric) if isinstance(raw_numeric, list) else []
+        if not numeric_files:
+            raise InputValidationError("graphics_histogram 子模块缺少 numeric_files 端口绑定")
+        method_config["histogram_inputs"] = numeric_files
+        method_config.setdefault("histogram_columns", [0])
+        return replace(
+            request,
+            input=AnalysisInput(
+                mode="method_specific",
+                directory=str(numeric_files[0]),
+                species=[],
+                reference_index=0,
+            ),
+            method_config=method_config,
+        )
+
+    if spec.engine_workflow == "graphics_heatmap":
+        matrix = bindings.get("matrix_csv")
+        if not isinstance(matrix, str) or not matrix:
+            raise InputValidationError("graphics_heatmap 子模块缺少 matrix_csv 端口绑定")
+        method_config["matrix"] = matrix
+        return replace(
+            request,
+            input=AnalysisInput(
+                mode="method_specific",
+                directory=str(matrix),
+                species=[],
+                reference_index=0,
+            ),
+            method_config=method_config,
+        )
+
+    if spec.engine_workflow == "mcscan_pairwise":
+        species_pair = bindings.get("species_pair")
+        if isinstance(species_pair, list) and len(species_pair) == 2:
+            input_dir = str(request.input.directory) if request.input.directory else ""
+        elif isinstance(species_pair, str):
+            input_dir = species_pair
+        else:
+            raise InputValidationError("mcscan_pairwise 子模块的 species_pair 端口应为目录路径或两个物种名")
+        return replace(
+            request,
+            input=AnalysisInput(
+                mode="auto_directory",
+                directory=input_dir,
+                species=[],
+                reference_index=0,
+            ),
+            method_config=method_config,
+        )
+
+    return request
+
+
 def normalize_analysis_request(request: AnalysisRequest) -> AnalysisRequest:
     """补齐 request(请求) 中可推导的输入字段"""
 
     if request.method != "mcscan":
         return request
+
+    if request.task_kind == "sub_module":
+        request = _expand_submodule_ports(request)
+
     if request.input.mode != "auto_directory" or request.input.species:
         return request
     if not request.input.directory:
