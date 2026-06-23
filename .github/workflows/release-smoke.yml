@@ -38,7 +38,7 @@ jobs:
         run: ./scripts/build_split_packages.ps1
       - name: Build GUI preview
         shell: pwsh
-        run: ./scripts/build_gui.ps1 -TauriBuild -DebugBundle
+        run: ./scripts/build_gui.ps1 -TauriBuild
       - name: Build HAIant plugin package
         shell: pwsh
         run: |

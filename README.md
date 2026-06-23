@@ -8,11 +8,13 @@
 .\scripts\build_gui.ps1
 ```
 
-The default flow installs GUI dependencies, runs frontend lint/typecheck/tests/web build, then runs Tauri Rust `cargo check` and `cargo clippy -- -D warnings`. To also produce a Tauri debug bundle:
+The default flow installs GUI dependencies, runs frontend lint/typecheck/tests/web build, then runs Tauri Rust `cargo check` and `cargo clippy -- -D warnings`. To build the real desktop app and publish the runnable GUI entry under `app/JCVI-meow-gui/`:
 
 ```powershell
-.\scripts\build_gui.ps1 -TauriBuild -DebugBundle
+.\scripts\build_gui.ps1 -TauriBuild
 ```
+
+The runnable app entry is copied to `app/JCVI-meow-gui/JCVI-meow.exe`. Use `-DebugBundle` only when you need a debug-profile GUI build.
 
 GenomeLens 是面向 Windows 的比较基因组学与共线性分析命令行产品。项目的完整目标是：从 2 到任意多个物种的 GFF/GTF(注释文件) 与 FASTA(基因组序列) 出发，经过统一参数预设、输入预处理、JCVI 分析与 JCVI 绘图，最终生成可发表、可美化的多物种共线性图。
 

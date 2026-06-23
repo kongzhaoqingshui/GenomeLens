@@ -10,11 +10,13 @@ From the repository root, run the complete GUI verification flow with:
 .\scripts\build_gui.ps1
 ```
 
-This installs dependencies, runs frontend lint/typecheck/tests/web build, and checks the Tauri Rust crate. To build a debug Tauri bundle from the root:
+This installs dependencies, runs frontend lint/typecheck/tests/web build, and checks the Tauri Rust crate. To build the real desktop app and copy the runnable GUI entry into the root `app/JCVI-meow-gui/` folder:
 
 ```powershell
-.\scripts\build_gui.ps1 -TauriBuild -DebugBundle
+.\scripts\build_gui.ps1 -TauriBuild
 ```
+
+The runnable app entry is `app/JCVI-meow-gui/JCVI-meow.exe`. Use `-DebugBundle` only for a debug-profile GUI build.
 
 当前版本：`0.9.20-preview.1`（见 `package.json`、`src-tauri/Cargo.toml`、`src-tauri/tauri.conf.json`）。
 
