@@ -7,9 +7,12 @@ import warnings
 from dataclasses import replace
 
 from genomelens.analysis.requests.models import AnalysisRequest
+from genomelens.app.controller.runners.onestop_runner import OneStopWorkflowRunner
+from genomelens.app.controller.runners.submodule_runner import SubModuleRunner
 from genomelens.app.controller.state_machine import WorkflowState
 from genomelens.app.controller.strategies.pairwise_aggregated import PairwiseAggregatedMultiSpecies
 from genomelens.app.controller.workflow_provider import WorkflowProvider
+from genomelens.app.errors.exceptions import InputValidationError
 from genomelens.app.events.signal_bus import SignalBus
 from genomelens.core.services.scoring_provider import NoOpScoringProvider, ScoringProvider
 from genomelens.core.summary_models import RunSummary
@@ -40,8 +43,18 @@ class WorkflowOrchestrator:
         provider: WorkflowProvider,
         signal_bus: SignalBus,
     ) -> RunSummary:
-        """根据请求特征路由到具体策略"""
+        """根据 task_kind 与请求特征路由到具体策略"""
 
+        if request.task_kind == "sub_module":
+            return SubModuleRunner().run(request, provider, signal_bus)
+
+        if request.task_kind == "one_stop":
+            return OneStopWorkflowRunner().run(request, provider, signal_bus)
+
+        if request.task_kind == "composition":
+            raise InputValidationError("task_kind=composition 的可视化编排执行尚未实现，请使用子模块或一站式工作流")
+
+        # 默认 legacy 路径：按物种数量与 provider 能力选择策略
         species_count = len(request.input.species)
 
         # method-specific / plot-only 请求没有 species[]，直接交给 provider 自行处理

@@ -200,6 +200,11 @@ def normalize_analysis_request(request: AnalysisRequest) -> AnalysisRequest:
         method_config=request.method_config,
         schema_version=request.schema_version,
         kind=request.kind,
+        task_kind=request.task_kind,
+        one_stop_workflow_id=request.one_stop_workflow_id,
+        sub_module_id=request.sub_module_id,
+        port_bindings=request.port_bindings,
+        composition=request.composition,
     )
 
 
