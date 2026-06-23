@@ -60,9 +60,7 @@ def run_check(args: argparse.Namespace) -> int:
 
     if args.install_missing and not magick.ok:
         result = install_toolchain("imagemagick")
-        installs.append(
-            {"name": result.name, "status": result.status, "path": result.path, "message": result.message}
-        )
+        installs.append({"name": result.name, "status": result.status, "path": result.path, "message": result.message})
         magick = resolve_imagemagick(
             explicit=args.magick,
             config_value=toolchain.magick_path if toolchain else "",
