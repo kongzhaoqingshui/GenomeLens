@@ -9,8 +9,8 @@ from jcvi.graphics.synteny import main as jcvi_graphics_synteny
 from jcvi_genomelens.graphics.local_synteny_renderer import render_local_synteny
 from jcvi_genomelens.manifest_models import EngineRunManifest
 from jcvi_genomelens.runtime.command_runner import CommandAudit, run_python_step
-from jcvi_genomelens.workflows.common import _assert_ok
-from jcvi_genomelens.workflows.local_synteny import _figure_options, _layout_label_fields
+from jcvi_genomelens.workflows.common import _assert_ok, build_figure_options
+from jcvi_genomelens.workflows.local_synteny import _layout_label_fields
 from jcvi_genomelens.workflows.plot_optimization import copy_plot_inputs, prepare_synteny_plot_inputs
 
 # endregion
@@ -135,6 +135,9 @@ def run(manifest: EngineRunManifest, outdir: str | Path) -> tuple[list[CommandAu
                 cwd=str(root),
             )
         else:
+            figure_args = build_figure_options(manifest.options, fmt, plot_inputs.figsize)
+            if manifest.options.label_targets and manifest.options.target_gene_ids:
+                figure_args.extend(["--genelabels", ",".join(manifest.options.target_gene_ids)])
             command = run_python_step(
                 "jcvi.graphics.synteny",
                 jcvi_graphics_synteny,
@@ -142,7 +145,7 @@ def run(manifest: EngineRunManifest, outdir: str | Path) -> tuple[list[CommandAu
                     str(plot_inputs.blocks),
                     str(plot_inputs.bed),
                     str(plot_inputs.layout),
-                    *_figure_options(plot_options, fmt),
+                    *figure_args,
                     "--outputprefix",
                     str(output_prefix),
                 ],

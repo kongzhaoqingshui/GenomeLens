@@ -183,7 +183,7 @@
    - 集成测试：参考 `engines/jcvi/tests/test_engine_run.py`，验证输出文件非空。
 
 6. **文档层**
-   - 更新 `docs/CLI.md`、`docs/使用方法/JCVI能力与配置.md`、`docs/更新计划/更新日志.md`。
+   - 更新 `docs/用户手册.md`、`docs/使用方法/JCVI能力与配置.md`、`docs/更新计划/更新日志.md`。
 
 ---
 

@@ -50,7 +50,6 @@ def build_feature_runtime_command(
     params_path: str | Path,
     *,
     workflow: str,
-    plugin_root: Path,
     logger_name: str,
     params: dict[str, object] | None = None,
     base: Path | None = None,
@@ -76,7 +75,6 @@ def build_runtime_command(
     params_path: str | Path,
     *,
     workflow: str,
-    plugin_root: Path,
     logger_name: str,
     params: dict[str, object] | None = None,
     base: Path | None = None,
@@ -87,7 +85,6 @@ def build_runtime_command(
         return build_feature_runtime_command(
             params_path,
             workflow=workflow,
-            plugin_root=plugin_root,
             logger_name=logger_name,
             params=params,
             base=base,
@@ -107,7 +104,6 @@ def main(
     argv: list[str] | None,
     *,
     workflow: str,
-    plugin_root: Path,
     logger_name: str,
     error_prefix: str,
 ) -> int:
@@ -120,7 +116,6 @@ def main(
         command = build_runtime_command(
             args[0],
             workflow=workflow,
-            plugin_root=plugin_root,
             logger_name=logger_name,
         )
         return run_runtime(command)

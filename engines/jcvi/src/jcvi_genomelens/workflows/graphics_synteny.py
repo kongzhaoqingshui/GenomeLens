@@ -8,28 +8,12 @@ from pathlib import Path
 from jcvi.graphics.synteny import main as jcvi_graphics_synteny
 from jcvi_genomelens.manifest_models import EngineRunManifest
 from jcvi_genomelens.runtime.command_runner import CommandAudit, run_python_step
-from jcvi_genomelens.workflows.common import _assert_ok
+from jcvi_genomelens.workflows.common import _assert_ok, build_figure_options
 from jcvi_genomelens.workflows.graphics_dotplot import draw_dotplots
 from jcvi_genomelens.workflows.mcscan_pairwise import run as run_pairwise
 from jcvi_genomelens.workflows.plot_optimization import prepare_synteny_plot_inputs
 
 # endregion
-
-
-def _figure_options(manifest: EngineRunManifest, fmt: str, figsize: str) -> list[str]:
-    args: list[str] = []
-    if figsize:
-        args.extend(["--figsize", figsize])
-    if manifest.options.dpi:
-        args.extend(["--dpi", str(manifest.options.dpi)])
-    args.extend(["--format", fmt, "--notex"])
-    if manifest.options.glyphstyle:
-        args.extend(["--glyphstyle", manifest.options.glyphstyle])
-    if manifest.options.glyphcolor:
-        args.extend(["--glyphcolor", manifest.options.glyphcolor])
-    if manifest.options.shadestyle:
-        args.extend(["--shadestyle", manifest.options.shadestyle])
-    return args
 
 
 def run(manifest: EngineRunManifest, outdir: str | Path) -> tuple[list[CommandAudit], dict[str, object]]:
@@ -60,7 +44,7 @@ def run(manifest: EngineRunManifest, outdir: str | Path) -> tuple[list[CommandAu
                 str(plot_inputs.blocks),
                 str(plot_inputs.bed),
                 str(plot_inputs.layout),
-                *_figure_options(manifest, fmt, plot_inputs.figsize),
+                *build_figure_options(manifest.options, fmt, plot_inputs.figsize),
                 "--outputprefix",
                 str(output_prefix),
             ],

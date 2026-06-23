@@ -19,6 +19,7 @@ from typing import cast
 
 from genomelens._version import __version__
 from genomelens.app.errors.exceptions import EngineProbeError, EngineRunError, SummaryParseError
+from genomelens.core.constants import ENGINE_RUN_TIMEOUT_SECONDS, PROBE_TIMEOUT_SECONDS
 from genomelens.core.jcvi_adapter.adapter_models import (
     HeatmapPlotRequest,
     HistogramRequest,
@@ -63,7 +64,7 @@ class JcviEngineAdapter:
     def probe(self) -> dict[str, object]:
         """运行 engine probe(引擎探测) 并解析 JSON 输出"""
 
-        result = run_command([self.engine_path, "probe", "--json"], timeout=120)
+        result = run_command([self.engine_path, "probe", "--json"], timeout=PROBE_TIMEOUT_SECONDS)
         if not result.ok:
             raise EngineProbeError(result.stderr or result.stdout or f"probe failed: {result.returncode}")
         try:
@@ -351,7 +352,10 @@ class JcviEngineAdapter:
     def run_manifest(self, manifest_path: str | Path, outdir: str | Path) -> JcviRunResult:
         """用 manifest(清单) 运行 engine(引擎)，并解析摘要"""
 
-        result = run_command([self.engine_path, "run", "--manifest", manifest_path, "--outdir", outdir], timeout=3600)
+        result = run_command(
+            [self.engine_path, "run", "--manifest", manifest_path, "--outdir", outdir],
+            timeout=ENGINE_RUN_TIMEOUT_SECONDS,
+        )
         summary_path = Path(outdir) / "engine_run_summary.json"
         if not result.ok:
             # engine 失败时优先读取已写出的 summary，这样 shell 侧能保留更完整的错误上下文

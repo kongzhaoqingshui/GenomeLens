@@ -5,7 +5,7 @@
 `gljcvi-auto` 是 GenomeLens 在 HAIant（智然体）平台上的 **MCscan JCVI 一键自动流** 插件。它根据 `params.json` 动态生成 `output/jcvi.config.json`，并直接调用外部 `GenomeLens.exe`：
 
 ```text
-<genomelens_exe> analyze mcscan jcvi <input_dir> <output_dir> output/jcvi.config.json
+<GenomeLens_Path> analyze mcscan jcvi <input_dir> <output_dir> output/jcvi.config.json
 ```
 
 与其他单一功能插件不同，`gljcvi-auto` **不生成 `genomelens_request.json`**，也不走 `analyze run` 流程。它封装了 GenomeLens 原生的 `analyze mcscan jcvi` 自动目录分析命令，自动完成物种发现、比对、共线性识别、绘图或局部共线性出图。
@@ -44,7 +44,7 @@
 
 ## 输入目录使用方法说明
 
-`gljcvi-auto` 的输入就是一个**普通文件夹**，你只需把要分析的物种文件按规则放进去即可。系统会自动识别文件、配对物种、选择输入模式。
+`gljcvi-auto` 的输入是一个**普通文件夹**，只需把要分析的物种文件按规则放进去即可。系统会自动识别文件、配对物种、选择输入模式。
 
 ### 支持的文件组合（可混用）
 
@@ -79,14 +79,6 @@ input/
 1. **至少两个物种**：文件夹里必须能成功配出 ≥2 个物种，否则会报错。
 2. **自动配对**：只要前缀相同，系统就会自己找对应的 `.bed`/`.cds` 或 `.gff`/`.fa`。
 3. **混用优先 BED+CDS**：如果某个物种同时存在 BED+CDS 和 GFF+FA，系统会优先使用 BED+CDS。
-4. **路径解析以 `params.json` 为准**：`input_dir` 写 `input` 表示 `params.json` 所在目录下的 `input` 文件夹。
-
-### 快速检查清单
-
-- [ ] 一个文件夹里至少有 2 个物种。
-- [ ] 每个物种的两个文件前缀（去掉扩展名）完全一样。
-- [ ] 文件扩展名在支持列表内。
-- [ ] `params.json` 里的 `input_dir` 指向这个文件夹。
 
 ### 常见错误
 
@@ -110,7 +102,7 @@ my_project/
 
 ```json
 {
-  "genomelens_exe": "C:/GenomeLens/GenomeLens.exe",
+  "GenomeLens_Path": "C:/GenomeLens/GenomeLens.exe",
   "input_dir": "input",
   "output_dir": "output",
   "reference": "1"
@@ -123,11 +115,12 @@ my_project/
 2. 默认把排序后的第一个物种（`Arabidopsis`）作为参考物种。
 3. 开始自动分析。
 
+---
+
 ## 主要参数说明
 
 | 参数 | 类型 | 必填 | 默认值 | 说明 |
 |------|------|------|--------|------|
-| `genomelens_exe` | file | 是* | — | 外部 GenomeLens 路径 |
 | `input_dir` | dir | 是* | — | 输入目录 |
 | `output_dir` | dir | 否 | `output` | 输出目录 |
 | `reference` | str/int | 否 | `1` | 参考物种 |
@@ -148,7 +141,7 @@ my_project/
 | `allow_simplified_fallback` | bool | 否 | `false` | 诊断开关；正式流程保持关闭 |
 | `use_native_local_synteny_renderer` | bool | 否 | `false` | 局部共线性模式下使用原生 matplotlib 渲染器 |
 
-\* `genomelens_exe` 未设置时读取 `GENOMELENS_EXE`。
+---
 
 ## 局部共线性专属参数
 
@@ -163,6 +156,8 @@ my_project/
 | `label_targets` | bool | 否 | `false` | 在图中标注目标基因 |
 
 完整字段映射参见 [`../../PARAMETER_MAPPING.md`](../../PARAMETER_MAPPING.md)。
+
+---
 
 ## 输出文件说明
 
@@ -184,13 +179,15 @@ output/
 - **`intermediates.zip`**：分析完成后，插件把除 `results` 外的中间文件（比对数据库、anchors、blocks、临时图等）打包到此压缩包。
 - **`intermediates.zip.deletable`**：标记文件，提示用户可以安全删除 `intermediates.zip` 以释放空间。
 
+---
+
 ## 使用示例
 
 ### 全局共线性模式
 
 ```json
 {
-  "genomelens_exe": "C:/GenomeLens/GenomeLens.exe",
+  "GenomeLens_Path": "C:/GenomeLens/GenomeLens.exe",
   "input_dir": "input",
   "output_dir": "output",
   "reference": "1",
@@ -208,7 +205,7 @@ output/
 
 ```json
 {
-  "genomelens_exe": "C:/GenomeLens/GenomeLens.exe",
+  "GenomeLens_Path": "C:/GenomeLens/GenomeLens.exe",
   "input_dir": "input",
   "output_dir": "output",
   "reference": "1",
@@ -235,11 +232,15 @@ main.exe params.json
 GenomeLens.exe analyze mcscan jcvi input output output\jcvi.config.json --force
 ```
 
+---
+
 ## 何时使用
 
 - 希望一条命令跑完比对、过滤、共线性识别与出图。
 - 不需要分别调用 `gljcvi-dotplot`、`gljcvi-synteny` 等单功能插件。
 - 需要在全局共线性与局部共线性之间快速切换。
+
+---
 
 ## 注意事项
 
@@ -247,4 +248,4 @@ GenomeLens.exe analyze mcscan jcvi input output output\jcvi.config.json --force
 2. `optimize_auto` 会同时开启 `optimize_figsize`、`rewrite_layout_links`、`optimize_karyotype_labels`，适合快速出图；如需精细控制，请改用单功能插件。
 3. 在局部共线性模式下，`split_targets` 默认关闭，多个目标会绘制在一张图中；如需单图，可显式开启。
 4. `allow_simplified_fallback` 仅用于诊断，正式分析请保持 `false`。
-5. 中间文件归档后原始文件会被删除；若需保留完整中间产物，请在运行前备份输出目录或避免使用 `gljcvi-auto`。
+5. 中间文件归档后原始文件会被删除。

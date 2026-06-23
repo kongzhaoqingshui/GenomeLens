@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
+from genomelens.cli.ui import ConsoleWriter
 from genomelens.data.config.config_store import (
     default_config,
     default_config_path,
@@ -14,6 +15,9 @@ from genomelens.data.config.config_store import (
 )
 
 # endregion
+
+
+_CONSOLE = ConsoleWriter()
 
 
 def register(subparsers: argparse._SubParsersAction) -> None:
@@ -38,6 +42,6 @@ def run_init(args: argparse.Namespace) -> int:
     path = Path(args.config_path) if args.config_path else default_config_path(args.workspace)
     jcvi_path = Path(args.jcvi_config_path) if args.jcvi_config_path else default_jcvi_config_path(args.workspace)
     written_main, written_jcvi = write_split_config(config, path, jcvi_path, force=args.force)
-    print(f"已写入主配置：{written_main}")
-    print(f"已写入 JCVI 配置：{written_jcvi}")
+    _CONSOLE.print_text(f"已写入主配置：{written_main}")
+    _CONSOLE.print_text(f"已写入 JCVI 配置：{written_jcvi}")
     return 0

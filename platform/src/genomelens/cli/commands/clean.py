@@ -8,15 +8,20 @@ import shutil
 from pathlib import Path
 
 from genomelens.app.errors.exceptions import WorkspaceError
+from genomelens.cli.ui import ConsoleWriter
+from genomelens.core.constants import DEFAULT_WORKSPACE_PATH
 
 # endregion
+
+
+_CONSOLE = ConsoleWriter()
 
 
 def register(subparsers: argparse._SubParsersAction) -> None:
     """注册 clean 命令"""
 
     parser = subparsers.add_parser("clean", help="清理临时文件和缓存")
-    parser.add_argument("--workspace", default=str(Path.home() / "GenomeLensWork"), help="workspace(工作区) 根目录")
+    parser.add_argument("--workspace", default=str(DEFAULT_WORKSPACE_PATH), help="workspace(工作区) 根目录")
     parser.add_argument("--cache", action="store_true", help="清理缓存目录")
     parser.add_argument("--all", action="store_true", help="清理临时目录和缓存目录")
     parser.add_argument("--yes", action="store_true", help="确认删除")
@@ -41,7 +46,7 @@ def run_clean(args: argparse.Namespace) -> int:
     for target in targets:
         if target.exists():
             shutil.rmtree(target)
-            print(f"已删除：{target}")
+            _CONSOLE.print_text(f"已删除：{target}")
         else:
-            print(f"不存在，跳过：{target}")
+            _CONSOLE.print_text(f"不存在，跳过：{target}")
     return 0

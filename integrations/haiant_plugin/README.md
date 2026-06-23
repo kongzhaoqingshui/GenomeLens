@@ -24,10 +24,10 @@ main.exe params.json
 带 `params.json` 运行时，插件会先写出稳定的 `genomelens_request.json`，再调用外部 GenomeLens：
 
 ```powershell
-<genomelens_exe> analyze run output/genomelens_request.json
+<GenomeLens_Path> analyze run output/genomelens_request.json
 ```
 
-`genomelens_exe` 从 `params.json` 读取，未设置时回退到 `GENOMELENS_EXE` 环境变量。
+`GenomeLens_Path` 从 `params.json` 读取，未设置时回退到 `GENOMELENS_EXE` 环境变量。
 
 ## 目录
 

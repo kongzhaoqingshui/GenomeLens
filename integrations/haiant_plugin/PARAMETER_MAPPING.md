@@ -5,13 +5,13 @@ HAIant 插件把 `params.json` 转换为 GenomeLens 调用：
 - 单功能插件生成 `AnalysisRequest` JSON，调用外部 GenomeLens 可执行文件：
 
   ```powershell
-  <genomelens_exe> analyze run output\genomelens_request.json
+  <GenomeLens_Path> analyze run output\genomelens_request.json
   ```
 
 - `gljcvi-auto` 直接对应 `analyze mcscan jcvi` 一键自动流：根据参数动态生成 `output/jcvi.config.json`，然后直接调用：
 
   ```powershell
-  <genomelens_exe> analyze mcscan jcvi <input_dir> <output_dir> output\jcvi.config.json
+  <GenomeLens_Path> analyze mcscan jcvi <input_dir> <output_dir> output\jcvi.config.json
   ```
 
 所有相对路径都按 `params.json` 所在目录解析。
@@ -23,7 +23,7 @@ HAIant 插件把 `params.json` 转换为 GenomeLens 调用：
 - 每个 JCVI 小功能对应一个独立插件包（`gljcvi-dotplot`、`gljcvi-synteny`、`gljcvi-karyotype`、`gljcvi-catalog-ortholog`、`gljcvi-local-synteny`），统一使用 ``analyze run``。
 - `gljcvi-auto` 直接对应 `analyze mcscan jcvi` 一键自动流：动态生成 `jcvi.config.json` 后直接调用 CLI，不再走 ``analyze run``。
 - 所有插件都不再依赖重型中心 `gljcvimcscan` 或 `GLJCVIMCSCAN_HOME`。
-- 用户需要在 `params.json` 中提供 `genomelens_exe` / `GenomeLens_Path`，或预先设置 `GENOMELENS_EXE` 环境变量。
+- 用户需要在 `params.json` 中提供 `GenomeLens_Path` / `GenomeLens_Path`，或预先设置 `GENOMELENS_EXE` 环境变量。
 
 详见 `ARCHITECTURE.md`。
 
@@ -31,7 +31,7 @@ HAIant 插件把 `params.json` 转换为 GenomeLens 调用：
 
 | 平台字段 | 类型 | 请求字段 | 必填 | 默认值 | 说明 |
 |---|---|---|---|---|---|
-| `genomelens_exe` | path | — | 是* | — | 外部 GenomeLens 可执行文件路径（`.exe` / `.cmd` / `.bat`） |
+| `GenomeLens_Path` | path | — | 是* | — | 外部 GenomeLens 可执行文件路径（`.exe` / `.cmd` / `.bat`） |
 | `input_dir` | dir | `input.species[]`（自动发现） | 是* | — | 自动发现同名物种文件对的输入目录 |
 | `species` | array | `input.species[]` | 是* | — | 显式物种列表（与 `input_dir` 二选一） |
 | `input_mode` | enum | `input.mode` / 每个物种的 `input_mode` | 否 | `bed_cds` | `bed_cds` 或 `gff_genome` |
@@ -61,7 +61,7 @@ HAIant 插件把 `params.json` 转换为 GenomeLens 调用：
 | `optimize_auto` | bool | `method_config.auto_optimization.*` | 否 | `false` | `gljcvi-auto` 专用：一键开启上述三项出图自动优化 |
 | `allow_simplified_fallback` | bool | `method_config.allow_simplified_fallback` | 否 | `false` | 诊断开关；正式流程保持关闭 |
 
-\* `genomelens_exe` 未设置时读取 `GENOMELENS_EXE` 环境变量；`input_dir` 与 `species` 至少提供一个。
+\* `GenomeLens_Path` 未设置时读取 `GENOMELENS_EXE` 环境变量；`input_dir` 与 `species` 至少提供一个。
 
 ## 工作流固定映射
 
@@ -114,7 +114,7 @@ cmd.exe /c C:\GenomeLens\genomelens.cmd analyze run output\genomelens_request.js
 cmd.exe /c C:\GenomeLens\genomelens.cmd analyze mcscan jcvi input output output\jcvi.config.json
 ```
 
-当 `genomelens_exe` 不是 `.cmd` / `.bat` 时，直接调用可执行文件：
+当 `GenomeLens_Path` 不是 `.cmd` / `.bat` 时，直接调用可执行文件：
 
 ```powershell
 C:\GenomeLens\GenomeLens.exe analyze run output\genomelens_request.json

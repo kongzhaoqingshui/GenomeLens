@@ -10,15 +10,6 @@
   "outputType": "dir",
   "params": [
     {
-      "label": "GenomeLens 可执行文件",
-      "label_en": "GenomeLens Executable",
-      "key": "genomelens_exe",
-      "valueType": "file_selector",
-      "example_value": "C:/GenomeLens/GenomeLens.exe",
-      "description": "外部 GenomeLens 可执行文件路径（.exe/.cmd/.bat）。",
-      "description_en": "Path to the external GenomeLens executable (.exe/.cmd/.bat)."
-    },
-    {
       "label": "输入目录",
       "label_en": "Input Directory",
       "key": "input_dir",

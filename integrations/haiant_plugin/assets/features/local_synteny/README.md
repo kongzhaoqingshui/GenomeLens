@@ -66,7 +66,7 @@ input/
 
 | 参数 | 类型 | 必填 | 默认值 | 说明 |
 |------|------|------|--------|------|
-| `genomelens_exe` | file | 是* | — | 外部 GenomeLens 路径 |
+| `GenomeLens_Path` | file | 是* | — | 外部 GenomeLens 路径 |
 | `input_dir` | dir | 是* | — | 输入目录 |
 | `output_dir` | dir | 否 | `output` | 输出目录 |
 | `reference` | str/int | 否 | `1` | 参考物种 |
@@ -88,7 +88,7 @@ input/
 | `optimize_karyotype_labels` | bool | 否 | `false` | 优化核型标签 |
 | `use_native_local_synteny_renderer` | bool | 否 | `false` | 使用原生 matplotlib 渲染器 |
 
-\* `genomelens_exe` 未设置时读取 `GENOMELENS_EXE`。
+\* `GenomeLens_Path` 未设置时读取 `GENOMELENS_EXE`。
 
 ## 局部共线性专属参数
 
@@ -121,7 +121,7 @@ output/
 
 ```json
 {
-  "genomelens_exe": "C:/GenomeLens/GenomeLens.exe",
+  "GenomeLens_Path": "C:/GenomeLens/GenomeLens.exe",
   "input_dir": "input",
   "output_dir": "output",
   "reference": "1",

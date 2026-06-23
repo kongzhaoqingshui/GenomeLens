@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import re
 import sys
@@ -41,20 +42,6 @@ class CliPalette:
 
 
 PALETTE = CliPalette()
-STATE_LABELS = {
-    "PENDING": "Waiting",
-    "VALIDATING_INPUTS": "Validating",
-    "PREPROCESSING_ANNOTATIONS": "Preprocess",
-    "PREPARING_WORKSPACE": "Preparing",
-    "CHECKING_TOOLCHAIN": "Toolchain",
-    "WRITING_MANIFEST": "Manifest",
-    "RUNNING_ENGINE": "Running",
-    "PARSING_ENGINE_SUMMARY": "Parsing",
-    "FINALIZING": "Finalizing",
-    "SUCCEEDED": "Completed",
-    "FAILED": "Failed",
-    "CANCELLED": "Cancelled",
-}
 STATE_PROGRESS = {
     "PENDING": 0.0,
     "VALIDATING_INPUTS": 0.08,
@@ -180,125 +167,29 @@ def _default_pair_label(request: AnalysisRequest) -> str:
     return ""
 
 
-class _LegacyCliProgressReporter:
-    """CLI 进度条/状态行渲染器"""
+# region 统一 CLI 输出层
+class ConsoleWriter:
+    """统一 CLI 输出层：明确 stdout/stderr 边界，支持 JSON/文本模式切换"""
 
-    def __init__(
-        self,
-        request: AnalysisRequest,
-        *,
-        color: bool | None = None,
-        stream: TextIO | None = None,
-    ) -> None:
-        self._request = request
-        self._stream = stream or sys.stdout
-        self._enabled = _supports_color(self._stream) if color is None else color
-        self._interactive = bool(getattr(self._stream, "isatty", lambda: False)())
-        self._started_at = time.perf_counter()
-        self._total_pairs = _pair_count(request)
-        self._completed_pairs = 0
-        self._active_pair_index = 1
-        self._active_pair_label = _default_pair_label(request)
-        self._state = "PENDING"
-        self._last_line = ""
-        self._last_width = 0
+    def __init__(self, *, color: bool | None = None, json_mode: bool = False) -> None:
+        self._color = _supports_color() if color is None else color
+        self._json_mode = json_mode
 
-    def attach(self, signal_bus: SignalBus) -> None:
-        """订阅 SignalBus 事件"""
+    def print_json(self, data: dict[str, object] | list[object]) -> None:
+        """机器可读输出统一走 stdout"""
 
-        signal_bus.subscribe(self.handle)
+        print(json.dumps(data, ensure_ascii=False, indent=2))
 
-    def handle(self, event: Event) -> None:
-        """消费状态与 pair 事件并刷新输出"""
+    def print_text(self, text: str, *, file: TextIO | None = None) -> None:
+        """人读文本默认走 stderr；json_mode 下走 stdout 方便与 JSON 输出统一捕获"""
 
-        if event.name == "state":
-            state = str(event.payload.get("state") or "")
-            if state:
-                if self._total_pairs > 1 and state == "SUCCEEDED" and self._completed_pairs < self._total_pairs:
-                    return
-                self._state = state
-                self._render()
-            return
+        target = file or (sys.stdout if self._json_mode else sys.stderr)
+        print(text, file=target)
 
-        if event.name == "pair_started":
-            raw_index = event.payload.get("index")
-            if raw_index is not None:
-                self._active_pair_index = int(cast(int, raw_index))
-            query = str(event.payload.get("query") or "")
-            subject = str(event.payload.get("subject") or "")
-            self._active_pair_label = f"{query} vs {subject}" if query and subject else self._active_pair_label
-            self._render()
-            return
+    def print_error(self, text: str) -> None:
+        """错误信息始终走 stderr"""
 
-        if event.name == "pair_finished":
-            raw_index = event.payload.get("index")
-            if raw_index is not None:
-                self._active_pair_index = int(cast(int, raw_index))
-            self._completed_pairs = max(self._completed_pairs, self._active_pair_index)
-            status = str(event.payload.get("status") or "")
-            if status == "FAILED":
-                self._state = "FAILED"
-            self._render()
-
-    def finish(self) -> None:
-        """结束渲染，确保交互式终端换行"""
-
-        if self._interactive and self._last_line:
-            self._stream.write("\n")
-            self._stream.flush()
-            self._last_line = ""
-            self._last_width = 0
-
-    def _overall_progress(self) -> float:
-        if self._total_pairs <= 1:
-            return STATE_PROGRESS.get(self._state, 0.0)
-
-        if self._state in {"PENDING", "VALIDATING_INPUTS", "PREPARING_WORKSPACE"}:
-            return min(0.12, STATE_PROGRESS.get(self._state, 0.0) * 0.4)
-
-        if self._state in {"SUCCEEDED", "FAILED", "CANCELLED"} and self._completed_pairs >= self._total_pairs:
-            return 1.0
-
-        if self._completed_pairs >= self._total_pairs:
-            return max(0.92, STATE_PROGRESS.get(self._state, 0.96))
-
-        pair_phase = STATE_PROGRESS.get(self._state, 0.0)
-        active_completed = max(self._completed_pairs, self._active_pair_index - 1)
-        return min(0.9, 0.12 + ((active_completed + pair_phase) / self._total_pairs) * 0.78)
-
-    def _line_text(self) -> str:
-        progress = self._overall_progress()
-        percent = f"{int(round(progress * 100)):>3}%"
-        elapsed = _duration_text(time.perf_counter() - self._started_at)
-        state_label = STATE_LABELS.get(self._state, self._state)
-        pair_text = ""
-
-        if self._total_pairs > 1:
-            pair_text = f"{self._completed_pairs}/{self._total_pairs} {self._active_pair_label}".strip()
-        elif self._active_pair_label:
-            pair_text = self._active_pair_label
-
-        line = f"{state_label:<10} {_progress_bar(progress, enabled=self._enabled)} {percent} {elapsed}"
-        if pair_text:
-            line = f"{line}  {pair_text}"
-        return line
-
-    def _render(self) -> None:
-        line = self._line_text()
-        if line == self._last_line:
-            return
-
-        if self._interactive:
-            width = max(self._last_width, _visible_width(line))
-            padded = line + " " * max(0, width - _visible_width(line))
-            self._stream.write("\r" + padded)
-            self._stream.flush()
-            self._last_width = width
-        else:
-            self._stream.write(line + "\n")
-            self._stream.flush()
-
-        self._last_line = line
+        print(text, file=sys.stderr)
 
 
 # endregion

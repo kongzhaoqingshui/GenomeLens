@@ -4,22 +4,23 @@
 from __future__ import annotations
 
 import argparse
-import json
 
-from genomelens.cli.ui import render_check_report
+from genomelens.cli.ui import ConsoleWriter, render_check_report
 from genomelens.core.jcvi_adapter.adapter import JcviEngineAdapter
 from genomelens.core.summary_models import CheckReport, CheckToolItem
 from genomelens.data.config.config_store import read_optional_config
-from genomelens.toolchain.runtime.platform_names import (
-    blastn_candidates,
-    jcvi_engine_candidates,
-    magick_candidates,
-    makeblastdb_candidates,
-)
-from genomelens.toolchain.runtime.resource_locator import locate_engine, locate_tool
+from genomelens.toolchain.runtime.platform_names import jcvi_engine_candidates
 from genomelens.toolchain.runtime.toolchain_installer import install_toolchain
+from genomelens.toolchain.runtime.toolchain_resolver import (
+    resolve_blast_toolchain,
+    resolve_imagemagick,
+    resolve_jcvi_engine,
+)
 
 # endregion
+
+
+_CONSOLE = ConsoleWriter()
 
 
 def register(subparsers: argparse._SubParsersAction) -> None:
@@ -44,54 +45,25 @@ def run_check(args: argparse.Namespace) -> int:
     toolchain = config.toolchain if config else None
 
     # check 命令复用真实定位逻辑，避免“检查通过但正式运行仍找不到工具”的双重标准
-    engine = locate_engine(explicit=args.jcvi_engine, config=config)
-    blastn = locate_tool(
-        "blast",
-        explicit=args.blastn,
-        config_value=toolchain.blastn_path if toolchain else "",
-        packaged_names=blastn_candidates(),
+    engine = resolve_jcvi_engine(explicit=args.jcvi_engine, config=config)
+    blastn, makeblastdb, installs = resolve_blast_toolchain(
+        blastn_explicit=args.blastn,
+        makeblastdb_explicit=args.makeblastdb,
+        blastn_config=toolchain.blastn_path if toolchain else "",
+        makeblastdb_config=toolchain.makeblastdb_path if toolchain else "",
+        auto_install=args.install_missing,
     )
-    makeblastdb = locate_tool(
-        "blast",
-        explicit=args.makeblastdb,
-        config_value=toolchain.makeblastdb_path if toolchain else "",
-        packaged_names=makeblastdb_candidates(),
-    )
-    magick = locate_tool(
-        "imagemagick",
+    magick = resolve_imagemagick(
         explicit=args.magick,
         config_value=toolchain.magick_path if toolchain else "",
-        packaged_names=magick_candidates(),
     )
-    installs: list[dict[str, object]] = []
-    if args.install_missing:
-        if not blastn.ok or not makeblastdb.ok:
-            result = install_toolchain("blast")
-            installs.append(
-                {"name": result.name, "status": result.status, "path": result.path, "message": result.message}
-            )
-        if not magick.ok:
-            result = install_toolchain("imagemagick")
-            installs.append(
-                {"name": result.name, "status": result.status, "path": result.path, "message": result.message}
-            )
-        blastn = locate_tool(
-            "blast",
-            explicit=args.blastn,
-            config_value=toolchain.blastn_path if toolchain else "",
-            packaged_names=blastn_candidates(),
-        )
-        makeblastdb = locate_tool(
-            "blast",
-            explicit=args.makeblastdb,
-            config_value=toolchain.makeblastdb_path if toolchain else "",
-            packaged_names=makeblastdb_candidates(),
-        )
-        magick = locate_tool(
-            "imagemagick",
+
+    if args.install_missing and not magick.ok:
+        result = install_toolchain("imagemagick")
+        installs.append({"name": result.name, "status": result.status, "path": result.path, "message": result.message})
+        magick = resolve_imagemagick(
             explicit=args.magick,
             config_value=toolchain.magick_path if toolchain else "",
-            packaged_names=magick_candidates(),
         )
 
     # report 统一落到强类型对象，CLI 文本输出和 JSON 输出都从这里派生
@@ -128,7 +100,7 @@ def run_check(args: argparse.Namespace) -> int:
     )
 
     if args.json:
-        print(json.dumps(report.to_json(), ensure_ascii=False, indent=2))
+        _CONSOLE.print_json(report.to_json())
     else:
-        print(render_check_report(report))
+        _CONSOLE.print_text(render_check_report(report))
     return 0 if report.status == "ok" else 5

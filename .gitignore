@@ -32,9 +32,9 @@ app/*/
 
 # 本地docs
 docs/施工计划/**
-docs/历史/
 docs/开发手册/新增/
 docs/开发手册/plans/
+docs/历史/施工计划.zip
 docs/更新计划/计划更新.md
 docs/更新计划/计划更新的内容.md
 

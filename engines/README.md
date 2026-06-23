@@ -23,4 +23,4 @@
 - `mcscanx/`、`syri/`、`pangenome/`、`orthology/`
 - 机器学习评分类：`orthology-scoring/`、`promoter-risk/`、`region-scoring/`
 
-新引擎接入顺序参见 `温和架构过渡.md`：先稳协议，再接第二引擎。
+新引擎接入顺序参见 `docs/开发手册/架构调整/最终架构目标.md`：先稳协议，再接第二引擎。

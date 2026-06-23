@@ -8,22 +8,26 @@ import json
 from pathlib import Path
 from typing import cast
 
+from genomelens.app.controller.runners._shared import build_run_summary, scoring_placeholder, ui_block
 from genomelens.app.errors import messages
 from genomelens.app.errors.exceptions import InputValidationError, ToolchainError
-from genomelens.cli.ui import render_analysis_summary
+from genomelens.cli.ui import ConsoleWriter, render_analysis_summary
 from genomelens.core.jcvi_adapter.adapter import JcviEngineAdapter
 from genomelens.core.jcvi_adapter.adapter_models import HeatmapPlotRequest, JcviRunResult
 from genomelens.core.models import ArtifactRecord
-from genomelens.core.summary_models import RunSummary, ScoringBlock, UiBlock
+from genomelens.core.summary_models import RunSummary
 from genomelens.core.visualization.figure_archiver import archive_figures
 from genomelens.data.config.config_store import read_optional_config
-from genomelens.data.logging.log_setup import close_logging, logger_name_for_path, setup_logging
+from genomelens.data.logging.log_setup import run_with_logging
 from genomelens.data.logging.task_log import task_scope
 from genomelens.data.workspace.output_layout import build_output_layout, create_output_layout
 from genomelens.toolchain.runtime.resource_locator import locate_engine
 from genomelens.utils.parsers import parse_formats
 
 # endregion
+
+
+_CONSOLE = ConsoleWriter()
 
 
 def register(subparsers: argparse._SubParsersAction) -> None:
@@ -112,9 +116,8 @@ def _build_run_summary(
     run_log = layout.logs / "run.log"
     task = engine_result.task or cast(dict[str, object], manifest.get("task") or {})
     status = "SUCCEEDED" if engine_result.status == "ok" else "FAILED"
-    return RunSummary(
+    return build_run_summary(
         status=status,
-        schema_version=2,
         workflow=workflow,
         method="plot",
         task=task,
@@ -125,14 +128,13 @@ def _build_run_summary(
             "run_log": str(run_log),
             "run_summary": str(layout.run_summary),
         },
-        ui=UiBlock(
-            state=status,
-            progress=1.0 if status == "SUCCEEDED" else 0.0,
-            primary_figures=list(final_figures),
-            summary_path=str(layout.run_summary),
-            log_path=str(run_log),
+        ui=ui_block(
+            status,
+            final_figures,
+            summary_path=layout.run_summary,
+            log_path=run_log,
         ),
-        scoring=ScoringBlock(),
+        scoring=scoring_placeholder(),
         method_data={
             "backend": str(engine_result.artifacts.get("backend") or ""),
             "heatmap_cmap": str(engine_result.artifacts.get("heatmap_cmap") or ""),
@@ -146,10 +148,11 @@ def _build_run_summary(
 def _print_summary(summary: RunSummary, *, json_output: bool) -> int:
     """输出热图命令摘要"""
 
+    writer = ConsoleWriter(json_mode=json_output)
     if json_output:
-        print(json.dumps(summary.to_json(), ensure_ascii=False, indent=2))
+        writer.print_json(summary.to_json())
     else:
-        print(render_analysis_summary(summary))
+        writer.print_text(render_analysis_summary(summary))
     return 0 if summary.status == "SUCCEEDED" else 7
 
 
@@ -187,16 +190,13 @@ def run_heatmap(args: argparse.Namespace) -> int:
     )
 
     layout = build_output_layout(request.outdir)
-    logger_name = logger_name_for_path(layout.logs / "run.log")
-    try:
-        create_output_layout(request.outdir, force=request.force)
-        logger = setup_logging(
-            layout.logs / "run.log",
-            level=request.log_level,
-            logger_name=logger_name,
-            console=False,
-            concise=True,
-        )
+    create_output_layout(request.outdir, force=request.force)
+    with run_with_logging(
+        layout.logs / "run.log",
+        level=request.log_level,
+        console=False,
+        concise=True,
+    ) as logger:
         adapter = JcviEngineAdapter(request.jcvi_engine)
         with task_scope(logger, task_id=request.task_id, step="probe_engine", context={"engine": request.jcvi_engine}):
             adapter.probe()
@@ -233,7 +233,5 @@ def run_heatmap(args: argparse.Namespace) -> int:
                 json.dumps(summary.to_json(), ensure_ascii=False, indent=2) + "\n",
                 encoding="utf-8",
             )
-    finally:
-        close_logging(logger_name)
 
     return _print_summary(summary, json_output=bool(args.json))

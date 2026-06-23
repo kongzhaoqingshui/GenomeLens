@@ -14,7 +14,7 @@ from typing import Any, cast
 
 from jcvi_genomelens.manifest_models import EngineRunManifest
 from jcvi_genomelens.runtime.command_runner import CommandAudit, run_python_step
-from jcvi_genomelens.workflows.common import _assert_ok
+from jcvi_genomelens.workflows.common import _assert_ok, build_figure_options
 from jcvi_genomelens.workflows.plot_optimization import prepare_synteny_plot_inputs
 
 # endregion
@@ -207,29 +207,6 @@ def _write_local_layout(
     return path
 
 
-def _figure_options(opts: dict[str, object], fmt: str, figsize: str = "") -> list[str]:
-    """把 manifest 中的图件参数转成 JCVI `graphics.synteny` 命令行参数"""
-
-    args: list[str] = []
-    effective_figsize = figsize or str(opts.get("figsize") or "")
-    if effective_figsize:
-        args.extend(["--figsize", effective_figsize])
-    if opts.get("dpi"):
-        args.extend(["--dpi", str(opts["dpi"])])
-    args.extend(["--format", fmt, "--notex"])
-    if opts.get("glyphstyle"):
-        args.extend(["--glyphstyle", str(opts["glyphstyle"])])
-    if opts.get("glyphcolor"):
-        args.extend(["--glyphcolor", str(opts["glyphcolor"])])
-    if opts.get("shadestyle"):
-        args.extend(["--shadestyle", str(opts["shadestyle"])])
-    if opts.get("label_targets") and opts.get("target_gene_ids"):
-        # 本地共线性图的基因标签直接复用目标基因列表，不再单独维护映射。
-        labels = ",".join(str(g) for g in cast(list[str], opts["target_gene_ids"]))
-        args.extend(["--genelabels", labels])
-    return args
-
-
 def run(manifest: EngineRunManifest, outdir: str | Path) -> tuple[list[CommandAudit], dict[str, object]]:
     """运行目标基因局部共线性分析
 
@@ -346,6 +323,9 @@ def run(manifest: EngineRunManifest, outdir: str | Path) -> tuple[list[CommandAu
                     cwd=str(root),
                 )
             else:
+                figure_args = build_figure_options(manifest.options, fmt, plot_inputs.figsize)
+                if manifest.options.label_targets and target_gene_ids:
+                    figure_args.extend(["--genelabels", ",".join(target_gene_ids)])
                 command = run_python_step(
                     "jcvi.graphics.synteny",
                     jcvi_graphics_synteny,
@@ -353,7 +333,7 @@ def run(manifest: EngineRunManifest, outdir: str | Path) -> tuple[list[CommandAu
                         str(plot_inputs.blocks),
                         str(plot_inputs.bed),
                         str(plot_inputs.layout),
-                        *_figure_options(plot_options, fmt, plot_inputs.figsize),
+                        *figure_args,
                         "--outputprefix",
                         str(output_prefix),
                     ],

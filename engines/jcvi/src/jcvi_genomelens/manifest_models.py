@@ -110,7 +110,7 @@ class EngineRunManifest:
     # 常规 pairwise 工作流使用 query/subject；全局核型图则改走 tracks/edges。
     query: GenomeSpec | None = None
     subject: GenomeSpec | None = None
-    schema_version: int = 1
+    schema_version: int = 2
     task: dict[str, object] = field(default_factory=dict)
     species: list[dict[str, object]] = field(default_factory=list)
     expected_outputs: list[str] = field(default_factory=list)

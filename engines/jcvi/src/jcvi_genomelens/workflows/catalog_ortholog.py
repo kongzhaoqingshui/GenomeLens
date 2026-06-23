@@ -3,6 +3,7 @@
 # region import
 from __future__ import annotations
 
+import contextlib
 import os
 import shutil
 from pathlib import Path
@@ -13,6 +14,20 @@ from jcvi_genomelens.runtime.command_runner import CommandAudit, run_python_step
 from jcvi_genomelens.workflows.common import _assert_ok
 
 # endregion
+
+
+@contextlib.contextmanager
+def _blast_path_injected(manifest: EngineRunManifest):
+    """把 BLAST+ 目录临时注入 PATH，让 JCVI 按名字调用 blastn/makeblastdb。"""
+
+    old_path = os.environ.get("PATH", "")
+    blast_dir = str(manifest.toolchain.blastn.parent) if manifest.toolchain.blastn else ""
+    if blast_dir:
+        os.environ["PATH"] = blast_dir + os.pathsep + old_path
+    try:
+        yield
+    finally:
+        os.environ["PATH"] = old_path
 
 
 def _copy_inputs_for_catalog(manifest: EngineRunManifest, root: Path) -> tuple[str, str]:
@@ -31,44 +46,19 @@ def _copy_inputs_for_catalog(manifest: EngineRunManifest, root: Path) -> tuple[s
     return query, subject
 
 
-def _prepend_blast_to_path(manifest: EngineRunManifest) -> str:
-    """让按名称调用 `blastn` 的 JCVI catalog 内部流程可以找到 BLAST+"""
-
-    old_path = os.environ.get("PATH", "")
-    blast_dir = ""
-    if manifest.toolchain.blastn:
-        blast_dir = str(manifest.toolchain.blastn.parent)
-    if blast_dir:
-        # catalog 内部会按名字找 blastn，这里通过 PATH 注入工具目录。
-        os.environ["PATH"] = blast_dir + os.pathsep + old_path
-    return old_path
-
-
 def run(manifest: EngineRunManifest, outdir: str | Path) -> tuple[list[CommandAudit], dict[str, object]]:
     """以 full mode(完整模式) 运行 JCVI `catalog.ortholog`，并返回 ortholog artifacts(同源基因制品)"""
 
     root = Path(outdir).expanduser().resolve(strict=False)
     root.mkdir(parents=True, exist_ok=True)
     query, subject = _copy_inputs_for_catalog(manifest, root)
-    old_path = _prepend_blast_to_path(manifest)
-    original_blast_main = jcvi_catalog.blast_main
-    blast_dir = str(manifest.toolchain.blastn.parent) if manifest.toolchain.blastn else ""
 
-    def blast_main_with_path(args: list[str], dbtype: str | None = None):
-        """在调用原始 blast_main 前注入 blast 目录路径"""
+    align_soft = manifest.options.align_soft or "last"
+    dbtype = manifest.options.dbtype or "nucl"
+    cscore = manifest.options.cscore if manifest.options.cscore is not None else 0.7
+    dist = manifest.options.dist if manifest.options.dist is not None else 20
 
-        injected = list(args)
-        if blast_dir:
-            injected.append(f"--path={blast_dir}")
-        return original_blast_main(injected, dbtype)
-
-    # 临时猴补 blast_main，把 shell 解析到的 blast 路径透传进 JCVI 内部调用链。
-    jcvi_catalog.blast_main = blast_main_with_path
-    try:
-        align_soft = manifest.options.align_soft or "last"
-        dbtype = manifest.options.dbtype or "nucl"
-        cscore = manifest.options.cscore if manifest.options.cscore is not None else 0.7
-        dist = manifest.options.dist if manifest.options.dist is not None else 20
+    with _blast_path_injected(manifest):
         command = run_python_step(
             "jcvi.compara.catalog.ortholog",
             jcvi_catalog.ortholog,
@@ -87,10 +77,6 @@ def run(manifest: EngineRunManifest, outdir: str | Path) -> tuple[list[CommandAu
             ],
             cwd=root,
         )
-    finally:
-        # 无论成功失败，都恢复全局状态，避免污染同一进程里的后续 workflow。
-        jcvi_catalog.blast_main = original_blast_main
-        os.environ["PATH"] = old_path
     _assert_ok(command)
 
     prefix = f"{query}.{subject}"

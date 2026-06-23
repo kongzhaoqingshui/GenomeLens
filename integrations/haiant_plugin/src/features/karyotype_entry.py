@@ -8,42 +8,15 @@ from pathlib import Path
 if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from features._shared import build_runtime_command as shared_build_runtime_command
-from features._shared import main as run_feature_main
-from features._shared import source_plugin_root
+from features._entry_template import make_feature_entry
 
 WORKFLOW = "graphics_karyotype"
 LOGGER_NAME = "gljcvi_karyotype"
+ERROR_PREFIX = "GenomeLens karyotype feature plugin error"
 
-
-def plugin_root() -> Path:
-    """Return the karyotype plugin root."""
-
-    return source_plugin_root(__file__)
-
-
-def build_runtime_command(params_path: str | Path) -> list[str]:
-    """Build the GenomeLens analyze run command for karyotype."""
-
-    return shared_build_runtime_command(
-        params_path,
-        workflow=WORKFLOW,
-        plugin_root=plugin_root(),
-        logger_name=LOGGER_NAME,
-    )
-
-
-def main(argv: list[str] | None = None) -> int:
-    """Run the karyotype feature entry."""
-
-    return run_feature_main(
-        argv,
-        workflow=WORKFLOW,
-        plugin_root=plugin_root(),
-        logger_name=LOGGER_NAME,
-        error_prefix="GenomeLens karyotype feature plugin error",
-    )
-
+_entry = make_feature_entry(WORKFLOW, LOGGER_NAME, ERROR_PREFIX)
+build_runtime_command = _entry.build_runtime_command
+main = _entry.main
 
 if __name__ == "__main__":
     raise SystemExit(main())

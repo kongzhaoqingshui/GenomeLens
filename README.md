@@ -1,85 +1,87 @@
 # GenomeLens
 
-## GUI build entry
+面向 Windows-first 的本地比较基因组学平台，当前版本 **v0.9.20**。
 
-`main` carries the JCVI meow desktop GUI under `gui/tauri`. Use the root build helper to run the complete local GUI verification flow from a clean checkout:
+GenomeLens 1.X 的目标：在 Windows 上本地、轻量、快捷、高效、真实地整合 JCVI 及其扩展的全部能力，同时提供**一站式工作流**与**可编排子模块**两种使用方式。在 JCVI 之上，我们引入自研优化（如原生共线性渲染器），并计划逐步接入更多现代比较基因组学分析方法。
 
-```powershell
-.\scripts\build_gui.ps1
-```
+## 两种用法
 
-The default flow installs GUI dependencies, runs frontend lint/typecheck/tests/web build, then runs Tauri Rust `cargo check` and `cargo clippy -- -D warnings`. To build the real desktop app and publish the runnable GUI entry under `app/JCVI-meow-gui/`:
+### 1. 一站式工作流
 
-```powershell
-.\scripts\build_gui.ps1 -TauriBuild
-```
-
-The runnable app entry is copied to `app/JCVI-meow-gui/JCVI-meow.exe`. Use `-DebugBundle` only when you need a debug-profile GUI build.
-
-GenomeLens 是面向 Windows 的比较基因组学与共线性分析命令行产品。项目的完整目标是：从 2 到任意多个物种的 GFF/GTF(注释文件) 与 FASTA(基因组序列) 出发，经过统一参数预设、输入预处理、JCVI 分析与 JCVI 绘图，最终生成可发表、可美化的多物种共线性图。
-
-## 当前集成状态
-
-当前版本已经实现双物种真实 JCVI 端到端链路，以及以目标基因为中心的局部共线性分析：
-
-- `GFF+FASTA` 或 `BED+CDS/PEP` 输入（支持 `.pep`、`.faa`），同一目录可按物种混用两类输入。
-- GFF/GTF 与 FASTA 预处理为 JCVI 所需的 BED/CDS，按最长 CDS、无内部终止密码子、最多 CDS 片段、mRNA ID 选择代表转录本。
-- BLAST+ / LAST / Diamond 比对后端可选。
-- BLAST+ 与 JCVI MCscan(共线性扫描)。
-- `jcvi.graphics.dotplot` 点图。
-- `jcvi.graphics.synteny` 共线性图，支持 `--glyphstyle`、`--glyphcolor`、`--shadestyle`、`--figsize`、`--dpi` 样式参数。
-- `jcvi.graphics.karyotype` 独立核型共线性图 workflow(工作流)。
-- `jcvi.compara.catalog.ortholog --full` 双向 ortholog(同源基因) 结果。
-- 以参考物种目标基因为中心的 `local_synteny` 工作流，支持 `--target-genes`、`--up`/`--down`、`--split-targets`、`--label-targets`。
-- 多物种 all-vs-all pairwise 编排，并把各对共线性边聚合成一张全局核型总图(`graphics_karyotype_global`)。
-- shell(外壳)、engine(引擎)、HAIant plugin(智然体插件) 分层交付。
-
-## 当前入口
-
-推荐用户入口是：
+一个命令跑完从输入发现、预处理、比对、MCscan 到出图的全链路：
 
 ```powershell
-GenomeLens.exe analyze mcscan <input-dir> <output-dir> [jcvi-config.json] [options]
+GenomeLens.exe analyze mcscan jcvi input output --force
 ```
 
-帮助页采用分页方式，避免把全部参数堆在一屏里：
+需要 JSON 摘要时加 `-j`：
 
 ```powershell
-GenomeLens.exe help analyze mcscan
-GenomeLens.exe help analyze mcscan local
+GenomeLens.exe analyze mcscan jcvi input output --force -j
 ```
 
-全局总图当前使用默认 layout/seqids 与默认配色。尚未完成的是其美化层：全局 layout/seqids 自动优化、多物种区块合并/排序/过滤，以及机器学习评分与候选优先级排序。
+### 2. 可编排子模块
 
-## 模块边界
+按需调用单个 JCVI 能力或外部 JSON 请求：
 
-目录布局朝《最终架构目标》演进：`platform/`（平台核心雏形）、`engines/`（引擎层）、`integrations/`（平台集成层），并预留 `gui/`、`agents/` 路线图位置。
+```powershell
+# JCVI 子任务
+GenomeLens.exe analyze mcscan jcvi input output --jcvi-workflow graphics_dotplot --force
+GenomeLens.exe analyze mcscan jcvi input output --jcvi-workflow graphics_karyotype --force
+GenomeLens.exe analyze mcscan jcvi input output --jcvi-workflow catalog_ortholog --force
 
-- `platform/`：面向用户的 GenomeLens 平台核心雏形（包名仍为 `genomelens`），负责 CLI(命令行接口)、输入校验、预处理、工具链定位、manifest(清单) 写入、engine 调用和结果归档。
-- `engines/jcvi/`：当前唯一正式 engine(引擎)，独立 JCVI-backed，持有 vendored JCVI(随包 JCVI) 源码，只暴露 `probe` 和 `run` 两个稳定入口。后续新增引擎与它平级置于 `engines/` 下。
-- `integrations/haiant_plugin/`：HAIant adapter(智然体适配器)，读取 `params.json` 并转换为 GenomeLens CLI 参数。
-- `gui/`、`agents/`：路线图预留位置，当前仅含说明，不含实现。
+# 以目标基因为中心的局部共线性
+GenomeLens.exe analyze mcscan jcvi input output --reference subject --target-genes AT1G01010 --up 20 --down 20 --force
 
-平台核心不直接 `import(导入)` 上游 `jcvi`。跨层通信只通过 `jcvi_engine_manifest.json` 与 `engine_run_summary.json`。
+# 外部 JSON 请求
+GenomeLens.exe analyze run request.json
 
-## 开发
+# 独立绘图
+GenomeLens.exe plot heatmap matrix.csv outdir --formats png --force
+```
 
-开发环境统一使用 `genomelens` conda 环境，解释器版本为 Python 3.12。
+## 核心能力
+
+- **输入灵活**：`GFF+FASTA` 或 `BED+CDS/PEP`，同一目录可按物种混用。
+- **比对后端可选**：BLAST+ / LAST / Diamond。
+- **JCVI 能力全覆盖**：dotplot、synteny、karyotype、local synteny、ortholog、histogram 等。
+- **多物种自动编排**：2 个物种走真实双物种流程，3 个及以上自动拆分为 all-vs-all pairwise 并汇总为全局核型总图。
+- **自研优化**：原生 `local_synteny_renderer` 支持跨染色体局部窗口，可在 `--use-native-local-synteny-renderer` 下启用。
+- **Windows-first 本地交付**：随包工具链、`check --install-missing`、离线包、PowerShell 构建脚本。
+- **插件与 GUI**：HAIant 智然体插件入口；先行 GUI 版本 **JCVI meow**（见 [`gui/README.md`](gui/README.md)）。
+
+## 文档索引
+
+- [`docs/用户手册.md`](docs/用户手册.md)：CLI 命令树、输入准备、常用参数与结果位置。
+- [`docs/项目介绍.md`](docs/项目介绍.md)：1.X 定位、当前边界与模块职责。
+- [`docs/开发手册/README.md`](docs/开发手册/README.md)：开发环境、构建与测试。
+- [`docs/更新计划/更新日志.md`](docs/更新计划/更新日志.md)：版本发布记录。
+- [`docs/TOOLCHAINS.md`](docs/TOOLCHAINS.md)：BLAST+、jcvi-genomelens、ImageMagick 工具链说明。
+- [`gui/README.md`](gui/README.md)：GUI 构建说明。
+
+## 开发环境
+
+统一使用 `genomelens` conda 环境，Python 3.12：
 
 ```powershell
 conda activate genomelens
 python -m genomelens.cli.main check
-python -m pytest platform/tests
-python -m pytest engines/jcvi/tests
-python -m pytest integrations/haiant_plugin/tests
+python -m pytest platform/tests engines/jcvi/tests integrations/haiant_plugin/tests
 ```
 
-更完整的文档入口见 `docs/README.md`。
+Docker 开发环境见 [`Dockerfile`](Dockerfile)。
 
-最终交付包写入 `app/`。运行时工具链缓存放在 `toolchains/`，下载缓存放在 `references/downloads/toolchains/`；这些生成物和离线 payload(载荷) 不进入 Git 跟踪。
+## 模块边界
+
+- `platform/`：CLI、输入校验、预处理、工具链定位、结果归档。
+- `engines/jcvi/`：当前唯一正式引擎，内置 vendored JCVI，只暴露 `probe` 和 `run`。
+- `integrations/haiant_plugin/`：HAIant 插件适配器。
+- `gui/`、`agents/`：路线图预留位置，GUI 已实现先行版。
+
+平台核心不直接导入上游 `jcvi`；跨层通信只通过 `jcvi_engine_manifest.json` 与 `engine_run_summary.json`。
 
 ## 许可
 
 GenomeLens 自有代码以 MIT License 授权，全文见 `LICENSE`。
 
-仓库还内置了 vendored JCVI(随包上游源码，`engines/jcvi/src/jcvi/`)，它保留自己的 BSD 风格许可（见 `engines/jcvi/licenses/JCVI-LICENSE.txt`），**不受 MIT 覆盖**。运行时工具链（BLAST+、ImageMagick）与 Python 运行期依赖各自适用其上游许可。第三方组件与许可边界详见 `NOTICE.md`。
+仓库内置的 vendored JCVI（`engines/jcvi/src/jcvi/`）保留其 BSD 风格许可（见 `engines/jcvi/licenses/JCVI-LICENSE.txt`），不受 MIT 覆盖。运行时工具链与 Python 依赖各自适用其上游许可，详见 `NOTICE.md`。
