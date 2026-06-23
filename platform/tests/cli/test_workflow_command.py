@@ -3,7 +3,12 @@
 from __future__ import annotations
 
 import json
+import shutil
+from pathlib import Path
 
+import pytest
+
+from genomelens.analysis.requests.models import AnalysisRequest
 from genomelens.cli.main import main
 from genomelens.core.summary_models import RunSummary, ScoringBlock, UiBlock
 
@@ -174,7 +179,7 @@ def test_analyze_submodule_missing_required_port_returns_error(capsys) -> None:
 
 
 def test_analyze_workflow_histogram_routes_to_one_stop(monkeypatch, tmp_path) -> None:
-    captured: dict[str, object] = {}
+    captured: dict[str, AnalysisRequest] = {}
 
     def fake_dispatch(self, request, signal_bus=None):
         captured["request"] = request
@@ -204,7 +209,7 @@ def test_analyze_workflow_histogram_routes_to_one_stop(monkeypatch, tmp_path) ->
 
 
 def test_analyze_submodule_heatmap_routes_to_sub_module(monkeypatch, tmp_path) -> None:
-    captured: dict[str, object] = {}
+    captured: dict[str, AnalysisRequest] = {}
 
     def fake_dispatch(self, request, signal_bus=None):
         captured["request"] = request
@@ -234,3 +239,31 @@ def test_analyze_submodule_heatmap_routes_to_sub_module(monkeypatch, tmp_path) -
     assert request.task_kind == "sub_module"
     assert request.sub_module_id == "jcvi.graphics_heatmap"
     assert request.port_bindings["matrix_csv"] == str(matrix)
+
+
+def test_analyze_mcscan_jcvi_emits_deprecation_warning(monkeypatch, tmp_path) -> None:
+    root = Path(__file__).resolve().parents[3]
+    sample = root / "references" / "samples" / "shell" / "bed_cds_minimal"
+    input_dir = tmp_path / "input"
+    input_dir.mkdir(parents=True, exist_ok=True)
+    for name in ["query.bed", "query.cds", "subject.bed", "subject.cds"]:
+        shutil.copy2(sample / name, input_dir / name)
+    outdir = tmp_path / "out"
+
+    def fake_dispatch(self, request, signal_bus=None):
+        return _dummy_summary()
+
+    monkeypatch.setattr("genomelens.analysis.dispatcher.AnalysisDispatcher.dispatch", fake_dispatch)
+
+    with pytest.warns(DeprecationWarning, match="analyze mcscan jcvi"):
+        main(["analyze", "mcscan", "jcvi", str(input_dir), str(outdir), "--force"])
+
+
+def test_plot_heatmap_emits_deprecation_warning(tmp_path) -> None:
+    matrix = tmp_path / "matrix.csv"
+    matrix.write_text("g,s1,s2\na,1,2\n", encoding="utf-8")
+    outdir = tmp_path / "out"
+
+    with pytest.warns(DeprecationWarning, match="plot heatmap"):
+        # Only validate that the warning fires before engine/toolchain checks.
+        main(["plot", "heatmap", str(matrix), str(outdir), "--force"])

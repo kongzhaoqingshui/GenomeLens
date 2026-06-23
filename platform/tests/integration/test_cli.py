@@ -1,5 +1,6 @@
 import json
 import shutil
+import warnings
 from pathlib import Path
 
 from genomelens.cli.main import main
@@ -1353,3 +1354,144 @@ def test_analyze_mcscan_config_defaults_exposed_in_init(tmp_path: Path) -> None:
         ]
     )
     assert code != 0
+
+
+def test_analyze_workflow_pairwise_synteny_end_to_end(tmp_path: Path) -> None:
+    root = Path(__file__).resolve().parents[3]
+    sample = root / "references" / "samples" / "shell" / "bed_cds_minimal"
+    input_dir = tmp_path / "input-workflow"
+    _copy_species_files(input_dir, sample, ["query.bed", "query.cds", "subject.bed", "subject.cds"])
+    outdir = tmp_path / "out-workflow"
+
+    code = main(
+        [
+            "analyze",
+            "workflow",
+            "pairwise_synteny",
+            str(input_dir),
+            str(outdir),
+            "--min-block-size",
+            "1",
+            "--force",
+        ]
+    )
+    assert code == 0
+    summary = json.loads((outdir / "report" / "run_summary.json").read_text(encoding="utf-8"))
+    assert summary["status"] == "SUCCEEDED"
+    assert summary["task"]["task_type"] == "pairwise_synteny"
+
+    request_snapshot = json.loads((outdir / "inputs" / "analysis_request.json").read_text(encoding="utf-8"))
+    assert request_snapshot["task_kind"] == "one_stop"
+    assert request_snapshot["one_stop_workflow_id"] == "pairwise_synteny"
+
+
+def test_analyze_workflow_histogram_plot_end_to_end(tmp_path: Path) -> None:
+    numbers = tmp_path / "numbers.txt"
+    numbers.write_text("1\n2\n2\n3\n5\n8\n13\n", encoding="utf-8-sig")
+    outdir = tmp_path / "out-histogram-plot"
+
+    code = main(
+        [
+            "analyze",
+            "workflow",
+            "histogram_plot",
+            str(numbers),
+            str(outdir),
+            "--params",
+            json.dumps({"histogram_bins": 4}),
+            "--force",
+        ]
+    )
+    assert code == 0
+    summary = json.loads((outdir / "report" / "run_summary.json").read_text(encoding="utf-8"))
+    assert summary["status"] == "SUCCEEDED"
+    assert summary["task"]["task_type"] == "plot_histogram"
+
+    request_snapshot = json.loads((outdir / "inputs" / "analysis_request.json").read_text(encoding="utf-8"))
+    assert request_snapshot["task_kind"] == "one_stop"
+    assert request_snapshot["one_stop_workflow_id"] == "histogram_plot"
+
+
+def test_analyze_submodule_mcscan_pairwise_end_to_end(tmp_path: Path) -> None:
+    root = Path(__file__).resolve().parents[3]
+    sample = root / "references" / "samples" / "shell" / "bed_cds_minimal"
+    input_dir = tmp_path / "input-submodule"
+    _copy_species_files(input_dir, sample, ["query.bed", "query.cds", "subject.bed", "subject.cds"])
+    outdir = tmp_path / "out-submodule"
+
+    code = main(
+        [
+            "analyze",
+            "submodule",
+            "jcvi.mcscan_pairwise",
+            "--input-ports",
+            json.dumps({"species_pair": str(input_dir)}),
+            "--output-dir",
+            str(outdir),
+            "--min-block-size",
+            "1",
+            "--force",
+        ]
+    )
+    assert code == 0
+    summary = json.loads((outdir / "report" / "run_summary.json").read_text(encoding="utf-8"))
+    assert summary["status"] == "SUCCEEDED"
+    assert summary["task"]["sub_module_id"] == "jcvi.mcscan_pairwise"
+
+    request_snapshot = json.loads((outdir / "inputs" / "analysis_request.json").read_text(encoding="utf-8"))
+    assert request_snapshot["task_kind"] == "sub_module"
+    assert request_snapshot["sub_module_id"] == "jcvi.mcscan_pairwise"
+
+
+def test_analyze_submodule_graphics_histogram_end_to_end(tmp_path: Path) -> None:
+    numbers = tmp_path / "numbers-sub.txt"
+    numbers.write_text("1\n2\n2\n3\n5\n8\n13\n", encoding="utf-8-sig")
+    outdir = tmp_path / "out-sub-histogram"
+
+    code = main(
+        [
+            "analyze",
+            "submodule",
+            "jcvi.graphics_histogram",
+            "--input-ports",
+            json.dumps({"numeric_files": [str(numbers)]}),
+            "--output-dir",
+            str(outdir),
+            "--params",
+            json.dumps({"histogram_bins": 4}),
+            "--force",
+        ]
+    )
+    assert code == 0
+    summary = json.loads((outdir / "report" / "run_summary.json").read_text(encoding="utf-8"))
+    assert summary["status"] == "SUCCEEDED"
+    assert summary["task"]["sub_module_id"] == "jcvi.graphics_histogram"
+
+    request_snapshot = json.loads((outdir / "inputs" / "analysis_request.json").read_text(encoding="utf-8"))
+    assert request_snapshot["task_kind"] == "sub_module"
+    assert request_snapshot["sub_module_id"] == "jcvi.graphics_histogram"
+
+
+def test_legacy_mcscan_jcvi_runs_and_warns(tmp_path: Path) -> None:
+    root = Path(__file__).resolve().parents[3]
+    sample = root / "references" / "samples" / "shell" / "bed_cds_minimal"
+    input_dir = tmp_path / "input-legacy"
+    _copy_species_files(input_dir, sample, ["query.bed", "query.cds", "subject.bed", "subject.cds"])
+    outdir = tmp_path / "out-legacy"
+
+    with warnings.catch_warnings(record=True) as captured:
+        warnings.simplefilter("always")
+        code = main(
+            [
+                "analyze",
+                "mcscan",
+                "jcvi",
+                str(input_dir),
+                str(outdir),
+                "--min-block-size",
+                "1",
+                "--force",
+            ]
+        )
+        assert code == 0
+        assert any(issubclass(w.category, DeprecationWarning) for w in captured)
