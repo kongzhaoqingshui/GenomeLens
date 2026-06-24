@@ -59,8 +59,15 @@ def test_submodule_registry_contains_mcscan_pairwise() -> None:
     spec = SubModuleRegistry().get("jcvi.mcscan_pairwise")
     assert spec is not None
     assert spec.module_id == "jcvi.mcscan_pairwise"
+    assert spec.module_kind == "lightweight"
     assert spec.standalone is True
     assert any(port.port_id == "species_pair" for port in spec.inputs)
+
+
+def test_submodule_spec_to_json_includes_module_kind() -> None:
+    spec = SubModuleRegistry().get("jcvi.graphics_karyotype_global")
+    assert spec is not None
+    assert spec.to_json()["module_kind"] == "aggregate"
 
 
 def test_submodule_registry_list_all_has_expected_modules() -> None:
@@ -70,6 +77,28 @@ def test_submodule_registry_list_all_has_expected_modules() -> None:
 
 def test_submodule_registry_get_returns_none_for_unknown() -> None:
     assert get_submodule_registry().get("not.found") is None
+
+
+def test_submodule_registry_can_filter_by_kind() -> None:
+    registry = SubModuleRegistry()
+
+    lightweight_ids = {spec.module_id for spec in registry.list_by_kind("lightweight")}
+    aggregate_ids = {spec.module_id for spec in registry.list_by_kind("aggregate")}
+
+    assert {
+        "jcvi.mcscan_pairwise",
+        "jcvi.catalog_ortholog",
+        "jcvi.graphics_dotplot",
+        "jcvi.graphics_synteny",
+        "jcvi.graphics_karyotype",
+        "jcvi.local_synteny",
+        "jcvi.graphics_histogram",
+        "jcvi.graphics_heatmap",
+    } == lightweight_ids
+    assert aggregate_ids == {
+        "jcvi.graphics_karyotype_global",
+        "jcvi.local_synteny_multi",
+    }
 
 
 def test_onestop_registry_contains_synteny() -> None:

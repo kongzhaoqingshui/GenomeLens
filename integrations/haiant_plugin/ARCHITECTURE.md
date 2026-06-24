@@ -1,4 +1,4 @@
-# HAIant 插件架构：完全独立的轻量插件
+# HAIant 插件架构：独立插件与 lightweight / aggregate 子模块分层
 
 > 本文件描述 GenomeLens 在智然体（HAIant）平台的新插件发布模型。
 > GenomeLens 平台与工具链被视为外部软件；每个 HAIant 插件只携带自己的入口与配置，运行时通过 `GenomeLens_Path`（或 `GENOMELENS_EXE` 环境变量）调用外部 GenomeLens 可执行文件。
@@ -57,20 +57,20 @@ $env:GENOMELENS_EXE = "C:\GenomeLens\GenomeLens.exe"
 
 ### 2.3 可编排子模块插件
 
-对应平台 `SubModuleRegistry` 中的 10 个独立子模块：
+对应平台 `SubModuleRegistry` 中的 10 个独立子模块，继续分为 8 个 lightweight 与 2 个 aggregate：
 
 | 插件 | 固定 module_id |
 |---|---|
-| `gljcvi-mcscan-pairwise` | `jcvi.mcscan_pairwise` |
-| `gljcvi-catalog-ortholog` | `jcvi.catalog_ortholog` |
-| `gljcvi-dotplot` | `jcvi.graphics_dotplot` |
-| `gljcvi-synteny-figure` | `jcvi.graphics_synteny` |
-| `gljcvi-karyotype` | `jcvi.graphics_karyotype` |
-| `gljcvi-local-synteny` | `jcvi.local_synteny` |
-| `gljcvi-histogram` | `jcvi.graphics_histogram` |
-| `gljcvi-heatmap` | `jcvi.graphics_heatmap` |
-| `gljcvi-global-karyotype` | `jcvi.graphics_karyotype_global` |
-| `gljcvi-multi-local-synteny` | `jcvi.local_synteny_multi` |
+| `gljcvi-mcscan-pairwise` | `jcvi.mcscan_pairwise` | lightweight |
+| `gljcvi-catalog-ortholog` | `jcvi.catalog_ortholog` | lightweight |
+| `gljcvi-dotplot` | `jcvi.graphics_dotplot` | lightweight |
+| `gljcvi-synteny-figure` | `jcvi.graphics_synteny` | lightweight |
+| `gljcvi-karyotype` | `jcvi.graphics_karyotype` | lightweight |
+| `gljcvi-local-synteny` | `jcvi.local_synteny` | lightweight |
+| `gljcvi-histogram` | `jcvi.graphics_histogram` | lightweight |
+| `gljcvi-heatmap` | `jcvi.graphics_heatmap` | lightweight |
+| `gljcvi-global-karyotype` | `jcvi.graphics_karyotype_global` | aggregate |
+| `gljcvi-multi-local-synteny` | `jcvi.local_synteny_multi` | aggregate |
 
 这些插件不写 `genomelens_request.json`，而是直接调用：
 
@@ -97,6 +97,7 @@ gljcvi-<feature>/
 
 - `gljcvi-synteny` 使用 `input_dir` 自动发现同名物种文件对（与 `analyze workflow synteny` 的目录发现行为一致）。如果需要显式指定每个物种的文件，仍可填写 `species` 列表和 `input_mode`。
 - 可编排子模块插件通过 `params.json` 中的显式端口字段接收输入，例如 `species_pair`、`anchors`、`blocks`、`target_genes`、`numeric_files`、`matrix_csv`、`tracks`/`edges`、`bed` 等。
+- aggregate 子模块要求调用方已经准备好跨 pair / 跨物种聚合输入，不承担前置 pairwise 产物拼装职责。
 - 下游 4 个可视化子模块（`dotplot`、`synteny_figure`、`karyotype`、`local_synteny`）需要用户显式提供上游产物（`.anchors` / `.blocks` / `target_genes`）。一键“从物种目录直接出图”的端到端路径由 `gljcvi-synteny` 一站式工作流承担。
 
 ---
@@ -122,16 +123,16 @@ gljcvi-<feature>/
 | 产物路径 | 类型 | workflow / module_id | 说明 |
 |---|---|---|---|
 | `app/onestop/gljcvi-synteny.zip` | 一站式工作流 | `analyze workflow synteny` | 自动路由 |
-| `app/submodules/gljcvi-mcscan-pairwise.zip` | 可编排子模块 | `jcvi.mcscan_pairwise` | pairwise block 计算 |
-| `app/submodules/gljcvi-catalog-ortholog.zip` | 可编排子模块 | `jcvi.catalog_ortholog` | 双向 ortholog 目录 |
-| `app/submodules/gljcvi-dotplot.zip` | 可编排子模块 | `jcvi.graphics_dotplot` | 双物种点图 |
-| `app/submodules/gljcvi-synteny-figure.zip` | 可编排子模块 | `jcvi.graphics_synteny` | 双物种共线性图 |
-| `app/submodules/gljcvi-karyotype.zip` | 可编排子模块 | `jcvi.graphics_karyotype` | 双物种核型图 |
-| `app/submodules/gljcvi-local-synteny.zip` | 可编排子模块 | `jcvi.local_synteny` | 目标基因局部共线性 |
-| `app/submodules/gljcvi-histogram.zip` | 可编排子模块 | `jcvi.graphics_histogram` | 数值直方图 |
-| `app/submodules/gljcvi-heatmap.zip` | 可编排子模块 | `jcvi.graphics_heatmap` | 矩阵热图 |
-| `app/submodules/gljcvi-global-karyotype.zip` | 可编排子模块 | `jcvi.graphics_karyotype_global` | 全局核型总图 |
-| `app/submodules/gljcvi-multi-local-synteny.zip` | 可编排子模块 | `jcvi.local_synteny_multi` | 多物种局部总图 |
+| `app/submodules/lightweight/gljcvi-mcscan-pairwise.zip` | 可编排子模块 | `jcvi.mcscan_pairwise` | pairwise block 计算 |
+| `app/submodules/lightweight/gljcvi-catalog-ortholog.zip` | 可编排子模块 | `jcvi.catalog_ortholog` | 双向 ortholog 目录 |
+| `app/submodules/lightweight/gljcvi-dotplot.zip` | 可编排子模块 | `jcvi.graphics_dotplot` | 双物种点图 |
+| `app/submodules/lightweight/gljcvi-synteny-figure.zip` | 可编排子模块 | `jcvi.graphics_synteny` | 双物种共线性图 |
+| `app/submodules/lightweight/gljcvi-karyotype.zip` | 可编排子模块 | `jcvi.graphics_karyotype` | 双物种核型图 |
+| `app/submodules/lightweight/gljcvi-local-synteny.zip` | 可编排子模块 | `jcvi.local_synteny` | 目标基因局部共线性 |
+| `app/submodules/lightweight/gljcvi-histogram.zip` | 可编排子模块 | `jcvi.graphics_histogram` | 数值直方图 |
+| `app/submodules/lightweight/gljcvi-heatmap.zip` | 可编排子模块 | `jcvi.graphics_heatmap` | 矩阵热图 |
+| `app/submodules/aggregate/gljcvi-global-karyotype.zip` | 可编排子模块 | `jcvi.graphics_karyotype_global` | 全局核型总图 |
+| `app/submodules/aggregate/gljcvi-multi-local-synteny.zip` | 可编排子模块 | `jcvi.local_synteny_multi` | 多物种局部总图 |
 
 ---
 
@@ -170,7 +171,10 @@ scripts/build_gljcvi_feature_plugin.ps1 -Feature global_karyotype
 scripts/build_gljcvi_feature_plugin.ps1 -Feature multi_local_synteny
 ```
 
-产物：`app/submodules/gljcvi-<feature>.zip`（10 个）
+产物：
+
+- `app/submodules/lightweight/gljcvi-<feature>.zip`（8 个）
+- `app/submodules/aggregate/gljcvi-<feature>.zip`（2 个）
 
 旧产物目录 `app/workflow-plugins/` 与 `app/gljcvi-auto/` 已废弃，构建前应删除。
 

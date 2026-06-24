@@ -4,14 +4,14 @@ from __future__ import annotations
 
 import argparse
 import json
-from typing import Any
+from typing import Any, cast
 
 from genomelens.analysis.planning.planner import WorkflowPlanner
 from genomelens.analysis.requests.loader import load_analysis_request
 from genomelens.analysis.workflows.input_bindings import PortSystem
 from genomelens.analysis.workflows.onestop import OneStopWorkflowSpec, get_onestop_registry
-from genomelens.analysis.workflows.registry import list_one_stop_workflows, list_submodules
-from genomelens.analysis.workflows.submodules import SubModuleSpec, get_submodule_registry
+from genomelens.analysis.workflows.registry import list_one_stop_workflows
+from genomelens.analysis.workflows.submodules import SubModuleKind, SubModuleSpec, get_submodule_registry
 from genomelens.cli.ui import ConsoleWriter
 
 _CONSOLE = ConsoleWriter()
@@ -23,6 +23,12 @@ def register(subparsers: argparse._SubParsersAction) -> None:
 
     list_parser = nested.add_parser("list", help="List one-stop workflows or submodules")
     list_parser.add_argument("--kind", choices=["one_stop", "sub_module", "all"], default="all")
+    list_parser.add_argument(
+        "--module-kind",
+        choices=["lightweight", "aggregate", "all"],
+        default="all",
+        help="Filter submodules by orchestration kind",
+    )
     list_parser.add_argument("-j", "--json", action="store_true")
     list_parser.set_defaults(func=_list)
 
@@ -52,10 +58,19 @@ def _spec_kind(spec: OneStopWorkflowSpec | SubModuleSpec) -> str:
 
 def _list(args: argparse.Namespace) -> int:
     kind: str = args.kind
+    module_kind: str = args.module_kind
     include_one_stop = kind in {"one_stop", "all"}
     include_sub_module = kind in {"sub_module", "all"}
     one_stop = [spec.to_json() for spec in list_one_stop_workflows()] if include_one_stop else []
-    sub_modules = [spec.to_json() for spec in list_submodules()] if include_sub_module else []
+    if include_sub_module:
+        submodule_specs = (
+            get_submodule_registry().list_all()
+            if module_kind == "all"
+            else get_submodule_registry().list_by_kind(cast(SubModuleKind, module_kind))
+        )
+        sub_modules = [spec.to_json() for spec in submodule_specs]
+    else:
+        sub_modules = []
 
     if args.json:
         payload: dict[str, object] = {}
@@ -76,7 +91,7 @@ def _list(args: argparse.Namespace) -> int:
     if include_sub_module:
         lines.append("Submodules")
         lines.append("-" * 40)
-        lines.extend(f"  {item['module_id']:<40} {item['name']}" for item in sub_modules)
+        lines.extend(f"  [{item['module_kind']:<11}] {item['module_id']:<40} {item['name']}" for item in sub_modules)
     _CONSOLE.print_text("\n".join(lines))
     return 0
 
@@ -95,7 +110,7 @@ def _describe(args: argparse.Namespace) -> int:
 
     payload = spec.to_json()
     lines = [f"ID:   {payload.get('workflow_id') or payload.get('module_id')}", f"Kind: {_spec_kind(spec)}"]
-    for key in ("name", "category", "engine_workflow", "runner"):
+    for key in ("name", "category", "module_kind", "engine_workflow", "runner"):
         if key in payload:
             lines.append(f"{key}: {payload[key]}")
     _CONSOLE.print_text("\n".join(lines))
