@@ -11,7 +11,7 @@ GenomeLens engine(引擎) 当前可调度的 workflow(工作流) 包括：
 - `graphics_karyotype`：单独输出 karyotype(核型共线性图)。
 - `graphics_heatmap`：从矩阵 CSV 渲染 heatmap(热图)，适合表达矩阵、统计矩阵等独立绘图任务。
 - `catalog_ortholog`：调用 `jcvi.compara.catalog.ortholog --full` 输出双向 ortholog(同源基因) 结果。
-- `graphics_karyotype_global`：跨全部物种的全局核型总图。它不重算共线性，而是把已算好的各对 `.simple` 边渲染成一张多轨总图；由多物种运行自动调度，不需要用户手动通过 `--jcvi-workflow` 选择。
+- `graphics_karyotype_global`：跨全部物种的全局核型总图。它不重算共线性，而是把已算好的各对 `.simple` 边渲染成一张多轨总图；这是一个 `aggregate` 子模块，通常由多物种运行自动调度，不需要用户手动通过 `--jcvi-workflow` 选择。
 
 兼容别名 `dotplot`、`heatmap`、`histogram` 和 `karyotype` 会被规范化为对应的 `graphics_*` workflow 名称。
 

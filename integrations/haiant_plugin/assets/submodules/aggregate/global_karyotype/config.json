@@ -2,7 +2,7 @@
   "title": "GenomeLens 全局核型图",
   "title_en": "GenomeLens Global Karyotype",
   "description": "对应 ``jcvi.graphics_karyotype_global`` 子模块：基于 tracks 与 edges 聚合全局核型总图。",
-  "description_en": "Matches the ``jcvi.graphics_karyotype_global`` submodule: aggregate a global karyotype figure from tracks and edges.",
+  "description_en": "Matches the aggregate ``jcvi.graphics_karyotype_global`` submodule: draw a global karyotype figure from pre-aggregated tracks and edges.",
   "version": "v1.0.0",
   "context": "全局核型总图",
   "context_en": "Global karyotype figure",

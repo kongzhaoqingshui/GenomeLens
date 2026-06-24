@@ -2,7 +2,7 @@
   "title": "GenomeLens 多物种局部共线性",
   "title_en": "GenomeLens Multi-Species Local Synteny",
   "description": "对应 ``jcvi.local_synteny_multi`` 子模块：在多个物种间以目标基因为中心绘制局部共线性总图。",
-  "description_en": "Matches the ``jcvi.local_synteny_multi`` submodule: draw a multi-species local synteny figure centered on target genes.",
+  "description_en": "Matches the aggregate ``jcvi.local_synteny_multi`` submodule: draw a multi-species local synteny figure from pre-aggregated tracks, blocks, BED, and target genes.",
   "version": "v1.0.0",
   "context": "多物种局部共线性总图",
   "context_en": "Multi-species local synteny figure",

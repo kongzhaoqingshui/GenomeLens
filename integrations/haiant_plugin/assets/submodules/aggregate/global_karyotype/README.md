@@ -4,6 +4,8 @@
 
 `gljcvi-global-karyotype` 是 GenomeLens 在 HAIant（智然体）平台上的**多物种全局核型总图**原子子模块插件。它把 `params.json` 直接转换为 `analyze submodule jcvi.graphics_karyotype_global` 调用，不需要生成 `genomelens_request.json`。
 
+> `module_kind = aggregate`。调用方必须先准备好多物种聚合后的 `tracks` / `edges` 输入；该插件不负责前置 pairwise 结果拼装。
+
 全局核型总图把多个物种的染色体以轨道形式排列，并用连线展示物种间的共线性关系，适合展示多物种比较的全局结构。
 
 本目录是 `gljcvi-global-karyotype` 插件包内容：

@@ -29,57 +29,68 @@ $featureMap = @{
     Package = "gljcvi-synteny"
     Entry = "features\onestop\synteny_entry.py"
     Category = "onestop"
+    ModuleKind = ""
   }
   # 可编排子模块插件（analyze submodule <module_id>）
   mcscan_pairwise = @{
     Package = "gljcvi-mcscan-pairwise"
-    Entry = "features\submodules\mcscan_pairwise_entry.py"
+    Entry = "features\submodules\lightweight\mcscan_pairwise_entry.py"
     Category = "submodules"
+    ModuleKind = "lightweight"
   }
   catalog_ortholog = @{
     Package = "gljcvi-catalog-ortholog"
-    Entry = "features\submodules\catalog_ortholog_entry.py"
+    Entry = "features\submodules\lightweight\catalog_ortholog_entry.py"
     Category = "submodules"
+    ModuleKind = "lightweight"
   }
   dotplot = @{
     Package = "gljcvi-dotplot"
-    Entry = "features\submodules\dotplot_entry.py"
+    Entry = "features\submodules\lightweight\dotplot_entry.py"
     Category = "submodules"
+    ModuleKind = "lightweight"
   }
   synteny_figure = @{
     Package = "gljcvi-synteny-figure"
-    Entry = "features\submodules\synteny_figure_entry.py"
+    Entry = "features\submodules\lightweight\synteny_figure_entry.py"
     Category = "submodules"
+    ModuleKind = "lightweight"
   }
   karyotype = @{
     Package = "gljcvi-karyotype"
-    Entry = "features\submodules\karyotype_entry.py"
+    Entry = "features\submodules\lightweight\karyotype_entry.py"
     Category = "submodules"
+    ModuleKind = "lightweight"
   }
   local_synteny = @{
     Package = "gljcvi-local-synteny"
-    Entry = "features\submodules\local_synteny_entry.py"
+    Entry = "features\submodules\lightweight\local_synteny_entry.py"
     Category = "submodules"
+    ModuleKind = "lightweight"
   }
   histogram = @{
     Package = "gljcvi-histogram"
-    Entry = "features\submodules\histogram_entry.py"
+    Entry = "features\submodules\lightweight\histogram_entry.py"
     Category = "submodules"
+    ModuleKind = "lightweight"
   }
   heatmap = @{
     Package = "gljcvi-heatmap"
-    Entry = "features\submodules\heatmap_entry.py"
+    Entry = "features\submodules\lightweight\heatmap_entry.py"
     Category = "submodules"
+    ModuleKind = "lightweight"
   }
   global_karyotype = @{
     Package = "gljcvi-global-karyotype"
-    Entry = "features\submodules\global_karyotype_entry.py"
+    Entry = "features\submodules\aggregate\global_karyotype_entry.py"
     Category = "submodules"
+    ModuleKind = "aggregate"
   }
   multi_local_synteny = @{
     Package = "gljcvi-multi-local-synteny"
-    Entry = "features\submodules\multi_local_synteny_entry.py"
+    Entry = "features\submodules\aggregate\multi_local_synteny_entry.py"
     Category = "submodules"
+    ModuleKind = "aggregate"
   }
 }
 
@@ -87,7 +98,12 @@ $featureMeta = $featureMap[$Feature]
 $packageName = $featureMeta.Package
 $entryPath = Join-Path $srcRoot $featureMeta.Entry
 $category = $featureMeta.Category
-$assetsRoot = Join-Path $root "integrations\haiant_plugin\assets\$category\$Feature"
+$moduleKind = $featureMeta.ModuleKind
+$assetsRoot = if ($category -eq "submodules") {
+  Join-Path $root "integrations\haiant_plugin\assets\$category\$moduleKind\$Feature"
+} else {
+  Join-Path $root "integrations\haiant_plugin\assets\$category\$Feature"
+}
 
 if (-not (Test-Path $entryPath)) {
   throw "Feature entry not found: $entryPath"
@@ -101,7 +117,11 @@ $distRoot = Join-Path $pyiRoot "dist"
 $workRoot = Join-Path $pyiRoot "work"
 $specRoot = Join-Path $pyiRoot "spec"
 $stageRoot = Join-Path $root ".build\$packageName"
-$outputFolder = Join-Path $root "app\$category"
+$outputFolder = if ($category -eq "submodules") {
+  Join-Path $root "app\$category\$moduleKind"
+} else {
+  Join-Path $root "app\$category"
+}
 $zipPath = Join-Path $outputFolder "$packageName.zip"
 
 foreach ($path in @($distRoot, $workRoot, $specRoot, $stageRoot)) {

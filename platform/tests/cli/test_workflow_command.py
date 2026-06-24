@@ -45,6 +45,29 @@ def test_workflow_list_filters(capsys) -> None:
     assert "one_stop_workflows" not in payload
 
 
+def test_workflow_list_can_filter_submodules_by_module_kind(capsys) -> None:
+    assert (
+        main(
+            [
+                "workflow",
+                "list",
+                "--kind",
+                "sub_module",
+                "--module-kind",
+                "aggregate",
+                "--json",
+            ]
+        )
+        == 0
+    )
+    payload = json.loads(capsys.readouterr().out)
+    assert {item["module_id"] for item in payload["submodules"]} == {
+        "jcvi.graphics_karyotype_global",
+        "jcvi.local_synteny_multi",
+    }
+    assert all(item["module_kind"] == "aggregate" for item in payload["submodules"])
+
+
 def test_workflow_describe_json(capsys) -> None:
     assert main(["workflow", "describe", "synteny", "--json"]) == 0
     payload = json.loads(capsys.readouterr().out)
@@ -55,6 +78,7 @@ def test_workflow_describe_json(capsys) -> None:
     payload = json.loads(capsys.readouterr().out)
     assert payload["module_id"] == "jcvi.graphics_histogram"
     assert payload["kind"] == "sub_module"
+    assert payload["module_kind"] == "lightweight"
 
 
 def test_workflow_describe_unknown_returns_error(capsys) -> None:

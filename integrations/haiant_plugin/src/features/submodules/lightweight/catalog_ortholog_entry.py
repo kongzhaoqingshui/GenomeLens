@@ -1,4 +1,4 @@
-"""Lightweight HAIant feature entry for ``jcvi.graphics_synteny``."""
+"""Lightweight HAIant feature entry for ``jcvi.catalog_ortholog``."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 
 if __package__ in {None, ""}:
-    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+    sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
 from genomelens_haiant_plugin._core import (
     PluginError,
@@ -19,22 +19,24 @@ from genomelens_haiant_plugin._core import (
     setup_adapter_logging,
 )
 
-LOGGER_NAME = "gljcvi_synteny_figure"
-ERROR_PREFIX = "GenomeLens synteny figure feature plugin error"
-SUB_MODULE_ID = "jcvi.graphics_synteny"
+LOGGER_NAME = "gljcvi_catalog_ortholog"
+ERROR_PREFIX = "GenomeLens catalog_ortholog feature plugin error"
+SUB_MODULE_ID = "jcvi.catalog_ortholog"
 
 # 子模块可调参数（param_id, 类型），随 ``--params`` 转发给 ``analyze submodule``。
 DECLARED_PARAMS = [
-    ("glyphstyle", "str"),
-    ("glyphcolor", "str"),
-    ("shadestyle", "str"),
-    ("figsize", "str"),
-    ("dpi", "int"),
+    ("align_soft", "str"),
+    ("dbtype", "str"),
+    ("cscore", "float"),
+    ("dist", "int"),
+    ("iter", "int"),
+    ("min_block_size", "int"),
+    ("threads", "int"),
 ]
 
 
 def build_runtime_command(params_path: str | Path) -> list[str]:
-    """Build the GenomeLens ``analyze submodule`` command for the synteny figure module."""
+    """Build the GenomeLens ``analyze submodule`` command for catalog ortholog."""
 
     params, base = load_params(params_path)
     output_dir = Path(resolve_param_path(base, params.get("output_dir") or "output"))
@@ -46,28 +48,11 @@ def build_runtime_command(params_path: str | Path) -> list[str]:
         input_dir = resolve_param_path(
             base, params.get("input_dir"), required=True, must_exist=True
         )
-        blocks = params.get("blocks")
-        if not blocks:
-            raise PluginError(
-                "blocks is required (a .blocks file from MCscan pairwise)"
-            )
-        blocks_path = resolve_param_path(base, blocks, required=True, must_exist=True)
-
-        input_ports: dict[str, object] = {
-            "species_pair": input_dir,
-            "blocks": blocks_path,
-        }
-        layout = params.get("layout")
-        if layout:
-            input_ports["layout"] = resolve_param_path(
-                base, layout, required=True, must_exist=True
-            )
-
         formats_value = params.get("formats")
         argv = build_analyze_submodule_command(
             genomelens_exe,
             module_id=SUB_MODULE_ID,
-            input_ports=input_ports,
+            input_ports={"species_pair": input_dir},
             output_dir=output_dir,
             input_dir=input_dir,
             params=coerce_submodule_params(params, base, DECLARED_PARAMS),
@@ -92,7 +77,7 @@ def run_runtime(argv: list[str]) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
-    """Run the synteny figure feature entry."""
+    """Run the catalog ortholog feature entry."""
 
     args = sys.argv[1:] if argv is None else argv
     try:

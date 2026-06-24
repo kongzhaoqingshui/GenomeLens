@@ -6,16 +6,18 @@ from typing import Any, Callable, Protocol, cast
 import pytest
 
 from features.onestop import synteny_entry
-from features.submodules import (
+from features.submodules.aggregate import (
+    global_karyotype_entry,
+    multi_local_synteny_entry,
+)
+from features.submodules.lightweight import (
     catalog_ortholog_entry,
     dotplot_entry,
-    global_karyotype_entry,
     heatmap_entry,
     histogram_entry,
     karyotype_entry,
     local_synteny_entry,
     mcscan_pairwise_entry,
-    multi_local_synteny_entry,
     synteny_figure_entry,
 )
 

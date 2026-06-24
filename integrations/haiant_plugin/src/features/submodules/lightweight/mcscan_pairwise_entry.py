@@ -1,4 +1,4 @@
-"""Lightweight HAIant feature entry for ``jcvi.graphics_histogram``."""
+"""Lightweight HAIant feature entry for ``jcvi.mcscan_pairwise``."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 
 if __package__ in {None, ""}:
-    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+    sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
 from genomelens_haiant_plugin._core import (
     PluginError,
@@ -19,26 +19,24 @@ from genomelens_haiant_plugin._core import (
     setup_adapter_logging,
 )
 
-LOGGER_NAME = "gljcvi_histogram"
-ERROR_PREFIX = "GenomeLens histogram feature plugin error"
-SUB_MODULE_ID = "jcvi.graphics_histogram"
+LOGGER_NAME = "gljcvi_mcscan_pairwise"
+ERROR_PREFIX = "GenomeLens MCscan pairwise feature plugin error"
+SUB_MODULE_ID = "jcvi.mcscan_pairwise"
 
 # 子模块可调参数（param_id, 类型），随 ``--params`` 转发给 ``analyze submodule``。
 DECLARED_PARAMS = [
-    ("histogram_columns", "int_array"),
-    ("histogram_bins", "int"),
-    ("histogram_vmin", "float"),
-    ("histogram_vmax", "float"),
-    ("histogram_xlabel", "str"),
-    ("histogram_title", "str"),
-    ("histogram_base", "int"),
-    ("histogram_facet", "bool"),
-    ("histogram_fill", "str"),
+    ("align_soft", "str"),
+    ("dbtype", "str"),
+    ("cscore", "float"),
+    ("dist", "int"),
+    ("iter", "int"),
+    ("min_block_size", "int"),
+    ("threads", "int"),
 ]
 
 
 def build_runtime_command(params_path: str | Path) -> list[str]:
-    """Build the GenomeLens ``analyze submodule`` command for the histogram module."""
+    """Build the GenomeLens ``analyze submodule`` command for the MCscan pairwise submodule."""
 
     params, base = load_params(params_path)
     output_dir = Path(resolve_param_path(base, params.get("output_dir") or "output"))
@@ -47,23 +45,18 @@ def build_runtime_command(params_path: str | Path) -> list[str]:
 
     try:
         genomelens_exe = resolve_genomelens_exe(params, base)
-        raw_files = params.get("input_files")
-        if isinstance(raw_files, str):
-            raw_files = [item.strip() for item in raw_files.split(",") if item.strip()]
-        if not isinstance(raw_files, list) or not raw_files:
-            raise PluginError("input_files must be a non-empty list of file paths")
-        numeric_files = [
-            resolve_param_path(base, path, required=True, must_exist=True)
-            for path in raw_files
-        ]
+        input_dir = resolve_param_path(
+            base, params.get("input_dir"), required=True, must_exist=True
+        )
         formats_value = params.get("formats")
         argv = build_analyze_submodule_command(
             genomelens_exe,
             module_id=SUB_MODULE_ID,
-            input_ports={"numeric_files": numeric_files},
+            input_ports={"species_pair": input_dir},
             output_dir=output_dir,
+            input_dir=input_dir,
             params=coerce_submodule_params(params, base, DECLARED_PARAMS),
-            formats=[item.strip() for item in formats_value.split(",") if item.strip()]
+            formats=[str(item) for item in formats_value.split(",")]
             if isinstance(formats_value, str)
             else None,
             force=True,
@@ -84,7 +77,7 @@ def run_runtime(argv: list[str]) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
-    """Run the histogram feature entry."""
+    """Run the MCscan pairwise feature entry."""
 
     args = sys.argv[1:] if argv is None else argv
     try:

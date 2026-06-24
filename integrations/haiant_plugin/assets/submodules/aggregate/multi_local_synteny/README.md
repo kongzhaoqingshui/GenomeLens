@@ -4,6 +4,8 @@
 
 `gljcvi-multi-local-synteny` 是 GenomeLens 在 HAIant（智然体）平台上的**多物种局部共线性总图**原子子模块插件。它把 `params.json` 直接转换为 `analyze submodule jcvi.local_synteny_multi` 调用，不需要生成 `genomelens_request.json`。
 
+> `module_kind = aggregate`。调用方必须先准备好多物种聚合后的 `tracks`、聚合 `blocks`、merged BED 与目标基因列表；该插件不负责 reference-vs-targets 的前置拼装。
+
 该子模块把 reference-vs-targets  pairwise 局部共线性结果聚合成一张多物种总图，适合展示某个目标基因窗口在多个物种中的保守性。
 
 本目录是 `gljcvi-multi-local-synteny` 插件包内容：

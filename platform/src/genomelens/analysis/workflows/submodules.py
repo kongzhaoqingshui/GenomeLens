@@ -8,10 +8,14 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Literal
 
 from genomelens.analysis.workflows.input_bindings import PortDeclaration, PortSystem
 
 # endregion
+
+
+SubModuleKind = Literal["lightweight", "aggregate"]
 
 
 @dataclass(frozen=True)
@@ -47,6 +51,7 @@ class SubModuleSpec:
     name: str             # 面向用户展示的子模块名称
     description: str      # 子模块功能描述
     category: str         # 子模块分类（visualization/homology_search/synteny_analysis）
+    module_kind: SubModuleKind  # 子模块编排类型（lightweight/aggregate）
     engine_workflow: str  # 映射到底层引擎的 workflow 名称
     standalone: bool      # 是否可独立运行
     inputs: list[PortDeclaration] = field(default_factory=list)           # 输入端口声明
@@ -60,6 +65,7 @@ class SubModuleSpec:
             "name": self.name,
             "description": self.description,
             "category": self.category,
+            "module_kind": self.module_kind,
             "engine_workflow": self.engine_workflow,
             "standalone": self.standalone,
             "inputs": PortSystem.describe_ports(self.inputs),
@@ -94,6 +100,11 @@ class SubModuleRegistry:
         """按分类返回子模块规范"""
 
         return [spec for spec in self._modules.values() if spec.category == category]
+
+    def list_by_kind(self, module_kind: SubModuleKind) -> list[SubModuleSpec]:
+        """按编排类型返回子模块规范"""
+
+        return [spec for spec in self._modules.values() if spec.module_kind == module_kind]
 
     def _register_builtin_jcvi_modules(self) -> None:
         """注册 JCVI 引擎内置子模块"""
@@ -135,6 +146,7 @@ class SubModuleRegistry:
             name="MCscan Pairwise",
             description="对两个物种执行 BLAST/LAST/Diamond 比对、锚点扫描与 block 计算",
             category="homology_search",
+            module_kind="lightweight",
             engine_workflow="mcscan_pairwise",
             standalone=True,
             inputs=[
@@ -197,6 +209,7 @@ class SubModuleRegistry:
             name="Dotplot",
             description="基于锚点绘制两个物种的共线性点图",
             category="visualization",
+            module_kind="lightweight",
             engine_workflow="graphics_dotplot",
             standalone=True,
             inputs=[
@@ -224,6 +237,7 @@ class SubModuleRegistry:
             name="Synteny Figure",
             description="基于 blocks 与 layout 绘制多物种共线性对齐图",
             category="visualization",
+            module_kind="lightweight",
             engine_workflow="graphics_synteny",
             standalone=True,
             inputs=[
@@ -262,6 +276,7 @@ class SubModuleRegistry:
             name="Karyotype",
             description="绘制物种内或两物种核型共线性图",
             category="visualization",
+            module_kind="lightweight",
             engine_workflow="graphics_karyotype",
             standalone=True,
             inputs=[
@@ -331,6 +346,7 @@ class SubModuleRegistry:
             name="Local Synteny",
             description="以目标基因为中心绘制局部共线性图",
             category="synteny_analysis",
+            module_kind="lightweight",
             engine_workflow="local_synteny",
             standalone=True,
             inputs=[
@@ -368,6 +384,7 @@ class SubModuleRegistry:
             name="Ortholog Catalog",
             description="基于共线性 + RBH 识别双向同源基因",
             category="homology_search",
+            module_kind="lightweight",
             engine_workflow="catalog_ortholog",
             standalone=True,
             inputs=[self._species_pair_port()],
@@ -414,6 +431,7 @@ class SubModuleRegistry:
             name="Histogram",
             description="绘制数值分布直方图",
             category="visualization",
+            module_kind="lightweight",
             engine_workflow="graphics_histogram",
             standalone=True,
             inputs=[
@@ -446,6 +464,7 @@ class SubModuleRegistry:
             name="Heatmap",
             description="将矩阵 CSV 渲染为热图",
             category="visualization",
+            module_kind="lightweight",
             engine_workflow="graphics_heatmap",
             standalone=True,
             inputs=[
@@ -476,6 +495,7 @@ class SubModuleRegistry:
             name="Global Karyotype",
             description="基于 tracks 与 edges 聚合全局核型总图",
             category="visualization",
+            module_kind="aggregate",
             engine_workflow="graphics_karyotype_global",
             standalone=True,
             inputs=[
@@ -506,6 +526,7 @@ class SubModuleRegistry:
             name="Multi-Species Local Synteny",
             description="在多个物种间以目标基因为中心绘制局部共线性总图",
             category="synteny_analysis",
+            module_kind="aggregate",
             engine_workflow="local_synteny_multi",
             standalone=True,
             inputs=[

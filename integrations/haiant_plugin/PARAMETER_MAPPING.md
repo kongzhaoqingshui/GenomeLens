@@ -18,10 +18,11 @@ HAIant 插件把 `params.json` 转换为 GenomeLens 调用：
 
 ## 架构说明
 
-当前插件体系为**完全独立的轻量插件**，产物按两个类别分目录存放：
+当前插件体系为独立插件模型，产物按两个平台类别与子模块 `module_kind` 分目录存放：
 
 - `app/onestop/`：一站式工作流插件（`analyze workflow synteny`）。
-- `app/submodules/`：可编排子模块插件（`analyze submodule`）。
+- `app/submodules/lightweight/`：lightweight 子模块插件（`analyze submodule`）。
+- `app/submodules/aggregate/`：aggregate 子模块插件（`analyze submodule`）。
 
 平台最新架构只承认这两类能力，不存在独立的“工作流插件”或 `analyze run` 入口。
 所有插件都不再依赖重型中心 `gljcvimcscan` 或 `GLJCVIMCSCAN_HOME`。
@@ -34,16 +35,16 @@ HAIant 插件把 `params.json` 转换为 GenomeLens 调用：
 | 产物路径 | 类型 | 固定 workflow / module_id | 说明 |
 |---|---|---|---|
 | `app/onestop/gljcvi-synteny.zip` | 一站式工作流 | `analyze workflow synteny` | 自动流；2 物种走 `graphics_synteny`，提供 `target_gene_ids` 时走 `local_synteny`，≥3 物种自动拆 pairwise 并聚合全局核型/多物种局部总图 |
-| `app/submodules/gljcvi-mcscan-pairwise.zip` | 可编排子模块 | `jcvi.mcscan_pairwise` | 双物种同源搜索与 block 计算 |
-| `app/submodules/gljcvi-catalog-ortholog.zip` | 可编排子模块 | `jcvi.catalog_ortholog` | 双向 ortholog 目录 |
-| `app/submodules/gljcvi-dotplot.zip` | 可编排子模块 | `jcvi.graphics_dotplot` | 双物种点图（需 `.anchors`） |
-| `app/submodules/gljcvi-synteny-figure.zip` | 可编排子模块 | `jcvi.graphics_synteny` | 双物种共线性图（需 `.blocks`） |
-| `app/submodules/gljcvi-karyotype.zip` | 可编排子模块 | `jcvi.graphics_karyotype` | 双物种核型图（需 `.blocks`） |
-| `app/submodules/gljcvi-local-synteny.zip` | 可编排子模块 | `jcvi.local_synteny` | 目标基因局部共线性（需 `.blocks` + `target_genes`） |
-| `app/submodules/gljcvi-histogram.zip` | 可编排子模块 | `jcvi.graphics_histogram` | 数值直方图 |
-| `app/submodules/gljcvi-heatmap.zip` | 可编排子模块 | `jcvi.graphics_heatmap` | 矩阵热图 |
-| `app/submodules/gljcvi-global-karyotype.zip` | 可编排子模块 | `jcvi.graphics_karyotype_global` | 多物种全局核型总图 |
-| `app/submodules/gljcvi-multi-local-synteny.zip` | 可编排子模块 | `jcvi.local_synteny_multi` | 多物种局部共线性总图 |
+| `app/submodules/lightweight/gljcvi-mcscan-pairwise.zip` | 可编排子模块 | `jcvi.mcscan_pairwise` | 双物种同源搜索与 block 计算 |
+| `app/submodules/lightweight/gljcvi-catalog-ortholog.zip` | 可编排子模块 | `jcvi.catalog_ortholog` | 双向 ortholog 目录 |
+| `app/submodules/lightweight/gljcvi-dotplot.zip` | 可编排子模块 | `jcvi.graphics_dotplot` | 双物种点图（需 `.anchors`） |
+| `app/submodules/lightweight/gljcvi-synteny-figure.zip` | 可编排子模块 | `jcvi.graphics_synteny` | 双物种共线性图（需 `.blocks`） |
+| `app/submodules/lightweight/gljcvi-karyotype.zip` | 可编排子模块 | `jcvi.graphics_karyotype` | 双物种核型图（需 `.blocks`） |
+| `app/submodules/lightweight/gljcvi-local-synteny.zip` | 可编排子模块 | `jcvi.local_synteny` | 目标基因局部共线性（需 `.blocks` + `target_genes`） |
+| `app/submodules/lightweight/gljcvi-histogram.zip` | 可编排子模块 | `jcvi.graphics_histogram` | 数值直方图 |
+| `app/submodules/lightweight/gljcvi-heatmap.zip` | 可编排子模块 | `jcvi.graphics_heatmap` | 矩阵热图 |
+| `app/submodules/aggregate/gljcvi-global-karyotype.zip` | 可编排子模块 | `jcvi.graphics_karyotype_global` | 多物种全局核型总图 |
+| `app/submodules/aggregate/gljcvi-multi-local-synteny.zip` | 可编排子模块 | `jcvi.local_synteny_multi` | 多物种局部共线性总图 |
 
 ## 公共字段
 
@@ -82,6 +83,9 @@ HAIant 插件把 `params.json` 转换为 GenomeLens 调用：
 ## 子模块端口与参数
 
 下表列出每个子模块的输入端口（`--input-ports`）与可调参数（`--params`）。端口字段从 `params.json` 解析为绝对路径或列表，参数字段按声明类型强制转换。
+
+- lightweight 子模块：输入是原始数据或轻量中间产物。
+- aggregate 子模块：输入是 `tracks`、`edges`、聚合 `blocks`、merged BED 等构造式聚合输入，通常由平台聚合步骤或一站式工作流自动准备。
 
 ### `gljcvi-mcscan-pairwise`（`jcvi.mcscan_pairwise`）
 
