@@ -616,6 +616,7 @@ def _localize_help(text: str) -> str:
     replacements = {
         "usage:": "用法:",
         "options:": "选项:",
+        "optional arguments:": "可选参数:",
         "positional arguments:": "位置参数:",
     }
 

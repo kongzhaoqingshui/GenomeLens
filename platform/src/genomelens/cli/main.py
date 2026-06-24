@@ -40,7 +40,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="显示版本号并退出",
     )  # 注册基础信息
 
-    subparsers = parser.add_subparsers(dest="command", title="命令")
+    subparsers = parser.add_subparsers(dest="command", title="命令", parser_class=StyledArgumentParser)
 
     # region 通过引用注册的核心功能类命令树
     check.register(subparsers)

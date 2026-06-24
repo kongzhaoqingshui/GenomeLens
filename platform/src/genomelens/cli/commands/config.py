@@ -6,7 +6,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from genomelens.cli.ui import ConsoleWriter
+from genomelens.cli.ui import ConsoleWriter, StyledArgumentParser
 from genomelens.data.config.config_store import (
     default_config,
     default_config_path,
@@ -24,7 +24,7 @@ def register(subparsers: argparse._SubParsersAction) -> None:
     """注册 config 命令"""
 
     parser = subparsers.add_parser("config", help="管理 GenomeLens 配置")
-    nested = parser.add_subparsers(dest="config_command", required=True)
+    nested = parser.add_subparsers(dest="config_command", required=True, parser_class=StyledArgumentParser)
     init_parser = nested.add_parser("init", help="写出默认配置")
     init_parser.add_argument("--workspace", required=True, help="运行时文件 workspace(工作区) 根目录")
     init_parser.add_argument("--config-path", default="", help="显式主配置文件路径")

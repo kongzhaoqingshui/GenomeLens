@@ -19,7 +19,7 @@ from genomelens.analysis.workflows.registry import (
 from genomelens.analysis.workflows.submodules import get_submodule_registry
 from genomelens.app.errors.exceptions import InputValidationError
 from genomelens.app.events.signal_bus import SignalBus
-from genomelens.cli.ui import CliProgressReporter, ConsoleWriter, render_analysis_summary
+from genomelens.cli.ui import CliProgressReporter, ConsoleWriter, StyledArgumentParser, render_analysis_summary
 from genomelens.contracts.summaries import RunSummary
 from genomelens.utils.parsers import parse_formats
 
@@ -32,23 +32,23 @@ _CONSOLE = ConsoleWriter()
 def register(subparsers: argparse._SubParsersAction) -> None:
     """Register the analyze command and its subcommands."""
 
-    parser = subparsers.add_parser("analyze", help="Run a GenomeLens analysis")
-    nested = parser.add_subparsers(dest="analysis_command", required=True)
+    parser = subparsers.add_parser("analyze", help="运行 GenomeLens 分析")
+    nested = parser.add_subparsers(dest="analysis_command", required=True, parser_class=StyledArgumentParser)
 
-    run_parser = nested.add_parser("run", help="Run a WorkflowRequest JSON file")
-    run_parser.add_argument("request_json", help="Path to a WorkflowRequest JSON file")
-    run_parser.add_argument("-j", "--json", action="store_true", help="Print the raw JSON summary")
+    run_parser = nested.add_parser("run", help="运行 WorkflowRequest JSON 文件")
+    run_parser.add_argument("request_json", help="WorkflowRequest JSON 文件路径")
+    run_parser.add_argument("-j", "--json", action="store_true", help="输出原始 JSON 摘要")
     run_parser.set_defaults(func=_run_request_json)
 
-    template_parser = nested.add_parser("template", help="Print a WorkflowRequest template")
-    template_parser.add_argument("workflow", choices=["synteny"], nargs="?", default="synteny", help="Workflow ID")
+    template_parser = nested.add_parser("template", help="输出 WorkflowRequest 模板")
+    template_parser.add_argument("workflow", choices=["synteny"], nargs="?", default="synteny", help="工作流 ID")
     template_parser.set_defaults(func=_print_template)
 
-    schema_parser = nested.add_parser("schema", help="Print the WorkflowRequest JSON schema")
+    schema_parser = nested.add_parser("schema", help="输出 WorkflowRequest JSON Schema")
     schema_parser.add_argument(
         "--with-capabilities",
         action="store_true",
-        help="Include submodule and one-stop workflow metadata alongside the schema",
+        help="在 schema 中同时包含子模块与一站式工作流元数据",
     )
     schema_parser.set_defaults(func=_print_schema)
 
@@ -59,78 +59,90 @@ def register(subparsers: argparse._SubParsersAction) -> None:
 def _register_workflow_command(nested: argparse._SubParsersAction) -> None:
     """注册 `analyze workflow` 一站式工作流命令"""
 
-    workflow_parser = nested.add_parser("workflow", help="Run the integrated synteny one-stop workflow")
-    workflow_parser.add_argument("workflow_id", help="One-stop workflow ID, e.g. synteny")
-    workflow_parser.add_argument("input", help="Input directory or primary file")
-    workflow_parser.add_argument("output_dir", help="Output directory")
-    workflow_parser.add_argument("-c", "--config", default="", help="GenomeLens project config JSON path")
-    workflow_parser.add_argument("--jcvi-config", default="", help="JCVI method config JSON path")
-    workflow_parser.add_argument("--jcvi-engine", default="", help="Explicit jcvi-genomelens executable")
-    workflow_parser.add_argument("--blastn", default="", help="Explicit blastn executable")
-    workflow_parser.add_argument("--makeblastdb", default="", help="Explicit makeblastdb executable")
-    workflow_parser.add_argument("--reference", default="", help="Reference species name or 1-based index")
-    workflow_parser.add_argument("--target-genes", default="", help="Target gene IDs for local synteny workflows")
-    workflow_parser.add_argument("--up", type=int, default=None, help="Upstream window size for local synteny")
-    workflow_parser.add_argument("--down", type=int, default=None, help="Downstream window size for local synteny")
-    workflow_parser.add_argument("--align-soft", default="", help="Alignment backend: blast, last, diamond_blastp")
-    workflow_parser.add_argument("--dbtype", default="", help="Sequence type: nucl or prot")
-    workflow_parser.add_argument("--cscore", type=float, default=None, help="Homology cscore filter")
-    workflow_parser.add_argument("--dist", type=int, default=None, help="Synteny anchor distance")
-    workflow_parser.add_argument("--iter", type=int, default=None, help="Block filtering iterations")
-    workflow_parser.add_argument("--min-block-size", type=int, default=None, help="Minimum block size")
-    workflow_parser.add_argument("--split-targets", action="store_true", help="每个目标基因单独出图")
-    workflow_parser.add_argument("--label-targets", action="store_true", help="在图中标注目标基因名称")
-    workflow_parser.add_argument("--glyphstyle", choices=["box", "arrow"], default="", help="基因形状")
-    workflow_parser.add_argument("--glyphcolor", choices=["orientation", "orthogroup"], default="", help="基因着色")
-    workflow_parser.add_argument("--shadestyle", choices=["curve", "line"], default="", help="连线样式")
-    workflow_parser.add_argument("--figsize", default="", help="画布尺寸，例如 10x5")
-    workflow_parser.add_argument("--dpi", type=int, default=None, help="图片分辨率，默认 300")
-    workflow_parser.add_argument("--optimize-figsize", action="store_true", help="自动推导 synteny 图件尺寸")
-    workflow_parser.add_argument(
+    workflow_parser = nested.add_parser("workflow", help="运行 synteny 一站式共线性分析工作流")
+    workflow_parser.add_argument("workflow_id", help="一站式工作流 ID，例如 synteny")
+    workflow_parser.add_argument("input", help="输入目录或主文件")
+    workflow_parser.add_argument("output_dir", help="输出目录")
+
+    species_group = workflow_parser.add_argument_group("物种与局部共线性")
+    species_group.add_argument("--reference", default="", help="参考物种名称或 1-based 索引")
+    species_group.add_argument("--target-genes", default="", help="局部共线性工作流的目标基因 ID")
+    species_group.add_argument("--up", type=int, default=None, help="局部共线性上游窗口大小")
+    species_group.add_argument("--down", type=int, default=None, help="局部共线性下游窗口大小")
+    species_group.add_argument("--split-targets", action="store_true", help="每个目标基因单独出图")
+    species_group.add_argument("--label-targets", action="store_true", help="在图中标注目标基因名称")
+
+    mcscan_group = workflow_parser.add_argument_group("MCscan 算法参数")
+    mcscan_group.add_argument("--align-soft", default="", help="比对后端：blast、last、diamond_blastp")
+    mcscan_group.add_argument("--dbtype", default="", help="序列类型：nucl 或 prot")
+    mcscan_group.add_argument("--cscore", type=float, default=None, help="同源匹配 cscore 过滤阈值")
+    mcscan_group.add_argument("--dist", type=int, default=None, help="共线性锚点距离")
+    mcscan_group.add_argument("--iter", type=int, default=None, help="区块过滤迭代次数")
+    mcscan_group.add_argument("--min-block-size", type=int, default=None, help="最小区块基因数")
+
+    figure_group = workflow_parser.add_argument_group("图件样式与自动优化")
+    figure_group.add_argument("--glyphstyle", choices=["box", "arrow"], default="", help="基因形状")
+    figure_group.add_argument("--glyphcolor", choices=["orientation", "orthogroup"], default="", help="基因着色")
+    figure_group.add_argument("--shadestyle", choices=["curve", "line"], default="", help="连线样式")
+    figure_group.add_argument("--figsize", default="", help="画布尺寸，例如 10x5")
+    figure_group.add_argument("--dpi", type=int, default=None, help="图片分辨率，默认 300")
+    figure_group.add_argument("--optimize-figsize", action="store_true", help="自动推导 synteny 图件尺寸")
+    figure_group.add_argument(
         "--rewrite-layout-links", action="store_true", help="将跨轨道 layout 连线改写为邻接轨道链"
     )
-    workflow_parser.add_argument(
+    figure_group.add_argument(
         "--optimize-karyotype-labels", action="store_true", help="自动优化全局核型图的轨道标签位置"
     )
-    workflow_parser.add_argument(
-        "--trim-cross-chromosome-blocks", action="store_true", help="切除跨染色体 block 基因行"
-    )
-    workflow_parser.add_argument(
+    figure_group.add_argument("--trim-cross-chromosome-blocks", action="store_true", help="切除跨染色体 block 基因行")
+    figure_group.add_argument(
         "--use-native-local-synteny-renderer",
         action="store_true",
         help="使用原生 matplotlib 局部共线性渲染器",
     )
-    workflow_parser.add_argument("--formats", default="", help="Output formats, e.g. svg or svg,pdf")
-    workflow_parser.add_argument("--threads", type=int, default=None, help="Thread count")
-    workflow_parser.add_argument("--params", default="{}", help="JSON object of extra method parameters")
-    workflow_parser.add_argument("--force", action="store_true", help="Reuse existing output directory")
-    workflow_parser.add_argument("--verbose", action="store_true", help="Enable verbose engine logging")
-    workflow_parser.add_argument("--log-level", default="", help="Set log level (DEBUG/INFO/WARNING/ERROR)")
-    workflow_parser.add_argument("-j", "--json", action="store_true", help="Print the raw JSON summary")
+
+    toolchain_group = workflow_parser.add_argument_group("工具链与配置")
+    toolchain_group.add_argument("-c", "--config", default="", help="GenomeLens 项目配置 JSON 路径")
+    toolchain_group.add_argument("--jcvi-config", default="", help="JCVI 方法配置 JSON 路径")
+    toolchain_group.add_argument("--jcvi-engine", default="", help="显式指定 jcvi-genomelens 可执行文件")
+    toolchain_group.add_argument("--blastn", default="", help="显式指定 blastn 可执行文件")
+    toolchain_group.add_argument("--makeblastdb", default="", help="显式指定 makeblastdb 可执行文件")
+
+    runtime_group = workflow_parser.add_argument_group("运行时与输出")
+    runtime_group.add_argument("--formats", default="", help="输出图片格式，例如 svg 或 svg,pdf")
+    runtime_group.add_argument("--threads", type=int, default=None, help="工作线程数")
+    runtime_group.add_argument("--params", default="{}", help="额外方法参数的 JSON 对象")
+    runtime_group.add_argument("--force", action="store_true", help="复用已有输出目录")
+    runtime_group.add_argument("--verbose", action="store_true", help="开启引擎详细日志")
+    runtime_group.add_argument("--log-level", default="", help="设置日志级别（DEBUG/INFO/WARNING/ERROR）")
+    runtime_group.add_argument("-j", "--json", action="store_true", help="输出原始 JSON 摘要")
     workflow_parser.set_defaults(func=_run_one_stop_workflow)
 
 
 def _register_submodule_command(nested: argparse._SubParsersAction) -> None:
     """注册 `analyze submodule` 可编排子模块命令"""
 
-    submodule_parser = nested.add_parser("submodule", help="Run a single composable submodule")
-    submodule_parser.add_argument("module_id", help="Submodule ID, e.g. jcvi.graphics_histogram")
-    submodule_parser.add_argument("--input-ports", required=True, help="JSON object mapping port_id to value")
-    submodule_parser.add_argument("--output-dir", required=True, help="Output directory")
+    submodule_parser = nested.add_parser("submodule", help="运行单个可编排子模块")
+    submodule_parser.add_argument("module_id", help="子模块 ID，例如 jcvi.graphics_histogram")
+    submodule_parser.add_argument("--input-ports", required=True, help="端口绑定 JSON 对象，键为 port_id")
+    submodule_parser.add_argument("--output-dir", required=True, help="输出目录")
     submodule_parser.add_argument(
         "--input-dir",
         default="",
-        help="Optional input directory when ports reference species by name",
+        help="当端口按名称引用物种时的可选输入目录",
     )
-    submodule_parser.add_argument("-c", "--config", default="", help="GenomeLens project config JSON path")
-    submodule_parser.add_argument("--jcvi-config", default="", help="JCVI method config JSON path")
-    submodule_parser.add_argument("--jcvi-engine", default="", help="Explicit jcvi-genomelens executable")
-    submodule_parser.add_argument("--formats", default="", help="Output formats, e.g. svg or svg,pdf")
-    submodule_parser.add_argument("--threads", type=int, default=None, help="Thread count")
-    submodule_parser.add_argument("--min-block-size", type=int, default=None, help="Minimum block size")
-    submodule_parser.add_argument("--params", default="{}", help="JSON object of extra method parameters")
-    submodule_parser.add_argument("--force", action="store_true", help="Reuse existing output directory")
-    submodule_parser.add_argument("-j", "--json", action="store_true", help="Print the raw JSON summary")
+
+    toolchain_group = submodule_parser.add_argument_group("工具链与配置")
+    toolchain_group.add_argument("-c", "--config", default="", help="GenomeLens 项目配置 JSON 路径")
+    toolchain_group.add_argument("--jcvi-config", default="", help="JCVI 方法配置 JSON 路径")
+    toolchain_group.add_argument("--jcvi-engine", default="", help="显式指定 jcvi-genomelens 可执行文件")
+
+    runtime_group = submodule_parser.add_argument_group("运行时与输出")
+    runtime_group.add_argument("--formats", default="", help="输出图片格式，例如 svg 或 svg,pdf")
+    runtime_group.add_argument("--threads", type=int, default=None, help="工作线程数")
+    runtime_group.add_argument("--min-block-size", type=int, default=None, help="最小区块基因数")
+    runtime_group.add_argument("--params", default="{}", help="额外方法参数的 JSON 对象")
+    runtime_group.add_argument("--force", action="store_true", help="复用已有输出目录")
+    runtime_group.add_argument("-j", "--json", action="store_true", help="输出原始 JSON 摘要")
     submodule_parser.set_defaults(func=_run_submodule)
 
 

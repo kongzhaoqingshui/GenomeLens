@@ -12,36 +12,38 @@ from genomelens.analysis.workflows.input_bindings import PortSystem
 from genomelens.analysis.workflows.onestop import OneStopWorkflowSpec, get_onestop_registry
 from genomelens.analysis.workflows.registry import list_one_stop_workflows
 from genomelens.analysis.workflows.submodules import SubModuleKind, SubModuleSpec, get_submodule_registry
-from genomelens.cli.ui import ConsoleWriter
+from genomelens.cli.ui import ConsoleWriter, StyledArgumentParser
 
 _CONSOLE = ConsoleWriter()
 
 
 def register(subparsers: argparse._SubParsersAction) -> None:
-    parser = subparsers.add_parser("workflow", help="List, describe, and validate workflow metadata")
-    nested = parser.add_subparsers(dest="workflow_command", required=True)
+    parser = subparsers.add_parser("workflow", help="列出、描述与验证工作流元数据")
+    nested = parser.add_subparsers(dest="workflow_command", required=True, parser_class=StyledArgumentParser)
 
-    list_parser = nested.add_parser("list", help="List one-stop workflows or submodules")
-    list_parser.add_argument("--kind", choices=["one_stop", "sub_module", "all"], default="all")
+    list_parser = nested.add_parser("list", help="列出一站式工作流或子模块")
+    list_parser.add_argument(
+        "--kind", choices=["one_stop", "sub_module", "all"], default="all", help="要列出的能力类型"
+    )
     list_parser.add_argument(
         "--module-kind",
         choices=["lightweight", "aggregate", "all"],
         default="all",
-        help="Filter submodules by orchestration kind",
+        help="按子模块编排类型筛选",
     )
-    list_parser.add_argument("-j", "--json", action="store_true")
+    list_parser.add_argument("-j", "--json", action="store_true", help="输出机器可读 JSON")
     list_parser.set_defaults(func=_list)
 
-    describe_parser = nested.add_parser("describe", help="Describe a workflow or submodule")
-    describe_parser.add_argument("id", help="workflow_id or module_id")
-    describe_parser.add_argument("-j", "--json", action="store_true")
+    describe_parser = nested.add_parser("describe", help="描述工作流或子模块")
+    describe_parser.add_argument("id", help="workflow_id 或 module_id")
+    describe_parser.add_argument("-j", "--json", action="store_true", help="输出机器可读 JSON")
     describe_parser.set_defaults(func=_describe)
 
-    validate_parser = nested.add_parser("validate", help="Validate ports or a WorkflowRequest")
-    validate_parser.add_argument("--submodule", default="", help="Submodule module_id")
-    validate_parser.add_argument("--ports", default="", help="Port binding JSON object")
-    validate_parser.add_argument("--request", default="", help="WorkflowRequest JSON path")
-    validate_parser.add_argument("-j", "--json", action="store_true")
+    validate_parser = nested.add_parser("validate", help="验证端口或 WorkflowRequest")
+    validate_parser.add_argument("--submodule", default="", help="子模块 module_id")
+    validate_parser.add_argument("--ports", default="", help="端口绑定 JSON 对象")
+    validate_parser.add_argument("--request", default="", help="WorkflowRequest JSON 路径")
+    validate_parser.add_argument("-j", "--json", action="store_true", help="输出机器可读 JSON")
     validate_parser.set_defaults(func=_validate)
 
 
