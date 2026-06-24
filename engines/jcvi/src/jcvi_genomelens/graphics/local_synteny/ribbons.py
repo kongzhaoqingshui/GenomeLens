@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from jcvi_genomelens.graphics.local_synteny.public import (
     _draw_ribbon_link,
-    _shade_like_path,
+    _jcvi_shade_curve_path,
 )
 
-__all__ = ["_draw_ribbon_link", "_shade_like_path"]
+__all__ = ["_draw_ribbon_link", "_jcvi_shade_curve_path"]

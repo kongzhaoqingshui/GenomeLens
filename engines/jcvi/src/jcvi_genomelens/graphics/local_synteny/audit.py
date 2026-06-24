@@ -16,7 +16,12 @@ def layout_audit(layout: LocalSyntenyLayout) -> dict[str, object]:
         "legend_entries": [entry.gene_id for entry in layout.target_legend_entries],
         "track_centers": {
             track.name: round(
-                (min(segment.x0 for segment in track.segments) + max(segment.x1 for segment in track.segments)) / 2, 6
+                (
+                    min(segment.visual_start for segment in track.segments)
+                    + max(segment.visual_end for segment in track.segments)
+                )
+                / 2,
+                6,
             )
             for track in layout.tracks
             if track.segments

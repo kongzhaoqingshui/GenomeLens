@@ -36,14 +36,15 @@ def build_runtime_command(params_path: str | Path) -> list[str]:
         input_dir = resolve_param_path(
             base, params.get("input_dir"), required=True, must_exist=True
         )
+        formats_value = params.get("formats")
         argv = build_analyze_submodule_command(
             genomelens_exe,
             module_id=SUB_MODULE_ID,
             input_ports={"species_pair": input_dir},
             output_dir=output_dir,
             input_dir=input_dir,
-            formats=[str(item) for item in params.get("formats", "svg").split(",")]
-            if isinstance(params.get("formats"), str)
+            formats=[str(item) for item in formats_value.split(",")]
+            if isinstance(formats_value, str)
             else None,
             force=True,
         )
