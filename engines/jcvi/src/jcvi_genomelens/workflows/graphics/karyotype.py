@@ -6,8 +6,9 @@ from pathlib import Path
 
 from jcvi_genomelens.manifest.models import EngineRunManifest
 from jcvi_genomelens.runtime.command_runner import CommandAudit, run_python_step
-from jcvi_genomelens.workflows.common import _assert_ok
+from jcvi_genomelens.workflows.common import _assert_ok, close_matplotlib_figures
 from jcvi_genomelens.workflows.graphics.karyotype_support import format_track_row, select_karyotype_renderer
+from jcvi_genomelens.workflows.pairwise.artifact_reuse import ensure_pairwise_artifacts
 from jcvi_genomelens.workflows.pairwise.mcscan import run as run_pairwise
 
 
@@ -83,7 +84,16 @@ def run(manifest: EngineRunManifest, outdir: str | Path) -> tuple[list[CommandAu
     if manifest.query is None or manifest.subject is None:
         raise ValueError("karyotype requires query and subject species")
 
-    commands, artifacts = run_pairwise(manifest, outdir)
+    if manifest.options.layout:
+        commands: list[CommandAudit] = []
+        artifacts: dict[str, object] = {}
+    else:
+        commands, artifacts = ensure_pairwise_artifacts(
+            manifest,
+            outdir,
+            required_fields=("simple",),
+            fallback_runner=run_pairwise,
+        )
     root = Path(outdir).expanduser().resolve(strict=False)
     root.mkdir(parents=True, exist_ok=True)
     karyotype_main, renderer_variant = select_karyotype_renderer(
@@ -110,7 +120,11 @@ def run(manifest: EngineRunManifest, outdir: str | Path) -> tuple[list[CommandAu
         if manifest.options.dpi > 0:
             argv.extend(["--dpi", str(manifest.options.dpi)])
         argv.extend(["-o", str(figure)])
-        command = run_python_step("jcvi.graphics.karyotype", karyotype_main, argv, cwd=root)
+        close_matplotlib_figures()
+        try:
+            command = run_python_step("jcvi.graphics.karyotype", karyotype_main, argv, cwd=root)
+        finally:
+            close_matplotlib_figures()
         commands.append(command)
         _assert_ok(command)
         if not figure.is_file() or figure.stat().st_size == 0:

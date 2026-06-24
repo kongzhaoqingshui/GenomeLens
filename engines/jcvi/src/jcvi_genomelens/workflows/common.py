@@ -17,6 +17,16 @@ def _assert_ok(command: CommandAudit) -> None:
         raise RuntimeError(command.stderr or command.stdout or f"{command.name} failed")
 
 
+def close_matplotlib_figures() -> None:
+    """Best-effort close of all matplotlib figures to avoid cross-workflow state leakage."""
+
+    try:
+        import matplotlib.pyplot as plt
+    except Exception:
+        return
+    plt.close("all")
+
+
 def build_figure_options(
     options: object,
     fmt: str,

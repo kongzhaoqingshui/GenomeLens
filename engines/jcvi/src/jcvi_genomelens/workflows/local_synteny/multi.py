@@ -8,7 +8,7 @@ from pathlib import Path
 from jcvi_genomelens.graphics.local_synteny import render_local_synteny
 from jcvi_genomelens.manifest.models import EngineRunManifest
 from jcvi_genomelens.runtime.command_runner import CommandAudit, run_python_step
-from jcvi_genomelens.workflows.common import _assert_ok, build_figure_options
+from jcvi_genomelens.workflows.common import _assert_ok, build_figure_options, close_matplotlib_figures
 from jcvi_genomelens.workflows.graphics.plot_optimization import copy_plot_inputs, prepare_synteny_plot_inputs
 from jcvi_genomelens.workflows.local_synteny.single import _layout_label_fields
 
@@ -116,17 +116,21 @@ def run(manifest: EngineRunManifest, outdir: str | Path) -> tuple[list[CommandAu
             ]
             if plot_inputs.figsize:
                 argv.extend(["--figsize", plot_inputs.figsize])
-            render_local_synteny(
-                blocks_path=plot_inputs.blocks,
-                bed_path=plot_inputs.bed,
-                output_path=figure,
-                track_names=track_names,
-                target_gene_ids=list(manifest.options.target_gene_ids),
-                label_targets=bool(plot_options.get("label_targets")),
-                figsize=plot_inputs.figsize,
-                dpi=manifest.options.dpi,
-                fmt=fmt,
-            )
+            close_matplotlib_figures()
+            try:
+                render_local_synteny(
+                    blocks_path=plot_inputs.blocks,
+                    bed_path=plot_inputs.bed,
+                    output_path=figure,
+                    track_names=track_names,
+                    target_gene_ids=list(manifest.options.target_gene_ids),
+                    label_targets=bool(plot_options.get("label_targets")),
+                    figsize=plot_inputs.figsize,
+                    dpi=manifest.options.dpi,
+                    fmt=fmt,
+                )
+            finally:
+                close_matplotlib_figures()
             command = CommandAudit(
                 name="local_synteny_renderer",
                 argv=argv,
@@ -139,19 +143,23 @@ def run(manifest: EngineRunManifest, outdir: str | Path) -> tuple[list[CommandAu
             figure_args = build_figure_options(manifest.options, fmt, plot_inputs.figsize)
             if manifest.options.label_targets and manifest.options.target_gene_ids:
                 figure_args.extend(["--genelabels", ",".join(manifest.options.target_gene_ids)])
-            command = run_python_step(
-                "jcvi.graphics.synteny",
-                jcvi_graphics_synteny,
-                [
-                    str(plot_inputs.blocks),
-                    str(plot_inputs.bed),
-                    str(plot_inputs.layout),
-                    *figure_args,
-                    "--outputprefix",
-                    str(output_prefix),
-                ],
-                cwd=root,
-            )
+            close_matplotlib_figures()
+            try:
+                command = run_python_step(
+                    "jcvi.graphics.synteny",
+                    jcvi_graphics_synteny,
+                    [
+                        str(plot_inputs.blocks),
+                        str(plot_inputs.bed),
+                        str(plot_inputs.layout),
+                        *figure_args,
+                        "--outputprefix",
+                        str(output_prefix),
+                    ],
+                    cwd=root,
+                )
+            finally:
+                close_matplotlib_figures()
 
         commands.append(command)
         _assert_ok(command)

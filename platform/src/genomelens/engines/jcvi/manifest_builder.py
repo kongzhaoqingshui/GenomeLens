@@ -35,6 +35,12 @@ def _species_manifest_entry(
     }
 
 
+def _pairwise_artifact_manifest(artifacts: dict[str, str]) -> dict[str, str]:
+    """把 pairwise 产物路径字典转成 manifest 输入对象"""
+
+    return {key: absolute_path(value) for key, value in artifacts.items() if str(value).strip()}
+
+
 class JcviManifestBuilder:
     """JcviManifestBuilder：把平台执行请求转成 engine manifest v3"""
 
@@ -61,16 +67,20 @@ class JcviManifestBuilder:
             toolchain["lastal"] = absolute_path(lastal_path)
             toolchain["lastdb"] = absolute_path(lastdb_path)
 
+        inputs: dict[str, object] = {
+            "species": [
+                _species_manifest_entry(request.reference, "reference", query),
+                _species_manifest_entry(request.target, "target", subject),
+            ],
+        }
+        if request.precomputed_artifacts is not None:
+            inputs["pairwise_artifacts"] = _pairwise_artifact_manifest(request.precomputed_artifacts.to_manifest_json())
+
         return {
             "schema_version": 3,
             "workflow": workflow,
             "task": {**task.to_manifest_json(), "workflow": workflow},
-            "inputs": {
-                "species": [
-                    _species_manifest_entry(request.reference, "reference", query),
-                    _species_manifest_entry(request.target, "target", subject),
-                ],
-            },
+            "inputs": inputs,
             "species": [
                 _species_manifest_entry(request.reference, "reference", query),
                 _species_manifest_entry(request.target, "target", subject),

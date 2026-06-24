@@ -1,4 +1,5 @@
 import json
+import shutil
 from pathlib import Path
 
 from jcvi_genomelens.runtime.engine import run_manifest
@@ -6,6 +7,13 @@ from jcvi_genomelens.runtime.engine import run_manifest
 ROOT = Path(__file__).resolve().parents[4]
 SAMPLE = ROOT / "references" / "samples" / "shell" / "bed_cds_minimal"
 BLAST_BIN = ROOT / "toolchains" / "blast" / "current" / "bin"
+
+
+def _blast_executable(name: str) -> Path:
+    candidate = shutil.which(name)
+    if candidate:
+        return Path(candidate).resolve()
+    return (BLAST_BIN / f"{name}.exe").resolve()
 
 
 def _local_manifest(target_gene_ids: list[str], split_targets: bool = False) -> dict[str, object]:
@@ -37,8 +45,8 @@ def _local_manifest(target_gene_ids: list[str], split_targets: bool = False) -> 
         "inputs": {"species": species},
         "species": species,
         "toolchain": {
-            "blastn": str(BLAST_BIN / "blastn.exe"),
-            "makeblastdb": str(BLAST_BIN / "makeblastdb.exe"),
+            "blastn": str(_blast_executable("blastn")),
+            "makeblastdb": str(_blast_executable("makeblastdb")),
         },
         "parameters": {
             "threads": 1,

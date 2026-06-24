@@ -8,6 +8,7 @@ from pathlib import Path
 from genomelens.analysis.planning.models import (
     HeatmapExecutionRequest,
     HistogramExecutionRequest,
+    PairwiseArtifactInputs,
     SyntenyExecutionRequest,
 )
 from genomelens.analysis.requests.models import WorkflowRequest, WorkflowSpeciesInput
@@ -29,6 +30,48 @@ def _path(value: str) -> Path:
     """把字符串解析为已展开用户目录的 Path"""
 
     return Path(value).expanduser().resolve(strict=False)
+
+
+def _optional_path(value: object) -> Path | None:
+    """把可选端口值解析为 Path，空值时返回 None"""
+
+    if not isinstance(value, str) or not value.strip():
+        return None
+    return _path(value)
+
+
+def _input_ports(request: WorkflowRequest) -> dict[str, object]:
+    """读取子模块输入端口字典"""
+
+    raw = request.inputs.get("ports")
+    return dict(raw) if isinstance(raw, dict) else {}
+
+
+def _target_gene_ids(request: WorkflowRequest, ports: dict[str, object]) -> list[str]:
+    """合并显式参数与 `target_genes` 端口中的目标基因列表"""
+
+    if request.parameters.local_synteny.target_gene_ids:
+        return list(request.parameters.local_synteny.target_gene_ids)
+    raw = ports.get("target_genes")
+    if isinstance(raw, list):
+        return [str(item).strip() for item in raw if str(item).strip()]
+    if isinstance(raw, str) and raw.strip():
+        return [raw.strip()]
+    return []
+
+
+def _pairwise_artifacts_from_ports(ports: dict[str, object]) -> PairwiseArtifactInputs | None:
+    """把子模块 artifact 端口转换为内部的 pairwise 产物载荷"""
+
+    artifacts = PairwiseArtifactInputs(
+        blast_table=_optional_path(ports.get("blast_table")),
+        anchors=_optional_path(ports.get("anchors")),
+        simple=_optional_path(ports.get("simple")),
+        blocks=_optional_path(ports.get("blocks")),
+        merged_bed=_optional_path(ports.get("merged_bed")),
+        layout=_optional_path(ports.get("layout")),
+    )
+    return artifacts if artifacts.has_any else None
 
 
 def species_to_genome_input(species: WorkflowSpeciesInput) -> GenomeInputSpec:
@@ -77,6 +120,8 @@ def build_synteny_request(
     runtime = request.runtime
     params = request.parameters
     toolchain = _toolchain_paths(request)
+    ports = _input_ports(request)
+    target_gene_ids = _target_gene_ids(request, ports)
     return SyntenyExecutionRequest(
         reference=reference,
         target=target,
@@ -90,13 +135,15 @@ def build_synteny_request(
         log_level=str(runtime.log_level or "INFO").upper(),
         verbose=bool(runtime.verbose),
         console_log=bool(runtime.console_log),
+        precomputed_artifacts=_pairwise_artifacts_from_ports(ports),
+        input_ports=ports,
         align_soft=params.synteny.align_soft,
         dbtype=params.synteny.dbtype,
         cscore=params.synteny.cscore,
         dist=params.synteny.dist,
         iter=params.synteny.iter,
         allow_simplified_fallback=params.synteny.allow_simplified_fallback,
-        target_gene_ids=list(params.local_synteny.target_gene_ids),
+        target_gene_ids=target_gene_ids,
         up=params.local_synteny.up,
         down=params.local_synteny.down,
         split_targets=params.local_synteny.split_targets,
@@ -108,6 +155,8 @@ def build_synteny_request(
         dpi=params.plot.dpi,
         auto_optimization=dict(params.plot.auto_optimization),
         use_native_local_synteny_renderer=params.local_synteny.use_native_renderer,
+        layout_path=str(_optional_path(ports.get("layout") or ports.get("karyotype_layout")) or ""),
+        seqids_path=str(_optional_path(ports.get("karyotype_seqids")) or ""),
         **toolchain,
     )
 

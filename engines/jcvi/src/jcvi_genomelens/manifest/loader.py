@@ -11,6 +11,7 @@ from jcvi_genomelens.manifest.models import (
     EngineRunManifest,
     EngineTrack,
     GenomeSpec,
+    PairwiseArtifacts,
     ToolchainSpec,
     WorkflowOptions,
 )
@@ -197,6 +198,33 @@ def _load_existing_paths(data: object, label: str) -> list[Path]:
     return paths
 
 
+def _load_pairwise_artifacts(data: object) -> PairwiseArtifacts | None:
+    raw = _optional_object(data, "inputs.pairwise_artifacts")
+    if not raw:
+        return None
+
+    def _maybe_path(key: str) -> Path | None:
+        value = raw.get(key)
+        if value is None or str(value).strip() == "":
+            return None
+        return _load_precomputed_path(value, f"inputs.pairwise_artifacts.{key}")
+
+    artifacts = PairwiseArtifacts(
+        blast_table=_maybe_path("blast_table"),
+        anchors=_maybe_path("anchors"),
+        simple=_maybe_path("simple"),
+        blocks=_maybe_path("blocks"),
+        merged_bed=_maybe_path("merged_bed"),
+        layout=_maybe_path("layout"),
+    )
+    if not any(
+        getattr(artifacts, key) is not None
+        for key in ("blast_table", "anchors", "simple", "blocks", "merged_bed", "layout")
+    ):
+        return None
+    return artifacts
+
+
 def load_manifest(path: str | Path) -> EngineRunManifest:
     """从磁盘加载并校验 manifest(清单)"""
 
@@ -232,6 +260,7 @@ def load_manifest(path: str | Path) -> EngineRunManifest:
     bed: Path | None = None
     matrix: Path | None = None
     histogram_inputs: list[Path] = []
+    pairwise_artifacts = _load_pairwise_artifacts(inputs_raw.get("pairwise_artifacts"))
     if workflow == GLOBAL_KARYOTYPE_WORKFLOW:
         track_data = inputs_raw.get("tracks")
         if not isinstance(track_data, list) or len(track_data) < 2:
@@ -320,6 +349,7 @@ def load_manifest(path: str | Path) -> EngineRunManifest:
         meta=_require_object(raw.get("meta") or {}, "meta"),
         tracks=tracks,
         edges=edges,
+        pairwise_artifacts=pairwise_artifacts,
         blocks=blocks,
         bed=bed,
         matrix=matrix,

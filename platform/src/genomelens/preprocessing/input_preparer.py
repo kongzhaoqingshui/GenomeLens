@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from genomelens.analysis.planning.models import SyntenyExecutionRequest
@@ -11,6 +12,23 @@ from genomelens.preprocessing.annotation import preprocess_one, write_preprocess
 
 if TYPE_CHECKING:
     from genomelens.data.workspace.output_layout import OutputLayout
+
+
+def prepare_species_input(
+    species: GenomeInputSpec,
+    prepared_dir: Path,
+) -> tuple[PreparedGenomeInputSpec, dict[str, object] | None]:
+    """预处理单个 species 输入，或直接返回已有的 BED/CDS"""
+
+    if species.prepared:
+        return species.prepared, None
+
+    raw = species.raw
+    if raw is None:
+        raise RuntimeError(f"{species.name} input was expected but missing")
+
+    result = preprocess_one(species.name, raw.gff, raw.genome, prepared_dir)
+    return PreparedGenomeInputSpec(result.bed, result.cds), result.summary
 
 
 def prepare_inputs(
@@ -22,22 +40,11 @@ def prepare_inputs(
 ) -> tuple[PreparedGenomeInputSpec, PreparedGenomeInputSpec, list[dict[str, object]]]:
     """预处理 raw 输入或返回已准备好的 BED/CDS 输入"""
 
-    def prepare_one(species: GenomeInputSpec) -> tuple[PreparedGenomeInputSpec, dict[str, object] | None]:
-        if species.prepared:
-            return species.prepared, None
-
-        raw = species.raw
-        if raw is None:
-            raise RuntimeError(f"{species.name} input was expected but missing")
-
-        result = preprocess_one(species.name, raw.gff, raw.genome, layout.prepared)
-        return PreparedGenomeInputSpec(result.bed, result.cds), result.summary
-
     if preprocessing_state is not None and (request.query.raw or request.subject.raw):
         set_state(preprocessing_state)
 
-    query, query_summary = prepare_one(request.query)
-    subject, subject_summary = prepare_one(request.subject)
+    query, query_summary = prepare_species_input(request.query, layout.prepared)
+    subject, subject_summary = prepare_species_input(request.subject, layout.prepared)
 
     summaries = [summary for summary in [query_summary, subject_summary] if summary is not None]
     if summaries:

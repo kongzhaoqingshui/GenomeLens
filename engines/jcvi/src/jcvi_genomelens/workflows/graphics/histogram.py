@@ -218,6 +218,7 @@ def _run_from_config(argv: list[str]) -> None:
 
     if len(argv) != 1:
         raise RuntimeError("graphics_histogram expects exactly one config path argument")
+    plt.close("all")
     config_path = Path(argv[0]).expanduser().resolve(strict=False)
     config = json.loads(config_path.read_text(encoding="utf-8"))
     outdir = Path(str(config["outdir"])).expanduser().resolve(strict=False)
@@ -231,20 +232,23 @@ def _run_from_config(argv: list[str]) -> None:
         vmax=config.get("vmax"),
         base=int(config["base"]),
     )
-    _render_histogram(
-        series,
-        outdir=outdir,
-        formats=[str(item) for item in config["formats"]],
-        bins=int(config["bins"]),
-        vmin=config.get("vmin"),
-        vmax=config.get("vmax"),
-        xlabel=str(config["xlabel"]),
-        title=str(config["title"]),
-        base=int(config["base"]),
-        facet=bool(config["facet"]),
-        fill=str(config["fill"]),
-        dpi=int(config["dpi"]),
-    )
+    try:
+        _render_histogram(
+            series,
+            outdir=outdir,
+            formats=[str(item) for item in config["formats"]],
+            bins=int(config["bins"]),
+            vmin=config.get("vmin"),
+            vmax=config.get("vmax"),
+            xlabel=str(config["xlabel"]),
+            title=str(config["title"]),
+            base=int(config["base"]),
+            facet=bool(config["facet"]),
+            fill=str(config["fill"]),
+            dpi=int(config["dpi"]),
+        )
+    finally:
+        plt.close("all")
 
 
 def run(manifest: EngineRunManifest, outdir: str | Path) -> tuple[list[CommandAudit], dict[str, object]]:

@@ -57,6 +57,36 @@ class StepOutputRef:
 
 
 @dataclass(frozen=True)
+class PairwiseArtifactInputs:
+    """PairwiseArtifactInputs(pairwise 产物输入)：描述可复用的 pairwise core 产物"""
+
+    # fmt: off
+    blast_table: Path | None = None  # BLAST/同源比对表
+    anchors: Path | None = None      # anchors 文件
+    simple: Path | None = None       # simple 文件
+    blocks: Path | None = None       # blocks 文件
+    merged_bed: Path | None = None   # 合并后的 BED
+    layout: Path | None = None       # synteny layout 文件
+    # fmt: on
+
+    def to_manifest_json(self) -> dict[str, str]:
+        """转为 manifest `inputs.pairwise_artifacts` 对象"""
+
+        data: dict[str, str] = {}
+        for key in ("blast_table", "anchors", "simple", "blocks", "merged_bed", "layout"):
+            value = getattr(self, key)
+            if value is not None:
+                data[key] = str(value)
+        return data
+
+    @property
+    def has_any(self) -> bool:
+        """返回是否至少携带一个可复用产物"""
+
+        return any(getattr(self, key) is not None for key in ("blast_table", "anchors", "simple", "blocks"))
+
+
+@dataclass(frozen=True)
 class SyntenyExecutionRequest:
     """SyntenyExecutionRequest：synteny / MCscan 类工作流的内部执行请求"""
 
@@ -78,6 +108,8 @@ class SyntenyExecutionRequest:
     seqids_path: str = ""       # JCVI seqids 文件路径
     allow_simplified_fallback: bool = False  # 是否允许简化回退
     force: bool = False         # 是否覆盖已有输出目录
+    precomputed_artifacts: PairwiseArtifactInputs | None = None  # 预计算的 pairwise 产物
+    input_ports: dict[str, object] = field(default_factory=dict)  # 子模块输入端口快照
 
     align_soft: str = "blast"   # 同源搜索后端
     dbtype: str = "nucl"        # 序列类型

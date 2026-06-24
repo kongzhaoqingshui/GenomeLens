@@ -29,6 +29,18 @@ class ToolchainSpec:
 
 
 @dataclass(frozen=True)
+class PairwiseArtifacts:
+    """PairwiseArtifacts：可复用的 pairwise core 产物"""
+
+    blast_table: Path | None = None
+    anchors: Path | None = None
+    simple: Path | None = None
+    blocks: Path | None = None
+    merged_bed: Path | None = None
+    layout: Path | None = None
+
+
+@dataclass(frozen=True)
 class WorkflowOptions:
     """WorkflowOptions(工作流选项)：可调执行参数"""
 
@@ -118,6 +130,7 @@ class EngineRunManifest:
     meta: dict[str, object] = field(default_factory=dict)
     tracks: list[EngineTrack] = field(default_factory=list)
     edges: list[EngineEdge] = field(default_factory=list)
+    pairwise_artifacts: PairwiseArtifacts | None = None
     blocks: Path | None = None
     bed: Path | None = None
     matrix: Path | None = None
