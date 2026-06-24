@@ -19,14 +19,20 @@ from genomelens.analysis.execution.summary_builder import (
     species_summary,
     write_run_summary,
 )
-from genomelens.analysis.planning.models import ExecutionPlan, ExecutionStep, SyntenyExecutionRequest
+from genomelens.analysis.planning.models import (
+    ExecutionPlan,
+    ExecutionStep,
+    HeatmapExecutionRequest,
+    HistogramExecutionRequest,
+    SyntenyExecutionRequest,
+)
 from genomelens.app.controller.state_machine import WorkflowState
 from genomelens.app.errors.exceptions import InputValidationError
 from genomelens.app.events.signal_bus import SignalBus
 from genomelens.contracts.summaries import ChildRunRecord, RunSummary
 from genomelens.data.logging.log_setup import close_logging, logger_name_for_path, setup_logging
 from genomelens.data.logging.task_log import task_scope
-from genomelens.data.workspace.output_layout import build_output_layout, create_output_layout
+from genomelens.data.workspace.output_layout import OutputLayout, build_output_layout, create_output_layout
 from genomelens.engines.jcvi.adapter import JcviEngineAdapter
 from genomelens.engines.jcvi.manifest_builder import JcviManifestBuilder
 from genomelens.toolchain.runtime.resource_locator import locate_engine
@@ -51,9 +57,9 @@ class PlanExecutor:
         if step.kind == "pairwise_synteny":
             return run_pairwise_mcscan(set_state, cast(SyntenyExecutionRequest, step.payload))
         if step.kind == "graphics_histogram":
-            return run_histogram_workflow(set_state, step.payload)  # type: ignore[arg-type]
+            return run_histogram_workflow(set_state, cast(HistogramExecutionRequest, step.payload))
         if step.kind == "graphics_heatmap":
-            return run_heatmap_workflow(set_state, step.payload)  # type: ignore[arg-type]
+            return run_heatmap_workflow(set_state, cast(HeatmapExecutionRequest, step.payload))
         raise InputValidationError(f"unsupported single execution step: {step.kind}")
 
     def _execute_composite(self, plan: ExecutionPlan, signal_bus: SignalBus) -> RunSummary:
@@ -206,7 +212,7 @@ class PlanExecutor:
     def _build_global_karyotype(
         request: SyntenyExecutionRequest,
         pairwise_jobs: list[ChildRunRecord],
-        layout,
+        layout: OutputLayout,
     ) -> list[str]:
         """把成功 pairwise 的 simple 边聚合成一张全局核型总图"""
 
