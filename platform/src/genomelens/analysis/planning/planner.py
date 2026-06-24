@@ -13,6 +13,7 @@ from genomelens.analysis.execution.request_mapping import (
     validate_workflow_species,
 )
 from genomelens.analysis.execution.summary_builder import pair_id
+from genomelens.analysis.optimization.optimizer import PlanOptimizer
 from genomelens.analysis.planning.models import (
     ExecutionPlan,
     ExecutionStep,
@@ -30,7 +31,13 @@ class WorkflowPlanner:
     """WorkflowPlanner：集中负责 workflow_id 到执行 DAG 的展开"""
 
     def build(self, request: WorkflowRequest) -> ExecutionPlan:
-        """构建执行计划"""
+        """构建并优化执行计划"""
+
+        raw_plan = self.build_raw_plan(request)
+        return PlanOptimizer().optimize(request, raw_plan)
+
+    def build_raw_plan(self, request: WorkflowRequest) -> ExecutionPlan:
+        """构建未经优化的原始执行计划"""
 
         if request.workflow_id == "graphics_histogram":
             return self._histogram_plan(request)

@@ -7,6 +7,7 @@ from genomelens.analysis.planning.models import SyntenyExecutionRequest
 from genomelens.analysis.planning.planner import WorkflowPlanner
 from genomelens.analysis.requests.models import WorkflowRequest, WorkflowSpeciesInput
 from genomelens.app.errors.exceptions import InputValidationError
+from genomelens.artifacts.bundles import PAIRWISE_CORE_BUNDLE_TYPE
 from genomelens.contracts.species import PreparedGenomeInputSpec
 from genomelens.engines.jcvi.manifest_builder import JcviManifestBuilder
 
@@ -147,6 +148,9 @@ def test_workflow_planner_submodule_ports_map_precomputed_artifacts() -> None:
     assert payload.precomputed_artifacts is not None
     assert payload.precomputed_artifacts.anchors == Path("/tmp/A_B.anchors").resolve(strict=False)
     assert payload.precomputed_artifacts.blocks == Path("/tmp/A_B.blocks").resolve(strict=False)
+    assert len(payload.artifact_bundles) == 1
+    assert payload.artifact_bundles[0].bundle_type == PAIRWISE_CORE_BUNDLE_TYPE
+    assert payload.artifact_bundles[0].artifact_path("anchors") == Path("/tmp/A_B.anchors").resolve(strict=False)
     assert payload.layout_path == str(Path("/tmp/A_B.layout").resolve(strict=False))
 
 
@@ -205,3 +209,30 @@ def test_manifest_builder_pairwise_schema_v3_has_no_top_level_query_subject() ->
     assert "query" not in manifest
     assert "subject" not in manifest
     assert manifest["inputs"]["species"][0]["name"] == "A"  # type: ignore[index]
+
+
+def test_manifest_builder_writes_artifact_bundles_for_pairwise_inputs() -> None:
+    request = (
+        WorkflowPlanner()
+        .build(
+            _request(
+                [_species("A"), _species("B")],
+                inputs={"ports": {"anchors": "/tmp/A_B.anchors", "blocks": "/tmp/A_B.blocks"}},
+            )
+        )
+        .steps[0]
+        .payload
+    )
+
+    assert isinstance(request, SyntenyExecutionRequest)
+    manifest = JcviManifestBuilder().build_pairwise_manifest(
+        request,
+        query=PreparedGenomeInputSpec(Path("/tmp/A.bed"), Path("/tmp/A.cds")),
+        subject=PreparedGenomeInputSpec(Path("/tmp/B.bed"), Path("/tmp/B.cds")),
+        blastn_path="",
+        makeblastdb_path="",
+    )
+
+    bundle = manifest["inputs"]["artifact_bundles"][0]  # type: ignore[index]
+    assert bundle["bundle_type"] == PAIRWISE_CORE_BUNDLE_TYPE  # type: ignore[index]
+    assert bundle["artifacts"]["anchors"] == str(Path("/tmp/A_B.anchors").resolve(strict=False))  # type: ignore[index]

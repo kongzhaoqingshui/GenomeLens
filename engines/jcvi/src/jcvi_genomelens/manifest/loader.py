@@ -1,12 +1,12 @@
-"""读取并校验 engine manifest JSON(引擎清单 JSON)"""
+"""Load and validate engine manifest JSON."""
 
-# region import
 from __future__ import annotations
 
 import json
 from pathlib import Path
 
 from jcvi_genomelens.manifest.models import (
+    ArtifactBundleSpec,
     EngineEdge,
     EngineRunManifest,
     EngineTrack,
@@ -22,12 +22,15 @@ from jcvi_genomelens.workflows.contract import (
     MULTI_LOCAL_SYNTENY_WORKFLOW,
     normalize_workflow,
 )
-
-# endregion
+from jcvi_genomelens.workflows.reuse.bundles import (
+    PAIRWISE_CORE_BUNDLE_TYPE,
+    pairwise_artifacts_from_bundles,
+    pairwise_core_bundle_from_artifacts,
+)
 
 
 class ManifestError(ValueError):
-    """manifest(清单) 违反公开契约时抛出"""
+    """Raised when a manifest violates the public engine contract."""
 
 
 def _path(value: object, *, required: bool = False) -> Path | None:
@@ -35,7 +38,6 @@ def _path(value: object, *, required: bool = False) -> Path | None:
         if required:
             raise ManifestError("required path field is empty")
         return None
-    # engine 侧统一把 manifest 路径绝对化，后续 workflow 内不再猜工作目录。
     return Path(str(value)).expanduser().resolve(strict=False)
 
 
@@ -56,11 +58,7 @@ def _optional_object_list(data: object, label: str) -> list[dict[str, object]]:
         return []
     if not isinstance(data, list):
         raise ManifestError(f"{label} must be a list")
-    items: list[dict[str, object]] = []
-    for index, item in enumerate(data):
-        # 这里保留原始 object 结构，摘要写回时能原样传给 shell。
-        items.append(_require_object(item, f"{label}[{index}]"))
-    return items
+    return [_require_object(item, f"{label}[{index}]") for index, item in enumerate(data)]
 
 
 def _optional_string_list(data: object, label: str) -> list[str]:
@@ -124,10 +122,7 @@ def _bool(value: object) -> bool:
 
 def _bool_dict(value: object) -> dict[str, bool]:
     raw = _optional_object(value, "bool dict")
-    result: dict[str, bool] = {}
-    for key, val in raw.items():
-        result[str(key)] = _bool(val)
-    return result
+    return {str(key): _bool(val) for key, val in raw.items()}
 
 
 def _histogram_columns(value: object) -> list[int]:
@@ -147,7 +142,6 @@ def _load_genome(data: object, label: str) -> GenomeSpec:
         raise ManifestError(f"{label}.bed does not exist: {bed}")
     if not cds.is_file():
         raise ManifestError(f"{label}.cds does not exist: {cds}")
-    # manifest 读取阶段就把文件存在性卡死，避免 workflow 跑到中途才炸。
     return GenomeSpec(name=name, bed=bed, cds=cds)
 
 
@@ -225,8 +219,25 @@ def _load_pairwise_artifacts(data: object) -> PairwiseArtifacts | None:
     return artifacts
 
 
+def _load_artifact_bundles(data: object) -> list[ArtifactBundleSpec]:
+    bundles = _optional_object_list(data, "inputs.artifact_bundles")
+    result: list[ArtifactBundleSpec] = []
+    for index, raw in enumerate(bundles):
+        bundle_type = str(raw.get("bundle_type") or "").strip()
+        if not bundle_type:
+            raise ManifestError(f"inputs.artifact_bundles[{index}].bundle_type is required")
+        artifacts_raw = _require_object(raw.get("artifacts") or {}, f"inputs.artifact_bundles[{index}].artifacts")
+        artifacts = {
+            str(key): _load_precomputed_path(value, f"inputs.artifact_bundles[{index}].artifacts.{key}")
+            for key, value in artifacts_raw.items()
+            if str(value).strip()
+        }
+        result.append(ArtifactBundleSpec(bundle_type=bundle_type, artifacts=artifacts))
+    return result
+
+
 def load_manifest(path: str | Path) -> EngineRunManifest:
-    """从磁盘加载并校验 manifest(清单)"""
+    """Load and validate a manifest from disk."""
 
     source = Path(path).expanduser().resolve(strict=False)
     data = json.loads(source.read_text(encoding="utf-8-sig"))
@@ -237,6 +248,7 @@ def load_manifest(path: str | Path) -> EngineRunManifest:
     schema_version = _int(raw.get("schema_version"), 3)
     if schema_version != 3:
         raise ManifestError(f"unsupported manifest schema_version: {schema_version}")
+
     inputs_raw = _require_object(raw.get("inputs") or {}, "inputs")
     toolchain_raw = _require_object(raw.get("toolchain") or {}, "toolchain")
     options_raw = _require_object(raw.get("parameters") or {}, "parameters")
@@ -250,8 +262,6 @@ def load_manifest(path: str | Path) -> EngineRunManifest:
     if rowgroups is not None and not rowgroups.is_file():
         raise ManifestError(f"options.rowgroups does not exist: {rowgroups}")
 
-    # manifest v3 中 pairwise 输入来自 inputs.species[0:2]；query/subject 只作为
-    # engine 内部执行对象名。全局总图工作流用 tracks/edges 表达 N 个物种。
     query: GenomeSpec | None = None
     subject: GenomeSpec | None = None
     tracks: list[EngineTrack] = []
@@ -260,12 +270,13 @@ def load_manifest(path: str | Path) -> EngineRunManifest:
     bed: Path | None = None
     matrix: Path | None = None
     histogram_inputs: list[Path] = []
+    artifact_bundles = _load_artifact_bundles(inputs_raw.get("artifact_bundles"))
     pairwise_artifacts = _load_pairwise_artifacts(inputs_raw.get("pairwise_artifacts"))
+
     if workflow == GLOBAL_KARYOTYPE_WORKFLOW:
         track_data = inputs_raw.get("tracks")
         if not isinstance(track_data, list) or len(track_data) < 2:
             raise ManifestError("graphics_karyotype_global requires at least two tracks")
-        # 全局核型图直接消费 pairwise 阶段产出的轨道和边，协议形状与 pairwise 不同。
         tracks = [_load_track(item, f"tracks[{index}]") for index, item in enumerate(track_data)]
         edge_data = inputs_raw.get("edges")
         if not isinstance(edge_data, list) or not edge_data:
@@ -288,6 +299,11 @@ def load_manifest(path: str | Path) -> EngineRunManifest:
             raise ManifestError("pairwise workflows require inputs.species with at least two species")
         query = _load_genome(species_data[0], "inputs.species[0]")
         subject = _load_genome(species_data[1], "inputs.species[1]")
+
+    if pairwise_artifacts is None:
+        pairwise_artifacts = pairwise_artifacts_from_bundles(artifact_bundles)
+    elif not any(bundle.bundle_type == PAIRWISE_CORE_BUNDLE_TYPE for bundle in artifact_bundles):
+        artifact_bundles = [pairwise_core_bundle_from_artifacts(pairwise_artifacts), *artifact_bundles]
 
     return EngineRunManifest(
         workflow=workflow,
@@ -342,13 +358,13 @@ def load_manifest(path: str | Path) -> EngineRunManifest:
             histogram_fill=_string(options_raw.get("histogram_fill"), "white"),
         ),
         schema_version=schema_version,
-        # task/species/meta 保持宽松对象结构，供 shell summary 直接回写。
         task=_optional_object(raw.get("task"), "task"),
         species=_optional_object_list(raw.get("species") or inputs_raw.get("species"), "species"),
         expected_outputs=_optional_string_list(raw.get("expected_outputs"), "expected_outputs"),
         meta=_require_object(raw.get("meta") or {}, "meta"),
         tracks=tracks,
         edges=edges,
+        artifact_bundles=artifact_bundles,
         pairwise_artifacts=pairwise_artifacts,
         blocks=blocks,
         bed=bed,
