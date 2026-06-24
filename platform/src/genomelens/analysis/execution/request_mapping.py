@@ -15,6 +15,7 @@ from genomelens.analysis.requests.models import WorkflowRequest, WorkflowSpecies
 from genomelens.analysis.requests.normalization.request_assembler import read_request_config
 from genomelens.app.errors import messages
 from genomelens.app.errors.exceptions import InputValidationError
+from genomelens.artifacts.bundles import ArtifactBundle, pairwise_core_bundle_from_paths
 from genomelens.contracts.species import GenomeInputSpec, PreparedGenomeInputSpec, RawAnnotationInputSpec
 
 # endregion
@@ -74,6 +75,15 @@ def _pairwise_artifacts_from_ports(ports: dict[str, object]) -> PairwiseArtifact
     return artifacts if artifacts.has_any else None
 
 
+def _artifact_bundles_from_ports(ports: dict[str, object]) -> list[ArtifactBundle]:
+    """Build reusable artifact bundles from submodule ports."""
+
+    artifacts = _pairwise_artifacts_from_ports(ports)
+    if artifacts is None:
+        return []
+    return [pairwise_core_bundle_from_paths(artifacts.to_path_dict())]
+
+
 def species_to_genome_input(species: WorkflowSpeciesInput) -> GenomeInputSpec:
     """把 WorkflowSpeciesInput 转成内部 GenomeInputSpec"""
 
@@ -122,6 +132,7 @@ def build_synteny_request(
     toolchain = _toolchain_paths(request)
     ports = _input_ports(request)
     target_gene_ids = _target_gene_ids(request, ports)
+    precomputed_artifacts = _pairwise_artifacts_from_ports(ports)
     return SyntenyExecutionRequest(
         reference=reference,
         target=target,
@@ -135,7 +146,8 @@ def build_synteny_request(
         log_level=str(runtime.log_level or "INFO").upper(),
         verbose=bool(runtime.verbose),
         console_log=bool(runtime.console_log),
-        precomputed_artifacts=_pairwise_artifacts_from_ports(ports),
+        precomputed_artifacts=precomputed_artifacts,
+        artifact_bundles=_artifact_bundles_from_ports(ports),
         input_ports=ports,
         align_soft=params.synteny.align_soft,
         dbtype=params.synteny.dbtype,

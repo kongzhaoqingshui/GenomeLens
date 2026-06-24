@@ -1,6 +1,5 @@
-"""Pairwise MCscan runner：支持单步执行与 plan 级复用上下文"""
+"""Pairwise MCscan execution handler."""
 
-# region import
 from __future__ import annotations
 
 import logging
@@ -11,7 +10,7 @@ from pathlib import Path
 from typing import Any, cast
 
 from genomelens.analysis.execution.artifact_builder import artifact_index as build_artifact_index
-from genomelens.analysis.execution.plan_context import PlanRunContext, pairwise_cache_key
+from genomelens.analysis.execution.resources.shared_runtime import PlanRunContext
 from genomelens.analysis.execution.summary_builder import (
     build_run_summary,
     scoring_placeholder,
@@ -39,10 +38,7 @@ from genomelens.toolchain.runtime.resource_locator import LocatedResource
 from genomelens.toolchain.runtime.toolchain_resolver import resolve_pairwise_toolchain
 from genomelens.validation.execution_requests import validate_request
 
-# endregion
 
-
-# region 输入准备与复用
 def _prepare_pairwise_inputs(
     set_state: Callable[[WorkflowState], None],
     request: SyntenyExecutionRequest,
@@ -55,7 +51,7 @@ def _prepare_pairwise_inputs(
     PreparedGenomeInputSpec,
     list[dict[str, object]],
 ]:
-    """校验请求并准备 pairwise 输入，可选复用 plan 级 species 缓存"""
+    """Validate and prepare pairwise inputs."""
 
     validate_request(request)
     if len(request.species) != 2:
@@ -81,10 +77,10 @@ def _prepare_pairwise_inputs(
     query_record = context.prepared_for(request.query)
     subject_record = context.prepared_for(request.subject)
     if query_record is None or subject_record is None:
-        raise RuntimeError("plan context is missing prepared species records")
+        raise RuntimeError("shared runtime is missing prepared species records")
 
     preprocess_summaries = [
-        summary for summary in [query_record.summary, subject_record.summary] if summary is not None
+        summary for summary in (query_record.summary, subject_record.summary) if summary is not None
     ]
     if preprocess_summaries:
         layout.preprocessing_summary.parent.mkdir(parents=True, exist_ok=True)
@@ -94,8 +90,6 @@ def _prepare_pairwise_inputs(
 
 
 def _prepare_pairwise_workspace(request: SyntenyExecutionRequest) -> tuple[OutputLayout, logging.Logger]:
-    """准备 pairwise 工作区并初始化日志"""
-
     layout = create_output_layout(request.outdir, force=request.force)
     logger = setup_logging(
         layout.logs / "run.log",
@@ -113,8 +107,6 @@ def _resolve_pairwise_toolchain(
     *,
     context: PlanRunContext | None = None,
 ) -> tuple[LocatedResource, LocatedResource, LocatedResource, str, str]:
-    """定位引擎与 BLAST/LAST 工具链，复合任务时优先复用 plan 级结果"""
-
     if context is not None:
         toolchain = context.toolchain
         return (
@@ -148,8 +140,6 @@ def _prepare_pairwise_run(
     PreparedGenomeInputSpec,
     list[dict[str, object]],
 ]:
-    """准备 pairwise workspace、输入和可能的 workflow 切换"""
-
     layout, logger = _prepare_pairwise_workspace(request)
     with task_scope(
         logger,
@@ -166,13 +156,7 @@ def _prepare_pairwise_run(
     return layout, logger, effective_request, query, subject, preprocess_summaries
 
 
-# endregion
-
-
-# region 缓存与摘要
 def _pairwise_artifacts_from_engine_result(engine_result: JcviRunResult) -> PairwiseArtifactInputs | None:
-    """从引擎结果中提取可复用的 pairwise core 产物"""
-
     def _artifact_path(name: str) -> Path | None:
         raw = engine_result.artifacts.get(name)
         if not isinstance(raw, str) or not raw.strip():
@@ -190,37 +174,12 @@ def _pairwise_artifacts_from_engine_result(engine_result: JcviRunResult) -> Pair
     return artifacts if artifacts.has_any else None
 
 
-def _lookup_cached_pairwise_artifacts(
-    logger: logging.Logger,
-    request: SyntenyExecutionRequest,
-    context: PlanRunContext,
-) -> tuple[str, PairwiseArtifactInputs | None]:
-    """按 prepared 输入与关键参数查找 plan 级 pairwise core 缓存"""
-
-    query_record = context.prepared_for(request.query)
-    subject_record = context.prepared_for(request.subject)
-    if query_record is None or subject_record is None:
-        return "", None
-
-    cache_key = pairwise_cache_key(request, query_record, subject_record, context.toolchain.probe)
-    with task_scope(
-        logger,
-        task_id=request.task_id,
-        step="pairwise_cache_lookup",
-        context={"cache_key": cache_key},
-    ):
-        cached = context.lookup_pairwise_cache(cache_key)
-    return cache_key, cached
-
-
 def _summary_extra_extensions(
     *,
     context: PlanRunContext | None,
     pairwise_cache_hit: bool,
     cache_key: str,
 ) -> dict[str, object]:
-    """汇总额外的复用统计写入 summary.extensions"""
-
     data: dict[str, object] = {"pairwise_cache_hit": pairwise_cache_hit}
     if cache_key:
         data["pairwise_cache_key"] = cache_key
@@ -235,8 +194,6 @@ def _resolve_pairwise_task_and_species(
     manifest: dict[str, object],
     request: SyntenyExecutionRequest,
 ) -> tuple[dict[str, object], list[dict[str, object]]]:
-    """优先使用引擎回报的 task/species，缺失时回退到 manifest 或请求本身"""
-
     task = engine_result.task or (
         cast(dict[str, object], manifest.get("task"))
         if isinstance(manifest.get("task"), dict)
@@ -265,8 +222,6 @@ def _build_pairwise_run_summary(
     status: str,
     extra_extensions: dict[str, object] | None = None,
 ) -> RunSummary:
-    """根据 pairwise 运行结果构建 RunSummary"""
-
     run_log = layout.logs / "run.log"
     task, species = _resolve_pairwise_task_and_species(engine_result, manifest, request)
     artifact_index = build_artifact_index(
@@ -325,18 +280,12 @@ def _build_pairwise_run_summary(
     )
 
 
-# endregion
-
-
-# region 主执行入口
 def _run_pairwise_mcscan(
     set_state: Callable[[WorkflowState], None],
     request: SyntenyExecutionRequest,
     *,
     context: PlanRunContext | None = None,
 ) -> RunSummary:
-    """运行一对物种的真实 JCVI 工作流并写出 `run_summary.json`"""
-
     set_state(WorkflowState.VALIDATING_INPUTS)
     layout, logger, effective_request, query, subject, preprocess_summaries = _prepare_pairwise_run(
         set_state,
@@ -367,10 +316,11 @@ def _run_pairwise_mcscan(
     cache_key = ""
     request_for_manifest = effective_request
     if effective_request.precomputed_artifacts is None and context is not None:
-        cache_key, cached_artifacts = _lookup_cached_pairwise_artifacts(logger, effective_request, context)
-        if cached_artifacts is not None:
-            pairwise_cache_hit = True
-            request_for_manifest = replace(effective_request, precomputed_artifacts=cached_artifacts)
+        reuse_decision = context.resolve_pairwise_request(effective_request, logger)
+        request_for_manifest = reuse_decision.request
+        cache_key = reuse_decision.cache_key
+        pairwise_cache_hit = reuse_decision.cache_hit
+        if pairwise_cache_hit:
             with task_scope(
                 logger,
                 task_id=effective_request.task_id,
@@ -409,17 +359,13 @@ def _run_pairwise_mcscan(
 
     if context is not None and not pairwise_cache_hit and effective_request.precomputed_artifacts is None:
         artifacts_for_cache = _pairwise_artifacts_from_engine_result(engine_result)
-        query_record = context.prepared_for(request.query)
-        subject_record = context.prepared_for(request.subject)
-        if artifacts_for_cache is not None and query_record is not None and subject_record is not None:
-            with task_scope(
+        if artifacts_for_cache is not None:
+            cache_key = context.store_pairwise_result(
+                effective_request,
+                artifacts_for_cache,
                 logger,
-                task_id=effective_request.task_id,
-                step="pairwise_cache_store",
-                context={"cache_key": cache_key or "generated"},
-            ):
-                cache_key = cache_key or pairwise_cache_key(effective_request, query_record, subject_record, probe)
-                context.store_pairwise_cache(cache_key, artifacts_for_cache)
+                cache_key=cache_key,
+            )
 
     set_state(WorkflowState.FINALIZING)
     with task_scope(logger, task_id=effective_request.task_id, step="archive_figures"):
@@ -459,7 +405,7 @@ def run_pairwise_mcscan(
     *,
     context: PlanRunContext | None = None,
 ) -> RunSummary:
-    """Run pairwise MCscan and release task log handles"""
+    """Run pairwise MCscan and release task log handles."""
 
     log_path = build_output_layout(request.outdir).logs / "run.log"
     logger_name = logger_name_for_path(log_path)
@@ -467,6 +413,3 @@ def run_pairwise_mcscan(
         return _run_pairwise_mcscan(set_state, request, context=context)
     finally:
         close_logging(logger_name)
-
-
-# endregion

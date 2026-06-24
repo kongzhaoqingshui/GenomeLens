@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from jcvi_genomelens.manifest.models import (
+    ArtifactBundleSpec,
     EngineRunManifest,
     GenomeSpec,
     PairwiseArtifacts,
@@ -85,3 +86,41 @@ def test_ensure_pairwise_artifacts_falls_back_when_required_file_missing(monkeyp
     assert calls == ["run"]
     assert commands == []
     assert artifacts["blocks"] == str(tmp_path / "fallback.blocks")
+
+
+def test_ensure_pairwise_artifacts_uses_bundle_contract(monkeypatch, tmp_path: Path) -> None:
+    query = _genome(tmp_path, "query")
+    subject = _genome(tmp_path, "subject")
+    blocks = tmp_path / "bundle.blocks"
+    blocks.write_text("q1\ts1\n", encoding="utf-8")
+
+    def fail_run_pairwise(*args, **kwargs):  # noqa: ANN002, ANN003
+        raise AssertionError("run_pairwise should not be called")
+
+    monkeypatch.setattr(
+        "jcvi_genomelens.workflows.pairwise.artifact_reuse.run_pairwise",
+        fail_run_pairwise,
+    )
+
+    manifest = EngineRunManifest(
+        workflow="graphics_synteny",
+        query=query,
+        subject=subject,
+        toolchain=ToolchainSpec(),
+        options=WorkflowOptions(),
+        artifact_bundles=[
+            ArtifactBundleSpec(
+                bundle_type="pairwise_core",
+                artifacts={"blocks": blocks},
+            )
+        ],
+    )
+
+    commands, artifacts = ensure_pairwise_artifacts(
+        manifest,
+        tmp_path / "out",
+        required_fields=("blocks",),
+    )
+
+    assert commands == []
+    assert Path(str(artifacts["blocks"])) == blocks.resolve(strict=False)

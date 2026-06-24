@@ -28,6 +28,7 @@ class OneStopWorkflowSpec:
     engine_workflow: str | None    # 映射的底层引擎 workflow（plot-only 可能为 None）
     equivalent_modules: list[str]  # 等价子模块组合（仅用于文档/GUI 展示）
     optimization_notes: str        # 该工作流的优化说明
+    optimizer_profile_id: str = "" # planning 后应用的优化 profile
     inputs: list = field(default_factory=list)   # 输入端口声明
     outputs: list = field(default_factory=list)  # 输出端口声明
     parameters: list[ParameterDeclaration] = field(default_factory=list)  # 可调参数声明
@@ -43,6 +44,7 @@ class OneStopWorkflowSpec:
             "engine_workflow": self.engine_workflow,
             "equivalent_modules": list(self.equivalent_modules),
             "optimization_notes": self.optimization_notes,
+            "optimizer_profile_id": self.optimizer_profile_id,
             "inputs": PortSystem.describe_ports(self.inputs),
             "outputs": PortSystem.describe_ports(self.outputs),
             "parameters": [p.to_json() for p in self.parameters],
@@ -101,6 +103,7 @@ class OneStopWorkflowRegistry:
                 "jcvi.graphics_karyotype_global",
                 "jcvi.local_synteny_multi",
             ],
+            optimizer_profile_id="synteny_pairwise_reuse_v1",
             optimization_notes=(
                 "根据输入自动路由：2 物种走 pairwise；≥3 物种走 all-vs-all 多物种聚合；"
                 "提供目标基因时走 reference-vs-targets 局部共线性。"

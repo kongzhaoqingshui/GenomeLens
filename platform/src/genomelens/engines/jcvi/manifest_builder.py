@@ -1,6 +1,5 @@
-"""JCVI engine manifest builder(清单构建器)"""
+"""Build validated JCVI engine manifest payloads."""
 
-# region import
 from __future__ import annotations
 
 from pathlib import Path
@@ -12,11 +11,10 @@ from genomelens.analysis.planning.models import (
     HistogramExecutionRequest,
     SyntenyExecutionRequest,
 )
+from genomelens.artifacts.bundles import ArtifactBundle
 from genomelens.contracts.species import GenomeInputSpec, PreparedGenomeInputSpec
 from genomelens.engines.jcvi.command_mapping import normalize_workflow
 from genomelens.engines.jcvi.path_patch import absolute_path
-
-# endregion
 
 
 def _species_manifest_entry(
@@ -24,8 +22,6 @@ def _species_manifest_entry(
     role: str,
     prepared: PreparedGenomeInputSpec,
 ) -> dict[str, object]:
-    """构建 schema v3 species 输入项"""
-
     return {
         "name": species.name,
         "role": role,
@@ -36,13 +32,18 @@ def _species_manifest_entry(
 
 
 def _pairwise_artifact_manifest(artifacts: dict[str, str]) -> dict[str, str]:
-    """把 pairwise 产物路径字典转成 manifest 输入对象"""
-
     return {key: absolute_path(value) for key, value in artifacts.items() if str(value).strip()}
 
 
+def _artifact_bundle_manifest(bundle: ArtifactBundle) -> dict[str, object]:
+    return {
+        "bundle_type": bundle.bundle_type,
+        "artifacts": {key: absolute_path(value) for key, value in bundle.artifacts.items()},
+    }
+
+
 class JcviManifestBuilder:
-    """JcviManifestBuilder：把平台执行请求转成 engine manifest v3"""
+    """Convert platform execution requests into engine manifest v3 payloads."""
 
     def build_pairwise_manifest(
         self,
@@ -55,8 +56,6 @@ class JcviManifestBuilder:
         lastal_path: str = "",
         lastdb_path: str = "",
     ) -> dict[str, object]:
-        """构建 pairwise / local synteny manifest"""
-
         workflow = normalize_workflow(request.engine_workflow)
         task = request.task_spec
         toolchain: dict[str, object] = {
@@ -73,6 +72,8 @@ class JcviManifestBuilder:
                 _species_manifest_entry(request.target, "target", subject),
             ],
         }
+        if request.artifact_bundles:
+            inputs["artifact_bundles"] = [_artifact_bundle_manifest(bundle) for bundle in request.artifact_bundles]
         if request.precomputed_artifacts is not None:
             inputs["pairwise_artifacts"] = _pairwise_artifact_manifest(request.precomputed_artifacts.to_manifest_json())
 
@@ -97,8 +98,6 @@ class JcviManifestBuilder:
         }
 
     def build_histogram_manifest(self, request: HistogramExecutionRequest) -> dict[str, object]:
-        """构建 histogram workflow 的 engine manifest"""
-
         workflow = normalize_workflow(request.workflow)
         return {
             "schema_version": 3,
@@ -133,8 +132,6 @@ class JcviManifestBuilder:
         }
 
     def build_heatmap_manifest(self, request: HeatmapExecutionRequest) -> dict[str, object]:
-        """构建 heatmap workflow 的 engine manifest"""
-
         parameters: dict[str, object] = {
             "formats": list(request.formats),
             "figsize": request.figsize,
@@ -183,8 +180,6 @@ class JcviManifestBuilder:
         task: dict[str, object] | None = None,
         species: list[dict[str, object]] | None = None,
     ) -> dict[str, object]:
-        """构建全局多物种核型总图 manifest"""
-
         return {
             "schema_version": 3,
             "workflow": "graphics_karyotype_global",
@@ -240,8 +235,6 @@ class JcviManifestBuilder:
         task: dict[str, object] | None = None,
         species: list[dict[str, object]] | None = None,
     ) -> dict[str, object]:
-        """构建多物种局部共线性总图 manifest"""
-
         return {
             "schema_version": 3,
             "workflow": "local_synteny_multi",
@@ -276,8 +269,6 @@ class JcviManifestBuilder:
 
     @staticmethod
     def _synteny_parameters(request: SyntenyExecutionRequest) -> dict[str, object]:
-        """构建 synteny workflow 参数字典"""
-
         return {
             "threads": request.threads,
             "min_block_size": request.min_block_size,

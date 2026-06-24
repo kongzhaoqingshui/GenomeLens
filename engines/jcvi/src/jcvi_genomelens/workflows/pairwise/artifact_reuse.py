@@ -1,6 +1,5 @@
-"""pairwise artifact 复用辅助：优先消费预计算产物，必要时回退完整 pairwise core"""
+"""Pairwise artifact reuse helpers."""
 
-# region import
 from __future__ import annotations
 
 from collections.abc import Callable
@@ -11,8 +10,7 @@ from jcvi_genomelens.manifest.models import EngineRunManifest, PairwiseArtifacts
 from jcvi_genomelens.runtime.command_runner import CommandAudit, run_python_step
 from jcvi_genomelens.workflows.common import _assert_ok
 from jcvi_genomelens.workflows.pairwise.mcscan import run as run_pairwise
-
-# endregion
+from jcvi_genomelens.workflows.reuse.bundles import pairwise_artifacts_from_manifest
 
 PairwiseFallbackRunner = Callable[[EngineRunManifest, str | Path], tuple[list[CommandAudit], dict[str, object]]]
 
@@ -25,11 +23,11 @@ def ensure_pairwise_artifacts(
     ensure_merged_bed: bool = False,
     fallback_runner: PairwiseFallbackRunner | None = None,
 ) -> tuple[list[CommandAudit], dict[str, object]]:
-    """优先消费 `inputs.pairwise_artifacts`，缺失时回退完整 pairwise core"""
+    """Prefer precomputed artifacts and fall back to a full pairwise run when needed."""
 
     root = Path(outdir).expanduser().resolve(strict=False)
     root.mkdir(parents=True, exist_ok=True)
-    precomputed = manifest.pairwise_artifacts
+    precomputed = pairwise_artifacts_from_manifest(manifest)
     runner = fallback_runner or run_pairwise
     if precomputed is None or not _has_required_artifacts(precomputed, required_fields):
         return runner(manifest, root)
