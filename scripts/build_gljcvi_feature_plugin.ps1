@@ -20,66 +20,65 @@ $ErrorActionPreference = "Stop"
 
 $root = (Resolve-Path "$PSScriptRoot\..").Path
 $srcRoot = Join-Path $root "integrations\haiant_plugin\src"
-$assetsRoot = Join-Path $root "integrations\haiant_plugin\assets\features\$Feature"
 $samplesRoot = Join-Path $root "references\samples\shell\bed_cds_minimal"
 
+# 平台只承认两类能力：一站式工作流（onestop，analyze workflow）与可编排子模块（submodules，analyze submodule）。
 $featureMap = @{
-  # 一站式工作流插件
+  # 一站式工作流插件（analyze workflow synteny）
   synteny = @{
     Package = "gljcvi-synteny"
-    Entry = "features\synteny_entry.py"
+    Entry = "features\onestop\synteny_entry.py"
     Category = "onestop"
   }
-  # 独立工作流插件（analyze run + WorkflowRequest）
-  dotplot = @{
-    Package = "gljcvi-dotplot"
-    Entry = "features\dotplot_entry.py"
-    Category = "workflow-plugins"
-  }
-  karyotype = @{
-    Package = "gljcvi-karyotype"
-    Entry = "features\karyotype_entry.py"
-    Category = "workflow-plugins"
+  # 可编排子模块插件（analyze submodule <module_id>）
+  mcscan_pairwise = @{
+    Package = "gljcvi-mcscan-pairwise"
+    Entry = "features\submodules\mcscan_pairwise_entry.py"
+    Category = "submodules"
   }
   catalog_ortholog = @{
     Package = "gljcvi-catalog-ortholog"
-    Entry = "features\catalog_ortholog_entry.py"
-    Category = "workflow-plugins"
+    Entry = "features\submodules\catalog_ortholog_entry.py"
+    Category = "submodules"
   }
-  local_synteny = @{
-    Package = "gljcvi-local-synteny"
-    Entry = "features\local_synteny_entry.py"
-    Category = "workflow-plugins"
+  dotplot = @{
+    Package = "gljcvi-dotplot"
+    Entry = "features\submodules\dotplot_entry.py"
+    Category = "submodules"
   }
   synteny_figure = @{
     Package = "gljcvi-synteny-figure"
-    Entry = "features\synteny_figure_entry.py"
-    Category = "workflow-plugins"
+    Entry = "features\submodules\synteny_figure_entry.py"
+    Category = "submodules"
+  }
+  karyotype = @{
+    Package = "gljcvi-karyotype"
+    Entry = "features\submodules\karyotype_entry.py"
+    Category = "submodules"
+  }
+  local_synteny = @{
+    Package = "gljcvi-local-synteny"
+    Entry = "features\submodules\local_synteny_entry.py"
+    Category = "submodules"
   }
   histogram = @{
     Package = "gljcvi-histogram"
-    Entry = "features\histogram_entry.py"
-    Category = "workflow-plugins"
+    Entry = "features\submodules\histogram_entry.py"
+    Category = "submodules"
   }
   heatmap = @{
     Package = "gljcvi-heatmap"
-    Entry = "features\heatmap_entry.py"
-    Category = "workflow-plugins"
-  }
-  # 原子子模块插件（analyze submodule）
-  mcscan_pairwise = @{
-    Package = "gljcvi-mcscan-pairwise"
-    Entry = "features\mcscan_pairwise_entry.py"
+    Entry = "features\submodules\heatmap_entry.py"
     Category = "submodules"
   }
   global_karyotype = @{
     Package = "gljcvi-global-karyotype"
-    Entry = "features\global_karyotype_entry.py"
+    Entry = "features\submodules\global_karyotype_entry.py"
     Category = "submodules"
   }
   multi_local_synteny = @{
     Package = "gljcvi-multi-local-synteny"
-    Entry = "features\multi_local_synteny_entry.py"
+    Entry = "features\submodules\multi_local_synteny_entry.py"
     Category = "submodules"
   }
 }
@@ -88,6 +87,7 @@ $featureMeta = $featureMap[$Feature]
 $packageName = $featureMeta.Package
 $entryPath = Join-Path $srcRoot $featureMeta.Entry
 $category = $featureMeta.Category
+$assetsRoot = Join-Path $root "integrations\haiant_plugin\assets\$category\$Feature"
 
 if (-not (Test-Path $entryPath)) {
   throw "Feature entry not found: $entryPath"
@@ -154,14 +154,15 @@ $outputDir = Join-Path $stageRoot "output"
 New-Item -ItemType Directory -Force -Path $inputDir | Out-Null
 New-Item -ItemType Directory -Force -Path $outputDir | Out-Null
 
-# 只有需要物种文件对的 workflow 插件才复制示例输入；histogram/heatmap/submodule 保持 input 空目录
+# 只有使用 species_pair 端口的插件才复制示例物种输入；histogram/heatmap/global_karyotype/multi_local_synteny 保持 input 空目录
 $speciesInputFeatures = @(
-  "dotplot",
   "synteny",
-  "karyotype",
+  "mcscan_pairwise",
   "catalog_ortholog",
-  "local_synteny",
-  "synteny_figure"
+  "dotplot",
+  "synteny_figure",
+  "karyotype",
+  "local_synteny"
 )
 if ($speciesInputFeatures -contains $Feature) {
   Copy-Item (Join-Path $samplesRoot "query.bed") (Join-Path $inputDir "query.bed") -Force

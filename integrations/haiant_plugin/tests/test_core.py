@@ -1,40 +1,19 @@
+import json
 import logging
 from pathlib import Path
-from typing import cast
 
 import pytest
 
 from genomelens_haiant_plugin import (
     PluginError,
-    build_analyze_run_command,
-    build_workflow_request,
+    build_analyze_submodule_command,
     close_adapter_logging,
+    coerce_submodule_params,
     load_params,
     parse_bool,
     resolve_param_path,
     setup_adapter_logging,
 )
-
-
-def _write_species_files(root: Path) -> dict[str, object]:
-    query_bed = root / "query.bed"
-    query_cds = root / "query.cds"
-    subject_bed = root / "subject.bed"
-    subject_cds = root / "subject.cds"
-    query_bed.write_text(
-        "chr1\t1\t10\tqgene1\nchr1\t20\t30\tqgene2\n", encoding="utf-8"
-    )
-    query_cds.write_text(">qgene1\nATG\n>qgene2\nATG\n", encoding="utf-8")
-    subject_bed.write_text("chr1\t1\t10\tsgene1\n", encoding="utf-8")
-    subject_cds.write_text(">sgene1\nATG\n", encoding="utf-8")
-    return {
-        "input_mode": "bed_cds",
-        "species": [
-            {"name": "query", "bed": "query.bed", "cds": "query.cds"},
-            {"name": "subject", "bed": "subject.bed", "cds": "subject.cds"},
-        ],
-        "output_dir": "output",
-    }
 
 
 def _file_handler(logger: logging.Logger) -> logging.FileHandler:
@@ -64,48 +43,6 @@ def test_parse_bool_forms() -> None:
     assert parse_bool("0") is False
 
 
-def test_build_species_from_params_resolves_relative_files(tmp_path: Path) -> None:
-    params = _write_species_files(tmp_path)
-
-    from genomelens_haiant_plugin._core import build_species_from_params
-
-    species = build_species_from_params(params, tmp_path)
-
-    assert species[0]["name"] == "query"
-    assert Path(str(species[0]["bed"])).is_absolute()
-    assert Path(str(species[1]["cds"])).is_absolute()
-
-
-def test_build_workflow_request_for_local_synteny_supports_csv_target_ids(
-    tmp_path: Path,
-) -> None:
-    params = _write_species_files(tmp_path)
-    params.update(
-        {
-            "reference": "query",
-            "target_gene_ids": "qgene1,qgene2",
-            "up": 1,
-            "down": 2,
-            "split_targets": "true",
-            "label_targets": "1",
-        }
-    )
-
-    request = build_workflow_request(params, tmp_path, workflow="local_synteny")
-    parameters = cast(dict[str, object], request["parameters"])
-    local_synteny = cast(dict[str, object], parameters["local_synteny"])
-
-    assert request["schema_version"] == 2
-    assert request["kind"] == "workflow_request"
-    assert request["workflow_id"] == "local_synteny"
-    assert request["reference_index"] == 0
-    assert local_synteny["target_gene_ids"] == ["qgene1", "qgene2"]
-    assert local_synteny["up"] == 1
-    assert local_synteny["down"] == 2
-    assert local_synteny["split_targets"] is True
-    assert local_synteny["label_targets"] is True
-
-
 def test_setup_adapter_logging_closes_previous_file_handler(tmp_path: Path) -> None:
     logger = setup_adapter_logging(tmp_path)
     first_handler = _file_handler(logger)
@@ -116,21 +53,78 @@ def test_setup_adapter_logging_closes_previous_file_handler(tmp_path: Path) -> N
     close_adapter_logging()
 
 
-def test_build_analyze_run_command_dispatches_cmd_files() -> None:
-    request_path = Path("output/genomelens_request.json")
-    exe = Path("C:/GenomeLens/genomelens.cmd")
-    argv = build_analyze_run_command(str(exe), request_path)
+def test_build_analyze_submodule_command_dispatches_cmd_files() -> None:
+    argv = build_analyze_submodule_command(
+        "C:/GenomeLens/genomelens.cmd",
+        module_id="jcvi.graphics_dotplot",
+        input_ports={"species_pair": "input", "anchors": "pair.anchors"},
+        output_dir="output",
+        force=True,
+    )
 
-    assert argv[:3] == ["cmd.exe", "/c", str(exe)]
-    assert argv[3:] == ["analyze", "run", str(request_path)]
+    assert argv[:3] == ["cmd.exe", "/c", "C:\\GenomeLens\\genomelens.cmd"]
+    assert argv[3:6] == ["analyze", "submodule", "jcvi.graphics_dotplot"]
+    assert argv[6] == "--input-ports"
+    assert json.loads(argv[7]) == {"species_pair": "input", "anchors": "pair.anchors"}
+    assert argv[-1] == "--force"
 
 
-def test_build_analyze_run_command_dispatches_executables() -> None:
-    request_path = Path("output/genomelens_request.json")
-    exe = Path("C:/GenomeLens/GenomeLens.exe")
-    argv = build_analyze_run_command(str(exe), request_path)
+def test_build_analyze_submodule_command_dispatches_executables() -> None:
+    argv = build_analyze_submodule_command(
+        "C:/GenomeLens/GenomeLens.exe",
+        module_id="jcvi.mcscan_pairwise",
+        input_ports={"species_pair": "input"},
+        output_dir="output",
+        params={"cscore": 0.7},
+        formats=["png", "svg"],
+        force=True,
+    )
 
-    assert argv == [str(exe), "analyze", "run", str(request_path)]
+    assert argv[0] == "C:\\GenomeLens\\GenomeLens.exe"
+    assert argv[1:3] == ["analyze", "submodule"]
+    params_index = argv.index("--params") + 1
+    assert json.loads(argv[params_index]) == {"cscore": 0.7}
+    formats_index = argv.index("--formats") + 1
+    assert argv[formats_index] == "png,svg"
+
+
+def test_coerce_submodule_params_coerces_declared_types(tmp_path: Path) -> None:
+    rowgroups = tmp_path / "rows.txt"
+    rowgroups.write_text("a\n", encoding="utf-8")
+    raw = {
+        "dpi": "300",
+        "cscore": "0.7",
+        "groups": "true",
+        "figsize": "8x6",
+        "rowgroups": str(rowgroups),
+        "histogram_columns": "0,1,2",
+        "blank": "",
+        "absent": None,
+    }
+    declared = [
+        ("dpi", "int"),
+        ("cscore", "float"),
+        ("groups", "bool"),
+        ("figsize", "str"),
+        ("rowgroups", "path"),
+        ("histogram_columns", "int_array"),
+        ("blank", "str"),
+        ("absent", "str"),
+        ("missing", "str"),
+    ]
+
+    out = coerce_submodule_params(raw, tmp_path, declared)
+
+    assert out["dpi"] == 300
+    assert out["cscore"] == 0.7
+    assert out["groups"] is True
+    assert out["figsize"] == "8x6"
+    assert Path(str(out["rowgroups"])).is_absolute()
+    assert out["histogram_columns"] == [0, 1, 2]
+    # blank / None / missing keys are dropped so the submodule keeps its defaults
+    assert "blank" not in out
+    assert "absent" not in out
+    assert "missing" not in out
 
 
 def test_compress_output_intermediates_packs_and_cleans(tmp_path: Path) -> None:

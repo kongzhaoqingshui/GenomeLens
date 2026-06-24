@@ -1,0 +1,104 @@
+{
+  "title": "GenomeLens 局部共线性",
+  "title_en": "GenomeLens Local Synteny",
+  "description": "对应 ``jcvi.local_synteny`` 子模块：基于上游 MCscan pairwise 产出的 .blocks，围绕目标基因绘制局部共线性图。",
+  "description_en": "Matches the ``jcvi.local_synteny`` submodule: render local synteny around target genes from an upstream MCscan pairwise .blocks file.",
+  "version": "v1.0.0",
+  "context": "目标基因局部共线性出图",
+  "context_en": "Target-gene-centered local synteny visualization",
+  "env": "Python",
+  "outputType": "dir",
+  "params": [
+    {
+      "label": "输入目录",
+      "label_en": "Input Directory",
+      "key": "input_dir",
+      "valueType": "dir_selector",
+      "example_value": "input",
+      "description": "包含两物种 BED/序列的目录（species_pair 端口）。",
+      "description_en": "Directory holding the two-species BED/sequence files (species_pair port)."
+    },
+    {
+      "label": "Blocks 文件",
+      "label_en": "Blocks File",
+      "key": "blocks",
+      "valueType": "file_selector",
+      "example_value": "pair.blocks",
+      "description": "上游 MCscan pairwise 产出的 .blocks 文件（blocks 端口，必填）。",
+      "description_en": "Upstream MCscan pairwise .blocks file (blocks port, required)."
+    },
+    {
+      "label": "目标基因 ID",
+      "label_en": "Target Gene IDs",
+      "key": "target_genes",
+      "valueType": "str",
+      "example_value": "Thhalv10024702m.v1.0",
+      "description": "目标基因 ID（target_genes 端口，必填），多个用逗号分隔。",
+      "description_en": "Target gene IDs (target_genes port, required), comma-separated."
+    },
+    {
+      "label": "输出目录",
+      "label_en": "Output Directory",
+      "key": "output_dir",
+      "valueType": "dir_selector",
+      "example_value": "output",
+      "description": "结果输出目录。",
+      "description_en": "Output directory for results."
+    },
+    {
+      "label": "上游窗口基因数",
+      "label_en": "Upstream Window",
+      "key": "up",
+      "valueType": "int",
+      "example_value": 20,
+      "description": "目标基因上游取多少个基因。",
+      "description_en": "Number of genes upstream of each target gene."
+    },
+    {
+      "label": "下游窗口基因数",
+      "label_en": "Downstream Window",
+      "key": "down",
+      "valueType": "int",
+      "example_value": 20,
+      "description": "目标基因下游取多少个基因。",
+      "description_en": "Number of genes downstream of each target gene."
+    },
+    {
+      "label": "多个目标各自出图",
+      "label_en": "Split Targets",
+      "key": "split_targets",
+      "valueType": "bool",
+      "example_value": false,
+      "description": "多个目标基因时各自单独出图。",
+      "description_en": "Generate separate figures when multiple target genes are given."
+    },
+    {
+      "label": "标注目标基因",
+      "label_en": "Label Targets",
+      "key": "label_targets",
+      "valueType": "bool",
+      "example_value": false,
+      "description": "在图中标注目标基因名称。",
+      "description_en": "Label target gene names on the figure."
+    },
+    {
+      "label": "使用原生局部共线性渲染器 (GenomeLens)",
+      "label_en": "Use Native Local Synteny Renderer (GenomeLens)",
+      "key": "use_native_local_synteny_renderer",
+      "valueType": "bool",
+      "example_value": false,
+      "description": "使用 GenomeLens 自实现渲染器绘制局部共线性图，支持跨染色体展示。",
+      "description_en": "Use the GenomeLens native renderer for local synteny figures with cross-chromosome support."
+    },
+    {
+      "label": "输出格式",
+      "label_en": "Output Format",
+      "key": "formats",
+      "valueType": "customer_selector",
+      "example_value": "svg",
+      "description": "输出图片格式。",
+      "description_en": "Output image format.",
+      "options": ["svg", "png", "pdf", "eps", "jpg"]
+    }
+  ]
+}

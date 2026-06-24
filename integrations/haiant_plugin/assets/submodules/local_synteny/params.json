@@ -1,0 +1,13 @@
+{
+  "GenomeLens_Path": "C:/GenomeLens/GenomeLens.exe",
+  "input_dir": "input",
+  "blocks": "pair.blocks",
+  "target_genes": "Thhalv10024702m.v1.0",
+  "output_dir": "output",
+  "up": 20,
+  "down": 20,
+  "split_targets": false,
+  "label_targets": false,
+  "use_native_local_synteny_renderer": false,
+  "formats": "svg"
+}

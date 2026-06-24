@@ -1,0 +1,68 @@
+{
+  "title": "GenomeLens 点图",
+  "title_en": "GenomeLens Dotplot",
+  "description": "对应 ``jcvi.graphics_dotplot`` 子模块：基于上游 MCscan pairwise 产出的 .anchors 渲染点图。",
+  "description_en": "Matches the ``jcvi.graphics_dotplot`` submodule: render a dotplot from an upstream MCscan pairwise .anchors file.",
+  "version": "v1.0.0",
+  "context": "双物种 JCVI 点图",
+  "context_en": "Pairwise JCVI dotplot",
+  "env": "Python",
+  "outputType": "dir",
+  "params": [
+    {
+      "label": "输入目录",
+      "label_en": "Input Directory",
+      "key": "input_dir",
+      "valueType": "dir_selector",
+      "example_value": "input",
+      "description": "包含两物种 BED/序列的目录（species_pair 端口）。",
+      "description_en": "Directory holding the two-species BED/sequence files (species_pair port)."
+    },
+    {
+      "label": "Anchors 文件",
+      "label_en": "Anchors File",
+      "key": "anchors",
+      "valueType": "file_selector",
+      "example_value": "pair.anchors",
+      "description": "上游 MCscan pairwise 产出的 .anchors 文件（anchors 端口，必填）。",
+      "description_en": "Upstream MCscan pairwise .anchors file (anchors port, required)."
+    },
+    {
+      "label": "输出目录",
+      "label_en": "Output Directory",
+      "key": "output_dir",
+      "valueType": "dir_selector",
+      "example_value": "output",
+      "description": "结果输出目录。",
+      "description_en": "Output directory for results."
+    },
+    {
+      "label": "画布尺寸",
+      "label_en": "Figure Size",
+      "key": "figsize",
+      "valueType": "str",
+      "example_value": "",
+      "description": "画布尺寸，例如 10x10；留空使用默认。",
+      "description_en": "Figure size, e.g. 10x10; leave empty for default."
+    },
+    {
+      "label": "分辨率",
+      "label_en": "DPI",
+      "key": "dpi",
+      "valueType": "int",
+      "example_value": 300,
+      "description": "图片分辨率。",
+      "description_en": "Image resolution."
+    },
+    {
+      "label": "输出格式",
+      "label_en": "Output Format",
+      "key": "formats",
+      "valueType": "customer_selector",
+      "example_value": "svg",
+      "description": "输出图片格式。",
+      "description_en": "Output image format.",
+      "options": ["svg", "png", "pdf", "eps", "jpg"]
+    }
+  ]
+}

@@ -1,0 +1,78 @@
+# gljcvi-histogram — 数值分布直方图子模块插件
+
+## 概述
+
+`gljcvi-histogram` 是 GenomeLens 在 HAIant（智然体）平台上的**数值分布直方图**可编排子模块插件。它把 `params.json` 直接转换为 `analyze submodule jcvi.graphics_histogram` 调用，不生成 `genomelens_request.json`。
+
+该子模块适用于展示 Ks 分布、共线性得分等连续数值的分布情况。
+
+本目录是 `gljcvi-histogram` 插件包内容：
+
+- `config.json`：HAIant 表单元数据。
+- `params.json`：可运行的示例参数。
+- `README.md`：本说明文档。
+
+插件本身不携带 GenomeLens 运行时或工具链，需单独安装 GenomeLens 并提供可执行文件路径。
+
+## 固定子模块
+
+```text
+module_id = jcvi.graphics_histogram
+```
+
+## 输入端口
+
+| 端口 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `numeric_files` | list | 是 | 数值文件列表（由 `input_files` 逗号串或 JSON 数组映射） |
+
+## 主要参数说明
+
+| 参数 | 类型 | 必填 | 默认值 | 说明 |
+|------|------|------|--------|------|
+| `GenomeLens_Path` | file | 是* | — | 外部 GenomeLens 可执行文件路径 |
+| `input_files` | list/str | 是 | — | 输入数值文件（numeric_files 端口）；字符串时用逗号分隔 |
+| `output_dir` | dir | 否 | `output` | 结果输出目录 |
+| `histogram_columns` | list/int | 否 | `[0]` | 要绘制的列索引 |
+| `histogram_bins` | int | 否 | `20` | 分箱数量 |
+| `histogram_vmin` | float | 否 | — | 数值下界 |
+| `histogram_vmax` | float | 否 | — | 数值上界 |
+| `histogram_xlabel` | str | 否 | `value` | X 轴标签 |
+| `histogram_title` | str | 否 | `""` | 图标题 |
+| `histogram_fill` | str | 否 | `white` | 填充色 |
+| `histogram_base` | int | 否 | — | 对数底（设置后取对数刻度） |
+| `histogram_facet` | bool | 否 | `false` | 是否分面绘制 |
+| `formats` | enum | 否 | `svg` | 输出格式：`svg` / `png` / `pdf` / `eps` / `jpg` |
+
+子模块可调参数通过 `--params` 转发给 `analyze submodule`。`GenomeLens_Path` 未设置时读取 `GENOMELENS_EXE` 环境变量。
+
+完整字段映射参见 [`../../PARAMETER_MAPPING.md`](../../PARAMETER_MAPPING.md)。
+
+## 使用示例
+
+```json
+{
+  "GenomeLens_Path": "C:/GenomeLens/GenomeLens.exe",
+  "input_files": "numbers.txt",
+  "output_dir": "output",
+  "histogram_bins": 20,
+  "histogram_xlabel": "Ks",
+  "histogram_title": "Ks distribution",
+  "formats": "svg"
+}
+```
+
+```powershell
+main.exe params.json
+```
+
+等价 CLI：
+
+```powershell
+GenomeLens.exe analyze submodule jcvi.graphics_histogram --input-ports "{\"numeric_files\": [\"numbers.txt\"]}" --output-dir output --params "{...}" --formats svg --force
+```
+
+## 注意事项
+
+1. `input_files` 可以是单个文件路径字符串，也可以是逗号分隔串或 JSON 数组。
+2. 若 `GenomeLens_Path` 指向 `.cmd` / `.bat`，插件会自动通过 `cmd.exe /c` 分派。

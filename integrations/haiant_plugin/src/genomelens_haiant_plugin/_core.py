@@ -10,7 +10,7 @@ import sys
 import zipfile
 from dataclasses import asdict
 from pathlib import Path
-from typing import Mapping, Sequence, cast
+from typing import Mapping, Sequence
 
 
 LOGGER_NAME = "genomelens_haiant_plugin"
@@ -91,10 +91,6 @@ def _split_csv(value: object) -> list[str]:
     return [item.strip() for item in str(value or "").split(",") if item.strip()]
 
 
-def _optional_path(base: Path, value: object) -> str:
-    return resolve_param_path(base, value, must_exist=bool(str(value or "").strip()))
-
-
 def _int_value(
     value: object, *, default: int, label: str, minimum: int | None = None
 ) -> int:
@@ -145,27 +141,6 @@ def _target_gene_ids(params: Mapping[str, object]) -> list[str]:
     return _split_csv(raw)
 
 
-def _auto_optimization(params: Mapping[str, object]) -> dict[str, bool]:
-    payload = params.get("auto_optimization")
-    nested = payload if isinstance(payload, dict) else {}
-    return {
-        "optimize_figsize": parse_bool(
-            nested.get("optimize_figsize", params.get("optimize_figsize", False))
-        ),
-        "rewrite_layout_links": parse_bool(
-            nested.get(
-                "rewrite_layout_links", params.get("rewrite_layout_links", False)
-            )
-        ),
-        "optimize_karyotype_labels": parse_bool(
-            nested.get(
-                "optimize_karyotype_labels",
-                params.get("optimize_karyotype_labels", False),
-            )
-        ),
-    }
-
-
 def _discover_species_from_input_dir(
     base: Path, input_dir: object
 ) -> list[dict[str, object]]:
@@ -178,322 +153,6 @@ def _discover_species_from_input_dir(
     resolved = Path(resolve_param_path(base, input_dir, required=True, must_exist=True))
     discovered = discover_species_from_directory(resolved)
     return [asdict(item) for item in discovered]
-
-
-def build_species_from_params(
-    params: Mapping[str, object],
-    base: Path,
-    mode: str | None = None,
-) -> list[dict[str, object]]:
-    """Build the WorkflowRequest species list from HAIant params.
-
-    Supports explicit ``species`` list or auto-discovery from ``input_dir``.
-    """
-
-    species_payload = params.get("species")
-    input_dir = params.get("input_dir")
-    if isinstance(species_payload, list) and species_payload:
-        resolved_mode = (mode or str(params.get("input_mode") or "bed_cds")).strip()
-        species: list[dict[str, object]] = []
-        for index, item in enumerate(species_payload, start=1):
-            if not isinstance(item, dict):
-                raise PluginError(f"species[{index}] must be an object")
-            name = str(item.get("name") or f"species{index}")
-            if resolved_mode == "bed_cds":
-                species.append(
-                    {
-                        "name": name,
-                        "input_mode": "bed_cds",
-                        "bed": resolve_param_path(
-                            base, item.get("bed"), required=True, must_exist=True
-                        ),
-                        "cds": resolve_param_path(
-                            base, item.get("cds"), required=True, must_exist=True
-                        ),
-                    }
-                )
-                continue
-            if resolved_mode == "gff_genome":
-                species.append(
-                    {
-                        "name": name,
-                        "input_mode": "gff_genome",
-                        "gff": resolve_param_path(
-                            base, item.get("gff"), required=True, must_exist=True
-                        ),
-                        "genome": resolve_param_path(
-                            base, item.get("genome"), required=True, must_exist=True
-                        ),
-                    }
-                )
-                continue
-            raise PluginError(f"Unsupported input_mode: {resolved_mode}")
-        if len(species) < 2:
-            raise PluginError("At least two species entries are required")
-        return species
-
-    if input_dir:
-        return _discover_species_from_input_dir(base, input_dir)
-
-    raise PluginError("Either input_dir or species must be provided")
-
-
-def _workflow_id_from_engine_workflow(engine_workflow: str) -> str:
-    """Map a JCVI engine workflow to the public WorkflowRequest workflow_id."""
-
-    if engine_workflow == "graphics_histogram":
-        return "graphics_histogram"
-    if engine_workflow == "graphics_heatmap":
-        return "graphics_heatmap"
-    if engine_workflow == "local_synteny":
-        return "local_synteny"
-    return "synteny"
-
-
-def _common_parameter_groups(
-    params: Mapping[str, object],
-    *,
-    engine_workflow: str,
-    target_gene_ids: list[str],
-) -> dict[str, object]:
-    """Build the typed WorkflowRequest parameter groups from HAIant params."""
-
-    return {
-        "synteny": {
-            "align_soft": str(params.get("align_soft") or "blast"),
-            "dbtype": str(params.get("dbtype") or "nucl"),
-            "cscore": _float_value(params.get("cscore"), default=0.7, label="cscore"),
-            "dist": _int_value(params.get("dist"), default=20, label="dist", minimum=1),
-            "iter": _int_value(params.get("iter"), default=1, label="iter", minimum=1),
-            "allow_simplified_fallback": parse_bool(
-                params.get("allow_simplified_fallback", False)
-            ),
-        },
-        "local_synteny": {
-            "target_gene_ids": target_gene_ids,
-            "up": _int_value(params.get("up"), default=20, label="up", minimum=0),
-            "down": _int_value(params.get("down"), default=20, label="down", minimum=0),
-            "split_targets": parse_bool(params.get("split_targets", False)),
-            "label_targets": parse_bool(params.get("label_targets", False)),
-            "use_native_renderer": parse_bool(
-                params.get("use_native_local_synteny_renderer", False)
-            ),
-        },
-        "plot": {
-            "glyphstyle": str(params.get("glyphstyle") or ""),
-            "glyphcolor": str(params.get("glyphcolor") or ""),
-            "shadestyle": str(params.get("shadestyle") or ""),
-            "figsize": str(params.get("figsize") or ""),
-            "dpi": _int_value(params.get("dpi"), default=300, label="dpi", minimum=1),
-            "auto_optimization": _auto_optimization(params),
-        },
-        "histogram": {},
-        "heatmap": {},
-        "extras": {"engine_workflow": engine_workflow},
-    }
-
-
-def _common_runtime(params: Mapping[str, object], base: Path) -> dict[str, object]:
-    """Build the WorkflowRequest runtime block."""
-
-    return {
-        "project_config": _optional_path(base, params.get("config")),
-        "engine_config": _optional_path(base, params.get("jcvi_config")),
-        "jcvi_engine": _optional_path(base, params.get("jcvi_engine")),
-        "blastn": _optional_path(base, params.get("blastn")),
-        "makeblastdb": _optional_path(base, params.get("makeblastdb")),
-        "threads": _int_value(
-            params.get("threads"), default=4, label="threads", minimum=1
-        ),
-        "min_block_size": _int_value(
-            params.get("min_block_size"),
-            default=5,
-            label="min_block_size",
-            minimum=1,
-        ),
-        "log_level": str(params.get("log_level") or "INFO"),
-        "verbose": parse_bool(params.get("verbose", False)),
-        "console_log": parse_bool(params.get("console_log", False)),
-    }
-
-
-def build_workflow_request(
-    params: Mapping[str, object],
-    base: Path,
-    *,
-    workflow: str | None = None,
-) -> dict[str, object]:
-    """Translate HAIant params into a stable GenomeLens WorkflowRequest v2 payload."""
-
-    engine_workflow = str(
-        workflow or params.get("workflow") or "graphics_synteny"
-    ).strip()
-    workflow_id = _workflow_id_from_engine_workflow(engine_workflow)
-
-    mode = str(params.get("input_mode") or "bed_cds").strip()
-    species = (
-        []
-        if workflow_id in {"graphics_histogram", "graphics_heatmap"}
-        else build_species_from_params(params, base, mode)
-    )
-    output_dir = Path(resolve_param_path(base, params.get("output_dir") or "output"))
-    target_gene_ids = _target_gene_ids(params)
-    if workflow_id == "local_synteny" and not target_gene_ids:
-        raise PluginError(
-            "local_synteny workflow requires target_gene_ids or target_genes"
-        )
-
-    inputs: dict[str, object] = {}
-    if params.get("input_dir"):
-        inputs["directory"] = resolve_param_path(base, params.get("input_dir"))
-
-    return {
-        "schema_version": 2,
-        "kind": "workflow_request",
-        "workflow_id": workflow_id,
-        "species": species,
-        "reference_index": _reference_index(params, species) if species else 0,
-        "inputs": inputs,
-        "parameters": _common_parameter_groups(
-            params,
-            engine_workflow=engine_workflow,
-            target_gene_ids=target_gene_ids,
-        ),
-        "output": {
-            "directory": str(output_dir),
-            "force": parse_bool(params.get("force", True)),
-            "formats": _parse_formats(params.get("formats")),
-        },
-        "runtime": _common_runtime(params, base),
-    }
-
-
-def build_histogram_workflow_request(
-    params: Mapping[str, object],
-    base: Path,
-    *,
-    input_files: Sequence[str],
-) -> dict[str, object]:
-    """Build a WorkflowRequest v2 payload for the histogram feature."""
-
-    output_dir = Path(resolve_param_path(base, params.get("output_dir") or "output"))
-    parameters = _common_parameter_groups(
-        params,
-        engine_workflow="graphics_histogram",
-        target_gene_ids=[],
-    )
-    columns = params.get("histogram_columns")
-    if isinstance(columns, list):
-        parsed_columns = [int(str(column)) for column in columns]
-    else:
-        parsed_columns = [
-            int(item.strip()) for item in str(columns or "0").split(",") if item.strip()
-        ]
-    parameters["histogram"] = {
-        "inputs": list(input_files),
-        "columns": parsed_columns or [0],
-        "bins": _int_value(
-            params.get("histogram_bins"),
-            default=20,
-            label="histogram_bins",
-            minimum=1,
-        ),
-        "xlabel": str(params.get("histogram_xlabel") or "value"),
-        "title": str(params.get("histogram_title") or ""),
-        "fill": str(params.get("histogram_fill") or "white"),
-    }
-    return {
-        "schema_version": 2,
-        "kind": "workflow_request",
-        "workflow_id": "graphics_histogram",
-        "species": [],
-        "reference_index": 0,
-        "inputs": {},
-        "parameters": parameters,
-        "output": {
-            "directory": str(output_dir),
-            "force": parse_bool(params.get("force", True)),
-            "formats": _parse_formats(params.get("formats")),
-        },
-        "runtime": _common_runtime(params, base),
-    }
-
-
-def build_heatmap_workflow_request(
-    params: Mapping[str, object],
-    base: Path,
-    *,
-    matrix_path: str,
-) -> dict[str, object]:
-    """Build a WorkflowRequest v2 payload for the heatmap feature."""
-
-    output_dir = Path(resolve_param_path(base, params.get("output_dir") or "output"))
-    parameters = _common_parameter_groups(
-        params,
-        engine_workflow="graphics_heatmap",
-        target_gene_ids=[],
-    )
-    parameters["heatmap"] = {
-        "matrix": matrix_path,
-        "rowgroups": _optional_path(base, params.get("rowgroups")),
-        "cmap": str(params.get("cmap") or ""),
-        "groups": parse_bool(params.get("groups", False)),
-        "horizontalbar": parse_bool(params.get("horizontalbar", False)),
-    }
-    return {
-        "schema_version": 2,
-        "kind": "workflow_request",
-        "workflow_id": "graphics_heatmap",
-        "species": [],
-        "reference_index": 0,
-        "inputs": {},
-        "parameters": parameters,
-        "output": {
-            "directory": str(output_dir),
-            "force": parse_bool(params.get("force", True)),
-            "formats": _parse_formats(params.get("formats")),
-        },
-        "runtime": _common_runtime(params, base),
-    }
-
-
-def write_workflow_request(
-    params: Mapping[str, object],
-    base: Path,
-    *,
-    workflow: str | None = None,
-) -> Path:
-    """Write genomelens_request.json for a plugin entry."""
-
-    request = build_workflow_request(
-        params,
-        base,
-        workflow=workflow,
-    )
-    output = cast(dict[str, object], request["output"])
-    output_dir = Path(str(output["directory"]))
-    output_dir.mkdir(parents=True, exist_ok=True)
-    target = output_dir / "genomelens_request.json"
-    target.write_text(
-        json.dumps(request, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
-    )
-    return target
-
-
-def write_request_payload(
-    params: Mapping[str, object],
-    base: Path,
-    request: dict[str, object],
-) -> Path:
-    """Write a prepared WorkflowRequest payload under the configured output directory."""
-
-    output_dir = Path(resolve_param_path(base, params.get("output_dir") or "output"))
-    output_dir.mkdir(parents=True, exist_ok=True)
-    target = output_dir / "genomelens_request.json"
-    target.write_text(
-        json.dumps(request, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
-    )
-    return target
 
 
 def setup_adapter_logging(
@@ -560,18 +219,6 @@ def resolve_genomelens_exe(params: Mapping[str, object], base: Path) -> Path:
     return path
 
 
-def build_analyze_run_command(
-    genomelens_exe: str | Path, request_path: Path
-) -> list[str]:
-    """Build the unified ``<GenomeLens.exe> analyze run <request>`` argv."""
-
-    exe = Path(genomelens_exe)
-    args = ["analyze", "run", str(request_path)]
-    if exe.suffix.lower() in {".cmd", ".bat"}:
-        return ["cmd.exe", "/c", str(exe), *args]
-    return [str(exe), *args]
-
-
 def build_analyze_submodule_command(
     genomelens_exe: str | Path,
     *,
@@ -612,6 +259,40 @@ def build_analyze_submodule_command(
     if exe.suffix.lower() in {".cmd", ".bat"}:
         return ["cmd.exe", "/c", str(exe), *args]
     return [str(exe), *args]
+
+
+def coerce_submodule_params(
+    raw: Mapping[str, object],
+    base: Path,
+    declared: Sequence[tuple[str, str]],
+) -> dict[str, object]:
+    """Coerce declared submodule parameters into a JSON-ready ``--params`` payload.
+
+    ``declared`` is a list of ``(param_id, ptype)`` pairs where ``ptype`` is one of
+    ``int`` / ``float`` / ``bool`` / ``str`` / ``path`` / ``int_array``.  Keys that
+    are missing or blank are dropped so the submodule falls back to its own defaults.
+    """
+
+    out: dict[str, object] = {}
+    for key, ptype in declared:
+        if key not in raw:
+            continue
+        value = raw[key]
+        if value is None or (isinstance(value, str) and value.strip() == ""):
+            continue
+        if ptype == "int":
+            out[key] = _int_value(value, default=0, label=key)
+        elif ptype == "float":
+            out[key] = _float_value(value, default=0.0, label=key)
+        elif ptype == "bool":
+            out[key] = parse_bool(value)
+        elif ptype == "path":
+            out[key] = resolve_param_path(base, value, must_exist=True)
+        elif ptype == "int_array":
+            out[key] = [int(item) for item in _split_csv(value)]
+        else:
+            out[key] = str(value)
+    return out
 
 
 def _parse_formats(value: object) -> list[str]:

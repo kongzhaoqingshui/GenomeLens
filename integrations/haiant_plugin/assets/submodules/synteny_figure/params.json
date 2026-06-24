@@ -1,0 +1,13 @@
+{
+  "GenomeLens_Path": "C:/GenomeLens/GenomeLens.exe",
+  "input_dir": "input",
+  "blocks": "pair.blocks",
+  "layout": "",
+  "output_dir": "output",
+  "glyphstyle": "",
+  "glyphcolor": "",
+  "shadestyle": "",
+  "figsize": "",
+  "dpi": 300,
+  "formats": "svg"
+}
