@@ -14,6 +14,7 @@ from genomelens.analysis.execution.handlers.heatmap import run_heatmap_workflow
 from genomelens.analysis.execution.handlers.histogram import run_histogram_workflow
 from genomelens.analysis.execution.handlers.multi_local import build_multi_species_local_synteny
 from genomelens.analysis.execution.handlers.pairwise import run_pairwise_mcscan
+from genomelens.analysis.execution.plan_context import build_plan_run_context
 from genomelens.analysis.execution.summary_builder import (
     build_multi_run_summary,
     species_summary,
@@ -108,6 +109,8 @@ class PlanExecutor:
         shutil.copy2(layout.manifest, layout.inputs / "input_manifest.json")
 
         pair_steps = [step for step in plan.steps if step.kind == "pairwise_synteny"]
+        pair_requests = [cast(SyntenyExecutionRequest, step.payload) for step in pair_steps]
+        context = build_plan_run_context(pair_requests, layout, logger) if pair_requests else None
         for index, step in enumerate(pair_steps, start=1):
             request = cast(SyntenyExecutionRequest, step.payload)
             signal_bus.emit(
@@ -121,7 +124,7 @@ class PlanExecutor:
             )
             try:
                 with task_scope(logger, task_id=step.step_id, step="run_pairwise_job"):
-                    pair_summary = run_pairwise_mcscan(set_state, request)
+                    pair_summary = run_pairwise_mcscan(set_state, request, context=context)
             except Exception as exc:  # noqa: BLE001 - 复合任务需要记录单个子任务失败
                 pairwise_jobs.append(
                     ChildRunRecord(
@@ -182,6 +185,7 @@ class PlanExecutor:
             reference_name=plan.reference_name,
             multi_species_local_figures=multi_local_figures,
             task_type_override="reference_vs_targets" if plan.reference_name else None,
+            extra_extensions=context.extension_stats() if context is not None else None,
         )
         write_run_summary(layout, summary)
         set_state(WorkflowState.SUCCEEDED if summary.status == "SUCCEEDED" else WorkflowState.FAILED)

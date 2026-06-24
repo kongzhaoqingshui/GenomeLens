@@ -6,7 +6,7 @@ from pathlib import Path
 
 from jcvi_genomelens.manifest.models import EngineEdge, EngineRunManifest, EngineTrack
 from jcvi_genomelens.runtime.command_runner import CommandAudit, run_python_step
-from jcvi_genomelens.workflows.common import _assert_ok
+from jcvi_genomelens.workflows.common import _assert_ok, close_matplotlib_figures
 from jcvi_genomelens.workflows.graphics.karyotype_support import format_track_row, select_karyotype_renderer
 from jcvi_genomelens.workflows.graphics.plot_optimization import suggest_karyotype_figsize
 
@@ -152,7 +152,11 @@ def run(manifest: EngineRunManifest, outdir: str | Path) -> tuple[list[CommandAu
         if manifest.options.dpi > 0:
             argv.extend(["--dpi", str(manifest.options.dpi)])
         argv.extend(["-o", str(figure)])
-        command = run_python_step("jcvi.graphics.karyotype", karyotype_main, argv, cwd=root)
+        close_matplotlib_figures()
+        try:
+            command = run_python_step("jcvi.graphics.karyotype", karyotype_main, argv, cwd=root)
+        finally:
+            close_matplotlib_figures()
         commands.append(command)
         _assert_ok(command)
         if not figure.is_file() or figure.stat().st_size == 0:

@@ -10,7 +10,7 @@ from pathlib import Path
 from jcvi.graphics import heatmap as jcvi_graphics_heatmap
 from jcvi_genomelens.manifest.models import EngineRunManifest
 from jcvi_genomelens.runtime.command_runner import CommandAudit, run_python_step
-from jcvi_genomelens.workflows.common import _assert_ok
+from jcvi_genomelens.workflows.common import _assert_ok, close_matplotlib_figures
 
 # endregion
 
@@ -20,9 +20,11 @@ def _run_heatmap_main(args: list[str]) -> object:
 
     original_argv = sys.argv[:]
     try:
+        close_matplotlib_figures()
         sys.argv = ["jcvi.graphics.heatmap", *args]
         return jcvi_graphics_heatmap.main()
     finally:
+        close_matplotlib_figures()
         sys.argv = original_argv
 
 

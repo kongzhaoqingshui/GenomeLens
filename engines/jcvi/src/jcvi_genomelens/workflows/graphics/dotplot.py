@@ -8,7 +8,8 @@ from pathlib import Path
 from jcvi.graphics.dotplot import dotplot_main as jcvi_graphics_dotplot
 from jcvi_genomelens.manifest.models import EngineRunManifest
 from jcvi_genomelens.runtime.command_runner import CommandAudit, run_python_step
-from jcvi_genomelens.workflows.common import _assert_ok
+from jcvi_genomelens.workflows.common import _assert_ok, close_matplotlib_figures
+from jcvi_genomelens.workflows.pairwise.artifact_reuse import ensure_pairwise_artifacts
 from jcvi_genomelens.workflows.pairwise.mcscan import run as run_pairwise
 
 # endregion
@@ -33,21 +34,25 @@ def draw_dotplots(
     anchors = str(artifacts["anchors"])
     for fmt in formats:
         figure = root / f"{output_prefix}.{fmt}"
-        command = run_python_step(
-            "jcvi.graphics.dotplot",
-            jcvi_graphics_dotplot,
-            [
-                anchors,
-                f"--qbed={manifest.query.bed}",
-                f"--sbed={manifest.subject.bed}",
-                "--format",
-                fmt,
-                "--notex",
-                "-o",
-                str(figure),
-            ],
-            cwd=root,
-        )
+        close_matplotlib_figures()
+        try:
+            command = run_python_step(
+                "jcvi.graphics.dotplot",
+                jcvi_graphics_dotplot,
+                [
+                    anchors,
+                    f"--qbed={manifest.query.bed}",
+                    f"--sbed={manifest.subject.bed}",
+                    "--format",
+                    fmt,
+                    "--notex",
+                    "-o",
+                    str(figure),
+                ],
+                cwd=root,
+            )
+        finally:
+            close_matplotlib_figures()
         commands.append(command)
         _assert_ok(command)
         if not figure.is_file() or figure.stat().st_size == 0:
@@ -60,7 +65,12 @@ def run(manifest: EngineRunManifest, outdir: str | Path) -> tuple[list[CommandAu
     """运行真实 pairwise MCscan(成对 MCscan) 后绘制 dotplot(点图)"""
 
     # 独立 dotplot 工作流本质上是“pairwise + 只画 dotplot”。
-    commands, artifacts = run_pairwise(manifest, outdir)
+    commands, artifacts = ensure_pairwise_artifacts(
+        manifest,
+        outdir,
+        required_fields=("anchors",),
+        fallback_runner=run_pairwise,
+    )
     root = Path(outdir).expanduser().resolve(strict=False)
     dotplot_commands, figures = draw_dotplots(manifest, root, artifacts)
     commands.extend(dotplot_commands)

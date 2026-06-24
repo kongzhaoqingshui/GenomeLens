@@ -127,6 +127,45 @@ def test_workflow_planner_target_genes_reference_vs_targets() -> None:
     assert plan.steps[-1].depends_on == ["A__B", "A__C"]
 
 
+def test_workflow_planner_submodule_ports_map_precomputed_artifacts() -> None:
+    request = _request(
+        [_species("A"), _species("B")],
+        inputs={
+            "ports": {
+                "anchors": "/tmp/A_B.anchors",
+                "blocks": "/tmp/A_B.blocks",
+                "layout": "/tmp/A_B.layout",
+            }
+        },
+        parameters={"extras": {"engine_workflow": "graphics_synteny"}},
+    )
+
+    plan = WorkflowPlanner().build(request)
+
+    payload = plan.steps[0].payload
+    assert isinstance(payload, SyntenyExecutionRequest)
+    assert payload.precomputed_artifacts is not None
+    assert payload.precomputed_artifacts.anchors == Path("/tmp/A_B.anchors").resolve(strict=False)
+    assert payload.precomputed_artifacts.blocks == Path("/tmp/A_B.blocks").resolve(strict=False)
+    assert payload.layout_path == str(Path("/tmp/A_B.layout").resolve(strict=False))
+
+
+def test_workflow_planner_target_genes_can_come_from_ports() -> None:
+    request = _request(
+        [_species("A"), _species("B")],
+        inputs={"ports": {"blocks": "/tmp/A_B.blocks", "target_genes": ["gene1", "gene2"]}},
+        parameters={"extras": {"engine_workflow": "local_synteny"}},
+    )
+
+    plan = WorkflowPlanner().build(request)
+
+    payload = plan.steps[0].payload
+    assert isinstance(payload, SyntenyExecutionRequest)
+    assert payload.target_gene_ids == ["gene1", "gene2"]
+    assert payload.precomputed_artifacts is not None
+    assert payload.precomputed_artifacts.blocks == Path("/tmp/A_B.blocks").resolve(strict=False)
+
+
 def test_histogram_request_uses_grouped_parameters(tmp_path: Path) -> None:
     numbers = tmp_path / "numbers.txt"
     numbers.write_text("1\n2\n3\n", encoding="utf-8")

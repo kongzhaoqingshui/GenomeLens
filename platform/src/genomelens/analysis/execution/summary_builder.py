@@ -124,6 +124,7 @@ def build_multi_run_summary(
     task_type_override: str | None = None,
     species_a_name: str | None = None,
     species_b_name: str | None = None,
+    extra_extensions: dict[str, object] | None = None,
 ) -> RunSummary:
     """为 multi-species 或 reference-vs-targets 构造顶层 RunSummary"""
 
@@ -163,6 +164,9 @@ def build_multi_run_summary(
         species_a_name=species_a_name,
         species_b_name=species_b_name,
     )
+    extensions = extension.to_dict()
+    if extra_extensions:
+        extensions.update(extra_extensions)
 
     return build_run_summary(
         status=status,
@@ -180,7 +184,7 @@ def build_multi_run_summary(
             log_path=layout.logs / "run.log",
         ),
         scoring=scoring_placeholder(),
-        extensions=extension.to_dict(),
+        extensions=extensions,
         child_runs=pairwise_jobs,
     )
 

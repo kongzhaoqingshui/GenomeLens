@@ -348,6 +348,10 @@ def _run_submodule(args: argparse.Namespace) -> int:
     )
     parameters: dict[str, object] = {"extras": {**dict(params), "engine_workflow": spec.engine_workflow}}
     input_directory = args.input_dir
+    species_pair = ports.get("species_pair")
+    if isinstance(species_pair, str) and species_pair.strip():
+        input_directory = species_pair
+
     if spec.engine_workflow == "graphics_histogram":
         numeric_files = ports.get("numeric_files")
         inputs = numeric_files if isinstance(numeric_files, list) else [numeric_files] if numeric_files else []
@@ -355,10 +359,6 @@ def _run_submodule(args: argparse.Namespace) -> int:
     elif spec.engine_workflow == "graphics_heatmap":
         matrix = ports.get("matrix_csv") or ports.get("matrix")
         parameters["heatmap"] = {"matrix": str(matrix or "")}
-    elif spec.engine_workflow == "mcscan_pairwise":
-        species_pair = ports.get("species_pair")
-        if isinstance(species_pair, str):
-            input_directory = species_pair
 
     request = WorkflowRequest.from_json(
         {

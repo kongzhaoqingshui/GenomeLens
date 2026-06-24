@@ -31,6 +31,13 @@ def _auto_args(input_dir: Path, outdir: Path) -> list[str]:
     return [str(input_dir), str(outdir)]
 
 
+def _blast_executable(root: Path, name: str) -> Path:
+    candidate = shutil.which(name)
+    if candidate:
+        return Path(candidate).resolve()
+    return (root / "toolchains" / "blast" / "current" / "bin" / f"{name}.exe").resolve()
+
+
 def _workflow_request_payload(sample: Path, outdir: Path) -> dict[str, object]:
     return {
         "schema_version": 2,
@@ -630,7 +637,8 @@ def test_analyze_workflow_synteny_pairwise_discovers_bed_cds_directory(tmp_path:
 def test_analyze_workflow_synteny_pairwise_with_explicit_jcvi_config(tmp_path: Path) -> None:
     root = Path(__file__).resolve().parents[3]
     sample = root / "references" / "samples" / "shell" / "bed_cds_minimal"
-    blast_bin = root / "toolchains" / "blast" / "current" / "bin"
+    blastn_path = _blast_executable(root, "blastn")
+    makeblastdb_path = _blast_executable(root, "makeblastdb")
     input_dir = tmp_path / "input-jcvi"
     _copy_species_files(input_dir, sample, ["query.bed", "query.cds", "subject.bed", "subject.cds"])
     jcvi_config_path = tmp_path / "jcvi.config.json"
@@ -639,8 +647,8 @@ def test_analyze_workflow_synteny_pairwise_with_explicit_jcvi_config(tmp_path: P
             {
                 "schema_version": 2,
                 "toolchain": {
-                    "blastn_path": str(blast_bin / "blastn.exe"),
-                    "makeblastdb_path": str(blast_bin / "makeblastdb.exe"),
+                    "blastn_path": str(blastn_path),
+                    "makeblastdb_path": str(makeblastdb_path),
                 },
                 "runtime": {
                     "threads": 1,
@@ -677,7 +685,7 @@ def test_analyze_workflow_synteny_pairwise_with_explicit_jcvi_config(tmp_path: P
     assert request_snapshot["parameters"]["plot"]["dpi"] == 600
 
     manifest = json.loads((outdir / "inputs" / "input_manifest.json").read_text(encoding="utf-8"))
-    assert manifest["toolchain"]["blastn"] == str((blast_bin / "blastn.exe").resolve())
+    assert manifest["toolchain"]["blastn"] == str(blastn_path)
     assert manifest["parameters"]["cscore"] == 0.9
     assert manifest["parameters"]["dpi"] == 600
     assert manifest["parameters"]["threads"] == 1
@@ -686,7 +694,8 @@ def test_analyze_workflow_synteny_pairwise_with_explicit_jcvi_config(tmp_path: P
 def test_analyze_workflow_synteny_pairwise_uses_config_defaults(tmp_path: Path) -> None:
     root = Path(__file__).resolve().parents[3]
     sample = root / "references" / "samples" / "shell" / "bed_cds_minimal"
-    blast_bin = root / "toolchains" / "blast" / "current" / "bin"
+    blastn_path = _blast_executable(root, "blastn")
+    makeblastdb_path = _blast_executable(root, "makeblastdb")
     input_dir = tmp_path / "input-config"
     _copy_species_files(input_dir, sample, ["query.bed", "query.cds", "subject.bed", "subject.cds"])
     config_path = tmp_path / "genomelens.config.json"
@@ -710,8 +719,8 @@ def test_analyze_workflow_synteny_pairwise_uses_config_defaults(tmp_path: Path) 
                 "schema_version": 2,
                 "toolchain": {
                     "jcvi_engine_path": "",
-                    "blastn_path": str(blast_bin / "blastn.exe"),
-                    "makeblastdb_path": str(blast_bin / "makeblastdb.exe"),
+                    "blastn_path": str(blastn_path),
+                    "makeblastdb_path": str(makeblastdb_path),
                     "magick_path": "",
                 },
                 "runtime": {
@@ -743,7 +752,7 @@ def test_analyze_workflow_synteny_pairwise_uses_config_defaults(tmp_path: Path) 
     assert manifest["schema_version"] == 3
     assert manifest["workflow"] == "graphics_synteny"
     assert [item["role"] for item in manifest["species"]] == ["reference", "target"]
-    assert manifest["toolchain"]["blastn"] == str((blast_bin / "blastn.exe").resolve())
+    assert manifest["toolchain"]["blastn"] == str(blastn_path)
     assert manifest["parameters"]["threads"] == 1
     assert manifest["parameters"]["min_block_size"] == 1
 
@@ -1038,6 +1047,53 @@ def test_analyze_submodule_mcscan_pairwise_end_to_end(tmp_path: Path) -> None:
     assert request_snapshot["kind"] == "workflow_request"
     assert request_snapshot["workflow_id"] == "synteny"
     assert request_snapshot["inputs"]["ports"]["species_pair"] == str(input_dir)
+
+
+def test_analyze_submodule_graphics_dotplot_reuses_pairwise_artifacts(tmp_path: Path) -> None:
+    root = Path(__file__).resolve().parents[3]
+    sample = root / "references" / "samples" / "shell" / "bed_cds_minimal"
+    input_dir = tmp_path / "input-submodule-reuse"
+    _copy_species_files(input_dir, sample, ["query.bed", "query.cds", "subject.bed", "subject.cds"])
+
+    pairwise_out = tmp_path / "out-submodule-pairwise"
+    code = main(
+        [
+            "analyze",
+            "submodule",
+            "jcvi.mcscan_pairwise",
+            "--input-ports",
+            json.dumps({"species_pair": str(input_dir)}),
+            "--output-dir",
+            str(pairwise_out),
+            "--min-block-size",
+            "1",
+            "--force",
+        ]
+    )
+    assert code == 0
+
+    pairwise_summary = json.loads((pairwise_out / "report" / "run_summary.json").read_text(encoding="utf-8"))
+    anchors_path = pairwise_summary["extensions"]["anchors_path"]
+
+    dotplot_out = tmp_path / "out-submodule-dotplot"
+    code = main(
+        [
+            "analyze",
+            "submodule",
+            "jcvi.graphics_dotplot",
+            "--input-ports",
+            json.dumps({"species_pair": str(input_dir), "anchors": anchors_path}),
+            "--output-dir",
+            str(dotplot_out),
+            "--force",
+        ]
+    )
+    assert code == 0
+
+    dotplot_summary = json.loads((dotplot_out / "report" / "run_summary.json").read_text(encoding="utf-8"))
+    assert dotplot_summary["status"] == "SUCCEEDED"
+    engine_summary = json.loads(Path(dotplot_summary["extensions"]["engine_summary_path"]).read_text(encoding="utf-8"))
+    assert [command["name"] for command in engine_summary["commands"]] == ["jcvi.graphics.dotplot"]
 
 
 def test_analyze_submodule_graphics_histogram_end_to_end(tmp_path: Path) -> None:

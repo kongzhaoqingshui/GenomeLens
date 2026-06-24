@@ -8,9 +8,11 @@ from pathlib import Path
 from jcvi.graphics.synteny import main as jcvi_graphics_synteny
 from jcvi_genomelens.manifest.models import EngineRunManifest
 from jcvi_genomelens.runtime.command_runner import CommandAudit, run_python_step
-from jcvi_genomelens.workflows.common import _assert_ok, build_figure_options
+from jcvi_genomelens.workflows.common import _assert_ok, build_figure_options, close_matplotlib_figures
 from jcvi_genomelens.workflows.graphics.dotplot import draw_dotplots
 from jcvi_genomelens.workflows.graphics.plot_optimization import prepare_synteny_plot_inputs
+from jcvi_genomelens.workflows.pairwise.artifact_reuse import ensure_pairwise_artifacts
+from jcvi_genomelens.workflows.pairwise.mcscan import _write_default_layout
 from jcvi_genomelens.workflows.pairwise.mcscan import run as run_pairwise
 
 # endregion
@@ -20,13 +22,26 @@ def run(manifest: EngineRunManifest, outdir: str | Path) -> tuple[list[CommandAu
     """运行真实 pairwise MCscan(成对 MCscan) 制品，并绘制真实 JCVI synteny figure(共线性图)"""
 
     # 先复用 pairwise 主流程产出 anchors/blocks/layout，再叠加 dotplot 和 synteny 图。
-    commands, artifacts = run_pairwise(manifest, outdir)
+    commands, artifacts = ensure_pairwise_artifacts(
+        manifest,
+        outdir,
+        required_fields=("blocks",),
+        ensure_merged_bed=True,
+        fallback_runner=run_pairwise,
+    )
     root = Path(outdir).expanduser().resolve(strict=False)
+    if "layout" not in artifacts:
+        if manifest.query is None or manifest.subject is None:
+            raise ValueError("graphics_synteny requires query and subject species")
+        layout = _write_default_layout(root / "synteny.layout", manifest.query.name, manifest.subject.name)
+        artifacts["layout"] = str(layout)
     formats = manifest.options.formats or ["svg"]
     figures: list[str] = []
-    dotplot_commands, dotplot_figures = draw_dotplots(manifest, root, artifacts)
-    commands.extend(dotplot_commands)
-    figures.extend(dotplot_figures)
+    dotplot_figures: list[str] = []
+    if "anchors" in artifacts:
+        dotplot_commands, dotplot_figures = draw_dotplots(manifest, root, artifacts)
+        commands.extend(dotplot_commands)
+        figures.extend(dotplot_figures)
     plot_inputs = prepare_synteny_plot_inputs(
         blocks=Path(str(artifacts["blocks"])),
         bed=Path(str(artifacts["merged_bed"])),
@@ -37,19 +52,23 @@ def run(manifest: EngineRunManifest, outdir: str | Path) -> tuple[list[CommandAu
     )
     for fmt in formats:
         output_prefix = root / "synteny"
-        command = run_python_step(
-            "jcvi.graphics.synteny",
-            jcvi_graphics_synteny,
-            [
-                str(plot_inputs.blocks),
-                str(plot_inputs.bed),
-                str(plot_inputs.layout),
-                *build_figure_options(manifest.options, fmt, plot_inputs.figsize),
-                "--outputprefix",
-                str(output_prefix),
-            ],
-            cwd=root,
-        )
+        close_matplotlib_figures()
+        try:
+            command = run_python_step(
+                "jcvi.graphics.synteny",
+                jcvi_graphics_synteny,
+                [
+                    str(plot_inputs.blocks),
+                    str(plot_inputs.bed),
+                    str(plot_inputs.layout),
+                    *build_figure_options(manifest.options, fmt, plot_inputs.figsize),
+                    "--outputprefix",
+                    str(output_prefix),
+                ],
+                cwd=root,
+            )
+        finally:
+            close_matplotlib_figures()
         commands.append(command)
         _assert_ok(command)
         figure = Path(f"{output_prefix}.{fmt}")
