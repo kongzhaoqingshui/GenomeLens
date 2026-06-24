@@ -1,0 +1,107 @@
+{
+  "title": "GenomeLens 共线性图 (Synteny Figure)",
+  "title_en": "GenomeLens Synteny Figure",
+  "description": "对应 ``jcvi.graphics_synteny`` 子模块：基于上游 MCscan pairwise 产出的 .blocks 渲染共线性图。",
+  "description_en": "Matches the ``jcvi.graphics_synteny`` submodule: render a synteny figure from an upstream MCscan pairwise .blocks file.",
+  "version": "v1.0.0",
+  "context": "双物种 JCVI 共线性图（synteny_figure 子模块）",
+  "context_en": "Pairwise JCVI synteny figure",
+  "env": "Python",
+  "outputType": "dir",
+  "params": [
+    {
+      "label": "输入目录",
+      "label_en": "Input Directory",
+      "key": "input_dir",
+      "valueType": "dir_selector",
+      "example_value": "input",
+      "description": "包含两物种 BED/序列的目录（species_pair 端口）。",
+      "description_en": "Directory holding the two-species BED/sequence files (species_pair port)."
+    },
+    {
+      "label": "Blocks 文件",
+      "label_en": "Blocks File",
+      "key": "blocks",
+      "valueType": "file_selector",
+      "example_value": "pair.blocks",
+      "description": "上游 MCscan pairwise 产出的 .blocks 文件（blocks 端口，必填）。",
+      "description_en": "Upstream MCscan pairwise .blocks file (blocks port, required)."
+    },
+    {
+      "label": "Layout 文件",
+      "label_en": "Layout File",
+      "key": "layout",
+      "valueType": "file_selector",
+      "example_value": "",
+      "description": "可选的 .layout 文件（layout 端口）；留空使用默认布局。",
+      "description_en": "Optional .layout file (layout port); leave empty for the default layout."
+    },
+    {
+      "label": "输出目录",
+      "label_en": "Output Directory",
+      "key": "output_dir",
+      "valueType": "dir_selector",
+      "example_value": "output",
+      "description": "结果输出目录。",
+      "description_en": "Output directory for results."
+    },
+    {
+      "label": "基因形状",
+      "label_en": "Glyph Style",
+      "key": "glyphstyle",
+      "valueType": "customer_selector",
+      "options": ["box", "arrow"],
+      "example_value": "",
+      "description": "基因形状：box / arrow。",
+      "description_en": "Gene glyph style: box / arrow."
+    },
+    {
+      "label": "基因着色",
+      "label_en": "Glyph Color",
+      "key": "glyphcolor",
+      "valueType": "customer_selector",
+      "options": ["orientation", "orthogroup"],
+      "example_value": "",
+      "description": "基因着色策略：orientation / orthogroup。",
+      "description_en": "Gene coloring strategy: orientation / orthogroup."
+    },
+    {
+      "label": "连线样式",
+      "label_en": "Shade Style",
+      "key": "shadestyle",
+      "valueType": "customer_selector",
+      "options": ["curve", "line"],
+      "example_value": "",
+      "description": "共线性连线样式：curve / line。",
+      "description_en": "Synteny link style: curve / line."
+    },
+    {
+      "label": "画布尺寸",
+      "label_en": "Figure Size",
+      "key": "figsize",
+      "valueType": "str",
+      "example_value": "",
+      "description": "画布尺寸，例如 10x5；留空使用默认。",
+      "description_en": "Figure size, e.g. 10x5; leave empty for default."
+    },
+    {
+      "label": "分辨率",
+      "label_en": "DPI",
+      "key": "dpi",
+      "valueType": "int",
+      "example_value": 300,
+      "description": "图片分辨率。",
+      "description_en": "Image resolution."
+    },
+    {
+      "label": "输出格式",
+      "label_en": "Output Format",
+      "key": "formats",
+      "valueType": "customer_selector",
+      "example_value": "svg",
+      "description": "输出图片格式。",
+      "description_en": "Output image format.",
+      "options": ["svg", "png", "pdf", "eps", "jpg"]
+    }
+  ]
+}

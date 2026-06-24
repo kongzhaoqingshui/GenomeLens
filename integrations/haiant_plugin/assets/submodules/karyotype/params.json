@@ -1,0 +1,9 @@
+{
+  "GenomeLens_Path": "C:/GenomeLens/GenomeLens.exe",
+  "input_dir": "input",
+  "blocks": "pair.blocks",
+  "output_dir": "output",
+  "figsize": "",
+  "dpi": 300,
+  "formats": "svg"
+}

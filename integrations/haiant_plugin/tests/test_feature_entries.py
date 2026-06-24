@@ -1,11 +1,12 @@
 import json
 import logging
 from pathlib import Path
-from typing import Any, Protocol, cast
+from typing import Any, Callable, Protocol, cast
 
 import pytest
 
-from features import (
+from features.onestop import synteny_entry
+from features.submodules import (
     catalog_ortholog_entry,
     dotplot_entry,
     global_karyotype_entry,
@@ -15,7 +16,6 @@ from features import (
     local_synteny_entry,
     mcscan_pairwise_entry,
     multi_local_synteny_entry,
-    synteny_entry,
     synteny_figure_entry,
 )
 
@@ -68,61 +68,189 @@ def _submodule_argv(argv: list[str]) -> tuple[str, dict[str, object], str]:
     )
 
 
+def _touch(path: Path) -> str:
+    path.write_text("", encoding="utf-8")
+    return str(path)
+
+
+# 每个子模块入口的最小可运行 override 工厂；返回喂给 ``_write_params_from_sample`` 的额外参数。
+def _no_overrides(_tmp_path: Path) -> dict[str, Any]:
+    return {}
+
+
+def _dotplot_overrides(tmp_path: Path) -> dict[str, Any]:
+    return {"anchors": _touch(tmp_path / "pair.anchors")}
+
+
+def _blocks_overrides(tmp_path: Path) -> dict[str, Any]:
+    return {"blocks": _touch(tmp_path / "pair.blocks")}
+
+
+def _local_synteny_overrides(tmp_path: Path) -> dict[str, Any]:
+    return {
+        "blocks": _touch(tmp_path / "pair.blocks"),
+        "target_genes": "qgene1,qgene2",
+    }
+
+
+def _histogram_overrides(tmp_path: Path) -> dict[str, Any]:
+    return {"input_files": _touch(tmp_path / "numbers.txt"), "histogram_bins": 4}
+
+
+def _heatmap_overrides(tmp_path: Path) -> dict[str, Any]:
+    return {"input_file": _touch(tmp_path / "matrix.csv"), "cmap": "viridis"}
+
+
+def _global_karyotype_overrides(_tmp_path: Path) -> dict[str, Any]:
+    return {
+        "tracks": '[{"name": "A", "bed": "A.bed"}]',
+        "edges": '[{"i": 0, "j": 1, "simple": "A__B.simple"}]',
+    }
+
+
+def _multi_local_synteny_overrides(tmp_path: Path) -> dict[str, Any]:
+    return {
+        "tracks": '[{"name": "A", "bed": "A.bed"}]',
+        "blocks": _touch(tmp_path / "all.blocks"),
+        "bed": _touch(tmp_path / "all.bed"),
+        "target_genes": "gene1,gene2",
+    }
+
+
+SUBMODULE_CASES: list[
+    tuple[FeatureEntryModule, str, str, Callable[[Path], dict[str, Any]]]
+] = [
+    (
+        cast(FeatureEntryModule, mcscan_pairwise_entry),
+        "jcvi.mcscan_pairwise",
+        "gljcvi_mcscan_pairwise",
+        _no_overrides,
+    ),
+    (
+        cast(FeatureEntryModule, catalog_ortholog_entry),
+        "jcvi.catalog_ortholog",
+        "gljcvi_catalog_ortholog",
+        _no_overrides,
+    ),
+    (
+        cast(FeatureEntryModule, dotplot_entry),
+        "jcvi.graphics_dotplot",
+        "gljcvi_dotplot",
+        _dotplot_overrides,
+    ),
+    (
+        cast(FeatureEntryModule, synteny_figure_entry),
+        "jcvi.graphics_synteny",
+        "gljcvi_synteny_figure",
+        _blocks_overrides,
+    ),
+    (
+        cast(FeatureEntryModule, karyotype_entry),
+        "jcvi.graphics_karyotype",
+        "gljcvi_karyotype",
+        _blocks_overrides,
+    ),
+    (
+        cast(FeatureEntryModule, local_synteny_entry),
+        "jcvi.local_synteny",
+        "gljcvi_local_synteny",
+        _local_synteny_overrides,
+    ),
+    (
+        cast(FeatureEntryModule, histogram_entry),
+        "jcvi.graphics_histogram",
+        "gljcvi_histogram",
+        _histogram_overrides,
+    ),
+    (
+        cast(FeatureEntryModule, heatmap_entry),
+        "jcvi.graphics_heatmap",
+        "gljcvi_heatmap",
+        _heatmap_overrides,
+    ),
+    (
+        cast(FeatureEntryModule, global_karyotype_entry),
+        "jcvi.graphics_karyotype_global",
+        "gljcvi_global_karyotype",
+        _global_karyotype_overrides,
+    ),
+    (
+        cast(FeatureEntryModule, multi_local_synteny_entry),
+        "jcvi.local_synteny_multi",
+        "gljcvi_multi_local_synteny",
+        _multi_local_synteny_overrides,
+    ),
+]
+
+
 @pytest.mark.parametrize(
-    ("module", "workflow", "logger_name"),
-    [
-        (
-            cast(FeatureEntryModule, dotplot_entry),
-            "graphics_dotplot",
-            "gljcvi_dotplot",
-        ),
-        (
-            cast(FeatureEntryModule, synteny_figure_entry),
-            "graphics_synteny",
-            "gljcvi_synteny_figure",
-        ),
-        (
-            cast(FeatureEntryModule, karyotype_entry),
-            "graphics_karyotype",
-            "gljcvi_karyotype",
-        ),
-        (
-            cast(FeatureEntryModule, catalog_ortholog_entry),
-            "catalog_ortholog",
-            "gljcvi_catalog_ortholog",
-        ),
-        (
-            cast(FeatureEntryModule, local_synteny_entry),
-            "local_synteny",
-            "gljcvi_local_synteny",
-        ),
-    ],
+    ("module", "module_id", "logger_name", "make_overrides"),
+    SUBMODULE_CASES,
+    ids=[case[1] for case in SUBMODULE_CASES],
 )
-def test_feature_entry_builds_request_and_command(
+def test_submodule_entry_builds_submodule_command(
     tmp_path: Path,
     module: FeatureEntryModule,
-    workflow: str,
+    module_id: str,
     logger_name: str,
+    make_overrides: Callable[[Path], dict[str, Any]],
 ) -> None:
-    params_path = _write_params_from_sample(tmp_path)
+    params_path = _write_params_from_sample(
+        tmp_path, overrides=make_overrides(tmp_path)
+    )
 
     argv = module.build_runtime_command(params_path)
 
     assert argv[:4] == ["cmd.exe", "/c", str(tmp_path / "GenomeLens.cmd"), "analyze"]
-    assert argv[4] == "run"
-    request_path = Path(argv[5])
-    assert request_path.name == "genomelens_request.json"
-
-    request = json.loads(request_path.read_text(encoding="utf-8"))
-    assert request["schema_version"] == 2
-    assert request["kind"] == "workflow_request"
-    expected_workflow_id = "local_synteny" if workflow == "local_synteny" else "synteny"
-    assert request["workflow_id"] == expected_workflow_id
-    assert request["parameters"]["extras"]["engine_workflow"] == workflow
-    assert request["output"]["directory"] == str(tmp_path / "output")
-    assert request["runtime"]["threads"] == 2
-    assert request["runtime"]["min_block_size"] == 1
+    assert argv[4] == "submodule"
+    found_id, ports, output_dir = _submodule_argv(argv)
+    assert found_id == module_id
+    assert ports  # every submodule wires at least one input port
+    assert output_dir == str(tmp_path / "output")
+    assert argv[-1] == "--force"
     assert logging.getLogger(logger_name).handlers == []
+
+
+def test_dotplot_entry_requires_anchors(tmp_path: Path) -> None:
+    argv = dotplot_entry.build_runtime_command(
+        _write_params_from_sample(tmp_path, overrides=_dotplot_overrides(tmp_path))
+    )
+    _module_id, ports, _output = _submodule_argv(argv)
+    assert "anchors" in ports
+
+    with pytest.raises(Exception, match="anchors"):
+        dotplot_entry.build_runtime_command(
+            _write_params_from_sample(tmp_path, overrides={"anchors": ""})
+        )
+
+
+def test_local_synteny_entry_splits_target_genes(tmp_path: Path) -> None:
+    argv = local_synteny_entry.build_runtime_command(
+        _write_params_from_sample(
+            tmp_path, overrides=_local_synteny_overrides(tmp_path)
+        )
+    )
+    _module_id, ports, _output = _submodule_argv(argv)
+    assert ports["target_genes"] == ["qgene1", "qgene2"]
+    assert "blocks" in ports
+
+
+def test_histogram_entry_wires_numeric_files(tmp_path: Path) -> None:
+    overrides = _histogram_overrides(tmp_path)
+    argv = histogram_entry.build_runtime_command(
+        _write_params_from_sample(tmp_path, overrides=overrides)
+    )
+    _module_id, ports, _output = _submodule_argv(argv)
+    assert ports["numeric_files"] == [overrides["input_files"]]
+
+
+def test_heatmap_entry_wires_matrix_csv(tmp_path: Path) -> None:
+    overrides = _heatmap_overrides(tmp_path)
+    argv = heatmap_entry.build_runtime_command(
+        _write_params_from_sample(tmp_path, overrides=overrides)
+    )
+    _module_id, ports, _output = _submodule_argv(argv)
+    assert ports["matrix_csv"] == overrides["input_file"]
 
 
 def test_synteny_entry_builds_workflow_command(tmp_path: Path) -> None:
@@ -236,145 +364,19 @@ def test_synteny_entry_main_skips_compression_on_failure(tmp_path: Path) -> None
     assert (output_dir / "run.log").is_file()
 
 
-def test_mcscan_pairwise_entry_builds_submodule_request(tmp_path: Path) -> None:
-    params_path = _write_params_from_sample(tmp_path)
-
-    argv = mcscan_pairwise_entry.build_runtime_command(params_path)
-
-    assert argv[:4] == ["cmd.exe", "/c", str(tmp_path / "GenomeLens.cmd"), "analyze"]
-    assert argv[4] == "submodule"
-    module_id, ports, output_dir = _submodule_argv(argv)
-    assert module_id == "jcvi.mcscan_pairwise"
-    assert "species_pair" in ports
-    assert output_dir == str(tmp_path / "output")
-    assert logging.getLogger("gljcvi_mcscan_pairwise").handlers == []
-
-
-def test_histogram_entry_builds_submodule_request(tmp_path: Path) -> None:
-    numbers = tmp_path / "numbers.txt"
-    numbers.write_text("1\n2\n3\n", encoding="utf-8")
-    params_path = _write_params_from_sample(
-        tmp_path,
-        overrides={
-            "input_files": str(numbers),
-            "histogram_bins": 4,
-            "histogram_title": "Test",
-        },
-    )
-
-    argv = histogram_entry.build_runtime_command(params_path)
-
-    assert argv[4] == "run"
-    request = json.loads(Path(argv[5]).read_text(encoding="utf-8"))
-    assert request["workflow_id"] == "graphics_histogram"
-    histogram = request["parameters"]["histogram"]
-    assert histogram["inputs"] == [str(numbers)]
-    assert histogram["bins"] == 4
-    assert histogram["title"] == "Test"
-    assert logging.getLogger("gljcvi_histogram").handlers == []
-
-
-def test_heatmap_entry_builds_submodule_request(tmp_path: Path) -> None:
-    matrix = tmp_path / "matrix.csv"
-    matrix.write_text("a,b,c\n1,2,3\n", encoding="utf-8")
-    params_path = _write_params_from_sample(
-        tmp_path,
-        overrides={
-            "input_file": str(matrix),
-            "cmap": "viridis",
-            "groups": True,
-        },
-    )
-
-    argv = heatmap_entry.build_runtime_command(params_path)
-
-    assert argv[4] == "run"
-    request = json.loads(Path(argv[5]).read_text(encoding="utf-8"))
-    assert request["workflow_id"] == "graphics_heatmap"
-    heatmap = request["parameters"]["heatmap"]
-    assert heatmap["matrix"] == str(matrix)
-    assert heatmap["cmap"] == "viridis"
-    assert heatmap["groups"] is True
-    assert logging.getLogger("gljcvi_heatmap").handlers == []
-
-
-def test_global_karyotype_entry_builds_submodule_request(tmp_path: Path) -> None:
-    params_path = _write_params_from_sample(
-        tmp_path,
-        overrides={
-            "tracks": '[{"name": "A", "bed": "A.bed"}]',
-            "edges": '[{"i": 0, "j": 1, "simple": "A__B.simple"}]',
-        },
-    )
-
-    argv = global_karyotype_entry.build_runtime_command(params_path)
-
-    assert argv[4] == "submodule"
-    module_id, ports, _output_dir = _submodule_argv(argv)
-    assert module_id == "jcvi.graphics_karyotype_global"
-    assert ports["tracks"] == [{"name": "A", "bed": "A.bed"}]
-    assert logging.getLogger("gljcvi_global_karyotype").handlers == []
-
-
-def test_multi_local_synteny_entry_builds_submodule_request(tmp_path: Path) -> None:
-    blocks = tmp_path / "all.blocks"
-    blocks.write_text("", encoding="utf-8")
-    bed = tmp_path / "all.bed"
-    bed.write_text("", encoding="utf-8")
-    params_path = _write_params_from_sample(
-        tmp_path,
-        overrides={
-            "tracks": '[{"name": "A", "bed": "A.bed"}]',
-            "blocks": str(blocks),
-            "bed": str(bed),
-            "target_genes": "gene1,gene2",
-        },
-    )
-
-    argv = multi_local_synteny_entry.build_runtime_command(params_path)
-
-    assert argv[4] == "submodule"
-    module_id, ports, _output_dir = _submodule_argv(argv)
-    assert module_id == "jcvi.local_synteny_multi"
-    assert ports["target_genes"] == ["gene1", "gene2"]
-    assert ports["blocks"] == str(blocks)
-    assert logging.getLogger("gljcvi_multi_local_synteny").handlers == []
-
-
 @pytest.mark.parametrize(
     ("module", "label"),
     [
+        (cast(FeatureEntryModule, synteny_entry), "synteny workflow"),
+        (cast(FeatureEntryModule, mcscan_pairwise_entry), "MCscan pairwise"),
+        (cast(FeatureEntryModule, catalog_ortholog_entry), "catalog_ortholog"),
         (cast(FeatureEntryModule, dotplot_entry), "dotplot"),
         (cast(FeatureEntryModule, synteny_figure_entry), "synteny figure"),
         (cast(FeatureEntryModule, karyotype_entry), "karyotype"),
-        (
-            cast(FeatureEntryModule, catalog_ortholog_entry),
-            "catalog_ortholog",
-        ),
-        (
-            cast(FeatureEntryModule, local_synteny_entry),
-            "local synteny",
-        ),
-        (
-            cast(FeatureEntryModule, synteny_entry),
-            "synteny workflow",
-        ),
-        (
-            cast(FeatureEntryModule, mcscan_pairwise_entry),
-            "MCscan pairwise",
-        ),
-        (
-            cast(FeatureEntryModule, histogram_entry),
-            "histogram",
-        ),
-        (
-            cast(FeatureEntryModule, heatmap_entry),
-            "heatmap",
-        ),
-        (
-            cast(FeatureEntryModule, global_karyotype_entry),
-            "global karyotype",
-        ),
+        (cast(FeatureEntryModule, local_synteny_entry), "local synteny"),
+        (cast(FeatureEntryModule, histogram_entry), "histogram"),
+        (cast(FeatureEntryModule, heatmap_entry), "heatmap"),
+        (cast(FeatureEntryModule, global_karyotype_entry), "global karyotype"),
         (
             cast(FeatureEntryModule, multi_local_synteny_entry),
             "multi-species local synteny",

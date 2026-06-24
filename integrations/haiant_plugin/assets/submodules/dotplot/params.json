@@ -1,0 +1,9 @@
+{
+  "GenomeLens_Path": "C:/GenomeLens/GenomeLens.exe",
+  "input_dir": "input",
+  "anchors": "pair.anchors",
+  "output_dir": "output",
+  "figsize": "",
+  "dpi": 300,
+  "formats": "svg"
+}

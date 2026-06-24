@@ -1,0 +1,12 @@
+{
+  "GenomeLens_Path": "C:/GenomeLens/GenomeLens.exe",
+  "input_dir": "input",
+  "output_dir": "output",
+  "align_soft": "blast",
+  "dbtype": "nucl",
+  "cscore": 0.7,
+  "dist": 20,
+  "iter": 1,
+  "min_block_size": 1,
+  "threads": 4
+}

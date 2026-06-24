@@ -16,21 +16,20 @@
 
 - `app/onestop/gljcvi-synteny.zip`：HAIant 智然体一站式共线性分析插件（对应 `analyze workflow synteny` 一键分析流程）。
 
-#### 独立工作流插件
-
-- `app/workflow-plugins/gljcvi-dotplot.zip`：独立点图插件。
-- `app/workflow-plugins/gljcvi-synteny-figure.zip`：独立共线性图插件。
-- `app/workflow-plugins/gljcvi-karyotype.zip`：独立核型图插件。
-- `app/workflow-plugins/gljcvi-local-synteny.zip`：独立局部共线性插件。
-- `app/workflow-plugins/gljcvi-catalog-ortholog.zip`：独立双向 ortholog 插件。
-- `app/workflow-plugins/gljcvi-histogram.zip`：独立直方图插件。
-- `app/workflow-plugins/gljcvi-heatmap.zip`：独立热图插件。
-
-#### 原子子模块插件
+#### 可编排子模块插件
 
 - `app/submodules/gljcvi-mcscan-pairwise.zip`：双物种 MCscan pairwise 子模块。
+- `app/submodules/gljcvi-catalog-ortholog.zip`：双向 ortholog 目录子模块。
+- `app/submodules/gljcvi-dotplot.zip`：双物种点图子模块（需 `.anchors`）。
+- `app/submodules/gljcvi-synteny-figure.zip`：双物种共线性图子模块（需 `.blocks`）。
+- `app/submodules/gljcvi-karyotype.zip`：双物种核型图子模块（需 `.blocks`）。
+- `app/submodules/gljcvi-local-synteny.zip`：目标基因局部共线性子模块（需 `.blocks` + `target_genes`）。
+- `app/submodules/gljcvi-histogram.zip`：数值直方图子模块。
+- `app/submodules/gljcvi-heatmap.zip`：矩阵热图子模块。
 - `app/submodules/gljcvi-global-karyotype.zip`：多物种全局核型总图子模块。
 - `app/submodules/gljcvi-multi-local-synteny.zip`：多物种局部共线性总图子模块。
+
+> 下游 4 个可视化子模块需用户显式提供上游产物；一键“从物种目录直接出图”的端到端路径由 `gljcvi-synteny` 一站式工作流承担。旧产物目录 `app/workflow-plugins/` 与 `app/gljcvi-auto/` 已废弃。
 
 ## 能力范围
 
@@ -53,17 +52,15 @@ conda run -n genomelens powershell -NoProfile -ExecutionPolicy Bypass -File scri
 # 一站式工作流插件
 conda run -n genomelens powershell -NoProfile -ExecutionPolicy Bypass -File scripts\build_gljcvi_feature_plugin.ps1 -Feature synteny
 
-# 独立工作流插件
+# 可编排子模块插件
+conda run -n genomelens powershell -NoProfile -ExecutionPolicy Bypass -File scripts\build_gljcvi_feature_plugin.ps1 -Feature mcscan_pairwise
+conda run -n genomelens powershell -NoProfile -ExecutionPolicy Bypass -File scripts\build_gljcvi_feature_plugin.ps1 -Feature catalog_ortholog
 conda run -n genomelens powershell -NoProfile -ExecutionPolicy Bypass -File scripts\build_gljcvi_feature_plugin.ps1 -Feature dotplot
 conda run -n genomelens powershell -NoProfile -ExecutionPolicy Bypass -File scripts\build_gljcvi_feature_plugin.ps1 -Feature synteny_figure
 conda run -n genomelens powershell -NoProfile -ExecutionPolicy Bypass -File scripts\build_gljcvi_feature_plugin.ps1 -Feature karyotype
-conda run -n genomelens powershell -NoProfile -ExecutionPolicy Bypass -File scripts\build_gljcvi_feature_plugin.ps1 -Feature catalog_ortholog
 conda run -n genomelens powershell -NoProfile -ExecutionPolicy Bypass -File scripts\build_gljcvi_feature_plugin.ps1 -Feature local_synteny
 conda run -n genomelens powershell -NoProfile -ExecutionPolicy Bypass -File scripts\build_gljcvi_feature_plugin.ps1 -Feature histogram
 conda run -n genomelens powershell -NoProfile -ExecutionPolicy Bypass -File scripts\build_gljcvi_feature_plugin.ps1 -Feature heatmap
-
-# 原子子模块插件
-conda run -n genomelens powershell -NoProfile -ExecutionPolicy Bypass -File scripts\build_gljcvi_feature_plugin.ps1 -Feature mcscan_pairwise
 conda run -n genomelens powershell -NoProfile -ExecutionPolicy Bypass -File scripts\build_gljcvi_feature_plugin.ps1 -Feature global_karyotype
 conda run -n genomelens powershell -NoProfile -ExecutionPolicy Bypass -File scripts\build_gljcvi_feature_plugin.ps1 -Feature multi_local_synteny
 ```

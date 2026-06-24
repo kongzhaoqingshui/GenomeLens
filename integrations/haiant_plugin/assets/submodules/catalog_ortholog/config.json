@@ -1,0 +1,96 @@
+{
+  "title": "GenomeLens 直系同源目录",
+  "title_en": "GenomeLens Catalog Ortholog",
+  "description": "对应 ``jcvi.catalog_ortholog`` 子模块：从输入目录自动发现物种文件对，生成直系同源基因目录（.anchors 等）。",
+  "description_en": "Matches the ``jcvi.catalog_ortholog`` submodule: auto-discovers species file pairs from an input directory and generates an ortholog catalog (.anchors, etc.).",
+  "version": "v1.0.0",
+  "context": "双物种直系同源目录",
+  "context_en": "Pairwise ortholog catalog",
+  "env": "Python",
+  "outputType": "dir",
+  "params": [
+    {
+      "label": "输入目录",
+      "label_en": "Input Directory",
+      "key": "input_dir",
+      "valueType": "dir_selector",
+      "example_value": "input",
+      "description": "自动发现同名物种文件对的输入目录（species_pair 端口）。",
+      "description_en": "Directory where same-stem species file pairs are auto-discovered (species_pair port)."
+    },
+    {
+      "label": "输出目录",
+      "label_en": "Output Directory",
+      "key": "output_dir",
+      "valueType": "dir_selector",
+      "example_value": "output",
+      "description": "结果输出目录。",
+      "description_en": "Output directory for results."
+    },
+    {
+      "label": "比对后端",
+      "label_en": "Alignment Backend",
+      "key": "align_soft",
+      "valueType": "customer_selector",
+      "options": ["blast", "last", "diamond_blastp"],
+      "example_value": "blast",
+      "description": "同源搜索比对后端。",
+      "description_en": "Homology search alignment backend."
+    },
+    {
+      "label": "序列类型",
+      "label_en": "Sequence Type",
+      "key": "dbtype",
+      "valueType": "customer_selector",
+      "options": ["nucl", "prot"],
+      "example_value": "nucl",
+      "description": "序列数据库类型：nucl（核酸）或 prot（蛋白）。",
+      "description_en": "Sequence database type: nucl or prot."
+    },
+    {
+      "label": "同源匹配过滤强度",
+      "label_en": "C-score Threshold",
+      "key": "cscore",
+      "valueType": "float",
+      "example_value": 0.7,
+      "description": "同源匹配过滤强度。",
+      "description_en": "Homology match filtering strength."
+    },
+    {
+      "label": "共线性锚点最大基因距离",
+      "label_en": "Max Gene Distance",
+      "key": "dist",
+      "valueType": "int",
+      "example_value": 20,
+      "description": "共线性锚点间允许的最大基因距离。",
+      "description_en": "Maximum gene distance between synteny anchors."
+    },
+    {
+      "label": "Block 过滤迭代次数",
+      "label_en": "Filter Iterations",
+      "key": "iter",
+      "valueType": "int",
+      "example_value": 1,
+      "description": "Block 过滤迭代次数。",
+      "description_en": "Number of block filtering iterations."
+    },
+    {
+      "label": "最小共线性区块大小",
+      "label_en": "Minimum Block Size",
+      "key": "min_block_size",
+      "valueType": "int",
+      "example_value": 1,
+      "description": "保留 block 所需的最小基因数。",
+      "description_en": "Minimum gene count for retained synteny blocks."
+    },
+    {
+      "label": "线程数",
+      "label_en": "Threads",
+      "key": "threads",
+      "valueType": "int",
+      "example_value": 4,
+      "description": "运行时工作线程数。",
+      "description_en": "Number of worker threads."
+    }
+  ]
+}
