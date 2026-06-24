@@ -484,10 +484,11 @@ class McscanProgressAdapter:
         if self._state in {"PENDING", "VALIDATING_INPUTS", "PREPARING_WORKSPACE"}:
             return min(0.12, STATE_PROGRESS.get(self._state, 0.0) * 0.4)
 
-        if self._state in {"SUCCEEDED", "FAILED", "CANCELLED"} and self._completed_pairs >= self._total_pairs:
-            return 1.0
-
-        if self._completed_pairs >= self._total_pairs:
+        # 解析/收尾/终止态意味着 pairwise 计算实质上已经结束；
+        # 即使最后一个 pair_finished 事件尚未到达，也不应把进度拉回 80%+。
+        if self._state in {"PARSING_ENGINE_SUMMARY", "FINALIZING", "SUCCEEDED", "FAILED", "CANCELLED"}:
+            if self._state in {"SUCCEEDED", "FAILED", "CANCELLED"}:
+                return 1.0
             return max(0.92, STATE_PROGRESS.get(self._state, 0.96))
 
         pair_phase = STATE_PROGRESS.get(self._state, 0.0)

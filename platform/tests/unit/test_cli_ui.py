@@ -116,6 +116,30 @@ def test_cli_progress_reporter_ignores_inner_success_until_all_pairs_finish() ->
     assert "33%" not in output
 
 
+def test_cli_progress_reporter_finalizing_does_not_regress_below_ninety() -> None:
+    """FINALIZING 可能早于最后一个 pair_finished 到达，此时进度不应掉到 90% 以下。"""
+
+    request = _request(["query", "subject"])
+    stream = io.StringIO()
+    signal_bus = SignalBus()
+    reporter = CliProgressReporter(request, color=False, stream=stream)
+    reporter.attach(signal_bus)
+
+    signal_bus.emit("pair_started", index=1, query="query", subject="subject")
+    signal_bus.emit("pair_started", index=2, query="query", subject="third")
+    # 引擎在最后一个 pair_finished 之前先进入 FINALIZING
+    signal_bus.emit("state", state="FINALIZING")
+    signal_bus.emit("pair_finished", index=2, status="SUCCEEDED")
+    signal_bus.emit("state", state="SUCCEEDED")
+
+    output = stream.getvalue()
+
+    # FINALIZING 至少应显示 92%（STATE_PROGRESS=0.96 取整后 96%），最终 100%
+    assert "96%" in output
+    assert "88%" not in output
+    assert "100%" in output
+
+
 def test_cli_progress_reporter_aligns_primary_field_in_noninteractive_mode() -> None:
     request = _request(["query", "subject"])
     stream = io.StringIO()
