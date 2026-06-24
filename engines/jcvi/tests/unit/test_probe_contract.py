@@ -1,5 +1,5 @@
 from jcvi_genomelens.probe import build_probe_payload
-from jcvi_genomelens.workflow_contract import SUPPORTED_WORKFLOWS
+from jcvi_genomelens.workflows.contract import SUPPORTED_WORKFLOWS
 
 
 def test_probe_contract() -> None:
@@ -24,9 +24,7 @@ def test_probe_contract() -> None:
         "local_synteny_multi",
     ]
     assert payload["dispatchable_workflows"] == payload["capabilities"]
-    assert isinstance(payload["submodule_to_workflow"], dict)
-    assert payload["submodule_to_workflow"]["jcvi.graphics_histogram"] == "graphics_histogram"
-    assert payload["submodule_to_workflow"]["jcvi.local_synteny_multi"] == "local_synteny_multi"
+    assert "submodule_to_workflow" not in payload
     assert "jcvi.graphics.dotplot" in payload["bundled_jcvi_modules"]
     assert "jcvi.graphics.heatmap" in payload["bundled_jcvi_modules"]
     assert "jcvi.graphics.histogram" in payload["bundled_jcvi_modules"]

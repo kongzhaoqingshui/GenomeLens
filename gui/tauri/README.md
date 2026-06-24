@@ -1,6 +1,6 @@
 # GenomeLens GUI — JCVI meow
 
-本目录是 GenomeLens 桌面 GUI 的 **Phase 1 先行版本**，代号 **JCVI meow**。GUI 只作为平台交互外壳，分析能力仍通过 `platform/` 暴露的 CLI / request / summary 协议完成。
+本目录是 GenomeLens 桌面 GUI 的 **先行版本**，代号 **JCVI meow**。GUI 只作为平台交互外壳，分析能力仍通过 `platform/` 暴露的 CLI / request / summary 协议完成。
 
 ## Root build helper
 
@@ -62,15 +62,16 @@ pnpm tauri build
 
 `tauri build` 需要在 Windows 环境中完成才能生成 `.msi` / `.exe` 安装包；若仅验证前端与 Rust 侧，可先执行 `pnpm build:web` 与 `cargo check`。
 
-## Phase 1 能力
+## 当前能力与迁移状态
 
 - Tauri v2 + Vite + React 18 + TypeScript + Tailwind CSS 骨架。
 - 最小权限 capability：core、fs、shell、dialog、notification、os。
-- 分析向导首屏：支持选择输入目录、输出目录、参考物种与目标基因，生成 `AnalysisRequest` 草案。
+- 分析向导首屏：支持选择输入目录、输出目录、参考物种与目标基因；当前源码仍有旧请求草案模型，下一阶段应迁移为 `WorkflowRequest v2`。
 - 运行会话模型：展示任务运行状态与进度。
-- `get_version()` Tauri command，返回 platform 与 engine 版本探测结果。
+- Tauri command：已具备版本探测、模板/schema 读取、环境检查、运行、取消、summary/log/artifact 读取等基础能力。
 
 ## 已知限制
 
-- 0.9.20 为第一个先行预览版，主要完成桌面壳、向导首屏与请求草案模型；真实分析执行链路仍调用 `platform/` CLI。
+- 0.9.20 为先行预览版，主要完成桌面壳、向导首屏与请求草案模型；真实分析执行链路仍调用 `platform/` CLI。
+- 平台当前协议已经升级为 `WorkflowRequest v2` 与 `RunSummary v3`，GUI 源码迁移计划见 `docs/开发手册/GUI先行开发/开发计划.md`。
 - 安装包构建依赖 Windows + Rust，建议在具备完整工具链的机器或 CI 中执行 `pnpm tauri build`。

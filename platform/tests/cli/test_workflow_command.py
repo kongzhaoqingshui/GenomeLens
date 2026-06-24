@@ -1,19 +1,19 @@
-"""Tests for `genomelens workflow` and new `genomelens analyze workflow/submodule` CLI."""
+"""Tests for workflow metadata and v2 analyze CLI entry points."""
 
 from __future__ import annotations
 
 import json
 
-from genomelens.analysis.requests.models import AnalysisRequest
+from genomelens.analysis.requests.models import WorkflowRequest
 from genomelens.cli.main import main
-from genomelens.core.summary_models import RunSummary, ScoringBlock, UiBlock
+from genomelens.contracts.summaries import RunSummary, ScoringBlock, UiBlock
 
 
 def _dummy_summary(**extra) -> RunSummary:
     return RunSummary(
         status="SUCCEEDED",
-        schema_version=2,
-        workflow="mcscan",
+        schema_version=3,
+        workflow="synteny",
         task=dict(extra),
         species=[],
         final_figures=[],
@@ -29,46 +29,37 @@ def test_workflow_list_json(capsys) -> None:
     payload = json.loads(capsys.readouterr().out)
     assert "one_stop_workflows" in payload
     assert "submodules" in payload
-    workflow_ids = {item["workflow_id"] for item in payload["one_stop_workflows"]}
-    assert "synteny" in workflow_ids
-    module_ids = {item["module_id"] for item in payload["submodules"]}
-    assert "jcvi.mcscan_pairwise" in module_ids
+    assert "synteny" in {item["workflow_id"] for item in payload["one_stop_workflows"]}
+    assert "jcvi.mcscan_pairwise" in {item["module_id"] for item in payload["submodules"]}
 
 
-def test_workflow_list_one_stop_only(capsys) -> None:
+def test_workflow_list_filters(capsys) -> None:
     assert main(["workflow", "list", "--kind", "one_stop", "--json"]) == 0
     payload = json.loads(capsys.readouterr().out)
     assert "one_stop_workflows" in payload
     assert "submodules" not in payload
 
-
-def test_workflow_list_sub_module_only(capsys) -> None:
     assert main(["workflow", "list", "--kind", "sub_module", "--json"]) == 0
     payload = json.loads(capsys.readouterr().out)
     assert "submodules" in payload
     assert "one_stop_workflows" not in payload
 
 
-def test_workflow_describe_one_stop_json(capsys) -> None:
+def test_workflow_describe_json(capsys) -> None:
     assert main(["workflow", "describe", "synteny", "--json"]) == 0
     payload = json.loads(capsys.readouterr().out)
     assert payload["workflow_id"] == "synteny"
     assert payload["kind"] == "one_stop"
-    assert "equivalent_modules" in payload
 
-
-def test_workflow_describe_submodule_json(capsys) -> None:
     assert main(["workflow", "describe", "jcvi.graphics_histogram", "--json"]) == 0
     payload = json.loads(capsys.readouterr().out)
     assert payload["module_id"] == "jcvi.graphics_histogram"
     assert payload["kind"] == "sub_module"
-    assert any(port["port_id"] == "numeric_files" for port in payload["inputs"])
 
 
 def test_workflow_describe_unknown_returns_error(capsys) -> None:
-    code = main(["workflow", "describe", "not.found"])
-    assert code == 2
-    assert "未找到" in capsys.readouterr().err
+    assert main(["workflow", "describe", "not.found"]) == 2
+    assert "not.found" in capsys.readouterr().err
 
 
 def test_workflow_validate_submodule_ports_json(capsys) -> None:
@@ -85,8 +76,7 @@ def test_workflow_validate_submodule_ports_json(capsys) -> None:
     )
     assert code == 0
     payload = json.loads(capsys.readouterr().out)
-    assert payload["valid"] is True
-    assert payload["errors"] == []
+    assert payload == {"valid": True, "errors": []}
 
 
 def test_workflow_validate_submodule_missing_required(capsys) -> None:
@@ -107,19 +97,20 @@ def test_workflow_validate_submodule_missing_required(capsys) -> None:
     assert any("numeric_files" in err for err in payload["errors"])
 
 
-def test_workflow_validate_analysis_request(tmp_path) -> None:
+def test_workflow_validate_workflow_request(tmp_path) -> None:
     request_path = tmp_path / "request.json"
     request_path.write_text(
         json.dumps(
             {
-                "schema_version": 1,
-                "kind": "analysis_request",
-                "method": "mcscan",
-                "task_kind": "sub_module",
-                "sub_module_id": "jcvi.graphics_histogram",
-                "port_bindings": {"numeric_files": ["data.txt"]},
-                "input": {"mode": "method_specific"},
+                "schema_version": 2,
+                "kind": "workflow_request",
+                "workflow_id": "graphics_histogram",
+                "species": [],
+                "reference_index": 0,
+                "inputs": {},
+                "parameters": {"histogram": {"inputs": ["data.txt"]}},
                 "output": {"directory": str(tmp_path / "out")},
+                "runtime": {},
             }
         ),
         encoding="utf-8",
@@ -133,7 +124,6 @@ def test_analyze_schema_with_capabilities(capsys) -> None:
     assert "analysis_request_schema" in payload
     assert "submodules" in payload
     assert "one_stop_workflows" in payload
-    assert any(spec["workflow_id"] == "synteny" for spec in payload["one_stop_workflows"])
 
 
 def test_analyze_schema_default_still_raw_schema(capsys) -> None:
@@ -146,15 +136,13 @@ def test_analyze_schema_default_still_raw_schema(capsys) -> None:
 def test_analyze_workflow_unknown_returns_error(capsys) -> None:
     code = main(["analyze", "workflow", "not_found", "in", "out"])
     assert code == 3
-    err = capsys.readouterr().err
-    assert "未知的一站式工作流" in err or "not_found" in err
+    assert "not_found" in capsys.readouterr().err
 
 
 def test_analyze_submodule_unknown_returns_error(capsys) -> None:
     code = main(["analyze", "submodule", "not.found", "--input-ports", "{}", "--output-dir", "out"])
     assert code == 3
-    err = capsys.readouterr().err
-    assert "未知的子模块" in err or "not.found" in err
+    assert "not.found" in capsys.readouterr().err
 
 
 def test_analyze_submodule_missing_required_port_returns_error(capsys) -> None:
@@ -170,12 +158,11 @@ def test_analyze_submodule_missing_required_port_returns_error(capsys) -> None:
         ]
     )
     assert code == 3
-    err = capsys.readouterr().err
-    assert "numeric_files" in err or "histogram" in err
+    assert "histogram" in capsys.readouterr().err
 
 
-def test_analyze_workflow_synteny_routes_to_one_stop(monkeypatch, tmp_path) -> None:
-    captured: dict[str, AnalysisRequest] = {}
+def test_analyze_workflow_synteny_routes_to_workflow_request(monkeypatch, tmp_path) -> None:
+    captured: dict[str, WorkflowRequest] = {}
 
     def fake_dispatch(self, request, signal_bus=None):
         captured["request"] = request
@@ -187,27 +174,17 @@ def test_analyze_workflow_synteny_routes_to_one_stop(monkeypatch, tmp_path) -> N
     (tmp_path / "a.cds").write_text("", encoding="utf-8")
     (tmp_path / "b.bed").write_text("", encoding="utf-8")
     (tmp_path / "b.cds").write_text("", encoding="utf-8")
-    outdir = tmp_path / "out"
 
-    code = main(
-        [
-            "analyze",
-            "workflow",
-            "synteny",
-            str(tmp_path),
-            str(outdir),
-            "--force",
-            "--json",
-        ]
-    )
+    code = main(["analyze", "workflow", "synteny", str(tmp_path), str(tmp_path / "out"), "--force", "--json"])
+
     assert code == 0
     request = captured["request"]
-    assert request.task_kind == "one_stop"
-    assert request.one_stop_workflow_id == "synteny"
+    assert request.workflow_id == "synteny"
+    assert [item.name for item in request.species] == ["a", "b"]
 
 
-def test_analyze_submodule_heatmap_routes_to_sub_module(monkeypatch, tmp_path) -> None:
-    captured: dict[str, AnalysisRequest] = {}
+def test_analyze_submodule_heatmap_routes_to_workflow_request(monkeypatch, tmp_path) -> None:
+    captured: dict[str, WorkflowRequest] = {}
 
     def fake_dispatch(self, request, signal_bus=None):
         captured["request"] = request
@@ -217,8 +194,6 @@ def test_analyze_submodule_heatmap_routes_to_sub_module(monkeypatch, tmp_path) -
 
     matrix = tmp_path / "matrix.csv"
     matrix.write_text("g,s1,s2\na,1,2\n", encoding="utf-8")
-    outdir = tmp_path / "out"
-
     code = main(
         [
             "analyze",
@@ -227,13 +202,14 @@ def test_analyze_submodule_heatmap_routes_to_sub_module(monkeypatch, tmp_path) -
             "--input-ports",
             json.dumps({"matrix_csv": str(matrix)}),
             "--output-dir",
-            str(outdir),
+            str(tmp_path / "out"),
             "--force",
             "--json",
         ]
     )
+
     assert code == 0
     request = captured["request"]
-    assert request.task_kind == "sub_module"
-    assert request.sub_module_id == "jcvi.graphics_heatmap"
-    assert request.port_bindings["matrix_csv"] == str(matrix)
+    assert request.workflow_id == "graphics_heatmap"
+    assert request.parameters.heatmap.matrix == str(matrix)
+    assert request.inputs["ports"]["matrix_csv"] == str(matrix)

@@ -6,7 +6,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
-from genomelens.core.json_utils import _bool, _dict, _float, _int, _str, _str_list
+from genomelens.utils.json import _bool, _dict, _float, _int, _str, _str_list
 
 # endregion
 

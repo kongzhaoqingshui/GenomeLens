@@ -11,13 +11,12 @@ if __package__ in {None, ""}:
 
 from genomelens_haiant_plugin._core import (
     PluginError,
-    build_analyze_run_command,
+    build_analyze_submodule_command,
     close_adapter_logging,
     load_params,
     resolve_genomelens_exe,
     resolve_param_path,
     setup_adapter_logging,
-    write_submodule_request,
 )
 
 LOGGER_NAME = "gljcvi_global_karyotype"
@@ -56,13 +55,13 @@ def build_runtime_command(params_path: str | Path) -> list[str]:
         if not edges:
             raise PluginError("edges must be a non-empty list")
 
-        request_path = write_submodule_request(
-            params,
-            base,
-            sub_module_id=SUB_MODULE_ID,
-            port_bindings={"tracks": tracks, "edges": edges},
+        argv = build_analyze_submodule_command(
+            genomelens_exe,
+            module_id=SUB_MODULE_ID,
+            input_ports={"tracks": tracks, "edges": edges},
+            output_dir=output_dir,
+            force=True,
         )
-        argv = build_analyze_run_command(genomelens_exe, request_path)
         logger.info("Dispatching GenomeLens: %s", argv)
         return argv
     finally:

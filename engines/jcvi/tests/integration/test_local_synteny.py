@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-from jcvi_genomelens.engine_runtime import run_manifest
+from jcvi_genomelens.runtime.engine import run_manifest
 
 ROOT = Path(__file__).resolve().parents[4]
 SAMPLE = ROOT / "references" / "samples" / "shell" / "bed_cds_minimal"
@@ -9,8 +9,24 @@ BLAST_BIN = ROOT / "toolchains" / "blast" / "current" / "bin"
 
 
 def _local_manifest(target_gene_ids: list[str], split_targets: bool = False) -> dict[str, object]:
+    species = [
+        {
+            "name": "query",
+            "role": "reference",
+            "input_mode": "bed_cds",
+            "bed": str(SAMPLE / "query.bed"),
+            "cds": str(SAMPLE / "query.cds"),
+        },
+        {
+            "name": "subject",
+            "role": "target",
+            "input_mode": "bed_cds",
+            "bed": str(SAMPLE / "subject.bed"),
+            "cds": str(SAMPLE / "subject.cds"),
+        },
+    ]
     return {
-        "schema_version": 2,
+        "schema_version": 3,
         "workflow": "local_synteny",
         "task": {
             "task_id": "query__subject__local_synteny",
@@ -18,29 +34,13 @@ def _local_manifest(target_gene_ids: list[str], split_targets: bool = False) -> 
             "workflow": "local_synteny",
             "source": "pytest",
         },
-        "species": [
-            {
-                "name": "query",
-                "role": "query",
-                "input_mode": "bed_cds",
-                "bed": str(SAMPLE / "query.bed"),
-                "cds": str(SAMPLE / "query.cds"),
-            },
-            {
-                "name": "subject",
-                "role": "subject",
-                "input_mode": "bed_cds",
-                "bed": str(SAMPLE / "subject.bed"),
-                "cds": str(SAMPLE / "subject.cds"),
-            },
-        ],
-        "query": {"name": "query", "bed": str(SAMPLE / "query.bed"), "cds": str(SAMPLE / "query.cds")},
-        "subject": {"name": "subject", "bed": str(SAMPLE / "subject.bed"), "cds": str(SAMPLE / "subject.cds")},
+        "inputs": {"species": species},
+        "species": species,
         "toolchain": {
             "blastn": str(BLAST_BIN / "blastn.exe"),
             "makeblastdb": str(BLAST_BIN / "makeblastdb.exe"),
         },
-        "options": {
+        "parameters": {
             "threads": 1,
             "min_block_size": 1,
             "formats": ["png"],

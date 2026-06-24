@@ -1,9 +1,9 @@
 from pathlib import Path
 
-from jcvi_genomelens import mirrored_karyotype
-from jcvi_genomelens.manifest_models import EngineRunManifest, GenomeSpec, ToolchainSpec, WorkflowOptions
+from jcvi_genomelens.graphics.karyotype import mirrored
+from jcvi_genomelens.manifest.models import EngineRunManifest, GenomeSpec, ToolchainSpec, WorkflowOptions
 from jcvi_genomelens.runtime.command_runner import CommandAudit
-from jcvi_genomelens.workflows import graphics_karyotype
+from jcvi_genomelens.workflows.graphics import karyotype as graphics_karyotype
 
 
 def _write_species(tmp_path: Path, name: str, prefix: str) -> GenomeSpec:
@@ -33,7 +33,7 @@ def test_mirrored_karyotype_inferrs_opposite_label_side_from_va(tmp_path: Path) 
     bed = _write_species(tmp_path, "query", "q").bed
     line = f"0.65, 0.12, 0.88, 0, #2f6f73, query, bottom, {bed}"
 
-    layout_line = mirrored_karyotype.LayoutLine(line)
+    layout_line = mirrored.LayoutLine(line)
 
     assert layout_line.label_va == "top"
 
@@ -42,7 +42,7 @@ def test_mirrored_karyotype_preserves_explicit_label_va(tmp_path: Path) -> None:
     bed = _write_species(tmp_path, "query", "q").bed
     line = f"0.65, 0.12, 0.88, 0, #2f6f73, query, bottom, {bed}, bottom"
 
-    layout_line = mirrored_karyotype.LayoutLine(line)
+    layout_line = mirrored.LayoutLine(line)
 
     assert layout_line.label_va == "bottom"
 

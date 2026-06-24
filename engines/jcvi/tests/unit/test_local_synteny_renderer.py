@@ -2,10 +2,8 @@ from pathlib import Path
 
 import pytest
 
-from jcvi_genomelens.graphics.local_synteny_renderer import (
-    GeneRecord,
-    MappedGene,
-    PositionedGene,
+from jcvi_genomelens.graphics.local_synteny.models import GeneRecord, MappedGene, PositionedGene
+from jcvi_genomelens.graphics.local_synteny.public import (
     _build_track_window,
     _centered_x_limits,
     _compute_layout,

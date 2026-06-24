@@ -11,46 +11,21 @@ if __package__ in {None, ""}:
 from genomelens_haiant_plugin._core import (
     PluginError,
     build_analyze_run_command,
+    build_histogram_workflow_request,
     close_adapter_logging,
     load_params,
     resolve_genomelens_exe,
     resolve_param_path,
     setup_adapter_logging,
-    write_submodule_request,
+    write_request_payload,
 )
 
 LOGGER_NAME = "gljcvi_histogram"
 ERROR_PREFIX = "GenomeLens histogram feature plugin error"
-SUB_MODULE_ID = "jcvi.graphics_histogram"
-
-
-def _extra_method_config(params: dict[str, object]) -> dict[str, object]:
-    """Map histogram-specific params into method_config."""
-
-    extra: dict[str, object] = {}
-    bins = params.get("histogram_bins")
-    if bins is not None:
-        try:
-            extra["histogram_bins"] = int(str(bins))
-        except (TypeError, ValueError) as exc:
-            raise PluginError("histogram_bins must be an integer") from exc
-    columns = params.get("histogram_columns")
-    if columns is not None:
-        if isinstance(columns, list):
-            extra["histogram_columns"] = [int(str(c)) for c in columns]
-        else:
-            extra["histogram_columns"] = [
-                int(str(c).strip()) for c in str(columns).split(",") if str(c).strip()
-            ]
-    for key in ("histogram_title", "histogram_xlabel", "histogram_fill"):
-        value = params.get(key)
-        if value is not None:
-            extra[key] = str(value)
-    return extra
 
 
 def build_runtime_command(params_path: str | Path) -> list[str]:
-    """Build the GenomeLens ``analyze run`` command for the histogram submodule."""
+    """Build the GenomeLens ``analyze run`` command for the histogram workflow."""
 
     params, base = load_params(params_path)
     output_dir = Path(resolve_param_path(base, params.get("output_dir") or "output"))
@@ -69,13 +44,12 @@ def build_runtime_command(params_path: str | Path) -> list[str]:
             for path in raw_files
         ]
 
-        request_path = write_submodule_request(
+        request = build_histogram_workflow_request(
             params,
             base,
-            sub_module_id=SUB_MODULE_ID,
-            port_bindings={"numeric_files": numeric_files},
-            extra_method_config=_extra_method_config(params),
+            input_files=numeric_files,
         )
+        request_path = write_request_payload(params, base, request)
         argv = build_analyze_run_command(genomelens_exe, request_path)
         logger.info("Dispatching GenomeLens: %s", argv)
         return argv

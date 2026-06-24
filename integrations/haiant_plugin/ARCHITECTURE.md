@@ -19,7 +19,7 @@
 - 每个插件只携带自己的入口和配置，体积最小。
 - GenomeLens 本体与工具链只需在用户环境中安装一次，所有插件共享同一份外部可执行文件。
 - 插件之间互不干扰，可以独立迭代、独立打包、独立发布。
-- 所有插件统一使用 `<genomelens.exe> analyze run <request.json>` 调用 GenomeLens。
+- 常规工作流插件统一使用 `<genomelens.exe> analyze run <WorkflowRequest v2>` 调用 GenomeLens；原子子模块插件使用 `<genomelens.exe> analyze submodule <module_id> ...`；一站式工作流插件使用 `<genomelens.exe> analyze workflow synteny ...`。
 
 ---
 
@@ -45,42 +45,62 @@ $env:GENOMELENS_EXE = "C:\GenomeLens\GenomeLens.exe"
 
 如果 `GenomeLens_Path` 指向 `.cmd` / `.bat` 文件，插件会自动通过 `cmd.exe /c` 分派，保证命令行参数正确传递。
 
-### 2.2 单功能插件
+### 2.2 一站式工作流插件
 
-每个 JCVI 小功能对应一个独立插件包：
+`gljcvi-synteny` 直接对应 `analyze workflow synteny` 一键分析流程。它根据 `params.json` 动态生成 `output/jcvi.config.json`，然后直接调用外部 GenomeLens：
+
+```powershell
+<GenomeLens_Path> analyze workflow synteny <input_dir> <output_dir> --jcvi-config output/jcvi.config.json
+```
+
+未填写 `target_gene_ids` 时生成 `workflow = graphics_synteny` 的全局共线性配置；填写 `target_gene_ids` 时自动切换到 `local_synteny`；3 个及以上物种时平台自动拆分为 all-vs-all pairwise 并聚合全局核型总图与多物种局部总图。该插件不再生成 `genomelens_request.json`，也不提供 workflow 选择器。
+
+### 2.3 独立工作流插件
+
+每个 JCVI workflow 对应一个独立插件包：
 
 - `gljcvi-dotplot` — `workflow = graphics_dotplot`
-- `gljcvi-synteny` — `workflow = graphics_synteny`
+- `gljcvi-synteny-figure` — `workflow = graphics_synteny`
 - `gljcvi-karyotype` — `workflow = graphics_karyotype`
 - `gljcvi-catalog-ortholog` — `workflow = catalog_ortholog`
 - `gljcvi-local-synteny` — `workflow = local_synteny`
+- `gljcvi-histogram` — `workflow = graphics_histogram`
+- `gljcvi-heatmap` — `workflow = graphics_heatmap`
+
+每个包通过 `features._entry_template` 或专用入口生成 `WorkflowRequest v2`，调用 `analyze run`。
 
 每个包只包含：
 
 ```text
-gljcvi-dotplot/
+gljcvi-<feature>/
 ├── main.exe                    # 插件入口
 ├── config.json                 # 该功能专用 HAIant UI 参数
 ├── params.json                 # 示例参数
 ├── README.md
+├── PARAMETER_MAPPING.md
 ├── input/                      # 示例输入
 └── output/                     # 结果输出
 ```
 
-### 2.3 统一自动流插件
+### 2.4 原子子模块插件
 
-`gljcvi-auto` 是一个统一的 MCscan 自动流插件，直接对应 `analyze mcscan jcvi` 一键分析流程。它根据 `params.json` 动态生成 `output/jcvi.config.json`，然后直接调用外部 GenomeLens：
+对应平台 `SubModuleRegistry` 中的独立子模块：
+
+- `gljcvi-mcscan-pairwise` — `jcvi.mcscan_pairwise`
+- `gljcvi-global-karyotype` — `jcvi.graphics_karyotype_global`
+- `gljcvi-multi-local-synteny` — `jcvi.local_synteny_multi`
+
+这些插件不写 `genomelens_request.json`，而是直接调用：
 
 ```powershell
-<GenomeLens_Path> analyze mcscan jcvi <input_dir> <output_dir> <output/jcvi.config.json>
+<GenomeLens_Path> analyze submodule <module_id> --input-ports <json> --output-dir <output_dir> --force
 ```
 
-未填写 `target_gene_ids` 时生成 `workflow = graphics_synteny` 的全局共线性配置；填写 `target_gene_ids` 时自动切换到 `local_synteny`。该插件不再生成 `genomelens_request.json`，也不提供 workflow 选择器。
+### 2.5 输入约定
 
-### 2.4 输入约定
+工作流插件默认使用 `input_dir` 自动发现同名物种文件对（与 `analyze workflow synteny` 的目录发现行为一致）。如果需要显式指定每个物种的文件，仍可填写 `species` 列表和 `input_mode`。
 
-所有插件默认使用 `input_dir` 自动发现同名物种文件对（与 `analyze mcscan jcvi` CLI 行为一致）。
-如果需要显式指定每个物种的文件，仍可填写 `species` 列表和 `input_mode`（保留兼容）。
+原子子模块插件通过 `params.json` 中的显式端口字段接收输入，例如 `tracks`/`edges`、`species_pair`、`blocks`/`bed`/`target_genes`。
 
 ---
 
@@ -90,26 +110,32 @@ gljcvi-dotplot/
 2. 用户填写 `params.json`（至少设置 `GenomeLens_Path`）。
 3. HAIant 调用 `main.exe params.json`。
 4. `main.exe` 内的 Python 逻辑：
-   - 解析 `params.json`
-   - 从 `params.json` 的 `GenomeLens_Path` / `GenomeLens_Path` 或 `GENOMELENS_EXE` 环境变量解析外部 GenomeLens 可执行文件路径
-   - 对 `gljcvi-auto`：动态生成 `output/jcvi.config.json`，并调用 `<GenomeLens_Path> analyze mcscan jcvi <input> <output> output/jcvi.config.json`
-   - 对单功能插件：生成 `output/genomelens_request.json`，并调用 `<GenomeLens_Path> analyze run output\genomelens_request.json`
+   - 解析 `params.json`。
+   - 从 `params.json` 的 `GenomeLens_Path` 或 `GENOMELENS_EXE` 环境变量解析外部 GenomeLens 可执行文件路径。
+   - 对 `gljcvi-synteny`：动态生成 `output/jcvi.config.json`，并调用 `<GenomeLens_Path> analyze workflow synteny <input> <output> --jcvi-config output/jcvi.config.json`。
+   - 对独立工作流插件：生成 `output/genomelens_request.json`（`WorkflowRequest v2`），并调用 `<GenomeLens_Path> analyze run output\genomelens_request.json`。
+   - 对原子子模块插件：调用 `<GenomeLens_Path> analyze submodule <module_id> --input-ports <json> --output-dir <output>`。
 5. 返回外部 GenomeLens 的退出码。
 
 ---
 
 ## 4. 请求 JSON 映射
 
-所有插件最终都生成 GenomeLens `AnalysisRequest` JSON，调用 `analyze run`。映射规则参见 `PARAMETER_MAPPING.md`。各插件固定的 `method_config.workflow` 如下：
+常规工作流插件最终生成 GenomeLens `WorkflowRequest v2` JSON，调用 `analyze run`。原子子模块插件不生成旧 request，而是调用 `analyze submodule`。映射规则参见 `PARAMETER_MAPPING.md`。常规工作流插件会把底层 JCVI workflow 写入 `parameters.extras.engine_workflow`，平台 planner 再映射到引擎 manifest。
 
-| 插件 | workflow | 说明 |
-|---|---|---|
-| `gljcvi-dotplot` | `graphics_dotplot` | 点图 |
-| `gljcvi-synteny` | `graphics_synteny` | 共线性图 |
-| `gljcvi-karyotype` | `graphics_karyotype` | 核型图 |
-| `gljcvi-catalog-ortholog` | `catalog_ortholog` | 双向 ortholog 目录 |
-| `gljcvi-local-synteny` | `local_synteny` | 局部共线性 |
-| `gljcvi-auto` | `graphics_synteny` / `local_synteny` | `analyze mcscan jcvi` 一键自动流；填写 `target_gene_ids` 时切换到 `local_synteny` |
+| 产物路径 | 类型 | workflow / module_id | 说明 |
+|---|---|---|---|
+| `app/onestop/gljcvi-synteny.zip` | 一站式工作流 | `analyze workflow synteny` | 自动路由 |
+| `app/workflow-plugins/gljcvi-dotplot.zip` | 独立工作流 | `graphics_dotplot` | 点图 |
+| `app/workflow-plugins/gljcvi-synteny-figure.zip` | 独立工作流 | `graphics_synteny` | 双物种共线性图 |
+| `app/workflow-plugins/gljcvi-karyotype.zip` | 独立工作流 | `graphics_karyotype` | 核型图 |
+| `app/workflow-plugins/gljcvi-catalog-ortholog.zip` | 独立工作流 | `catalog_ortholog` | 双向 ortholog 目录 |
+| `app/workflow-plugins/gljcvi-local-synteny.zip` | 独立工作流 | `local_synteny` | 局部共线性 |
+| `app/workflow-plugins/gljcvi-histogram.zip` | 独立工作流 | `graphics_histogram` | 直方图 |
+| `app/workflow-plugins/gljcvi-heatmap.zip` | 独立工作流 | `graphics_heatmap` | 热图 |
+| `app/submodules/gljcvi-mcscan-pairwise.zip` | 原子子模块 | `jcvi.mcscan_pairwise` | pairwise block 计算 |
+| `app/submodules/gljcvi-global-karyotype.zip` | 原子子模块 | `jcvi.graphics_karyotype_global` | 全局核型总图 |
+| `app/submodules/gljcvi-multi-local-synteny.zip` | 原子子模块 | `jcvi.local_synteny_multi` | 多物种局部总图 |
 
 ---
 
@@ -121,25 +147,41 @@ gljcvi-dotplot/
 
 旧环境变量 `GENOMELENS_PLUGIN_RUNTIME`、`GLJCVIMCSCAN_HOME` 随重型中心与单包插件一起移除，新插件不再使用。
 
+---
+
 ## 6. 构建与发布
 
-### 6.1 单功能插件
+### 6.1 一站式工作流插件
+
+```powershell
+scripts/build_gljcvi_feature_plugin.ps1 -Feature synteny
+```
+
+产物：`app/onestop/gljcvi-synteny.zip`
+
+### 6.2 独立工作流插件
 
 ```powershell
 scripts/build_gljcvi_feature_plugin.ps1 -Feature dotplot
-scripts/build_gljcvi_feature_plugin.ps1 -Feature synteny
+scripts/build_gljcvi_feature_plugin.ps1 -Feature synteny_figure
 scripts/build_gljcvi_feature_plugin.ps1 -Feature karyotype
 scripts/build_gljcvi_feature_plugin.ps1 -Feature catalog_ortholog
 scripts/build_gljcvi_feature_plugin.ps1 -Feature local_synteny
+scripts/build_gljcvi_feature_plugin.ps1 -Feature histogram
+scripts/build_gljcvi_feature_plugin.ps1 -Feature heatmap
 ```
 
-### 6.2 统一自动流插件
+产物：`app/workflow-plugins/gljcvi-<feature>.zip`
+
+### 6.3 原子子模块插件
 
 ```powershell
-scripts/build_gljcvi_feature_plugin.ps1 -Feature auto
+scripts/build_gljcvi_feature_plugin.ps1 -Feature mcscan_pairwise
+scripts/build_gljcvi_feature_plugin.ps1 -Feature global_karyotype
+scripts/build_gljcvi_feature_plugin.ps1 -Feature multi_local_synteny
 ```
 
-构建产物位于 `app/gljcvi-<feature>.zip`。
+产物：`app/submodules/gljcvi-<feature>.zip`
 
 ---
 

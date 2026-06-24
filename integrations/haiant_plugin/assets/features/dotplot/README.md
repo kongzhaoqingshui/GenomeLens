@@ -2,7 +2,7 @@
 
 ## 概述
 
-`gljcvi-dotplot` 是 GenomeLens 在 HAIant（智然体）平台上的**双物种点图**插件。它把 `params.json` 翻译成 GenomeLens `AnalysisRequest`，调用外部 `GenomeLens.exe` 执行 `analyze run`，最终基于 JCVI `graphics_dotplot` 生成双物种同源点图。
+`gljcvi-dotplot` 是 GenomeLens 在 HAIant（智然体）平台上的**双物种点图**插件。它把 `params.json` 翻译成 GenomeLens `WorkflowRequest v2`，调用外部 `GenomeLens.exe` 执行 `analyze run`，最终基于 JCVI `graphics_dotplot` 生成双物种同源点图。
 
 点图（dotplot）以两个物种的染色体为坐标轴，每个点代表一对同源基因。通过点的分布，研究者可以直观地看到大规模共线性区块、染色体重排、融合、断裂、重复事件以及物种间的线性对应关系。
 
@@ -97,7 +97,7 @@ input/
 
 ```text
 output/
-├── genomelens_request.json   # 生成的 AnalysisRequest
+├── genomelens_request.json   # 生成的 WorkflowRequest v2
 ├── run.log                   # 运行日志
 └── results/
     └── figures/
@@ -141,7 +141,7 @@ main.exe params.json
 等价的 GenomeLens CLI 命令为：
 
 ```powershell
-GenomeLens.exe analyze mcscan jcvi graphics_dotplot input output --force
+GenomeLens.exe analyze run output\genomelens_request.json
 ```
 
 ## 何时使用

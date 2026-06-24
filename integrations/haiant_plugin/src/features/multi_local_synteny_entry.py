@@ -12,13 +12,12 @@ if __package__ in {None, ""}:
 from genomelens_haiant_plugin._core import (
     PluginError,
     _split_csv,
-    build_analyze_run_command,
+    build_analyze_submodule_command,
     close_adapter_logging,
     load_params,
     resolve_genomelens_exe,
     resolve_param_path,
     setup_adapter_logging,
-    write_submodule_request,
 )
 
 LOGGER_NAME = "gljcvi_multi_local_synteny"
@@ -69,18 +68,18 @@ def build_runtime_command(params_path: str | Path) -> list[str]:
         if not target_gene_ids:
             raise PluginError("target_genes must contain at least one gene ID")
 
-        request_path = write_submodule_request(
-            params,
-            base,
-            sub_module_id=SUB_MODULE_ID,
-            port_bindings={
+        argv = build_analyze_submodule_command(
+            genomelens_exe,
+            module_id=SUB_MODULE_ID,
+            input_ports={
                 "tracks": tracks,
                 "blocks": blocks_path,
                 "bed": bed_path,
                 "target_genes": target_gene_ids,
             },
+            output_dir=output_dir,
+            force=True,
         )
-        argv = build_analyze_run_command(genomelens_exe, request_path)
         logger.info("Dispatching GenomeLens: %s", argv)
         return argv
     finally:

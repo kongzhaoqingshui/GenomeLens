@@ -7,9 +7,8 @@ import platform
 import sys
 
 from jcvi_genomelens._version import ENGINE_NAME, ENGINE_VERSION, JCVI_UPSTREAM_VERSION, PATCHSET_VERSION
-from jcvi_genomelens.runtime_profile import build_runtime_profile
-from jcvi_genomelens.workflow_contract import SUPPORTED_WORKFLOWS
-from jcvi_genomelens.workflow_dispatcher import SUBMODULE_ID_TO_WORKFLOW
+from jcvi_genomelens.runtime.profile import build_runtime_profile
+from jcvi_genomelens.workflows.contract import SUPPORTED_WORKFLOWS
 
 # endregion
 
@@ -42,7 +41,6 @@ def build_probe_payload() -> dict[str, object]:
         # capabilities/dispatchable_workflows 目前保持同值，给未来更细粒度区分留接口。
         "capabilities": list(SUPPORTED_WORKFLOWS),
         "dispatchable_workflows": list(SUPPORTED_WORKFLOWS),
-        "submodule_to_workflow": dict(SUBMODULE_ID_TO_WORKFLOW),
         "bundled_jcvi_modules": BUNDLED_JCVI_MODULES,
         "platform": sys.platform,
         **profile,

@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-from jcvi_genomelens.engine_runtime import run_manifest
+from jcvi_genomelens.runtime.engine import run_manifest
 
 ROOT = Path(__file__).resolve().parents[4]
 SAMPLE = ROOT / "references" / "samples" / "shell" / "bed_cds_minimal"
@@ -9,8 +9,24 @@ BLAST_BIN = ROOT / "toolchains" / "blast" / "current" / "bin"
 
 
 def _manifest(workflow: str) -> dict[str, object]:
+    species = [
+        {
+            "name": "query",
+            "role": "reference",
+            "input_mode": "bed_cds",
+            "bed": str(SAMPLE / "query.bed"),
+            "cds": str(SAMPLE / "query.cds"),
+        },
+        {
+            "name": "subject",
+            "role": "target",
+            "input_mode": "bed_cds",
+            "bed": str(SAMPLE / "subject.bed"),
+            "cds": str(SAMPLE / "subject.cds"),
+        },
+    ]
     return {
-        "schema_version": 2,
+        "schema_version": 3,
         "workflow": workflow,
         "task": {
             "task_id": f"query__subject__{workflow}",
@@ -18,33 +34,13 @@ def _manifest(workflow: str) -> dict[str, object]:
             "workflow": workflow,
             "source": "pytest",
         },
-        "species": [
-            {
-                "name": "query",
-                "role": "query",
-                "input_mode": "bed_cds",
-                "bed": str(SAMPLE / "query.bed"),
-                "cds": str(SAMPLE / "query.cds"),
-            },
-            {
-                "name": "subject",
-                "role": "subject",
-                "input_mode": "bed_cds",
-                "bed": str(SAMPLE / "subject.bed"),
-                "cds": str(SAMPLE / "subject.cds"),
-            },
-        ],
-        "query": {"name": "query", "bed": str(SAMPLE / "query.bed"), "cds": str(SAMPLE / "query.cds")},
-        "subject": {
-            "name": "subject",
-            "bed": str(SAMPLE / "subject.bed"),
-            "cds": str(SAMPLE / "subject.cds"),
-        },
+        "inputs": {"species": species},
+        "species": species,
         "toolchain": {
             "blastn": str(BLAST_BIN / "blastn.exe"),
             "makeblastdb": str(BLAST_BIN / "makeblastdb.exe"),
         },
-        "options": {"threads": 1, "min_block_size": 1, "formats": ["png"]},
+        "parameters": {"threads": 1, "min_block_size": 1, "formats": ["png"]},
         "expected_outputs": ["blast_table", "anchors", "simple", "blocks", "figures"],
     }
 
@@ -61,7 +57,7 @@ def _heatmap_manifest(matrix: Path, rowgroups: Path | None = None) -> dict[str, 
     if rowgroups is not None:
         options["rowgroups"] = str(rowgroups)
     return {
-        "schema_version": 2,
+        "schema_version": 3,
         "workflow": "graphics_heatmap",
         "task": {
             "task_id": "heatmap__graphics_heatmap",
@@ -70,8 +66,8 @@ def _heatmap_manifest(matrix: Path, rowgroups: Path | None = None) -> dict[str, 
             "source": "pytest",
         },
         "toolchain": {},
-        "matrix": str(matrix),
-        "options": options,
+        "inputs": {"matrix": str(matrix)},
+        "parameters": options,
         "expected_outputs": ["figures", "heatmap_figures"],
     }
 
@@ -82,9 +78,9 @@ def test_engine_run_graphics_synteny(tmp_path: Path) -> None:
     summary_path = run_manifest(manifest, tmp_path / "engine")
     payload = json.loads(summary_path.read_text(encoding="utf-8"))
     assert payload["status"] == "ok"
-    assert payload["schema_version"] == 2
+    assert payload["schema_version"] == 3
     assert payload["task"]["task_type"] == "pairwise_synteny"
-    assert [item["role"] for item in payload["species"]] == ["query", "subject"]
+    assert [item["role"] for item in payload["species"]] == ["reference", "target"]
     assert payload["distribution"] == "source"
     assert payload["runtime_mode"] in {"core", "accelerated"}
     assert isinstance(payload["loaded_extensions"], list)
@@ -146,15 +142,15 @@ def test_engine_run_graphics_histogram(tmp_path: Path) -> None:
     numbers = tmp_path / "numbers.txt"
     numbers.write_text("1\n2\n2\n3\n5\n8\n13\n", encoding="utf-8")
     manifest = {
-        "schema_version": 2,
+        "schema_version": 3,
         "workflow": "graphics_histogram",
         "task": {"task_id": "histogram", "task_type": "plot_histogram", "workflow": "graphics_histogram"},
         "species": [],
         "toolchain": {},
-        "options": {
+        "inputs": {"histogram_files": [str(numbers)]},
+        "parameters": {
             "formats": ["png", "svg"],
             "dpi": 150,
-            "histogram_inputs": [str(numbers)],
             "histogram_columns": [0],
             "histogram_bins": 4,
             "histogram_vmin": 0,
@@ -195,8 +191,8 @@ def test_engine_run_graphics_karyotype(tmp_path: Path) -> None:
 
 def test_engine_run_graphics_karyotype_with_label_overlap_fix(tmp_path: Path) -> None:
     data = _manifest("graphics_karyotype")
-    data["options"] = {
-        **data["options"],
+    data["parameters"] = {
+        **data["parameters"],
         "auto_optimization": {"optimize_karyotype_labels": True},
     }
     manifest = tmp_path / "manifest.json"
@@ -240,20 +236,22 @@ def test_engine_run_graphics_karyotype_global(tmp_path: Path) -> None:
     third_bed = tmp_path / "third.bed"
     third_bed.write_text((SAMPLE / "subject.bed").read_text(encoding="utf-8"), encoding="utf-8")
     global_manifest = {
-        "schema_version": 2,
+        "schema_version": 3,
         "workflow": "graphics_karyotype_global",
         "task": {"task_id": "global", "task_type": "multi_species_synteny", "source": "pytest"},
-        "tracks": [
-            {"name": "query", "bed": str(SAMPLE / "query.bed")},
-            {"name": "subject", "bed": str(SAMPLE / "subject.bed")},
-            {"name": "third", "bed": str(third_bed)},
-        ],
-        "edges": [
-            {"i": 0, "j": 1, "simple": simple},
-            {"i": 0, "j": 2, "simple": simple},
-        ],
+        "inputs": {
+            "tracks": [
+                {"name": "query", "bed": str(SAMPLE / "query.bed")},
+                {"name": "subject", "bed": str(SAMPLE / "subject.bed")},
+                {"name": "third", "bed": str(third_bed)},
+            ],
+            "edges": [
+                {"i": 0, "j": 1, "simple": simple},
+                {"i": 0, "j": 2, "simple": simple},
+            ],
+        },
         "toolchain": {},
-        "options": {
+        "parameters": {
             "formats": ["png"],
             "auto_optimization": {
                 "optimize_figsize": True,
@@ -290,20 +288,22 @@ def test_engine_run_graphics_karyotype_global_with_label_overlap_fix(tmp_path: P
     third_bed = tmp_path / "third.bed"
     third_bed.write_text((SAMPLE / "subject.bed").read_text(encoding="utf-8"), encoding="utf-8")
     global_manifest = {
-        "schema_version": 2,
+        "schema_version": 3,
         "workflow": "graphics_karyotype_global",
         "task": {"task_id": "global", "task_type": "multi_species_synteny", "source": "pytest"},
-        "tracks": [
-            {"name": "query", "bed": str(SAMPLE / "query.bed")},
-            {"name": "subject", "bed": str(SAMPLE / "subject.bed")},
-            {"name": "third", "bed": str(third_bed)},
-        ],
-        "edges": [
-            {"i": 0, "j": 1, "simple": simple},
-            {"i": 0, "j": 2, "simple": simple},
-        ],
+        "inputs": {
+            "tracks": [
+                {"name": "query", "bed": str(SAMPLE / "query.bed")},
+                {"name": "subject", "bed": str(SAMPLE / "subject.bed")},
+                {"name": "third", "bed": str(third_bed)},
+            ],
+            "edges": [
+                {"i": 0, "j": 1, "simple": simple},
+                {"i": 0, "j": 2, "simple": simple},
+            ],
+        },
         "toolchain": {},
-        "options": {
+        "parameters": {
             "formats": ["png"],
             "auto_optimization": {
                 "optimize_figsize": True,
@@ -345,18 +345,20 @@ def test_engine_run_local_synteny_multi(tmp_path: Path) -> None:
     blocks = tmp_path / "local_multi.blocks"
     blocks.write_text("qgene1\tsgene1\ttgene1\nqgene2\tsgene2\ttgene2\n", encoding="utf-8")
     manifest = {
-        "schema_version": 2,
+        "schema_version": 3,
         "workflow": "local_synteny_multi",
         "task": {"task_id": "local", "task_type": "multi_species_local_synteny", "source": "pytest"},
-        "tracks": [
-            {"name": "query", "bed": str(bed)},
-            {"name": "subject", "bed": str(bed)},
-            {"name": "third", "bed": str(bed)},
-        ],
-        "blocks": str(blocks),
-        "bed": str(bed),
+        "inputs": {
+            "tracks": [
+                {"name": "query", "bed": str(bed)},
+                {"name": "subject", "bed": str(bed)},
+                {"name": "third", "bed": str(bed)},
+            ],
+            "blocks": str(blocks),
+            "bed": str(bed),
+        },
         "toolchain": {},
-        "options": {
+        "parameters": {
             "formats": ["png"],
             "target_gene_ids": ["qgene1"],
             "auto_optimization": {
@@ -402,18 +404,20 @@ def test_engine_run_local_synteny_multi_native_renderer(tmp_path: Path) -> None:
     blocks = tmp_path / "local_multi.blocks"
     blocks.write_text("r*qgene1\tsgene1\ttgene1\nqgene2\tsgene2\ttgene2\n", encoding="utf-8")
     manifest = {
-        "schema_version": 2,
+        "schema_version": 3,
         "workflow": "local_synteny_multi",
         "task": {"task_id": "local-native", "task_type": "multi_species_local_synteny", "source": "pytest"},
-        "tracks": [
-            {"name": "query", "bed": str(bed)},
-            {"name": "subject", "bed": str(bed)},
-            {"name": "third", "bed": str(bed)},
-        ],
-        "blocks": str(blocks),
-        "bed": str(bed),
+        "inputs": {
+            "tracks": [
+                {"name": "query", "bed": str(bed)},
+                {"name": "subject", "bed": str(bed)},
+                {"name": "third", "bed": str(bed)},
+            ],
+            "blocks": str(blocks),
+            "bed": str(bed),
+        },
         "toolchain": {},
-        "options": {
+        "parameters": {
             "formats": ["svg"],
             "target_gene_ids": ["qgene1"],
             "use_native_local_synteny_renderer": True,
@@ -440,7 +444,7 @@ def test_engine_run_local_synteny_multi_native_renderer(tmp_path: Path) -> None:
 
 def test_engine_rejects_simplified_fallback(tmp_path: Path) -> None:
     data = _manifest("graphics_synteny")
-    data["options"] = {**data["options"], "allow_simplified_fallback": True}
+    data["parameters"] = {**data["parameters"], "allow_simplified_fallback": True}
     manifest = tmp_path / "manifest.json"
     manifest.write_text(json.dumps(data), encoding="utf-8")
     summary_path = run_manifest(manifest, tmp_path / "engine")

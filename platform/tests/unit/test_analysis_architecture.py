@@ -6,4 +6,4 @@ def test_cli_analyze_does_not_call_run_mcscan_directly() -> None:
     source = (root / "src" / "genomelens" / "cli" / "commands" / "analyze.py").read_text(encoding="utf-8")
 
     assert "run_mcscan" not in source
-    assert "McscanExecutionRequest" not in source
+    assert "SyntenyExecutionRequest" not in source

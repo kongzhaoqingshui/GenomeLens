@@ -10,10 +10,18 @@ try:
 
     _TREE_FMT_KW = "parser"
 except ImportError:  # pragma: no cover
-    from ete3 import Tree
+    try:
+        from ete3 import Tree
+    except ImportError:
+
+        class Tree:  # type: ignore[no-redef]
+            """Placeholder used when optional ETE tree libraries are unavailable."""
+
+            def __init__(self, *args, **kwargs):
+                raise ImportError("Tree rendering requires ete4 or a Python-compatible ete3 installation")
 
     _TREE_FMT_KW = "format"
-    if not hasattr(Tree, "common_ancestor"):
+    if not hasattr(Tree, "common_ancestor") and hasattr(Tree, "get_common_ancestor"):
         Tree.common_ancestor = Tree.get_common_ancestor
 
 from ..apps.base import OptionParser, glob, logger

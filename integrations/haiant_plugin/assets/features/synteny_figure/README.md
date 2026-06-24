@@ -2,7 +2,7 @@
 
 ## 概述
 
-`gljcvi-synteny` 是 GenomeLens 在 HAIant（智然体）平台上的**双物种共线性图**插件。它把 `params.json` 翻译成 GenomeLens `AnalysisRequest`，调用外部 `GenomeLens.exe` 执行 `analyze run`，最终基于 JCVI `graphics_synteny` 生成双物种共线性图。
+`gljcvi-synteny` 是 GenomeLens 在 HAIant（智然体）平台上的**双物种共线性图**插件。它把 `params.json` 翻译成 GenomeLens `WorkflowRequest v2`，调用外部 `GenomeLens.exe` 执行 `analyze run`，最终基于 JCVI `graphics_synteny` 生成双物种共线性图。
 
 与共线性点图不同，共线性图（synteny figure）以染色体条带或轨道的形式展示两个物种之间的保守基因区块（syntenic blocks），并通过连线把同源基因对连接起来。它更强调已识别的共线性区块及其在染色体上的相对位置，是发表级比较基因组学文章中最常用的图型之一。
 
@@ -133,7 +133,7 @@ main.exe params.json
 等价 CLI：
 
 ```powershell
-GenomeLens.exe analyze mcscan jcvi graphics_synteny input output --force
+GenomeLens.exe analyze run output\genomelens_request.json
 ```
 
 ## 何时使用

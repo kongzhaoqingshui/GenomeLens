@@ -11,36 +11,21 @@ if __package__ in {None, ""}:
 from genomelens_haiant_plugin._core import (
     PluginError,
     build_analyze_run_command,
+    build_heatmap_workflow_request,
     close_adapter_logging,
     load_params,
     resolve_genomelens_exe,
     resolve_param_path,
     setup_adapter_logging,
-    write_submodule_request,
+    write_request_payload,
 )
 
 LOGGER_NAME = "gljcvi_heatmap"
 ERROR_PREFIX = "GenomeLens heatmap feature plugin error"
-SUB_MODULE_ID = "jcvi.graphics_heatmap"
-
-
-def _extra_method_config(params: dict[str, object]) -> dict[str, object]:
-    """Map heatmap-specific params into method_config."""
-
-    extra: dict[str, object] = {}
-    for key in ("cmap", "rowgroups"):
-        value = params.get(key)
-        if value is not None:
-            extra[key] = str(value)
-    for key in ("groups", "horizontalbar"):
-        value = params.get(key)
-        if value is not None:
-            extra[key] = str(value).strip().lower() in {"true", "1", "yes", "on"}
-    return extra
 
 
 def build_runtime_command(params_path: str | Path) -> list[str]:
-    """Build the GenomeLens ``analyze run`` command for the heatmap submodule."""
+    """Build the GenomeLens ``analyze run`` command for the heatmap workflow."""
 
     params, base = load_params(params_path)
     output_dir = Path(resolve_param_path(base, params.get("output_dir") or "output"))
@@ -54,13 +39,12 @@ def build_runtime_command(params_path: str | Path) -> list[str]:
             raise PluginError("input_file is required")
         matrix_path = resolve_param_path(base, matrix, required=True, must_exist=True)
 
-        request_path = write_submodule_request(
+        request = build_heatmap_workflow_request(
             params,
             base,
-            sub_module_id=SUB_MODULE_ID,
-            port_bindings={"matrix_csv": matrix_path},
-            extra_method_config=_extra_method_config(params),
+            matrix_path=matrix_path,
         )
+        request_path = write_request_payload(params, base, request)
         argv = build_analyze_run_command(genomelens_exe, request_path)
         logger.info("Dispatching GenomeLens: %s", argv)
         return argv

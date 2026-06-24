@@ -8,7 +8,7 @@ from pathlib import Path
 
 from jcvi_genomelens._version import ENGINE_NAME, ENGINE_VERSION, JCVI_UPSTREAM_VERSION, PATCHSET_VERSION
 from jcvi_genomelens.runtime.command_runner import CommandAudit
-from jcvi_genomelens.runtime_profile import build_runtime_profile
+from jcvi_genomelens.runtime.profile import build_runtime_profile
 
 # endregion
 

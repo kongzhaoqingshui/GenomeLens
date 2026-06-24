@@ -4,12 +4,7 @@ import threading
 import time
 
 from genomelens._version import __version__
-from genomelens.analysis.requests.models import (
-    AnalysisInput,
-    AnalysisOutput,
-    AnalysisRequest,
-    AnalysisSpeciesInput,
-)
+from genomelens.analysis.requests.models import WorkflowOutput, WorkflowRequest, WorkflowSpeciesInput
 from genomelens.app.events.signal_bus import SignalBus
 from genomelens.cli.main import main
 from genomelens.cli.ui import (
@@ -20,6 +15,14 @@ from genomelens.cli.ui import (
     render_command_error,
     render_workbench_banner,
 )
+
+
+def _request(species_names: list[str]) -> WorkflowRequest:
+    return WorkflowRequest(
+        workflow_id="synteny",
+        species=[WorkflowSpeciesInput(name=name, input_mode="bed_cds") for name in species_names],
+        output=WorkflowOutput(directory="out"),
+    )
 
 
 def test_workbench_banner_plain_text() -> None:
@@ -91,18 +94,7 @@ def test_workbench_exits_cleanly_on_keyboard_interrupt(monkeypatch) -> None:
 
 
 def test_cli_progress_reporter_ignores_inner_success_until_all_pairs_finish() -> None:
-    request = AnalysisRequest(
-        method="mcscan",
-        input=AnalysisInput(
-            mode="bed_cds",
-            species=[
-                AnalysisSpeciesInput(name="query", input_mode="bed_cds"),
-                AnalysisSpeciesInput(name="subject", input_mode="bed_cds"),
-                AnalysisSpeciesInput(name="third", input_mode="bed_cds"),
-            ],
-        ),
-        output=AnalysisOutput(directory="out"),
-    )
+    request = _request(["query", "subject", "third"])
     stream = io.StringIO()
     signal_bus = SignalBus()
     reporter = CliProgressReporter(request, color=False, stream=stream)
@@ -125,17 +117,7 @@ def test_cli_progress_reporter_ignores_inner_success_until_all_pairs_finish() ->
 
 
 def test_cli_progress_reporter_aligns_primary_field_in_noninteractive_mode() -> None:
-    request = AnalysisRequest(
-        method="mcscan",
-        input=AnalysisInput(
-            mode="bed_cds",
-            species=[
-                AnalysisSpeciesInput(name="query", input_mode="bed_cds"),
-                AnalysisSpeciesInput(name="subject", input_mode="bed_cds"),
-            ],
-        ),
-        output=AnalysisOutput(directory="out"),
-    )
+    request = _request(["query", "subject"])
     stream = io.StringIO()
     signal_bus = SignalBus()
     reporter = CliProgressReporter(request, color=False, stream=stream)
@@ -151,17 +133,7 @@ def test_cli_progress_reporter_aligns_primary_field_in_noninteractive_mode() -> 
 
 
 def test_cli_progress_reporter_uses_gray_detail_text_when_colored() -> None:
-    request = AnalysisRequest(
-        method="mcscan",
-        input=AnalysisInput(
-            mode="bed_cds",
-            species=[
-                AnalysisSpeciesInput(name="query", input_mode="bed_cds"),
-                AnalysisSpeciesInput(name="subject", input_mode="bed_cds"),
-            ],
-        ),
-        output=AnalysisOutput(directory="out"),
-    )
+    request = _request(["query", "subject"])
     stream = io.StringIO()
     signal_bus = SignalBus()
     reporter = CliProgressReporter(request, color=True, stream=stream)
@@ -192,17 +164,7 @@ class _FakeClock:
 
 
 def test_cli_progress_reporter_updates_elapsed_without_new_state_events() -> None:
-    request = AnalysisRequest(
-        method="mcscan",
-        input=AnalysisInput(
-            mode="bed_cds",
-            species=[
-                AnalysisSpeciesInput(name="query", input_mode="bed_cds"),
-                AnalysisSpeciesInput(name="subject", input_mode="bed_cds"),
-            ],
-        ),
-        output=AnalysisOutput(directory="out"),
-    )
+    request = _request(["query", "subject"])
     stream = _InteractiveBuffer()
     signal_bus = SignalBus()
     reporter = CliProgressReporter(
@@ -224,18 +186,7 @@ def test_cli_progress_reporter_updates_elapsed_without_new_state_events() -> Non
 
 
 def test_cli_progress_reporter_uses_runtime_pair_total_when_available() -> None:
-    request = AnalysisRequest(
-        method="mcscan",
-        input=AnalysisInput(
-            mode="bed_cds",
-            species=[
-                AnalysisSpeciesInput(name="query", input_mode="bed_cds"),
-                AnalysisSpeciesInput(name="subject", input_mode="bed_cds"),
-                AnalysisSpeciesInput(name="third", input_mode="bed_cds"),
-            ],
-        ),
-        output=AnalysisOutput(directory="out"),
-    )
+    request = _request(["query", "subject", "third"])
     stream = io.StringIO()
     signal_bus = SignalBus()
     reporter = CliProgressReporter(request, color=False, stream=stream)

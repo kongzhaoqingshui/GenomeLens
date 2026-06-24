@@ -18,7 +18,7 @@ GUI 层**不负责**：
 - 持有平台核心业务规则。
 - 单独维护一套与 CLI 不一致的任务协议。
 
-GUI 通过本地 API / 命令桥接 / sidecar 与平台核心（`platform/`）通信，复用同一套 `AnalysisRequest` 任务协议，不得把核心逻辑迁入前端。
+GUI 通过本地 API / 命令桥接 / sidecar 与平台核心（`platform/`）通信，目标是复用同一套 `WorkflowRequest v2` 任务协议，不得把核心逻辑迁入前端。当前 GUI 源码仍有 `AnalysisRequest v1` 遗留，后续开发应优先按 `docs/开发手册/GUI先行开发/开发计划.md` 完成协议迁移。
 
 ## 开发入口
 

@@ -7,10 +7,10 @@
 # region import
 from __future__ import annotations
 
-from genomelens.analysis.requests.models import AnalysisRequest
-from genomelens.app.controller.workflow_provider import WorkflowProvider
+from genomelens.analysis.requests.models import WorkflowRequest
+from genomelens.analysis.workflows.provider import WorkflowProvider
 from genomelens.app.events.signal_bus import SignalBus
-from genomelens.core.summary_models import RunSummary
+from genomelens.contracts.summaries import RunSummary
 
 # endregion
 
@@ -20,7 +20,7 @@ class NativeMultiSpecies:
 
     def execute(
         self,
-        request: AnalysisRequest,
+        request: WorkflowRequest,
         provider: WorkflowProvider,
         signal_bus: SignalBus,
     ) -> RunSummary:

@@ -1,4 +1,4 @@
-"""Standalone CLI entrypoint for the JCVI engine."""
+"""JCVI engine 独立命令行入口"""
 
 # region import
 from __future__ import annotations
@@ -14,8 +14,8 @@ from pathlib import Path
 if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from jcvi_genomelens.engine_runtime import run_manifest
 from jcvi_genomelens.probe import build_probe_payload
+from jcvi_genomelens.runtime.engine import run_manifest
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -56,7 +56,7 @@ def run_engine(args: argparse.Namespace) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
-    """Run the engine CLI entrypoint."""
+    """运行 engine CLI 入口"""
 
     parser = build_parser()
     args = parser.parse_args(argv)

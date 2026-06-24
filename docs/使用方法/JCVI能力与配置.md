@@ -191,7 +191,7 @@ GenomeLens.exe analyze mcscan input output `
     顶层结果会写入：
 
     - `report/run_summary.json`：平台侧摘要。
-    - `inputs/analysis_request.json`：归一化请求快照。
+    - `inputs/workflow_request.json`：归一化 WorkflowRequest 快照。
     - `results/figures/`：用户可直接查看的归档图件。
     - `intermediate/pairwise/`：每一对 reference-vs-target 子任务的完整中间结果。
     - `intermediate/local/`：局部共线性图件、局部 blocks、局部 bed 和局部 layout。
@@ -204,7 +204,7 @@ GenomeLens.exe analyze mcscan input output `
 
 shell(外壳) 入口已经支持 2 到 n 个物种的 `species[]` 输入，并会把 3 个以上物种自动拆成 all-vs-all pairwise(全组合两两比较) 子任务。所有 pairwise 子任务完成后，会把成功对的共线性边自动聚合成一张全局核型总图（`graphics_karyotype_global`），随 `run_summary.json` 的 `global_figures` 字段一并输出。
 
-engine(引擎) 当前仍以 pairwise query/subject(成对查询/目标) manifest(清单) 为执行单元。这是 JCVI 真实调用链的 worker(工作单元)，不是废弃概念。多物种顶层编排由 shell 负责汇总。
+engine(引擎) 当前仍以 pairwise worker(两两比较工作单元) 作为真实 JCVI 调用粒度，但公开 manifest 已升级为 `schema_version=3`：pairwise 输入通过 `inputs.species[0:2]` 表达，`query/subject` 只允许作为 engine 内部局部变量或运行时对象名存在。多物种顶层编排由平台 `WorkflowPlanner` / `PlanExecutor` 汇总。
 
 尚未完成：
 

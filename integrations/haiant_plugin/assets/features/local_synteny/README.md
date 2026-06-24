@@ -2,7 +2,7 @@
 
 ## 概述
 
-`gljcvi-local-synteny` 是 GenomeLens 在 HAIant（智然体）平台上的**目标基因局部共线性图**插件。它把 `params.json` 翻译成 GenomeLens `AnalysisRequest`，调用外部 `GenomeLens.exe` 执行 `analyze run`，最终基于 JCVI `local_synteny` 工作流生成目标基因上下游的局部共线性图。
+`gljcvi-local-synteny` 是 GenomeLens 在 HAIant（智然体）平台上的**目标基因局部共线性图**插件。它把 `params.json` 翻译成 GenomeLens `WorkflowRequest v2`，调用外部 `GenomeLens.exe` 执行 `analyze run`，最终基于 JCVI `local_synteny` 工作流生成目标基因上下游的局部共线性图。
 
 与全局共线性图不同，局部共线性图聚焦于**一个或多个目标基因所在的局部邻域**：以目标基因为中心，向上下游各取若干基因，展示这些基因在参考物种与比较物种之间的排列顺序、方向、同源性以及结构变异。它特别适合候选基因验证、QTL 区间精细定位、保守调控模块分析等场景。
 

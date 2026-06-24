@@ -1,4 +1,4 @@
-"""AnalysisRequest JSON schema(结构) 定义"""
+"""WorkflowRequest JSON schema(结构) 定义"""
 
 # region import
 from __future__ import annotations
@@ -9,123 +9,39 @@ from copy import deepcopy
 
 
 # region schema 定义
-ANALYSIS_REQUEST_JSON_SCHEMA: dict[str, object] = {
+WORKFLOW_REQUEST_JSON_SCHEMA: dict[str, object] = {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "https://genomelens.local/schemas/analysis-request.schema.json",
-    "title": "GenomeLens AnalysisRequest",
+    "$id": "https://genomelens.local/schemas/workflow-request.schema.json",
+    "title": "GenomeLens WorkflowRequest",
     "type": "object",
-    "required": ["schema_version", "kind", "method", "input", "output"],
+    "required": ["schema_version", "kind", "workflow_id", "output"],
     "additionalProperties": False,
     "properties": {
-        "schema_version": {
-            "type": "integer",
-            "const": 1,
-        },
-        "kind": {
+        "schema_version": {"type": "integer", "const": 2},
+        "kind": {"type": "string", "const": "workflow_request"},
+        "workflow_id": {
             "type": "string",
-            "const": "analysis_request",
+            "enum": ["synteny", "local_synteny", "graphics_histogram", "graphics_heatmap"],
         },
-        "method": {
-            "type": "string",
-            "enum": ["mcscan"],
-        },
-        "input": {
-            "$ref": "#/$defs/input",
-        },
-        "output": {
-            "$ref": "#/$defs/output",
-        },
-        "config": {
-            "$ref": "#/$defs/config_ref",
-        },
-        "options": {
-            "$ref": "#/$defs/options",
-        },
-        "method_config": {
-            "$ref": "#/$defs/mcscan_method_config",
-        },
-        "task_kind": {
-            "type": "string",
-            "enum": ["analysis", "one_stop", "sub_module", "composition"],
-            "default": "analysis",
-        },
-        "one_stop_workflow_id": {
-            "type": ["string", "null"],
-            "default": None,
-        },
-        "sub_module_id": {
-            "type": ["string", "null"],
-            "default": None,
-        },
-        "port_bindings": {
-            "type": "object",
-            "default": {},
-        },
-        "composition": {
-            "oneOf": [
-                {"type": "null"},
-                {"$ref": "#/$defs/workflow_composition"},
-            ],
-            "default": None,
-        },
+        "species": {"type": "array", "items": {"$ref": "#/$defs/species_input"}, "default": []},
+        "reference_index": {"type": "integer", "minimum": 0, "default": 0},
+        "inputs": {"type": "object", "default": {}},
+        "parameters": {"$ref": "#/$defs/parameters"},
+        "output": {"$ref": "#/$defs/output"},
+        "runtime": {"$ref": "#/$defs/runtime"},
     },
     "$defs": {
-        "input": {
-            "type": "object",
-            "required": ["mode"],
-            "additionalProperties": False,
-            "properties": {
-                "mode": {
-                    "type": "string",
-                    "enum": ["auto_directory", "bed_cds", "gff_genome", "method_specific"],
-                },
-                "directory": {
-                    "type": "string",
-                    "default": "",
-                },
-                "species": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/$defs/species_input",
-                    },
-                    "default": [],
-                },
-                "reference_index": {
-                    "type": "integer",
-                    "minimum": 0,
-                    "default": 0,
-                },
-            },
-        },
         "species_input": {
             "type": "object",
             "required": ["name", "input_mode"],
             "additionalProperties": False,
             "properties": {
-                "name": {
-                    "type": "string",
-                    "minLength": 1,
-                },
-                "input_mode": {
-                    "type": "string",
-                    "enum": ["bed_cds", "gff_genome"],
-                },
-                "bed": {
-                    "type": "string",
-                    "default": "",
-                },
-                "cds": {
-                    "type": "string",
-                    "default": "",
-                },
-                "gff": {
-                    "type": "string",
-                    "default": "",
-                },
-                "genome": {
-                    "type": "string",
-                    "default": "",
-                },
+                "name": {"type": "string", "minLength": 1},
+                "input_mode": {"type": "string", "enum": ["bed_cds", "gff_genome"]},
+                "bed": {"type": "string", "default": ""},
+                "cds": {"type": "string", "default": ""},
+                "gff": {"type": "string", "default": ""},
+                "genome": {"type": "string", "default": ""},
             },
         },
         "output": {
@@ -133,233 +49,104 @@ ANALYSIS_REQUEST_JSON_SCHEMA: dict[str, object] = {
             "required": ["directory"],
             "additionalProperties": False,
             "properties": {
-                "directory": {
-                    "type": "string",
-                    "minLength": 1,
-                },
-                "force": {
-                    "type": "boolean",
-                    "default": False,
-                },
-                "formats": {
-                    "type": "array",
-                    "items": {
-                        "type": "string",
-                    },
-                    "default": ["svg"],
-                },
+                "directory": {"type": "string", "minLength": 1},
+                "force": {"type": "boolean", "default": False},
+                "formats": {"type": "array", "items": {"type": "string"}, "default": ["svg"]},
             },
         },
-        "config_ref": {
+        "runtime": {
             "type": "object",
             "additionalProperties": False,
             "properties": {
-                "project_config": {
-                    "type": "string",
-                    "default": "",
-                },
-                "method_config": {
-                    "type": "string",
-                    "default": "",
-                },
+                "project_config": {"type": "string", "default": ""},
+                "engine_config": {"type": "string", "default": ""},
+                "jcvi_engine": {"type": "string", "default": ""},
+                "blastn": {"type": "string", "default": ""},
+                "makeblastdb": {"type": "string", "default": ""},
+                "lastal": {"type": "string", "default": ""},
+                "lastdb": {"type": "string", "default": ""},
+                "threads": {"type": ["integer", "null"], "minimum": 1, "default": None},
+                "min_block_size": {"type": ["integer", "null"], "minimum": 1, "default": None},
+                "log_level": {"type": "string", "default": "INFO"},
+                "verbose": {"type": "boolean", "default": False},
+                "console_log": {"type": "boolean", "default": False},
             },
         },
-        "options": {
+        "parameters": {
             "type": "object",
             "additionalProperties": False,
             "properties": {
-                "preset": {
-                    "type": "string",
-                    "default": "auto",
-                },
-                "threads": {
-                    "type": ["integer", "null"],
-                    "minimum": 1,
-                    "default": None,
-                },
-                "min_block_size": {
-                    "type": ["integer", "null"],
-                    "minimum": 1,
-                    "default": None,
-                },
+                "synteny": {"$ref": "#/$defs/synteny_parameters"},
+                "local_synteny": {"$ref": "#/$defs/local_synteny_parameters"},
+                "plot": {"$ref": "#/$defs/plot_parameters"},
+                "histogram": {"$ref": "#/$defs/histogram_parameters"},
+                "heatmap": {"$ref": "#/$defs/heatmap_parameters"},
+                "extras": {"type": "object", "default": {}},
             },
+            "default": {},
         },
-        "mcscan_method_config": {
+        "synteny_parameters": {
             "type": "object",
             "additionalProperties": False,
             "properties": {
-                "workflow": {
-                    "type": "string",
-                    "default": "graphics_synteny",
-                },
-                "jcvi_engine": {
-                    "type": "string",
-                    "default": "",
-                },
-                "blastn": {
-                    "type": "string",
-                    "default": "",
-                },
-                "makeblastdb": {
-                    "type": "string",
-                    "default": "",
-                },
-                "jcvi_layout": {
-                    "type": "string",
-                    "default": "",
-                },
-                "jcvi_seqids": {
-                    "type": "string",
-                    "default": "",
-                },
-                "allow_simplified_fallback": {
-                    "type": "boolean",
-                    "default": False,
-                },
-                "align_soft": {
-                    "type": "string",
-                    "enum": ["blast", "last", "diamond_blastp"],
-                    "default": "blast",
-                },
-                "dbtype": {
-                    "type": "string",
-                    "enum": ["nucl", "prot"],
-                    "default": "nucl",
-                },
-                "cscore": {
-                    "type": "number",
-                    "default": 0.7,
-                },
-                "dist": {
-                    "type": "integer",
-                    "minimum": 1,
-                    "default": 20,
-                },
-                "iter": {
-                    "type": "integer",
-                    "minimum": 1,
-                    "default": 1,
-                },
-                "target_gene_ids": {
-                    "type": "array",
-                    "items": {
-                        "type": "string",
-                    },
-                    "default": [],
-                },
-                "up": {
-                    "type": "integer",
-                    "minimum": 0,
-                    "default": 20,
-                },
-                "down": {
-                    "type": "integer",
-                    "minimum": 0,
-                    "default": 20,
-                },
-                "split_targets": {
-                    "type": "boolean",
-                    "default": False,
-                },
-                "label_targets": {
-                    "type": "boolean",
-                    "default": False,
-                },
-                "glyphstyle": {
-                    "type": "string",
-                    "default": "",
-                },
-                "glyphcolor": {
-                    "type": "string",
-                    "default": "",
-                },
-                "shadestyle": {
-                    "type": "string",
-                    "default": "",
-                },
-                "figsize": {
-                    "type": "string",
-                    "default": "",
-                },
-                "dpi": {
-                    "type": "integer",
-                    "minimum": 1,
-                    "default": 300,
-                },
-                "histogram_inputs": {
-                    "type": "array",
-                    "items": {
-                        "type": "string",
-                    },
-                    "default": [],
-                },
-                "histogram_columns": {
-                    "type": "array",
-                    "items": {
-                        "type": "integer",
-                        "minimum": 0,
-                    },
-                    "default": [0],
-                },
-                "histogram_skip": {
-                    "type": "integer",
-                    "minimum": 0,
-                    "default": 0,
-                },
-                "histogram_bins": {
-                    "type": "integer",
-                    "minimum": 1,
-                    "default": 20,
-                },
-                "histogram_vmin": {
-                    "type": ["number", "null"],
-                    "default": 0.0,
-                },
-                "histogram_vmax": {
-                    "type": ["number", "null"],
-                    "default": None,
-                },
-                "histogram_xlabel": {
-                    "type": "string",
-                    "default": "value",
-                },
-                "histogram_title": {
-                    "type": "string",
-                    "default": "",
-                },
-                "histogram_base": {
-                    "type": "integer",
-                    "enum": [0, 2, 10],
-                    "default": 0,
-                },
-                "histogram_facet": {
-                    "type": "boolean",
-                    "default": False,
-                },
-                "histogram_fill": {
-                    "type": "string",
-                    "default": "white",
-                },
+                "align_soft": {"type": "string", "enum": ["blast", "last", "diamond_blastp"], "default": "blast"},
+                "dbtype": {"type": "string", "enum": ["nucl", "prot"], "default": "nucl"},
+                "cscore": {"type": "number", "default": 0.7},
+                "dist": {"type": "integer", "minimum": 1, "default": 20},
+                "iter": {"type": "integer", "minimum": 1, "default": 1},
+                "allow_simplified_fallback": {"type": "boolean", "default": False},
             },
         },
-        "workflow_composition": {
+        "local_synteny_parameters": {
             "type": "object",
             "additionalProperties": False,
             "properties": {
-                "nodes": {
-                    "type": "array",
-                    "items": {
-                        "type": "object",
-                    },
-                    "default": [],
-                },
-                "edges": {
-                    "type": "array",
-                    "items": {
-                        "type": "object",
-                    },
-                    "default": [],
-                },
+                "target_gene_ids": {"type": "array", "items": {"type": "string"}, "default": []},
+                "up": {"type": "integer", "minimum": 0, "default": 20},
+                "down": {"type": "integer", "minimum": 0, "default": 20},
+                "split_targets": {"type": "boolean", "default": False},
+                "label_targets": {"type": "boolean", "default": False},
+                "use_native_renderer": {"type": "boolean", "default": False},
+            },
+        },
+        "plot_parameters": {
+            "type": "object",
+            "additionalProperties": False,
+            "properties": {
+                "glyphstyle": {"type": "string", "default": ""},
+                "glyphcolor": {"type": "string", "default": ""},
+                "shadestyle": {"type": "string", "default": ""},
+                "figsize": {"type": "string", "default": ""},
+                "dpi": {"type": "integer", "minimum": 1, "default": 300},
+                "auto_optimization": {"type": "object", "default": {}},
+            },
+        },
+        "histogram_parameters": {
+            "type": "object",
+            "additionalProperties": False,
+            "properties": {
+                "inputs": {"type": "array", "items": {"type": "string"}, "default": []},
+                "columns": {"type": "array", "items": {"type": "integer", "minimum": 0}, "default": [0]},
+                "skip": {"type": "integer", "minimum": 0, "default": 0},
+                "bins": {"type": "integer", "minimum": 1, "default": 20},
+                "vmin": {"type": ["number", "null"], "default": 0.0},
+                "vmax": {"type": ["number", "null"], "default": None},
+                "xlabel": {"type": "string", "default": "value"},
+                "title": {"type": "string", "default": ""},
+                "base": {"type": "integer", "enum": [0, 2, 10], "default": 0},
+                "facet": {"type": "boolean", "default": False},
+                "fill": {"type": "string", "default": "white"},
+            },
+        },
+        "heatmap_parameters": {
+            "type": "object",
+            "additionalProperties": False,
+            "properties": {
+                "matrix": {"type": "string", "default": ""},
+                "rowgroups": {"type": "string", "default": ""},
+                "cmap": {"type": "string", "default": ""},
+                "groups": {"type": "boolean", "default": False},
+                "horizontalbar": {"type": "boolean", "default": False},
             },
         },
     },
@@ -370,9 +157,9 @@ ANALYSIS_REQUEST_JSON_SCHEMA: dict[str, object] = {
 
 # region 对外函数
 def analysis_request_json_schema() -> dict[str, object]:
-    """返回 AnalysisRequest JSON schema 的副本"""
+    """返回 WorkflowRequest JSON schema 的副本"""
 
-    return deepcopy(ANALYSIS_REQUEST_JSON_SCHEMA)
+    return deepcopy(WORKFLOW_REQUEST_JSON_SCHEMA)
 
 
 # endregion

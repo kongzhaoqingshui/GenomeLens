@@ -1,16 +1,16 @@
-# gljcvi-auto — MCscan JCVI 一键自动流插件
+# gljcvi-synteny — MCscan JCVI 一键自动流插件
 
 ## 概述
 
-`gljcvi-auto` 是 GenomeLens 在 HAIant（智然体）平台上的 **MCscan JCVI 一键自动流** 插件。它根据 `params.json` 动态生成 `output/jcvi.config.json`，并直接调用外部 `GenomeLens.exe`：
+`gljcvi-synteny` 是 GenomeLens 在 HAIant（智然体）平台上的 **MCscan JCVI 一键自动流** 插件。它根据 `params.json` 动态生成 `output/jcvi.config.json`，并直接调用外部 `GenomeLens.exe`：
 
 ```text
-<GenomeLens_Path> analyze mcscan jcvi <input_dir> <output_dir> output/jcvi.config.json
+<GenomeLens_Path> analyze workflow synteny <input_dir> <output_dir> --jcvi-config output/jcvi.config.json
 ```
 
-与其他单一功能插件不同，`gljcvi-auto` **不生成 `genomelens_request.json`**，也不走 `analyze run` 流程。它封装了 GenomeLens 原生的 `analyze mcscan jcvi` 自动目录分析命令，自动完成物种发现、比对、共线性识别、绘图或局部共线性出图。
+与其他单一功能插件不同，`gljcvi-synteny` **不生成 `genomelens_request.json`**，也不走 `analyze run` 流程。它封装了 GenomeLens 原生的 `analyze workflow synteny` 自动目录分析命令，自动完成物种发现、比对、共线性识别、绘图或局部共线性出图。
 
-本目录是 `gljcvi-auto` 插件包内容：
+本目录是 `gljcvi-synteny` 插件包内容：
 
 - `config.json`：HAIant 表单元数据。
 - `params.json`：可运行的示例参数。
@@ -24,10 +24,10 @@
 
 比较基因组学的标准分析链路通常包括：序列比对() → 同源过滤 → 共线性区块识别 → 可视化出图。对于常规的物种对或物种集比较，研究者往往不需要反复调整每个子步骤的参数，只需要一条稳定的端到端流程即可获得全局或局部的共线性结果。
 
-`gljcvi-auto` 的价值在于：
+`gljcvi-synteny` 的价值在于：
 
 - **降低使用门槛**：无需分别学习多个子命令的调用方式。
-- **标准化分析流程**：自动复用 GenomeLens `analyze mcscan jcvi` 的目录发现、物种解析、比对、过滤、出图逻辑。
+- **标准化分析流程**：自动复用 GenomeLens `analyze workflow synteny` 的目录发现、物种解析、比对、过滤、出图逻辑。
 - **兼顾全局与局部**：未指定目标基因时输出全局共线性图；指定目标基因后自动切换到局部共线性图。
 - **一致的环境复用**：与所有 HAIant 插件共享同一份外部 GenomeLens 安装。
 
@@ -44,7 +44,7 @@
 
 ## 输入目录使用方法说明
 
-`gljcvi-auto` 的输入是一个**普通文件夹**，只需把要分析的物种文件按规则放进去即可。系统会自动识别文件、配对物种、选择输入模式。
+`gljcvi-synteny` 的输入是一个**普通文件夹**，只需把要分析的物种文件按规则放进去即可。系统会自动识别文件、配对物种、选择输入模式。
 
 ### 支持的文件组合（可混用）
 
@@ -72,7 +72,7 @@ input/
 - `Athaliana.bed` 和 `Athaliana.cds` 会被识别为物种 **Athaliana**。
 - `Brapa.bed` 和 `Brapa.cds` 会被识别为物种 **Brapa**。
 - `Crubella.gff3` 和 `Crubella.fa` 会被识别为物种 **Crubella**。
-- 这个例子是 **BED/CDS 和 GFF/FA 混用**，`gljcvi-auto` 会自动处理。
+- 这个例子是 **BED/CDS 和 GFF/FA 混用**，`gljcvi-synteny` 会自动处理。
 
 ### 自动处理规则
 
@@ -152,7 +152,7 @@ my_project/
 | `target_gene_ids` | str | 否 | `""` | 目标基因 ID，多个用逗号分隔 |
 | `up` | int | 否 | `20` | 上游窗口基因数 |
 | `down` | int | 否 | `20` | 下游窗口基因数 |
-| `split_targets` | bool | 否 | `false` | 每个目标单独出图（`gljcvi-auto` 默认单图全出） |
+| `split_targets` | bool | 否 | `false` | 每个目标单独出图（`gljcvi-synteny` 默认单图全出） |
 | `label_targets` | bool | 否 | `false` | 在图中标注目标基因 |
 
 完整字段映射参见 [`../../PARAMETER_MAPPING.md`](../../PARAMETER_MAPPING.md)。
@@ -173,7 +173,7 @@ output/
         └── local_synteny.<target>.svg   # 局部共线性图（填写 target_gene_ids）
 ```
 
-- **`jcvi.config.json`**：由插件根据 `params.json` 动态生成的 MCscan JCVI 配置文件，schema_version = 2。可直接用于 `GenomeLens.exe analyze mcscan jcvi` CLI。
+- **`jcvi.config.json`**：由插件根据 `params.json` 动态生成的 MCscan JCVI 配置文件，schema_version = 2。可直接用于 `GenomeLens.exe analyze workflow synteny --jcvi-config` CLI。
 - **`run.log`**：插件与外部 GenomeLens 的运行日志。
 - **`results/figures/`**：最终图片文件。全局模式下为共线性图；局部模式下为局部共线性图。
 - **`intermediates.zip`**：分析完成后，插件把除 `results` 外的中间文件（比对数据库、anchors、blocks、临时图等）打包到此压缩包。
@@ -229,7 +229,7 @@ main.exe params.json
 等价 CLI：
 
 ```powershell
-GenomeLens.exe analyze mcscan jcvi input output output\jcvi.config.json --force
+GenomeLens.exe analyze workflow synteny input output --jcvi-config output\jcvi.config.json --force
 ```
 
 ---
@@ -244,7 +244,7 @@ GenomeLens.exe analyze mcscan jcvi input output output\jcvi.config.json --force
 
 ## 注意事项
 
-1. `gljcvi-auto` 直接调用 CLI，不生成 `genomelens_request.json`，因此不能通过 `analyze run` 重放。
+1. `gljcvi-synteny` 直接调用 CLI，不生成 `genomelens_request.json`，因此不能通过 `analyze run` 重放。
 2. `optimize_auto` 会同时开启 `optimize_figsize`、`rewrite_layout_links`、`optimize_karyotype_labels`，适合快速出图；如需精细控制，请改用单功能插件。
 3. 在局部共线性模式下，`split_targets` 默认关闭，多个目标会绘制在一张图中；如需单图，可显式开启。
 4. `allow_simplified_fallback` 仅用于诊断，正式分析请保持 `false`。

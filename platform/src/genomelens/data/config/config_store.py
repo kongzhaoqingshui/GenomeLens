@@ -8,13 +8,13 @@ import os
 from pathlib import Path
 
 from genomelens.app.errors.exceptions import WorkspaceError
-from genomelens.core.json_utils import _str
 from genomelens.data.config.config_models import (
     ConfigModel,
     WorkspaceConfig,
     default_workspace_root,
     normalize_path_string,
 )
+from genomelens.utils.json import _str
 
 # endregion
 

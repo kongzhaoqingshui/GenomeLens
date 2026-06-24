@@ -1,8 +1,8 @@
 from pathlib import Path
 
-from jcvi_genomelens.manifest_models import EngineRunManifest, EngineTrack, ToolchainSpec, WorkflowOptions
-from jcvi_genomelens.workflows.local_synteny import _write_local_layout
-from jcvi_genomelens.workflows.local_synteny_multi import _write_multi_local_layout
+from jcvi_genomelens.manifest.models import EngineRunManifest, EngineTrack, ToolchainSpec, WorkflowOptions
+from jcvi_genomelens.workflows.local_synteny.multi import _write_multi_local_layout
+from jcvi_genomelens.workflows.local_synteny.single import _write_local_layout
 
 
 def test_write_local_layout_compacts_long_track_label(tmp_path: Path) -> None:

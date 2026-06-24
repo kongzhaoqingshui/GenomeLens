@@ -1,7 +1,7 @@
 from pathlib import Path
 
-from jcvi_genomelens.manifest_models import WorkflowOptions
-from jcvi_genomelens.workflows.plot_optimization import (
+from jcvi_genomelens.manifest.models import WorkflowOptions
+from jcvi_genomelens.workflows.graphics.plot_optimization import (
     prepare_synteny_plot_inputs,
     rewrite_layout_links,
     suggest_figsize,

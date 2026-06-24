@@ -2,7 +2,7 @@
 
 ## 概述
 
-`gljcvi-catalog-ortholog` 是 GenomeLens 在 HAIant（智然体）平台上的**双向直系同源目录**插件。它把 `params.json` 翻译成 GenomeLens `AnalysisRequest`，调用外部 `GenomeLens.exe` 执行 `analyze run`，最终基于 JCVI `catalog_ortholog` 工作流生成两个物种之间的双向直系同源（bidirectional best-hit ortholog）目录。
+`gljcvi-catalog-ortholog` 是 GenomeLens 在 HAIant（智然体）平台上的**双向直系同源目录**插件。它把 `params.json` 翻译成 GenomeLens `WorkflowRequest v2`，调用外部 `GenomeLens.exe` 执行 `analyze run`，最终基于 JCVI `catalog_ortholog` 工作流生成两个物种之间的双向直系同源（bidirectional best-hit ortholog）目录。
 
 与其他生成图形的插件不同，本插件的输出是**表格/列表形式的数据**，记录两个物种之间互为最佳匹配的同源基因对。它是进行基因注释迁移、功能比较、选择压力分析和进化树构建的基础。
 
@@ -133,7 +133,7 @@ main.exe params.json
 等价 CLI：
 
 ```powershell
-GenomeLens.exe analyze mcscan jcvi catalog_ortholog input output --force
+GenomeLens.exe analyze run output\genomelens_request.json
 ```
 
 ## 何时使用

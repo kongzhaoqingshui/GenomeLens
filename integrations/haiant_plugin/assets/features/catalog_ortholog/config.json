@@ -1,8 +1,8 @@
 {
   "title": "GenomeLens 直系同源目录",
   "title_en": "GenomeLens Catalog Ortholog",
-  "description": "对应 ``analyze mcscan jcvi catalog_ortholog`` 自动流：输入目录自动发现物种文件对，调用外部 GenomeLens 执行 ``analyze run`` 生成直系同源基因目录。",
-  "description_en": "Matches the ``analyze mcscan jcvi catalog_ortholog`` auto flow: auto-discovers species pairs from an input directory and calls the external GenomeLens executable with ``analyze run``.",
+  "description": "对应 ``WorkflowRequest v2`` + ``analyze run``：输入目录自动发现物种文件对，调用外部 GenomeLens 生成直系同源基因目录。",
+  "description_en": "Uses ``WorkflowRequest v2`` + ``analyze run``: auto-discovers species pairs from an input directory and calls the external GenomeLens executable to generate an ortholog catalog.",
   "version": "v1.0.0",
   "context": "双物种直系同源目录",
   "context_en": "Pairwise ortholog catalog",

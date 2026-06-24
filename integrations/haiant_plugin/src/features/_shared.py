@@ -9,8 +9,8 @@ from pathlib import Path
 
 from genomelens_haiant_plugin._core import (
     PluginError,
-    build_analysis_request,
     build_analyze_run_command,
+    build_workflow_request,
     close_adapter_logging,
     load_params,
     resolve_genomelens_exe,
@@ -37,7 +37,7 @@ def write_feature_request(
 
     output_dir = Path(resolve_param_path(base, params.get("output_dir") or "output"))
     output_dir.mkdir(parents=True, exist_ok=True)
-    request = build_analysis_request(params, base, workflow=workflow)
+    request = build_workflow_request(params, base, workflow=workflow)
     request_path = output_dir / "genomelens_request.json"
     request_path.write_text(
         json.dumps(request, ensure_ascii=False, indent=2) + "\n",

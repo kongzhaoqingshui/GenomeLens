@@ -2,7 +2,7 @@
 
 ## 概述
 
-`gljcvi-karyotype` 是 GenomeLens 在 HAIant（智然体）平台上的**双物种核型共线性图**插件。它把 `params.json` 翻译成 GenomeLens `AnalysisRequest`，调用外部 `GenomeLens.exe` 执行 `analyze run`，最终基于 JCVI `graphics_karyotype` 生成核型共线性图。
+`gljcvi-karyotype` 是 GenomeLens 在 HAIant（智然体）平台上的**双物种核型共线性图**插件。它把 `params.json` 翻译成 GenomeLens `WorkflowRequest v2`，调用外部 `GenomeLens.exe` 执行 `analyze run`，最终基于 JCVI `graphics_karyotype` 生成核型共线性图。
 
 核型图（karyotype figure）以染色体为轨道，把两个物种的整条染色体并排展示，并用连线或阴影带描绘它们之间的同源区块。与共线性图相比，核型图更强调**染色体级别的对应关系**，适合展示全染色体尺度的结构保守性与重排事件。
 
@@ -128,7 +128,7 @@ main.exe params.json
 等价 CLI：
 
 ```powershell
-GenomeLens.exe analyze mcscan jcvi graphics_karyotype input output --force
+GenomeLens.exe analyze run output\genomelens_request.json
 ```
 
 ## 何时使用

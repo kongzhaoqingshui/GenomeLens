@@ -1,32 +1,33 @@
-"""Tests for workflow dispatch resolution"""
+from pathlib import Path
 
-from __future__ import annotations
+import pytest
 
-from jcvi_genomelens.manifest_models import EngineRunManifest, ToolchainSpec, WorkflowOptions
-from jcvi_genomelens.workflow_dispatcher import SUBMODULE_ID_TO_WORKFLOW, _resolve_workflow
-
-
-def _manifest(workflow: str, sub_module_id: str | None = None) -> EngineRunManifest:
-    return EngineRunManifest(
-        workflow=workflow,
-        toolchain=ToolchainSpec(),
-        options=WorkflowOptions(),
-        sub_module_id=sub_module_id,
-    )
+import jcvi_genomelens.workflows.dispatcher as dispatcher
+from jcvi_genomelens.manifest.models import EngineRunManifest, ToolchainSpec, WorkflowOptions
+from jcvi_genomelens.workflows.dispatcher import dispatch
 
 
-def test_resolve_workflow_uses_sub_module_id() -> None:
-    manifest = _manifest("mcscan_pairwise", "jcvi.graphics_histogram")
-    assert _resolve_workflow(manifest) == "graphics_histogram"
+def _manifest(workflow: str) -> EngineRunManifest:
+    return EngineRunManifest(workflow=workflow, toolchain=ToolchainSpec(), options=WorkflowOptions())
 
 
-def test_resolve_workflow_falls_back_to_normalized_workflow() -> None:
-    manifest = _manifest("dotplot")
-    assert _resolve_workflow(manifest) == "graphics_dotplot"
+def test_dispatch_normalizes_workflow_alias(monkeypatch, tmp_path: Path) -> None:
+    captured: dict[str, object] = {}
+
+    def fake_run(manifest: EngineRunManifest, outdir: str | Path):
+        captured["workflow"] = manifest.workflow
+        captured["outdir"] = outdir
+        return [], {"ok": True}
+
+    monkeypatch.setitem(dispatcher._WORKFLOW_REGISTRY, "graphics_dotplot", fake_run)
+
+    audits, artifacts = dispatch(_manifest("dotplot"), tmp_path)
+
+    assert audits == []
+    assert artifacts == {"ok": True}
+    assert captured["outdir"] == tmp_path
 
 
-def test_submodule_mapping_covers_known_modules() -> None:
-    assert SUBMODULE_ID_TO_WORKFLOW["jcvi.mcscan_pairwise"] == "mcscan_pairwise"
-    assert SUBMODULE_ID_TO_WORKFLOW["jcvi.graphics_synteny"] == "graphics_synteny"
-    assert SUBMODULE_ID_TO_WORKFLOW["jcvi.local_synteny"] == "local_synteny"
-    assert SUBMODULE_ID_TO_WORKFLOW["jcvi.graphics_karyotype_global"] == "graphics_karyotype_global"
+def test_dispatch_rejects_unknown_workflow(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="Unsupported workflow"):
+        dispatch(_manifest("unknown"), tmp_path)

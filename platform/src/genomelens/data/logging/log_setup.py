@@ -1,4 +1,4 @@
-"""CLI logging setup helpers for workflow run logs."""
+"""Workflow run log(日志) 的 CLI 日志配置工具"""
 
 # region import
 from __future__ import annotations

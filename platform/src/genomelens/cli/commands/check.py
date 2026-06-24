@@ -6,9 +6,9 @@ from __future__ import annotations
 import argparse
 
 from genomelens.cli.ui import ConsoleWriter, render_check_report
-from genomelens.core.jcvi_adapter.adapter import JcviEngineAdapter
-from genomelens.core.summary_models import CheckReport, CheckToolItem
+from genomelens.contracts.checks import CheckReport, CheckToolItem
 from genomelens.data.config.config_store import read_optional_config
+from genomelens.engines.jcvi.adapter import JcviEngineAdapter
 from genomelens.toolchain.runtime.platform_names import jcvi_engine_candidates
 from genomelens.toolchain.runtime.toolchain_installer import install_toolchain
 from genomelens.toolchain.runtime.toolchain_resolver import (

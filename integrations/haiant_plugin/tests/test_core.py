@@ -6,8 +6,8 @@ import pytest
 
 from genomelens_haiant_plugin import (
     PluginError,
-    build_analysis_request,
     build_analyze_run_command,
+    build_workflow_request,
     close_adapter_logging,
     load_params,
     parse_bool,
@@ -76,7 +76,7 @@ def test_build_species_from_params_resolves_relative_files(tmp_path: Path) -> No
     assert Path(str(species[1]["cds"])).is_absolute()
 
 
-def test_build_analysis_request_for_local_synteny_supports_csv_target_ids(
+def test_build_workflow_request_for_local_synteny_supports_csv_target_ids(
     tmp_path: Path,
 ) -> None:
     params = _write_species_files(tmp_path)
@@ -91,17 +91,19 @@ def test_build_analysis_request_for_local_synteny_supports_csv_target_ids(
         }
     )
 
-    request = build_analysis_request(params, tmp_path, workflow="local_synteny")
-    input_block = cast(dict[str, object], request["input"])
-    method_config = cast(dict[str, object], request["method_config"])
+    request = build_workflow_request(params, tmp_path, workflow="local_synteny")
+    parameters = cast(dict[str, object], request["parameters"])
+    local_synteny = cast(dict[str, object], parameters["local_synteny"])
 
-    assert input_block["reference_index"] == 0
-    assert method_config["workflow"] == "local_synteny"
-    assert method_config["target_gene_ids"] == ["qgene1", "qgene2"]
-    assert method_config["up"] == 1
-    assert method_config["down"] == 2
-    assert method_config["split_targets"] is True
-    assert method_config["label_targets"] is True
+    assert request["schema_version"] == 2
+    assert request["kind"] == "workflow_request"
+    assert request["workflow_id"] == "local_synteny"
+    assert request["reference_index"] == 0
+    assert local_synteny["target_gene_ids"] == ["qgene1", "qgene2"]
+    assert local_synteny["up"] == 1
+    assert local_synteny["down"] == 2
+    assert local_synteny["split_targets"] is True
+    assert local_synteny["label_targets"] is True
 
 
 def test_setup_adapter_logging_closes_previous_file_handler(tmp_path: Path) -> None:

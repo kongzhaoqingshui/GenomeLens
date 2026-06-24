@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from jcvi_genomelens.workflows.local_synteny import _extract_local_blocks
+from jcvi_genomelens.workflows.local_synteny.single import _extract_local_blocks
 
 
 def test_single_unsplit_target_marks_gene_red(tmp_path: Path) -> None:

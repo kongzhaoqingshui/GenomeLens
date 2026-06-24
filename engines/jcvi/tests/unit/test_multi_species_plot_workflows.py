@@ -1,8 +1,9 @@
 from pathlib import Path
 
-from jcvi_genomelens.manifest_models import EngineEdge, EngineRunManifest, EngineTrack, ToolchainSpec, WorkflowOptions
+from jcvi_genomelens.manifest.models import EngineEdge, EngineRunManifest, EngineTrack, ToolchainSpec, WorkflowOptions
 from jcvi_genomelens.runtime.command_runner import CommandAudit
-from jcvi_genomelens.workflows import graphics_karyotype_global, local_synteny_multi
+from jcvi_genomelens.workflows.graphics import global_karyotype as graphics_karyotype_global
+from jcvi_genomelens.workflows.local_synteny import multi as local_synteny_multi
 
 
 def _write_bed(path: Path, *, prefix: str) -> Path:

@@ -1,4 +1,4 @@
-"""Shared toolchain resolution helpers for runners and diagnostics."""
+"""Runner 与诊断命令共享的工具链解析工具"""
 
 # region import
 from __future__ import annotations

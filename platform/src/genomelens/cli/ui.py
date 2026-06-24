@@ -17,10 +17,11 @@ from pathlib import Path
 from typing import Any, Protocol, TextIO, cast
 
 from genomelens._version import __version__
-from genomelens.analysis.methods.registry import list_methods
-from genomelens.analysis.requests.models import AnalysisRequest
+from genomelens.analysis.requests.models import WorkflowRequest
+from genomelens.analysis.workflows.registry import list_workflow_plugins
 from genomelens.app.events.signal_bus import Event, SignalBus
-from genomelens.core.summary_models import CheckReport, PairwiseJobSummary, RunSummary
+from genomelens.contracts.checks import CheckReport
+from genomelens.contracts.summaries import RunSummary
 
 # endregion
 
@@ -145,23 +146,23 @@ def _progress_bar(progress: float, *, enabled: bool, width: int = 24) -> str:
     )
 
 
-def _pair_count(request: AnalysisRequest) -> int:
+def _pair_count(request: WorkflowRequest) -> int:
     """根据请求估算总 pairwise 数量"""
 
-    species_count = len(request.input.species)
+    species_count = len(request.species)
     if species_count < 2:
         return 1
 
-    if request.method_config.get("target_gene_ids"):
+    if request.target_gene_ids:
         return max(1, species_count - 1)
 
     return max(1, species_count * (species_count - 1) // 2)
 
 
-def _default_pair_label(request: AnalysisRequest) -> str:
+def _default_pair_label(request: WorkflowRequest) -> str:
     """为单 pair 或初始状态提供默认标签"""
 
-    species = request.input.species
+    species = request.species
     if len(species) >= 2:
         return f"{species[0].name} vs {species[1].name}"
     if species:
@@ -419,7 +420,7 @@ PROGRESS_STATE_LABELS = {
 class McscanProgressAdapter:
     """Translate current MCscan workflow events into reusable progress frames"""
 
-    def __init__(self, request: AnalysisRequest) -> None:
+    def __init__(self, request: WorkflowRequest) -> None:
         self._request = request
         self._state = "PENDING"
         self._total_pairs = _pair_count(request)
@@ -499,7 +500,7 @@ class CliProgressReporter(SignalBusProgressReporter):
 
     def __init__(
         self,
-        request: AnalysisRequest,
+        request: WorkflowRequest,
         *,
         color: bool | None = None,
         stream: TextIO | None = None,
@@ -538,7 +539,7 @@ def render_workbench_banner(*, color: bool | None = None) -> str:
         f"{_paint(spec.name, PALETTE.cyan, enabled=enabled)}"
         f"{_paint('  ' + spec.description, PALETTE.gray, enabled=enabled)}"
         + ("" if spec.stable else _paint("  (预览)", PALETTE.yellow, enabled=enabled))
-        for spec in list_methods()
+        for spec in list_workflow_plugins()
     ]
 
     header = [
@@ -554,7 +555,7 @@ def render_workbench_banner(*, color: bool | None = None) -> str:
     # 工作台支持的常用命令示例
     commands = [
         ("analyze workflow", "运行一站式共线性分析"),
-        ("analyze run <request.json>", "运行外部 AnalysisRequest"),
+        ("analyze run <request.json>", "运行外部 WorkflowRequest"),
         ("analyze template mcscan", "输出 JSON 请求示例"),
         ("check", "检查环境与工具链"),
         ("config init --workspace .work", "初始化配置文件"),
@@ -802,7 +803,7 @@ def render_analysis_summary(summary: RunSummary | dict[str, object], *, color: b
     # analyze 命令和 workbench 都复用这条摘要渲染路径。
     run_summary = summary if isinstance(summary, RunSummary) else RunSummary.from_json(summary)
     enabled = _supports_color() if color is None else color
-    md = run_summary.method_data
+    md = run_summary.extensions
 
     status = run_summary.status
     status_color = PALETTE.green if status == "SUCCEEDED" else PALETTE.red
@@ -813,7 +814,7 @@ def render_analysis_summary(summary: RunSummary | dict[str, object], *, color: b
 
     species = run_summary.species
     species_names = [str(item.get("name")) for item in species if isinstance(item, dict)]
-    # 多物种摘要优先信任 method_data 里的显式 species_count，缺失时再回退到 species 列表长度。
+    # 多物种摘要优先信任 extensions 里的显式 species_count，缺失时再回退到 species 列表长度。
     species_count_value = md.get("species_count")
     species_count = int(species_count_value) if isinstance(species_count_value, int) else len(species_names)
     lines = [
@@ -836,15 +837,10 @@ def render_analysis_summary(summary: RunSummary | dict[str, object], *, color: b
         )
 
     # 多物种汇总时显示配对子任务成功数
-    raw_pairwise_jobs = md.get("pairwise_jobs")
-    pairwise_jobs = (
-        [PairwiseJobSummary.from_json(item) for item in raw_pairwise_jobs if isinstance(item, dict)]
-        if isinstance(raw_pairwise_jobs, list)
-        else []
-    )
-    if pairwise_jobs:
-        total = len(pairwise_jobs)
-        succeeded = sum(1 for item in pairwise_jobs if item.status == "SUCCEEDED")
+    child_runs = run_summary.child_runs
+    if child_runs:
+        total = len(child_runs)
+        succeeded = sum(1 for item in child_runs if item.status == "SUCCEEDED")
 
         lines.append(
             f"{_paint('配对子任务', PALETTE.gray, enabled=enabled)} "
@@ -901,7 +897,7 @@ def render_analysis_summary(summary: RunSummary | dict[str, object], *, color: b
     logs = run_summary.logs
 
     if isinstance(logs, dict):
-        # 新摘要优先从 logs 里拿回写路径，兼容旧结构时再回退到 ui 块。
+        # 摘要路径优先来自 logs；ui 块作为同一 schema 内的展示兜底
         run_summary_path = str(logs.get("run_summary") or "")
 
     if not run_summary_path:

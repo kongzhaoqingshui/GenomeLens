@@ -3,8 +3,8 @@ import json
 from pathlib import Path
 from types import SimpleNamespace
 
-from genomelens.analysis.execution_models import McscanExecutionRequest
-from genomelens.analysis.requests.models import AnalysisSpeciesInput
+from genomelens.analysis.planning.models import SyntenyExecutionRequest
+from genomelens.analysis.requests.models import WorkflowSpeciesInput
 from genomelens.analysis.requests.normalization.input_resolver import discover_species_from_directory
 from genomelens.analysis.requests.normalization.option_merger import (
     _align_soft,
@@ -20,18 +20,18 @@ from genomelens.analysis.requests.normalization.option_merger import (
 )
 from genomelens.analysis.requests.normalization.reference_resolver import _resolve_reference_index
 from genomelens.analysis.requests.normalization.request_assembler import mcscan_auto_request_from_cli
-from genomelens.app.controller.runners import _shared as runner_shared
 from genomelens.app.controller.state_machine import WorkflowState
-from genomelens.core.models import GenomeInputSpec, PreparedGenomeInputSpec, RawAnnotationInputSpec
-from genomelens.core.preprocessing.annotation_preprocessor import (
+from genomelens.contracts.species import GenomeInputSpec, PreparedGenomeInputSpec, RawAnnotationInputSpec
+from genomelens.data.workspace.output_layout import create_output_layout
+from genomelens.preprocessing import input_preparer
+from genomelens.preprocessing.annotation import (
     CdsFeature,
     TranscriptRecord,
     has_internal_stop,
     preprocess_one,
     select_primary_transcripts,
 )
-from genomelens.core.validators import validate_request
-from genomelens.data.workspace.output_layout import create_output_layout
+from genomelens.validation.execution_requests import validate_request
 
 
 def test_has_internal_stop_detects_in_frame_stop() -> None:
@@ -187,9 +187,9 @@ def test_validate_request_accepts_mixed_input_modes(tmp_path: Path) -> None:
     subject_genome.write_text(">chr1\nATG\n", encoding="utf-8")
 
     validate_request(
-        McscanExecutionRequest(
-            query=GenomeInputSpec("query", prepared=PreparedGenomeInputSpec(query_bed, query_cds)),
-            subject=GenomeInputSpec("subject", raw=RawAnnotationInputSpec(subject_gff, subject_genome)),
+        SyntenyExecutionRequest(
+            reference=GenomeInputSpec("query", prepared=PreparedGenomeInputSpec(query_bed, query_cds)),
+            target=GenomeInputSpec("subject", raw=RawAnnotationInputSpec(subject_gff, subject_genome)),
             outdir=tmp_path / "out",
         )
     )
@@ -220,17 +220,22 @@ def test_prepare_inputs_preprocesses_only_raw_side(tmp_path: Path, monkeypatch) 
             summary={"name": name, "input_mode": "gff_genome"},
         )
 
-    monkeypatch.setattr(runner_shared, "preprocess_one", fake_preprocess_one)
+    monkeypatch.setattr(input_preparer, "preprocess_one", fake_preprocess_one)
 
     states: list[WorkflowState] = []
     layout = create_output_layout(tmp_path / "out", force=True)
-    request = McscanExecutionRequest(
-        query=GenomeInputSpec("query", prepared=PreparedGenomeInputSpec(query_bed, query_cds)),
-        subject=GenomeInputSpec("subject", raw=RawAnnotationInputSpec(subject_gff, subject_genome)),
+    request = SyntenyExecutionRequest(
+        reference=GenomeInputSpec("query", prepared=PreparedGenomeInputSpec(query_bed, query_cds)),
+        target=GenomeInputSpec("subject", raw=RawAnnotationInputSpec(subject_gff, subject_genome)),
         outdir=tmp_path / "out",
     )
 
-    query, subject, summaries = runner_shared.prepare_inputs(states.append, request, layout)
+    query, subject, summaries = input_preparer.prepare_inputs(
+        states.append,
+        request,
+        layout,
+        preprocessing_state=WorkflowState.PREPROCESSING_ANNOTATIONS,
+    )
 
     assert query == PreparedGenomeInputSpec(query_bed, query_cds)
     assert subject == PreparedGenomeInputSpec(prepared_subject_bed, prepared_subject_cds)
@@ -392,23 +397,22 @@ def test_mcscan_auto_request_from_cli_includes_local_synteny_options(tmp_path: P
         optimize_karyotype_labels=True,
     )
     request = mcscan_auto_request_from_cli(ns)
-    method_config = request.method_config
-    assert method_config["align_soft"] == "last"
-    assert method_config["dbtype"] == "nucl"
-    assert method_config["cscore"] == 0.8
-    assert method_config["dist"] == 30
-    assert method_config["iter"] == 2
-    assert method_config["target_gene_ids"] == ["g1"]
-    assert method_config["up"] == 5
-    assert method_config["down"] == 5
-    assert method_config["split_targets"] is True
-    assert method_config["label_targets"] is True
-    assert method_config["glyphstyle"] == "arrow"
-    assert method_config["glyphcolor"] == "orthogroup"
-    assert method_config["shadestyle"] == "curve"
-    assert method_config["figsize"] == "8x4"
-    assert method_config["dpi"] == 600
-    assert method_config["auto_optimization"] == {
+    assert request.parameters.synteny.align_soft == "last"
+    assert request.parameters.synteny.dbtype == "nucl"
+    assert request.parameters.synteny.cscore == 0.8
+    assert request.parameters.synteny.dist == 30
+    assert request.parameters.synteny.iter == 2
+    assert request.parameters.local_synteny.target_gene_ids == ["g1"]
+    assert request.parameters.local_synteny.up == 5
+    assert request.parameters.local_synteny.down == 5
+    assert request.parameters.local_synteny.split_targets is True
+    assert request.parameters.local_synteny.label_targets is True
+    assert request.parameters.plot.glyphstyle == "arrow"
+    assert request.parameters.plot.glyphcolor == "orthogroup"
+    assert request.parameters.plot.shadestyle == "curve"
+    assert request.parameters.plot.figsize == "8x4"
+    assert request.parameters.plot.dpi == 600
+    assert request.parameters.plot.auto_optimization == {
         "optimize_figsize": True,
         "rewrite_layout_links": True,
         "optimize_karyotype_labels": True,
@@ -474,10 +478,10 @@ def test_mcscan_auto_request_discovers_jcvi_config_in_input_dir(tmp_path: Path) 
         dpi=None,
     )
     request = mcscan_auto_request_from_cli(ns)
-    assert request.config.method_config == str(jcvi_path)
-    assert request.method_config["align_soft"] == "last"
-    assert request.method_config["dbtype"] == "nucl"
-    assert request.method_config["cscore"] == 0.9
+    assert request.runtime.engine_config == str(jcvi_path)
+    assert request.parameters.synteny.align_soft == "last"
+    assert request.parameters.synteny.dbtype == "nucl"
+    assert request.parameters.synteny.cscore == 0.9
 
 
 def test_mcscan_auto_request_falls_back_to_cwd_jcvi_config(tmp_path: Path, monkeypatch) -> None:
@@ -537,8 +541,8 @@ def test_mcscan_auto_request_falls_back_to_cwd_jcvi_config(tmp_path: Path, monke
         dpi=None,
     )
     request = mcscan_auto_request_from_cli(ns)
-    assert request.config.method_config == str(jcvi_path)
-    assert request.method_config["dpi"] == 600
+    assert request.runtime.engine_config == str(jcvi_path)
+    assert request.parameters.plot.dpi == 600
 
     root = Path(__file__).resolve().parents[3]
     sample = root / "references" / "samples" / "shell" / "gff_genome_minimal"
@@ -550,24 +554,24 @@ def test_mcscan_auto_request_falls_back_to_cwd_jcvi_config(tmp_path: Path, monke
 
 def test_resolve_reference_index_defaults_to_first() -> None:
     species = [
-        AnalysisSpeciesInput(name="A", input_mode="bed_cds", bed="A.bed", cds="A.cds"),
-        AnalysisSpeciesInput(name="B", input_mode="bed_cds", bed="B.bed", cds="B.cds"),
+        WorkflowSpeciesInput(name="A", input_mode="bed_cds", bed="A.bed", cds="A.cds"),
+        WorkflowSpeciesInput(name="B", input_mode="bed_cds", bed="B.bed", cds="B.cds"),
     ]
     assert _resolve_reference_index("", species) == 0
 
 
 def test_resolve_reference_index_by_one_based_position() -> None:
     species = [
-        AnalysisSpeciesInput(name="A", input_mode="bed_cds", bed="A.bed", cds="A.cds"),
-        AnalysisSpeciesInput(name="B", input_mode="bed_cds", bed="B.bed", cds="B.cds"),
+        WorkflowSpeciesInput(name="A", input_mode="bed_cds", bed="A.bed", cds="A.cds"),
+        WorkflowSpeciesInput(name="B", input_mode="bed_cds", bed="B.bed", cds="B.cds"),
     ]
     assert _resolve_reference_index("2", species) == 1
 
 
 def test_resolve_reference_index_by_name_case_insensitive() -> None:
     species = [
-        AnalysisSpeciesInput(name="query", input_mode="bed_cds", bed="q.bed", cds="q.cds"),
-        AnalysisSpeciesInput(name="subject", input_mode="bed_cds", bed="s.bed", cds="s.cds"),
+        WorkflowSpeciesInput(name="query", input_mode="bed_cds", bed="q.bed", cds="q.cds"),
+        WorkflowSpeciesInput(name="subject", input_mode="bed_cds", bed="s.bed", cds="s.cds"),
     ]
     assert _resolve_reference_index("Subject", species) == 1
 
@@ -616,5 +620,5 @@ def test_mcscan_auto_request_respects_reference_species(tmp_path: Path) -> None:
         dpi=None,
     )
     request = mcscan_auto_request_from_cli(ns)
-    assert request.input.reference_index == 1
-    assert request.input.species[1].name == "B"
+    assert request.reference_index == 1
+    assert request.species[1].name == "B"

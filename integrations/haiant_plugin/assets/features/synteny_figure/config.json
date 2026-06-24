@@ -1,8 +1,8 @@
 {
   "title": "GenomeLens 共线性图 (Synteny Figure)",
   "title_en": "GenomeLens Synteny Figure",
-  "description": "对应 ``analyze mcscan jcvi graphics_synteny`` / ``analyze submodule jcvi.graphics_synteny`` 自动流：输入目录自动发现物种文件对，调用外部 GenomeLens 执行 ``analyze run`` 生成共线性图。",
-  "description_en": "Matches the ``analyze mcscan jcvi graphics_synteny`` / ``analyze submodule jcvi.graphics_synteny`` flow: auto-discovers species pairs from an input directory and calls the external GenomeLens executable with ``analyze run``.",
+  "description": "对应 ``WorkflowRequest v2`` + ``analyze run``：输入目录自动发现物种文件对，调用外部 GenomeLens 生成共线性图。",
+  "description_en": "Uses ``WorkflowRequest v2`` + ``analyze run``: auto-discovers species pairs from an input directory and calls the external GenomeLens executable to render a synteny figure.",
   "version": "v1.0.0",
   "context": "双物种 JCVI 共线性图（synteny_figure 子模块）",
   "context_en": "Pairwise JCVI synteny figure",

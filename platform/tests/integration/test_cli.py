@@ -3,7 +3,7 @@ import shutil
 from pathlib import Path
 
 from genomelens.cli.main import main
-from genomelens.core.summary_models import RunSummary, ScoringBlock, UiBlock
+from genomelens.contracts.summaries import RunSummary, ScoringBlock, UiBlock
 from genomelens.data.workspace.output_layout import create_output_layout
 
 
@@ -29,6 +29,33 @@ def _copy_species_files(input_dir: Path, sample: Path, names: list[str]) -> None
 
 def _auto_args(input_dir: Path, outdir: Path) -> list[str]:
     return [str(input_dir), str(outdir)]
+
+
+def _workflow_request_payload(sample: Path, outdir: Path) -> dict[str, object]:
+    return {
+        "schema_version": 2,
+        "kind": "workflow_request",
+        "workflow_id": "synteny",
+        "species": [
+            {
+                "name": "query",
+                "input_mode": "bed_cds",
+                "bed": str(sample / "query.bed"),
+                "cds": str(sample / "query.cds"),
+            },
+            {
+                "name": "subject",
+                "input_mode": "bed_cds",
+                "bed": str(sample / "subject.bed"),
+                "cds": str(sample / "subject.cds"),
+            },
+        ],
+        "reference_index": 0,
+        "inputs": {},
+        "parameters": {},
+        "output": {"directory": str(outdir), "force": True, "formats": ["png"]},
+        "runtime": {"min_block_size": 1},
+    }
 
 
 def test_cli_help() -> None:
@@ -74,12 +101,12 @@ def test_cli_help_for_analyze_run(capsys) -> None:
     assert "--json" in output
 
 
-def test_analyze_template_mcscan(capsys) -> None:
-    assert main(["analyze", "template", "mcscan"]) == 0
+def test_analyze_template_synteny(capsys) -> None:
+    assert main(["analyze", "template", "synteny"]) == 0
     payload = json.loads(capsys.readouterr().out)
-    assert payload["kind"] == "analysis_request"
-    assert payload["method"] == "mcscan"
-    assert payload["input"]["mode"] == "auto_directory"
+    assert payload["kind"] == "workflow_request"
+    assert payload["workflow_id"] == "synteny"
+    assert payload["schema_version"] == 2
 
 
 def test_analyze_schema(capsys) -> None:
@@ -87,8 +114,13 @@ def test_analyze_schema(capsys) -> None:
     payload = json.loads(capsys.readouterr().out)
 
     assert payload["$schema"] == "https://json-schema.org/draft/2020-12/schema"
-    assert payload["properties"]["kind"]["const"] == "analysis_request"
-    assert payload["properties"]["method"]["enum"] == ["mcscan"]
+    assert payload["properties"]["kind"]["const"] == "workflow_request"
+    assert payload["properties"]["workflow_id"]["enum"] == [
+        "synteny",
+        "local_synteny",
+        "graphics_histogram",
+        "graphics_heatmap",
+    ]
 
 
 def test_check_json_short_option() -> None:
@@ -158,14 +190,13 @@ def test_analyze_workflow_reuses_existing_execution_path(tmp_path: Path, monkeyp
     captured = {}
 
     def fake_dispatch(_self, request, signal_bus=None):
-        captured["method"] = request.method
+        captured["workflow_id"] = request.workflow_id
         captured["output"] = request.output.directory
         return RunSummary(
             status="SUCCEEDED",
-            schema_version=2,
-            workflow="mcscan",
-            method="mcscan",
-            task={"workflow": "mcscan"},
+            schema_version=3,
+            workflow="synteny",
+            task={"workflow": "synteny"},
             species=[],
             final_figures=[],
             artifact_index=[],
@@ -181,7 +212,7 @@ def test_analyze_workflow_reuses_existing_execution_path(tmp_path: Path, monkeyp
     code = main(["analyze", "workflow", "synteny", str(input_dir), str(outdir), "--force"])
 
     assert code == 0
-    assert captured["method"] == "mcscan"
+    assert captured["workflow_id"] == "synteny"
     assert captured["output"] == str(outdir.resolve())
 
 
@@ -194,15 +225,14 @@ def test_analyze_workflow_log_level_overrides_verbose(tmp_path: Path, monkeypatc
     captured = {}
 
     def fake_dispatch(_self, request, signal_bus=None):
-        captured["log_level"] = request.options.log_level
-        captured["verbose"] = request.options.verbose
-        captured["console_log"] = request.options.console_log
+        captured["log_level"] = request.runtime.log_level
+        captured["verbose"] = request.runtime.verbose
+        captured["console_log"] = request.runtime.console_log
         return RunSummary(
             status="SUCCEEDED",
-            schema_version=2,
-            workflow="mcscan",
-            method="mcscan",
-            task={"workflow": "mcscan"},
+            schema_version=3,
+            workflow="synteny",
+            task={"workflow": "synteny"},
             species=[],
             final_figures=[],
             artifact_index=[],
@@ -257,14 +287,13 @@ def test_analyze_workflow_uses_configured_log_level(tmp_path: Path, monkeypatch)
     captured = {}
 
     def fake_dispatch(_self, request, signal_bus=None):
-        captured["log_level"] = request.options.log_level
-        captured["console_log"] = request.options.console_log
+        captured["log_level"] = request.runtime.log_level
+        captured["console_log"] = request.runtime.console_log
         return RunSummary(
             status="SUCCEEDED",
-            schema_version=2,
-            workflow="mcscan",
-            method="mcscan",
-            task={"workflow": "mcscan"},
+            schema_version=3,
+            workflow="synteny",
+            task={"workflow": "synteny"},
             species=[],
             final_figures=[],
             artifact_index=[],
@@ -337,55 +366,15 @@ def test_analyze_run_json_suppresses_progress_reporter(tmp_path: Path, monkeypat
     sample = root / "references" / "samples" / "shell" / "bed_cds_minimal"
     outdir = tmp_path / "out-json-run"
     request_path = tmp_path / "request.json"
-    request_path.write_text(
-        json.dumps(
-            {
-                "schema_version": 1,
-                "kind": "analysis_request",
-                "method": "mcscan",
-                "input": {
-                    "mode": "bed_cds",
-                    "species": [
-                        {
-                            "name": "query",
-                            "input_mode": "bed_cds",
-                            "bed": str(sample / "query.bed"),
-                            "cds": str(sample / "query.cds"),
-                        },
-                        {
-                            "name": "subject",
-                            "input_mode": "bed_cds",
-                            "bed": str(sample / "subject.bed"),
-                            "cds": str(sample / "subject.cds"),
-                        },
-                    ],
-                },
-                "output": {
-                    "directory": str(outdir),
-                    "force": True,
-                    "formats": ["png"],
-                },
-                "config": {},
-                "options": {
-                    "preset": "auto",
-                    "min_block_size": 1,
-                },
-                "method_config": {
-                    "workflow": "graphics_synteny",
-                },
-            }
-        ),
-        encoding="utf-8",
-    )
+    request_path.write_text(json.dumps(_workflow_request_payload(sample, outdir)), encoding="utf-8")
 
-    def fake_provider_run(_self, _request, signal_bus):
+    def fake_dispatch(_self, request, signal_bus=None):
         signal_bus.emit("state", state="RUNNING_ENGINE")
         return RunSummary(
             status="SUCCEEDED",
-            schema_version=2,
-            workflow="mcscan",
-            method="mcscan",
-            task={"workflow": "mcscan"},
+            schema_version=3,
+            workflow=request.workflow_id,
+            task={"workflow": request.workflow_id},
             species=[],
             final_figures=[],
             artifact_index=[],
@@ -396,7 +385,7 @@ def test_analyze_run_json_suppresses_progress_reporter(tmp_path: Path, monkeypat
             scoring=ScoringBlock(),
         )
 
-    monkeypatch.setattr("genomelens.analysis.methods.mcscan_provider.McscanWorkflowProvider.run", fake_provider_run)
+    monkeypatch.setattr("genomelens.analysis.dispatcher.AnalysisDispatcher.dispatch", fake_dispatch)
 
     code = main(["analyze", "run", str(request_path), "--json"])
     captured = capsys.readouterr()
@@ -411,141 +400,65 @@ def test_analyze_run_dispatches_request_json(tmp_path: Path, monkeypatch) -> Non
     sample = root / "references" / "samples" / "shell" / "bed_cds_minimal"
     outdir = tmp_path / "out-run"
     request_path = tmp_path / "request.json"
-    request_path.write_text(
-        json.dumps(
-            {
-                "schema_version": 1,
-                "kind": "analysis_request",
-                "method": "mcscan",
-                "input": {
-                    "mode": "bed_cds",
-                    "species": [
-                        {
-                            "name": "query",
-                            "input_mode": "bed_cds",
-                            "bed": str(sample / "query.bed"),
-                            "cds": str(sample / "query.cds"),
-                        },
-                        {
-                            "name": "subject",
-                            "input_mode": "bed_cds",
-                            "bed": str(sample / "subject.bed"),
-                            "cds": str(sample / "subject.cds"),
-                        },
-                    ],
-                },
-                "output": {
-                    "directory": str(outdir),
-                    "force": True,
-                    "formats": ["png"],
-                },
-                "config": {},
-                "options": {
-                    "preset": "auto",
-                    "min_block_size": 1,
-                },
-                "method_config": {
-                    "workflow": "graphics_synteny",
-                },
-            }
-        ),
-        encoding="utf-8",
-    )
+    request_path.write_text(json.dumps(_workflow_request_payload(sample, outdir)), encoding="utf-8")
     captured = {}
 
-    def fake_provider_run(_self, request, _signal_bus):
-        captured["method"] = request.method
+    def fake_dispatch(_self, request, signal_bus=None):
+        captured["workflow_id"] = request.workflow_id
         captured["output"] = request.output.directory
+        layout = create_output_layout(Path(request.output.directory), force=True)
         return RunSummary(
             status="SUCCEEDED",
-            schema_version=2,
-            workflow="mcscan",
-            method="mcscan",
-            task={"workflow": "mcscan"},
+            schema_version=3,
+            workflow=request.workflow_id,
+            task={"workflow": request.workflow_id},
             species=[],
             final_figures=[],
             artifact_index=[],
             logs={},
-            ui=UiBlock(
-                "SUCCEEDED", 1.0, [], str(outdir / "report" / "run_summary.json"), str(outdir / "logs" / "run.log")
-            ),
+            ui=UiBlock("SUCCEEDED", 1.0, [], str(layout.run_summary), str(layout.logs / "run.log")),
             scoring=ScoringBlock(),
         )
 
-    monkeypatch.setattr("genomelens.analysis.methods.mcscan_provider.McscanWorkflowProvider.run", fake_provider_run)
+    monkeypatch.setattr("genomelens.analysis.dispatcher.AnalysisDispatcher.dispatch", fake_dispatch)
 
     code = main(["analyze", "run", str(request_path)])
 
     assert code == 0
-    assert captured["method"] == "mcscan"
+    assert captured["workflow_id"] == "synteny"
     assert captured["output"] == str(outdir)
-    assert (outdir / "inputs" / "analysis_request.json").is_file()
 
 
 def test_analyze_run_request_json(tmp_path: Path, monkeypatch) -> None:
     root = Path(__file__).resolve().parents[3]
     sample = root / "references" / "samples" / "shell" / "bed_cds_minimal"
-    input_dir = tmp_path / "input-run"
-    _copy_species_files(input_dir, sample, ["query.bed", "query.cds", "subject.bed", "subject.cds"])
     outdir = tmp_path / "out-run"
     request_path = tmp_path / "request.json"
     captured = {}
+    request_path.write_text(json.dumps(_workflow_request_payload(sample, outdir)), encoding="utf-8")
 
-    request_path.write_text(
-        json.dumps(
-            {
-                "schema_version": 1,
-                "kind": "analysis_request",
-                "method": "mcscan",
-                "input": {
-                    "mode": "auto_directory",
-                    "directory": str(input_dir),
-                },
-                "output": {
-                    "directory": str(outdir),
-                    "force": True,
-                    "formats": ["png"],
-                },
-                "config": {},
-                "options": {
-                    "preset": "auto",
-                    "min_block_size": 1,
-                },
-                "method_config": {
-                    "workflow": "graphics_synteny",
-                },
-            }
-        ),
-        encoding="utf-8",
-    )
-
-    def fake_provider_run(_self, request, _signal_bus):
-        captured["species"] = [item.name for item in request.input.species]
+    def fake_dispatch(_self, request, signal_bus=None):
+        captured["species"] = [item.name for item in request.species]
+        layout = create_output_layout(Path(request.output.directory), force=True)
         return RunSummary(
             status="SUCCEEDED",
-            schema_version=2,
-            workflow="mcscan",
-            method="mcscan",
-            task={"workflow": "mcscan"},
+            schema_version=3,
+            workflow=request.workflow_id,
+            task={"workflow": request.workflow_id},
             species=[],
             final_figures=[],
             artifact_index=[],
             logs={},
-            ui=UiBlock(
-                "SUCCEEDED", 1.0, [], str(outdir / "report" / "run_summary.json"), str(outdir / "logs" / "run.log")
-            ),
+            ui=UiBlock("SUCCEEDED", 1.0, [], str(layout.run_summary), str(layout.logs / "run.log")),
             scoring=ScoringBlock(),
         )
 
-    monkeypatch.setattr("genomelens.analysis.methods.mcscan_provider.McscanWorkflowProvider.run", fake_provider_run)
+    monkeypatch.setattr("genomelens.analysis.dispatcher.AnalysisDispatcher.dispatch", fake_dispatch)
 
     code = main(["analyze", "run", str(request_path)])
 
     assert code == 0
     assert captured["species"] == ["query", "subject"]
-    request_snapshot = json.loads((outdir / "inputs" / "analysis_request.json").read_text(encoding="utf-8"))
-    assert request_snapshot["kind"] == "analysis_request"
-    assert request_snapshot["input"]["species"][0]["name"] == "query"
 
 
 def test_analyze_workflow_synteny_pairwise_with_source_engine(tmp_path: Path) -> None:
@@ -567,24 +480,25 @@ def test_analyze_workflow_synteny_pairwise_with_source_engine(tmp_path: Path) ->
     )
     assert code == 0
     summary = json.loads((outdir / "report" / "run_summary.json").read_text(encoding="utf-8"))
+    extensions = summary["extensions"]
     assert summary["status"] == "SUCCEEDED"
     assert summary["task"]["task_type"] == "pairwise_synteny"
-    assert [item["role"] for item in summary["species"]] == ["query", "subject"]
-    assert summary["jcvi_backend"] == "jcvi-genomelens-engine"
-    assert summary["jcvi_distribution"] == "source"
-    assert summary["jcvi_runtime_mode"] in {"core", "accelerated"}
-    assert isinstance(summary["jcvi_loaded_extensions"], list)
-    assert isinstance(summary["jcvi_missing_extensions"], list)
-    assert summary["simplified_fallback"] is False
-    assert Path(summary["blast_table"]).stat().st_size > 0
-    assert Path(summary["anchors_path"]).is_file()
+    assert [item["role"] for item in summary["species"]] == ["reference", "target"]
+    assert extensions["jcvi_backend"] == "jcvi-genomelens-engine"
+    assert extensions["jcvi_distribution"] == "source"
+    assert extensions["jcvi_runtime_mode"] in {"core", "accelerated"}
+    assert isinstance(extensions["jcvi_loaded_extensions"], list)
+    assert isinstance(extensions["jcvi_missing_extensions"], list)
+    assert extensions["simplified_fallback"] is False
+    assert Path(extensions["blast_table"]).stat().st_size > 0
+    assert Path(extensions["anchors_path"]).is_file()
     assert any(item["artifact_type"] == "figure" for item in summary["artifact_index"])
     assert summary["ui"]["state"] == "SUCCEEDED"
     assert summary["ui"]["progress"] == 1.0
     assert summary["scoring"]["status"] == "not_run"
-    engine_summary = json.loads(Path(summary["engine_summary_path"]).read_text(encoding="utf-8"))
+    engine_summary = json.loads(Path(extensions["engine_summary_path"]).read_text(encoding="utf-8"))
     assert engine_summary["task"]["task_type"] == "pairwise_synteny"
-    assert [item["role"] for item in engine_summary["species"]] == ["query", "subject"]
+    assert [item["role"] for item in engine_summary["species"]] == ["reference", "target"]
     assert [command["name"] for command in engine_summary["commands"]] == [
         "makeblastdb.exe",
         "blastn.exe",
@@ -597,12 +511,10 @@ def test_analyze_workflow_synteny_pairwise_with_source_engine(tmp_path: Path) ->
     ]
     assert any(Path(path).name == "dotplot.svg" for path in summary["final_figures"])
     assert any(Path(path).name == "synteny.svg" for path in summary["final_figures"])
-    request_snapshot = json.loads((outdir / "inputs" / "analysis_request.json").read_text(encoding="utf-8"))
-    assert request_snapshot["kind"] == "analysis_request"
-    assert request_snapshot["method"] == "mcscan"
-    assert request_snapshot["task_kind"] == "one_stop"
-    assert request_snapshot["one_stop_workflow_id"] == "synteny"
-    assert summary["analysis_request_path"] == str((outdir / "inputs" / "analysis_request.json").resolve())
+    request_snapshot = json.loads((outdir / "inputs" / "workflow_request.json").read_text(encoding="utf-8"))
+    assert request_snapshot["kind"] == "workflow_request"
+    assert request_snapshot["workflow_id"] == "synteny"
+    assert summary["analysis_request_path"] == str((outdir / "inputs" / "workflow_request.json").resolve())
     run_log = (outdir / "logs" / "run.log").read_text(encoding="utf-8")
     assert "task_started task_id=query__subject__graphics_synteny step=prepare_inputs" in run_log
     assert "task_finished task_id=query__subject__graphics_synteny step=run_engine status=SUCCEEDED" in run_log
@@ -637,36 +549,36 @@ def test_analyze_workflow_synteny_multi_species(tmp_path: Path) -> None:
     )
     assert code == 0
     summary = json.loads((outdir / "report" / "run_summary.json").read_text(encoding="utf-8"))
+    extensions = summary["extensions"]
     assert summary["status"] == "SUCCEEDED"
     assert summary["task"]["task_type"] == "multi_species_synteny"
-    assert summary["species_count"] == 3
-    assert summary["pairwise_job_count"] == 3
-    assert {job["pair_id"] for job in summary["pairwise_jobs"]} == {
+    assert extensions["species_count"] == 3
+    assert len(summary["child_runs"]) == 3
+    assert {job["pair_id"] for job in summary["child_runs"]} == {
         "query__subject",
         "query__third",
         "subject__third",
     }
-    assert all(job["status"] == "SUCCEEDED" for job in summary["pairwise_jobs"])
-    assert all(Path(job["run_summary_path"]).is_file() for job in summary["pairwise_jobs"])
+    assert all(job["status"] == "SUCCEEDED" for job in summary["child_runs"])
+    assert all(Path(job["run_summary_path"]).is_file() for job in summary["child_runs"])
     assert any(Path(path).name.startswith("query__subject.") for path in summary["final_figures"])
     assert any(item["artifact_type"] == "figure" for item in summary["artifact_index"])
     # 全局多物种核型总图：所有 pairwise 成功后应聚合出至少一张总图。
-    assert summary["global_figures"], "expected a global multi-species karyotype figure"
-    assert all(Path(path).is_file() for path in summary["global_figures"])
-    assert any(Path(path).name.startswith("global.") for path in summary["global_figures"])
-    assert any(path in summary["final_figures"] for path in summary["global_figures"])
-    request_snapshot = json.loads((outdir / "inputs" / "analysis_request.json").read_text(encoding="utf-8"))
-    assert request_snapshot["task_kind"] == "one_stop"
-    assert request_snapshot["one_stop_workflow_id"] == "synteny"
-    assert request_snapshot["method_config"]["auto_optimization"]["optimize_karyotype_labels"] is True
-    assert request_snapshot["method_config"]["auto_optimization"]["optimize_figsize"] is True
-    assert request_snapshot["method_config"]["auto_optimization"]["rewrite_layout_links"] is True
+    assert extensions["global_figures"], "expected a global multi-species karyotype figure"
+    assert all(Path(path).is_file() for path in extensions["global_figures"])
+    assert any(Path(path).name.startswith("global.") for path in extensions["global_figures"])
+    assert any(path in summary["final_figures"] for path in extensions["global_figures"])
+    request_snapshot = json.loads((outdir / "inputs" / "workflow_request.json").read_text(encoding="utf-8"))
+    assert request_snapshot["workflow_id"] == "synteny"
+    assert request_snapshot["parameters"]["plot"]["auto_optimization"]["optimize_karyotype_labels"] is True
+    assert request_snapshot["parameters"]["plot"]["auto_optimization"]["optimize_figsize"] is True
+    assert request_snapshot["parameters"]["plot"]["auto_optimization"]["rewrite_layout_links"] is True
     global_manifest = json.loads(
         (outdir / "intermediate" / "global_karyotype" / "global_manifest.json").read_text(encoding="utf-8")
     )
-    assert global_manifest["options"]["auto_optimization"]["rewrite_layout_links"] is True
-    assert global_manifest["options"]["auto_optimization"]["optimize_figsize"] is True
-    assert global_manifest["options"]["auto_optimization"]["optimize_karyotype_labels"] is True
+    assert global_manifest["parameters"]["auto_optimization"]["rewrite_layout_links"] is True
+    assert global_manifest["parameters"]["auto_optimization"]["optimize_figsize"] is True
+    assert global_manifest["parameters"]["auto_optimization"]["optimize_karyotype_labels"] is True
     global_summary = json.loads(
         (outdir / "intermediate" / "global_karyotype" / "engine_run_summary.json").read_text(encoding="utf-8")
     )
@@ -683,7 +595,7 @@ def test_analyze_workflow_synteny_multi_species(tmp_path: Path) -> None:
     global_command = global_summary["commands"][-1]["argv"]
     assert "--figsize" in global_command
     run_log = (outdir / "logs" / "run.log").read_text(encoding="utf-8")
-    assert "step=prepare_all_vs_all_pairwise_workspace status=STARTED" in run_log
+    assert "task_id=query__subject step=run_pairwise_job status=STARTED" in run_log
     assert "step=run_pairwise_job status=STARTED" in run_log
     assert "step=build_global_karyotype status=SUCCEEDED" in run_log
     assert (outdir / "intermediate" / "pairwise" / "query__subject" / "logs" / "run.log").is_file()
@@ -759,16 +671,16 @@ def test_analyze_workflow_synteny_pairwise_with_explicit_jcvi_config(tmp_path: P
         ]
     )
     assert code == 0
-    request_snapshot = json.loads((outdir / "inputs" / "analysis_request.json").read_text(encoding="utf-8"))
-    assert request_snapshot["config"]["method_config"] == str(jcvi_config_path.resolve())
-    assert request_snapshot["method_config"]["cscore"] == 0.9
-    assert request_snapshot["method_config"]["dpi"] == 600
+    request_snapshot = json.loads((outdir / "inputs" / "workflow_request.json").read_text(encoding="utf-8"))
+    assert request_snapshot["runtime"]["engine_config"] == str(jcvi_config_path.resolve())
+    assert request_snapshot["parameters"]["synteny"]["cscore"] == 0.9
+    assert request_snapshot["parameters"]["plot"]["dpi"] == 600
 
     manifest = json.loads((outdir / "inputs" / "input_manifest.json").read_text(encoding="utf-8"))
     assert manifest["toolchain"]["blastn"] == str((blast_bin / "blastn.exe").resolve())
-    assert manifest["options"]["cscore"] == 0.9
-    assert manifest["options"]["dpi"] == 600
-    assert manifest["options"]["threads"] == 1
+    assert manifest["parameters"]["cscore"] == 0.9
+    assert manifest["parameters"]["dpi"] == 600
+    assert manifest["parameters"]["threads"] == 1
 
 
 def test_analyze_workflow_synteny_pairwise_uses_config_defaults(tmp_path: Path) -> None:
@@ -828,12 +740,12 @@ def test_analyze_workflow_synteny_pairwise_uses_config_defaults(tmp_path: Path) 
     )
     assert code == 0
     manifest = json.loads((outdir / "inputs" / "input_manifest.json").read_text(encoding="utf-8"))
-    assert manifest["schema_version"] == 2
-    assert manifest["task"]["workflow"] == "graphics_synteny"
-    assert [item["role"] for item in manifest["species"]] == ["query", "subject"]
+    assert manifest["schema_version"] == 3
+    assert manifest["workflow"] == "graphics_synteny"
+    assert [item["role"] for item in manifest["species"]] == ["reference", "target"]
     assert manifest["toolchain"]["blastn"] == str((blast_bin / "blastn.exe").resolve())
-    assert manifest["options"]["threads"] == 1
-    assert manifest["options"]["min_block_size"] == 1
+    assert manifest["parameters"]["threads"] == 1
+    assert manifest["parameters"]["min_block_size"] == 1
 
 
 def test_analyze_workflow_synteny_reference_vs_targets_local_synteny_flags(tmp_path: Path) -> None:
@@ -886,29 +798,32 @@ def test_analyze_workflow_synteny_reference_vs_targets_local_synteny_flags(tmp_p
     assert summary["status"] == "SUCCEEDED"
     assert summary["task"]["task_type"] == "reference_vs_targets"
 
-    request_snapshot = json.loads((outdir / "inputs" / "analysis_request.json").read_text(encoding="utf-8"))
-    method_config = request_snapshot["method_config"]
-    assert method_config["target_gene_ids"] == ["qgene2"]
-    assert method_config["up"] == 1
-    assert method_config["down"] == 1
-    assert method_config["split_targets"] is True
-    assert method_config["label_targets"] is True
-    assert method_config["glyphstyle"] == "arrow"
-    assert method_config["glyphcolor"] == "orthogroup"
-    assert method_config["shadestyle"] == "curve"
-    assert method_config["dpi"] == 150
+    request_snapshot = json.loads((outdir / "inputs" / "workflow_request.json").read_text(encoding="utf-8"))
+    local_params = request_snapshot["parameters"]["local_synteny"]
+    plot_params = request_snapshot["parameters"]["plot"]
+    assert local_params["target_gene_ids"] == ["qgene2"]
+    assert local_params["up"] == 1
+    assert local_params["down"] == 1
+    assert local_params["split_targets"] is True
+    assert local_params["label_targets"] is True
+    assert plot_params["glyphstyle"] == "arrow"
+    assert plot_params["glyphcolor"] == "orthogroup"
+    assert plot_params["shadestyle"] == "curve"
+    assert plot_params["dpi"] == 150
 
     # engine manifest 应携带局部共线性参数
-    manifest = json.loads((outdir / "intermediate" / "jcvi" / "jcvi_engine_manifest.json").read_text(encoding="utf-8"))
-    # synteny 一站式工作流在 CLI 层统一使用 graphics_synteny 作为 method_config.workflow，
-    # 实际执行路径由 OneStopWorkflowRunner 根据 target_gene_ids 路由到 reference_vs_targets。
-    assert manifest["task"]["workflow"] == "graphics_synteny"
+    manifest = json.loads(
+        (outdir / "intermediate" / "pairwise" / "query__subject" / "inputs" / "input_manifest.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert manifest["task"]["workflow"] == "local_synteny"
 
     # 局部共线性总图应存在
-    assert summary["multi_species_local_figures"]
-    assert all(Path(path).is_file() for path in summary["multi_species_local_figures"])
+    assert summary["extensions"]["multi_species_local_figures"]
+    assert all(Path(path).is_file() for path in summary["extensions"]["multi_species_local_figures"])
     assert summary["final_figures"]
-    assert any(path in summary["final_figures"] for path in summary["multi_species_local_figures"])
+    assert any(path in summary["final_figures"] for path in summary["extensions"]["multi_species_local_figures"])
 
 
 def test_analyze_workflow_synteny_reference_vs_targets_reference_swap(tmp_path: Path) -> None:
@@ -940,13 +855,18 @@ def test_analyze_workflow_synteny_reference_vs_targets_reference_swap(tmp_path: 
     assert code == 0
     summary = json.loads((outdir / "report" / "run_summary.json").read_text(encoding="utf-8"))
     assert summary["status"] == "SUCCEEDED"
-    assert summary["species_a_name"] == "subject"
-    assert summary["species_b_name"] == "query"
+    assert summary["extensions"]["reference_name"] == "subject"
+    assert summary["child_runs"][0]["species_a_name"] == "subject"
+    assert summary["child_runs"][0]["species_b_name"] == "query"
 
-    manifest = json.loads((outdir / "intermediate" / "jcvi" / "jcvi_engine_manifest.json").read_text(encoding="utf-8"))
-    # synteny 一站式工作流在 CLI 层统一使用 graphics_synteny 作为 method_config.workflow，
-    # 实际执行路径由 OneStopWorkflowRunner 根据 target_gene_ids 路由到 reference_vs_targets。
-    assert manifest["task"]["workflow"] == "graphics_synteny"
+    manifest = json.loads(
+        (outdir / "intermediate" / "pairwise" / "subject__query" / "inputs" / "input_manifest.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    # Target genes route synteny into local_synteny pairwise steps.
+    assert manifest["schema_version"] == 3
+    assert manifest["workflow"] == "local_synteny"
 
     engine_summary = json.loads(
         (
@@ -997,23 +917,24 @@ def test_analyze_workflow_synteny_reference_vs_targets_three_species(tmp_path: P
     assert code == 0
     summary = json.loads((outdir / "report" / "run_summary.json").read_text(encoding="utf-8"))
     assert summary["status"] == "SUCCEEDED"
-    assert summary["pairing_strategy"] == "reference_vs_targets"
-    assert summary["species_count"] == 3
-    assert summary["pairwise_job_count"] == 2
-    pair_ids = {job["pair_id"] for job in summary["pairwise_jobs"]}
+    assert summary["extensions"]["pairing_strategy"] == "reference_vs_targets"
+    assert summary["extensions"]["species_count"] == 3
+    assert summary["extensions"]["pairwise_job_count"] == 2
+    pair_ids = {job["pair_id"] for job in summary["child_runs"]}
     assert pair_ids == {"query__subject", "query__third"}
-    assert all(job["status"] == "SUCCEEDED" for job in summary["pairwise_jobs"])
-    assert summary["multi_species_local_figures"], "expected a multi-species local synteny figure"
-    assert all(Path(path).is_file() for path in summary["multi_species_local_figures"])
-    assert any(Path(path).name.startswith("multi_species_local.") for path in summary["multi_species_local_figures"])
-    assert any(path in summary["final_figures"] for path in summary["multi_species_local_figures"])
+    assert all(job["status"] == "SUCCEEDED" for job in summary["child_runs"])
+    local_figures = summary["extensions"]["multi_species_local_figures"]
+    assert local_figures, "expected a multi-species local synteny figure"
+    assert all(Path(path).is_file() for path in local_figures)
+    assert any(Path(path).name.startswith("multi_species_local.") for path in local_figures)
+    assert any(path in summary["final_figures"] for path in local_figures)
     local_manifest = json.loads(
         (outdir / "intermediate" / "multi_species_local_synteny" / "local_synteny_multi_manifest.json").read_text(
             encoding="utf-8"
         )
     )
-    assert local_manifest["options"]["auto_optimization"]["rewrite_layout_links"] is True
-    assert local_manifest["options"]["auto_optimization"]["optimize_figsize"] is True
+    assert local_manifest["parameters"]["auto_optimization"]["rewrite_layout_links"] is True
+    assert local_manifest["parameters"]["auto_optimization"]["optimize_figsize"] is True
     local_layout = (outdir / "intermediate" / "multi_species_local_synteny" / "local_multi.layout").read_text(
         encoding="utf-8"
     )
@@ -1031,7 +952,8 @@ def test_analyze_workflow_synteny_reference_vs_targets_three_species(tmp_path: P
     local_command = local_summary["commands"][-1]["argv"]
     assert "--figsize" in local_command
     run_log = (outdir / "logs" / "run.log").read_text(encoding="utf-8")
-    assert "step=prepare_reference_vs_targets_workspace status=STARTED" in run_log
+    assert "task_id=query__subject step=run_pairwise_job status=STARTED" in run_log
+    assert "step=build_multi_local_synteny status=SUCCEEDED" in run_log
     assert "step=run_pairwise_job status=STARTED" in run_log
 
 
@@ -1080,9 +1002,10 @@ def test_analyze_workflow_synteny_pairwise_end_to_end(tmp_path: Path) -> None:
     assert summary["status"] == "SUCCEEDED"
     assert summary["task"]["task_type"] == "pairwise_synteny"
 
-    request_snapshot = json.loads((outdir / "inputs" / "analysis_request.json").read_text(encoding="utf-8"))
-    assert request_snapshot["task_kind"] == "one_stop"
-    assert request_snapshot["one_stop_workflow_id"] == "synteny"
+    request_snapshot = json.loads((outdir / "inputs" / "workflow_request.json").read_text(encoding="utf-8"))
+    assert request_snapshot["kind"] == "workflow_request"
+    assert request_snapshot["schema_version"] == 2
+    assert request_snapshot["workflow_id"] == "synteny"
 
 
 def test_analyze_submodule_mcscan_pairwise_end_to_end(tmp_path: Path) -> None:
@@ -1109,11 +1032,12 @@ def test_analyze_submodule_mcscan_pairwise_end_to_end(tmp_path: Path) -> None:
     assert code == 0
     summary = json.loads((outdir / "report" / "run_summary.json").read_text(encoding="utf-8"))
     assert summary["status"] == "SUCCEEDED"
-    assert summary["task"]["sub_module_id"] == "jcvi.mcscan_pairwise"
+    assert summary["task"]["task_type"] == "pairwise_synteny"
 
-    request_snapshot = json.loads((outdir / "inputs" / "analysis_request.json").read_text(encoding="utf-8"))
-    assert request_snapshot["task_kind"] == "sub_module"
-    assert request_snapshot["sub_module_id"] == "jcvi.mcscan_pairwise"
+    request_snapshot = json.loads((outdir / "inputs" / "workflow_request.json").read_text(encoding="utf-8"))
+    assert request_snapshot["kind"] == "workflow_request"
+    assert request_snapshot["workflow_id"] == "synteny"
+    assert request_snapshot["inputs"]["ports"]["species_pair"] == str(input_dir)
 
 
 def test_analyze_submodule_graphics_histogram_end_to_end(tmp_path: Path) -> None:
@@ -1138,8 +1062,9 @@ def test_analyze_submodule_graphics_histogram_end_to_end(tmp_path: Path) -> None
     assert code == 0
     summary = json.loads((outdir / "report" / "run_summary.json").read_text(encoding="utf-8"))
     assert summary["status"] == "SUCCEEDED"
-    assert summary["task"]["sub_module_id"] == "jcvi.graphics_histogram"
+    assert summary["task"]["task_type"] == "plot_histogram"
 
-    request_snapshot = json.loads((outdir / "inputs" / "analysis_request.json").read_text(encoding="utf-8"))
-    assert request_snapshot["task_kind"] == "sub_module"
-    assert request_snapshot["sub_module_id"] == "jcvi.graphics_histogram"
+    request_snapshot = json.loads((outdir / "inputs" / "workflow_request.json").read_text(encoding="utf-8"))
+    assert request_snapshot["kind"] == "workflow_request"
+    assert request_snapshot["workflow_id"] == "graphics_histogram"
+    assert request_snapshot["inputs"]["ports"]["numeric_files"] == [str(numbers)]

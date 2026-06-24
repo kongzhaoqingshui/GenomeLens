@@ -1,5 +1,5 @@
 {
-  "GenomeLens_Path": "",
+  "GenomeLens_Path": "C:/GenomeLens/GenomeLens.exe",
   "input_dir": "input",
   "output_dir": "output",
   "reference": "1",

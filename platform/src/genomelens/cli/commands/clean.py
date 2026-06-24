@@ -9,7 +9,7 @@ from pathlib import Path
 
 from genomelens.app.errors.exceptions import WorkspaceError
 from genomelens.cli.ui import ConsoleWriter
-from genomelens.core.constants import DEFAULT_WORKSPACE_PATH
+from genomelens.utils.constants import DEFAULT_WORKSPACE_PATH
 
 # endregion
 

@@ -57,6 +57,17 @@ def _write_params_from_sample(
     return params_path
 
 
+def _submodule_argv(argv: list[str]) -> tuple[str, dict[str, object], str]:
+    module_index = argv.index("submodule") + 1
+    ports_index = argv.index("--input-ports") + 1
+    output_index = argv.index("--output-dir") + 1
+    return (
+        argv[module_index],
+        cast(dict[str, object], json.loads(argv[ports_index])),
+        argv[output_index],
+    )
+
+
 @pytest.mark.parametrize(
     ("module", "workflow", "logger_name"),
     [
@@ -103,11 +114,14 @@ def test_feature_entry_builds_request_and_command(
     assert request_path.name == "genomelens_request.json"
 
     request = json.loads(request_path.read_text(encoding="utf-8"))
-    assert request["method"] == "mcscan"
-    assert request["method_config"]["workflow"] == workflow
+    assert request["schema_version"] == 2
+    assert request["kind"] == "workflow_request"
+    expected_workflow_id = "local_synteny" if workflow == "local_synteny" else "synteny"
+    assert request["workflow_id"] == expected_workflow_id
+    assert request["parameters"]["extras"]["engine_workflow"] == workflow
     assert request["output"]["directory"] == str(tmp_path / "output")
-    assert request["options"]["threads"] == 2
-    assert request["options"]["min_block_size"] == 1
+    assert request["runtime"]["threads"] == 2
+    assert request["runtime"]["min_block_size"] == 1
     assert logging.getLogger(logger_name).handlers == []
 
 
@@ -228,12 +242,11 @@ def test_mcscan_pairwise_entry_builds_submodule_request(tmp_path: Path) -> None:
     argv = mcscan_pairwise_entry.build_runtime_command(params_path)
 
     assert argv[:4] == ["cmd.exe", "/c", str(tmp_path / "GenomeLens.cmd"), "analyze"]
-    assert argv[4] == "run"
-    request_path = Path(argv[5])
-    request = json.loads(request_path.read_text(encoding="utf-8"))
-    assert request["task_kind"] == "sub_module"
-    assert request["sub_module_id"] == "jcvi.mcscan_pairwise"
-    assert "species_pair" in request["port_bindings"]
+    assert argv[4] == "submodule"
+    module_id, ports, output_dir = _submodule_argv(argv)
+    assert module_id == "jcvi.mcscan_pairwise"
+    assert "species_pair" in ports
+    assert output_dir == str(tmp_path / "output")
     assert logging.getLogger("gljcvi_mcscan_pairwise").handlers == []
 
 
@@ -253,11 +266,11 @@ def test_histogram_entry_builds_submodule_request(tmp_path: Path) -> None:
 
     assert argv[4] == "run"
     request = json.loads(Path(argv[5]).read_text(encoding="utf-8"))
-    assert request["task_kind"] == "sub_module"
-    assert request["sub_module_id"] == "jcvi.graphics_histogram"
-    assert request["port_bindings"]["numeric_files"] == [str(numbers)]
-    assert request["method_config"]["histogram_bins"] == 4
-    assert request["method_config"]["histogram_title"] == "Test"
+    assert request["workflow_id"] == "graphics_histogram"
+    histogram = request["parameters"]["histogram"]
+    assert histogram["inputs"] == [str(numbers)]
+    assert histogram["bins"] == 4
+    assert histogram["title"] == "Test"
     assert logging.getLogger("gljcvi_histogram").handlers == []
 
 
@@ -277,11 +290,11 @@ def test_heatmap_entry_builds_submodule_request(tmp_path: Path) -> None:
 
     assert argv[4] == "run"
     request = json.loads(Path(argv[5]).read_text(encoding="utf-8"))
-    assert request["task_kind"] == "sub_module"
-    assert request["sub_module_id"] == "jcvi.graphics_heatmap"
-    assert request["port_bindings"]["matrix_csv"] == str(matrix)
-    assert request["method_config"]["cmap"] == "viridis"
-    assert request["method_config"]["groups"] is True
+    assert request["workflow_id"] == "graphics_heatmap"
+    heatmap = request["parameters"]["heatmap"]
+    assert heatmap["matrix"] == str(matrix)
+    assert heatmap["cmap"] == "viridis"
+    assert heatmap["groups"] is True
     assert logging.getLogger("gljcvi_heatmap").handlers == []
 
 
@@ -296,11 +309,10 @@ def test_global_karyotype_entry_builds_submodule_request(tmp_path: Path) -> None
 
     argv = global_karyotype_entry.build_runtime_command(params_path)
 
-    assert argv[4] == "run"
-    request = json.loads(Path(argv[5]).read_text(encoding="utf-8"))
-    assert request["task_kind"] == "sub_module"
-    assert request["sub_module_id"] == "jcvi.graphics_karyotype_global"
-    assert request["port_bindings"]["tracks"] == [{"name": "A", "bed": "A.bed"}]
+    assert argv[4] == "submodule"
+    module_id, ports, _output_dir = _submodule_argv(argv)
+    assert module_id == "jcvi.graphics_karyotype_global"
+    assert ports["tracks"] == [{"name": "A", "bed": "A.bed"}]
     assert logging.getLogger("gljcvi_global_karyotype").handlers == []
 
 
@@ -321,12 +333,11 @@ def test_multi_local_synteny_entry_builds_submodule_request(tmp_path: Path) -> N
 
     argv = multi_local_synteny_entry.build_runtime_command(params_path)
 
-    assert argv[4] == "run"
-    request = json.loads(Path(argv[5]).read_text(encoding="utf-8"))
-    assert request["task_kind"] == "sub_module"
-    assert request["sub_module_id"] == "jcvi.local_synteny_multi"
-    assert request["port_bindings"]["target_genes"] == ["gene1", "gene2"]
-    assert request["port_bindings"]["blocks"] == str(blocks)
+    assert argv[4] == "submodule"
+    module_id, ports, _output_dir = _submodule_argv(argv)
+    assert module_id == "jcvi.local_synteny_multi"
+    assert ports["target_genes"] == ["gene1", "gene2"]
+    assert ports["blocks"] == str(blocks)
     assert logging.getLogger("gljcvi_multi_local_synteny").handlers == []
 
 

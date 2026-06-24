@@ -3,12 +3,12 @@
 # region import
 from __future__ import annotations
 
-from genomelens.analysis.requests.models import AnalysisRequest
+from genomelens.analysis.requests.models import WorkflowRequest
+from genomelens.analysis.workflows.provider import WorkflowProvider
 from genomelens.app.controller.orchestrator import WorkflowOrchestrator
 from genomelens.app.controller.state_machine import WorkflowState
-from genomelens.app.controller.workflow_provider import WorkflowProvider
 from genomelens.app.events.signal_bus import SignalBus
-from genomelens.core.summary_models import RunSummary
+from genomelens.contracts.summaries import RunSummary
 
 # endregion
 
@@ -25,7 +25,7 @@ class WorkflowController:
         # 统一在状态切换点发事件，避免各 runner 自己重复维护 UI/日志通知逻辑
         self.signal_bus.emit("state", state=state.value)
 
-    def run(self, request: AnalysisRequest, provider: WorkflowProvider) -> RunSummary:
+    def run(self, request: WorkflowRequest, provider: WorkflowProvider) -> RunSummary:
         """根据请求与方法提供者编排执行"""
 
         self._set_state(WorkflowState.PENDING)

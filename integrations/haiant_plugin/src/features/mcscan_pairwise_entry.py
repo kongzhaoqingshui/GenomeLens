@@ -10,13 +10,12 @@ if __package__ in {None, ""}:
 
 from genomelens_haiant_plugin._core import (
     PluginError,
-    build_analyze_run_command,
+    build_analyze_submodule_command,
     close_adapter_logging,
     load_params,
     resolve_genomelens_exe,
     resolve_param_path,
     setup_adapter_logging,
-    write_submodule_request,
 )
 
 LOGGER_NAME = "gljcvi_mcscan_pairwise"
@@ -37,13 +36,17 @@ def build_runtime_command(params_path: str | Path) -> list[str]:
         input_dir = resolve_param_path(
             base, params.get("input_dir"), required=True, must_exist=True
         )
-        request_path = write_submodule_request(
-            params,
-            base,
-            sub_module_id=SUB_MODULE_ID,
-            port_bindings={"species_pair": input_dir},
+        argv = build_analyze_submodule_command(
+            genomelens_exe,
+            module_id=SUB_MODULE_ID,
+            input_ports={"species_pair": input_dir},
+            output_dir=output_dir,
+            input_dir=input_dir,
+            formats=[str(item) for item in params.get("formats", "svg").split(",")]
+            if isinstance(params.get("formats"), str)
+            else None,
+            force=True,
         )
-        argv = build_analyze_run_command(genomelens_exe, request_path)
         logger.info("Dispatching GenomeLens: %s", argv)
         return argv
     finally:

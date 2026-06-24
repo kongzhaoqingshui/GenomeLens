@@ -6,7 +6,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from genomelens.analysis.requests.models import AnalysisSpeciesInput
+from genomelens.analysis.requests.models import WorkflowSpeciesInput
 from genomelens.analysis.requests.normalization.input_resolver import _path
 from genomelens.app.errors import messages
 from genomelens.app.errors.exceptions import InputValidationError
@@ -15,7 +15,7 @@ from genomelens.data.config.config_models import ConfigModel
 # endregion
 
 
-def _resolve_reference_index(reference: str, species: list[AnalysisSpeciesInput]) -> int:
+def _resolve_reference_index(reference: str, species: list[WorkflowSpeciesInput]) -> int:
     """解析参考物种：接受物种名称或 1-based 索引，空字符串默认 0"""
 
     text = str(reference or "").strip()

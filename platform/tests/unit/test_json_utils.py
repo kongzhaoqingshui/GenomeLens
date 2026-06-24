@@ -7,7 +7,7 @@ from dataclasses import dataclass
 
 import pytest
 
-from genomelens.core.json_utils import (
+from genomelens.utils.json import (
     _any_list,
     _bool,
     _dict,

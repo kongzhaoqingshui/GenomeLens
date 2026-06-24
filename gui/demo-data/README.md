@@ -16,7 +16,7 @@ large files.
 
 ## Request Examples
 
-`requests/` contains three `AnalysisRequest` JSON files:
+`requests/` should contain `WorkflowRequest v2` JSON files. If old `AnalysisRequest` examples are present, treat them as migration fixtures rather than current runnable demos.
 
 - `pairwise-mcscan.json`: two-species `graphics_synteny`
 - `multi-species-all-vs-all.json`: three-species all-vs-all pairwise aggregation

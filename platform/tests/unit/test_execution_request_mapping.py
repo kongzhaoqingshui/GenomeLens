@@ -1,298 +1,168 @@
-"""测试 McscanMethodConfig -> McscanExecutionRequest 的字段映射层。"""
-
 from pathlib import Path
 
 import pytest
 
-from genomelens.analysis.methods.execution_request_mapping import (
-    _map_method_config_to_request,
-    to_histogram_request,
-    to_mcscan_request,
-)
-from genomelens.analysis.requests.models import (
-    AnalysisInput,
-    AnalysisOptions,
-    AnalysisOutput,
-    AnalysisRequest,
-    AnalysisSpeciesInput,
-    McscanMethodConfig,
-)
+from genomelens.analysis.execution.request_mapping import to_histogram_request, to_mcscan_request
+from genomelens.analysis.planning.models import SyntenyExecutionRequest
+from genomelens.analysis.planning.planner import WorkflowPlanner
+from genomelens.analysis.requests.models import WorkflowRequest, WorkflowSpeciesInput
 from genomelens.app.errors.exceptions import InputValidationError
-from genomelens.data.config.config_models import (
-    ConfigModel,
-    LocalSyntenyDefaults,
-    McscanDefaults,
-    RuntimeDefaults,
-    ToolchainConfig,
-    WorkspaceConfig,
-)
+from genomelens.contracts.species import PreparedGenomeInputSpec
+from genomelens.engines.jcvi.manifest_builder import JcviManifestBuilder
 
 
-def test_map_method_config_to_request_field_names() -> None:
-    """映射层应把 method_config 字段名转成 McscanExecutionRequest 字段名。"""
+def _species(name: str) -> WorkflowSpeciesInput:
+    return WorkflowSpeciesInput(name=name, input_mode="bed_cds", bed=f"/tmp/{name}.bed", cds=f"/tmp/{name}.cds")
 
-    method_config = McscanMethodConfig(
-        workflow="graphics_synteny",
-        jcvi_engine="/custom/jcvi",
-        blastn="/custom/blastn",
-        makeblastdb="/custom/makeblastdb",
-        align_soft="blast",
-        dbtype="nucl",
-        cscore=0.8,
-        dist=10,
-        iter=2,
-        target_gene_ids=["g1", "g2"],
-        up=15,
-        down=25,
-        split_targets=True,
-        label_targets=True,
-        glyphstyle="arrow",
-        glyphcolor="orthogroup",
-        shadestyle="curve",
-        figsize="12x6",
-        dpi=600,
-        auto_optimization={
-            "optimize_figsize": True,
-            "rewrite_layout_links": True,
-            "optimize_karyotype_labels": True,
-        },
-    )
-    config = ConfigModel(
-        workspace=WorkspaceConfig(
-            workspace_root="/tmp/ws",
-            temp_root="/tmp/ws/temp",
-            default_output_root="/tmp/ws/out",
-        ),
-        runtime=RuntimeDefaults(),
-        mcscan=McscanDefaults(),
-        local_synteny=LocalSyntenyDefaults(),
-        toolchain=ToolchainConfig(
-            jcvi_engine_path="/config/jcvi",
-            blastn_path="/config/blastn",
-            makeblastdb_path="/config/makeblastdb",
-        ),
-    )
 
-    mapped = _map_method_config_to_request(method_config, config)
-
-    # CLI 显式值应覆盖配置中的 fallback
-    assert mapped["jcvi_engine"] == "/custom/jcvi"
-    assert mapped["blastn_path"] == "/custom/blastn"
-    assert mapped["makeblastdb_path"] == "/custom/makeblastdb"
-    assert mapped["jcvi_workflow"] == "graphics_synteny"
-    # 其它字段原样传递
-    assert mapped["align_soft"] == "blast"
-    assert mapped["dbtype"] == "nucl"
-    assert mapped["cscore"] == 0.8
-    assert mapped["dist"] == 10
-    assert mapped["iter"] == 2
-    assert mapped["target_gene_ids"] == ["g1", "g2"]
-    assert mapped["up"] == 15
-    assert mapped["down"] == 25
-    assert mapped["split_targets"] is True
-    assert mapped["label_targets"] is True
-    assert mapped["glyphstyle"] == "arrow"
-    assert mapped["glyphcolor"] == "orthogroup"
-    assert mapped["shadestyle"] == "curve"
-    assert mapped["figsize"] == "12x6"
-    assert mapped["dpi"] == 600
-    assert mapped["auto_optimization"] == {
-        "optimize_figsize": True,
-        "rewrite_layout_links": True,
-        "optimize_karyotype_labels": True,
+def _request(species: list[WorkflowSpeciesInput], **overrides: object) -> WorkflowRequest:
+    data: dict[str, object] = {
+        "schema_version": 2,
+        "kind": "workflow_request",
+        "workflow_id": "synteny",
+        "species": [item.to_json() for item in species],
+        "reference_index": 0,
+        "inputs": {},
+        "parameters": {},
+        "output": {"directory": "/tmp/out", "force": True, "formats": ["svg"]},
+        "runtime": {},
     }
+    data.update(overrides)
+    return WorkflowRequest.from_json(data)
 
 
-def test_map_method_config_uses_toolchain_fallback() -> None:
-    """当 method_config 没有显式值时，应回退到 config.toolchain。"""
-
-    method_config = McscanMethodConfig(workflow="graphics_synteny")
-    config = ConfigModel(
-        workspace=WorkspaceConfig(
-            workspace_root="/tmp/ws",
-            temp_root="/tmp/ws/temp",
-            default_output_root="/tmp/ws/out",
-        ),
-        runtime=RuntimeDefaults(),
-        mcscan=McscanDefaults(),
-        local_synteny=LocalSyntenyDefaults(),
-        toolchain=ToolchainConfig(
-            jcvi_engine_path="/config/jcvi",
-            blastn_path="/config/blastn",
-            makeblastdb_path="/config/makeblastdb",
-            lastal_path="/config/lastal",
-            lastdb_path="/config/lastdb",
-        ),
-    )
-
-    mapped = _map_method_config_to_request(method_config, config)
-
-    assert mapped["jcvi_engine"] == "/config/jcvi"
-    assert mapped["blastn_path"] == "/config/blastn"
-    assert mapped["makeblastdb_path"] == "/config/makeblastdb"
-    assert mapped["lastal_path"] == "/config/lastal"
-    assert mapped["lastdb_path"] == "/config/lastdb"
+def test_workflow_request_rejects_legacy_fields() -> None:
+    with pytest.raises(ValueError, match="legacy fields"):
+        WorkflowRequest.from_json(
+            {
+                "schema_version": 2,
+                "kind": "workflow_request",
+                "workflow_id": "synteny",
+                "species": [],
+                "reference_index": 0,
+                "inputs": {},
+                "parameters": {},
+                "output": {"directory": "/tmp/out"},
+                "runtime": {},
+                "method_config": {},
+            }
+        )
 
 
-def test_to_mcscan_request_applies_mapping() -> None:
-    """to_mcscan_request 应通过映射层正确构造 McscanExecutionRequest。"""
+def test_to_mcscan_request_uses_species_array_and_reference_index() -> None:
+    request = _request([_species("query"), _species("subject")], reference_index=1)
 
-    request = AnalysisRequest(
-        method="mcscan",
-        input=AnalysisInput(
-            mode="auto_directory",
-            directory="/tmp/in",
-            species=[
-                AnalysisSpeciesInput(
-                    name="query",
-                    input_mode="bed_cds",
-                    bed="/tmp/in/query.bed",
-                    cds="/tmp/in/query.cds",
-                ),
-                AnalysisSpeciesInput(
-                    name="subject",
-                    input_mode="bed_cds",
-                    bed="/tmp/in/subject.bed",
-                    cds="/tmp/in/subject.cds",
-                ),
-            ],
-            reference_index=1,
-        ),
-        output=AnalysisOutput(
-            directory="/tmp/out",
-            force=True,
-            formats=["png"],
-        ),
-        options=AnalysisOptions(
-            preset="auto",
-            threads=4,
-            min_block_size=1,
-        ),
-        method_config=McscanMethodConfig(
-            workflow="graphics_synteny",
-            blastn="/custom/blastn",
-        ).to_json(),
-    )
+    mapped = to_mcscan_request(request)
 
-    mcscan_request = to_mcscan_request(request)
-
-    assert mcscan_request.query.name == "subject"
-    assert mcscan_request.subject.name == "query"
-    assert mcscan_request.outdir == Path("/tmp/out").expanduser().resolve(strict=False)
-    assert mcscan_request.force is True
-    assert mcscan_request.jcvi_workflow == "graphics_synteny"
-    assert mcscan_request.blastn_path == "/custom/blastn"
-    # 未显式提供时回退为空字符串
-    assert mcscan_request.jcvi_engine == ""
+    assert mapped.reference.name == "subject"
+    assert mapped.target.name == "query"
+    assert mapped.outdir == Path("/tmp/out").expanduser().resolve(strict=False)
+    assert mapped.force is True
+    assert mapped.engine_workflow == "graphics_synteny"
 
 
 def test_to_mcscan_request_requires_at_least_two_species() -> None:
-    request = AnalysisRequest(
-        method="mcscan",
-        input=AnalysisInput(
-            mode="auto_directory",
-            directory="/tmp/in",
-            species=[
-                AnalysisSpeciesInput(
-                    name="query",
-                    input_mode="bed_cds",
-                    bed="/tmp/in/query.bed",
-                    cds="/tmp/in/query.cds",
-                ),
-            ],
-            reference_index=0,
-        ),
-        output=AnalysisOutput(directory="/tmp/out"),
-    )
+    request = _request([_species("query")])
 
     with pytest.raises(InputValidationError, match="mcscan 至少需要两个物种"):
         to_mcscan_request(request)
 
 
-def test_to_mcscan_request_rejects_target_genes_missing_from_reference_bed(tmp_path: Path) -> None:
-    """目标基因 ID 不在参考物种 BED 中时应给出明确的参考物种提示"""
+def test_workflow_planner_two_species_has_single_pairwise_step() -> None:
+    plan = WorkflowPlanner().build(_request([_species("A"), _species("B")]))
 
-    bed = tmp_path / "ref.bed"
-    bed.write_text("chr1\t1\t100\tg1\t+\nchr1\t101\t200\tg2\t+\n", encoding="utf-8")
-    cds = tmp_path / "ref.cds"
-    cds.write_text(">g1\nATGC\n", encoding="utf-8")
+    assert [step.kind for step in plan.steps] == ["pairwise_synteny"]
+    assert plan.steps[0].step_id == "A__B"
 
-    request = AnalysisRequest(
-        method="mcscan",
-        input=AnalysisInput(
-            mode="auto_directory",
-            directory=str(tmp_path),
-            species=[
-                AnalysisSpeciesInput(
-                    name="ref",
-                    input_mode="bed_cds",
-                    bed=str(bed),
-                    cds=str(cds),
-                ),
-                AnalysisSpeciesInput(
-                    name="subject",
-                    input_mode="bed_cds",
-                    bed=str(tmp_path / "subject.bed"),
-                    cds=str(tmp_path / "subject.cds"),
-                ),
-            ],
-            reference_index=0,
-        ),
-        output=AnalysisOutput(directory=str(tmp_path / "out")),
-        method_config=McscanMethodConfig(
-            workflow="graphics_synteny",
-            target_gene_ids=["missing_gene"],
-        ).to_json(),
+
+def test_workflow_planner_honors_pairwise_engine_workflow_extra() -> None:
+    request = _request(
+        [_species("A"), _species("B")],
+        parameters={"extras": {"engine_workflow": "graphics_dotplot"}},
     )
 
-    with pytest.raises(InputValidationError, match="参考物种") as exc_info:
-        to_mcscan_request(request)
-    assert "missing_gene" in str(exc_info.value)
-    assert "ref" in str(exc_info.value)
+    plan = WorkflowPlanner().build(request)
+
+    payload = plan.steps[0].payload
+    assert isinstance(payload, SyntenyExecutionRequest)
+    assert payload.engine_workflow == "graphics_dotplot"
 
 
-def test_to_histogram_request_uses_method_specific_inputs(tmp_path: Path) -> None:
+def test_workflow_planner_catalog_ortholog_does_not_require_figures() -> None:
+    request = _request(
+        [_species("A"), _species("B")],
+        parameters={"extras": {"engine_workflow": "catalog_ortholog"}},
+    )
+
+    plan = WorkflowPlanner().build(request)
+
+    output_ids = {item.artifact_id for item in plan.steps[0].outputs}
+    required_ids = {item.artifact_id for item in plan.steps[0].outputs if item.required}
+    assert "figures" not in output_ids
+    assert "figures" not in required_ids
+
+
+def test_workflow_planner_multi_species_global_karyotype() -> None:
+    plan = WorkflowPlanner().build(_request([_species("A"), _species("B"), _species("C")]))
+
+    assert [step.kind for step in plan.steps] == [
+        "pairwise_synteny",
+        "pairwise_synteny",
+        "pairwise_synteny",
+        "global_karyotype",
+    ]
+    assert plan.steps[-1].depends_on == ["A__B", "A__C", "B__C"]
+
+
+def test_workflow_planner_target_genes_reference_vs_targets() -> None:
+    request = _request(
+        [_species("A"), _species("B"), _species("C")],
+        parameters={"local_synteny": {"target_gene_ids": ["g1"]}},
+    )
+
+    plan = WorkflowPlanner().build(request)
+
+    assert [step.kind for step in plan.steps] == ["pairwise_synteny", "pairwise_synteny", "multi_local_synteny"]
+    assert {step.step_id for step in plan.steps[:2]} == {"A__B", "A__C"}
+    assert plan.steps[-1].depends_on == ["A__B", "A__C"]
+
+
+def test_histogram_request_uses_grouped_parameters(tmp_path: Path) -> None:
     numbers = tmp_path / "numbers.txt"
     numbers.write_text("1\n2\n3\n", encoding="utf-8")
-    request = AnalysisRequest(
-        method="mcscan",
-        input=AnalysisInput(
-            mode="method_specific",
-            directory=str(numbers),
-            species=[],
-        ),
-        output=AnalysisOutput(
-            directory=str(tmp_path / "out"),
-            force=True,
-            formats=["png"],
-        ),
-        options=AnalysisOptions(log_level="WARNING"),
-        method_config=McscanMethodConfig(
-            workflow="graphics_histogram",
-            histogram_inputs=[str(numbers)],
-            histogram_columns=[0, 1],
-            histogram_bins=12,
-            histogram_vmin=0.0,
-            histogram_vmax=10.0,
-            histogram_xlabel="Ks",
-            histogram_title="Histogram",
-            histogram_base=10,
-            histogram_facet=True,
-            histogram_fill="#88aa99",
-            dpi=200,
-        ).to_json(),
+    request = WorkflowRequest.from_json(
+        {
+            "schema_version": 2,
+            "kind": "workflow_request",
+            "workflow_id": "graphics_histogram",
+            "species": [],
+            "reference_index": 0,
+            "inputs": {},
+            "parameters": {"histogram": {"inputs": [str(numbers)], "columns": [0, 1], "bins": 12}},
+            "output": {"directory": str(tmp_path / "out"), "formats": ["png"]},
+            "runtime": {"log_level": "WARNING"},
+        }
     )
 
-    histogram_request = to_histogram_request(request)
+    histogram = to_histogram_request(request)
 
-    assert histogram_request.workflow == "graphics_histogram"
-    assert histogram_request.inputs == [numbers.resolve()]
-    assert histogram_request.columns == [0, 1]
-    assert histogram_request.formats == ["png"]
-    assert histogram_request.histogram_bins == 12
-    assert histogram_request.histogram_vmax == 10.0
-    assert histogram_request.histogram_xlabel == "Ks"
-    assert histogram_request.histogram_base == 10
-    assert histogram_request.histogram_facet is True
-    assert histogram_request.histogram_fill == "#88aa99"
-    assert histogram_request.dpi == 200
+    assert histogram.inputs == [numbers.resolve(strict=False)]
+    assert histogram.columns == [0, 1]
+    assert histogram.histogram_bins == 12
+    assert histogram.formats == ["png"]
+
+
+def test_manifest_builder_pairwise_schema_v3_has_no_top_level_query_subject() -> None:
+    request = to_mcscan_request(_request([_species("A"), _species("B")]))
+    manifest = JcviManifestBuilder().build_pairwise_manifest(
+        request,
+        query=PreparedGenomeInputSpec(Path("/tmp/A.bed"), Path("/tmp/A.cds")),
+        subject=PreparedGenomeInputSpec(Path("/tmp/B.bed"), Path("/tmp/B.cds")),
+        blastn_path="",
+        makeblastdb_path="",
+    )
+
+    assert manifest["schema_version"] == 3
+    assert "query" not in manifest
+    assert "subject" not in manifest
+    assert manifest["inputs"]["species"][0]["name"] == "A"  # type: ignore[index]

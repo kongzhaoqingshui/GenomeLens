@@ -30,13 +30,20 @@
 - `resolve_param_path(base, value, *, required, must_exist) -> str`
 - `parse_bool(value) -> bool`
 - `build_species_from_params(params, base, mode) -> list[dict]`
-- `build_analysis_request(params, base, *, workflow) -> dict`
-- `write_analysis_request(params, base, *, workflow) -> Path`
+- `build_workflow_request(params, base, *, workflow) -> dict`
+- `build_histogram_workflow_request(params, base, *, input_files) -> dict`
+- `build_heatmap_workflow_request(params, base, *, matrix_path) -> dict`
+- `build_auto_jcvi_config(params, base, output_dir) -> Path`
+- `write_workflow_request(params, base, *, workflow) -> Path`
+- `write_request_payload(params, base, request) -> Path`
 - `setup_adapter_logging(output_dir, *, logger_name) -> Logger`
 - `close_adapter_logging(logger_name) -> None`
 - `resolve_genomelens_exe(params, base) -> Path`
 - `build_analyze_run_command(genomelens_exe, request_path) -> list[str]`
+- `build_analyze_submodule_command(genomelens_exe, *, module_id, input_ports, output_dir, ...) -> list[str]`
+- `build_mcscan_jcvi_command(genomelens_exe, input_dir, output_dir, jcvi_config_path, *, workflow_id) -> list[str]`
 - `run_process(argv) -> int`
+- `compress_output_intermediates(output_dir, *, ...) -> Path | None`
 
 禁止重新引入重型中心或旧单包插件相关 helper（`discover_mcscan_home`、`genomelens_shell_path`、`runtime_executable`、`GLJCVIMCSCAN_HOME`、`GENOMELENS_PLUGIN_RUNTIME` 等）。
 
@@ -45,18 +52,30 @@
 每个入口位于 `integrations/haiant_plugin/src/features/<feature>_entry.py`：
 
 - 接收 `params.json` 路径。
-- 固定 `WORKFLOW = "<workflow>"`。
-- 调用 `features._shared.build_runtime_command(...)` 生成命令。
+- 调用 `_core.py` 或 `features._shared` 生成命令。
 - 返回外部 GenomeLens 的退出码。
 
 当前已提供的入口：
 
+**一站式工作流**
+
+- `synteny_entry.py`（`analyze workflow synteny`）
+
+**独立工作流插件（`analyze run` + `WorkflowRequest v2`）**
+
 - `dotplot_entry.py`（`graphics_dotplot`）
-- `synteny_entry.py`（`graphics_synteny`）
+- `synteny_figure_entry.py`（`graphics_synteny`）
 - `karyotype_entry.py`（`graphics_karyotype`）
 - `catalog_ortholog_entry.py`（`catalog_ortholog`）
 - `local_synteny_entry.py`（`local_synteny`）
-- `auto_entry.py`（固定 `graphics_synteny`）
+- `histogram_entry.py`（`graphics_histogram`）
+- `heatmap_entry.py`（`graphics_heatmap`）
+
+**原子子模块插件（`analyze submodule`）**
+
+- `mcscan_pairwise_entry.py`（`jcvi.mcscan_pairwise`）
+- `global_karyotype_entry.py`（`jcvi.graphics_karyotype_global`）
+- `multi_local_synteny_entry.py`（`jcvi.local_synteny_multi`）
 
 ### 3. 插件资源配置
 
@@ -68,35 +87,48 @@
 
 要求：
 
-- `config.json` 中必须提供 `genomelens_exe` 字段说明。
-- GenomeLens 引入的四个自动优化参数标签必须追加 `(GenomeLens)` 后缀：
+- `config.json` 中必须说明 `GenomeLens_Path` 的用途。
+- GenomeLens 引入的自动优化参数标签必须追加 `(GenomeLens)` 后缀：
   - `optimize_figsize`
   - `rewrite_layout_links`
   - `optimize_karyotype_labels`
-  - `trim_cross_chromosome_blocks`
-- `gljcvi-auto` 不再提供 workflow 选择器和 histogram 参数。
+- `gljcvi-synteny` 不再提供 workflow 选择器和 histogram 参数；它通过 `target_gene_ids` 自动在 `graphics_synteny` 与 `local_synteny` 之间路由。
 
 ### 4. 构建脚本
 
 使用并维护 `scripts/build_gljcvi_feature_plugin.ps1`：
 
 ```powershell
-scripts/build_gljcvi_feature_plugin.ps1 -Feature dotplot
+# 一站式工作流
 scripts/build_gljcvi_feature_plugin.ps1 -Feature synteny
+
+# 独立工作流插件
+scripts/build_gljcvi_feature_plugin.ps1 -Feature dotplot
+scripts/build_gljcvi_feature_plugin.ps1 -Feature synteny_figure
 scripts/build_gljcvi_feature_plugin.ps1 -Feature karyotype
 scripts/build_gljcvi_feature_plugin.ps1 -Feature catalog_ortholog
 scripts/build_gljcvi_feature_plugin.ps1 -Feature local_synteny
-scripts/build_gljcvi_feature_plugin.ps1 -Feature auto
+scripts/build_gljcvi_feature_plugin.ps1 -Feature histogram
+scripts/build_gljcvi_feature_plugin.ps1 -Feature heatmap
+
+# 原子子模块插件
+scripts/build_gljcvi_feature_plugin.ps1 -Feature mcscan_pairwise
+scripts/build_gljcvi_feature_plugin.ps1 -Feature global_karyotype
+scripts/build_gljcvi_feature_plugin.ps1 -Feature multi_local_synteny
 ```
 
-产物为 `app/gljcvi-<feature>.zip`。
+产物目录：
+
+- `app/onestop/gljcvi-synteny.zip`
+- `app/workflow-plugins/gljcvi-<feature>.zip`
+- `app/submodules/gljcvi-<feature>.zip`
 
 ### 5. 测试
 
 `integrations/haiant_plugin/tests/`：
 
-- `test_core.py`：测试 `_core.py` 的 `load_params`、`resolve_param_path`、`parse_bool`、`build_analysis_request`、`build_analyze_run_command`、`setup_adapter_logging`。
-- `test_feature_entries.py`：验证每个 feature 入口生成正确的 workflow 与命令。
+- `test_core.py`：测试 `_core.py` 的 `load_params`、`resolve_param_path`、`parse_bool`、`build_workflow_request`、`build_analyze_run_command`、`setup_adapter_logging`、`compress_output_intermediates`。
+- `test_feature_entries.py`：验证每个 feature 入口生成正确的 workflow/module_id 与命令。
 
 运行测试：
 

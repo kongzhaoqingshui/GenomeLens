@@ -1,93 +1,45 @@
-"""工作流编排器：根据请求特征选择执行策略"""
+"""Compatibility shell around the v2 workflow planner/executor."""
 
-# region import
 from __future__ import annotations
 
 import warnings
 from dataclasses import replace
 
-from genomelens.analysis.requests.models import AnalysisRequest
-from genomelens.app.controller.runners.onestop_runner import OneStopWorkflowRunner
-from genomelens.app.controller.runners.submodule_runner import SubModuleRunner
-from genomelens.app.controller.state_machine import WorkflowState
-from genomelens.app.controller.strategies.pairwise_aggregated import PairwiseAggregatedMultiSpecies
-from genomelens.app.controller.workflow_provider import WorkflowProvider
-from genomelens.app.errors.exceptions import InputValidationError
+from genomelens.analysis.execution.executor import PlanExecutor
+from genomelens.analysis.planning.planner import WorkflowPlanner
+from genomelens.analysis.requests.models import WorkflowRequest
+from genomelens.analysis.workflows.provider import WorkflowProvider
 from genomelens.app.events.signal_bus import SignalBus
-from genomelens.core.services.scoring_provider import NoOpScoringProvider, ScoringProvider
-from genomelens.core.summary_models import RunSummary
-
-# endregion
+from genomelens.contracts.summaries import RunSummary
+from genomelens.services.scoring import NoOpScoringProvider, ScoringProvider
 
 
 class WorkflowOrchestrator:
-    """WorkflowOrchestrator(工作流编排器)：把请求路由到合适的执行策略"""
+    """Run a v2 WorkflowRequest through the platform execution plan."""
 
     def __init__(self, scoring_provider: ScoringProvider | None = None) -> None:
         self._scoring_provider = scoring_provider or NoOpScoringProvider()
 
     def run(
         self,
-        request: AnalysisRequest,
+        request: WorkflowRequest,
         provider: WorkflowProvider,
         signal_bus: SignalBus,
     ) -> RunSummary:
-        """根据物种数量和 provider 能力选择策略并执行"""
+        """Run the request; provider is accepted for older call sites."""
 
-        result = self._execute(request, provider, signal_bus)
+        _ = provider
+        plan = WorkflowPlanner().build(request)
+        result = PlanExecutor().execute(plan, signal_bus)
         return self._apply_scoring(result, request)
 
-    def _execute(
-        self,
-        request: AnalysisRequest,
-        provider: WorkflowProvider,
-        signal_bus: SignalBus,
-    ) -> RunSummary:
-        """根据 task_kind 与请求特征路由到具体策略"""
-
-        if request.task_kind == "sub_module":
-            return SubModuleRunner().run(request, provider, signal_bus)
-
-        if request.task_kind == "one_stop":
-            return OneStopWorkflowRunner().run(request, provider, signal_bus)
-
-        if request.task_kind == "composition":
-            raise InputValidationError("task_kind=composition 的可视化编排执行尚未实现，请使用子模块或一站式工作流")
-
-        # 默认 legacy 路径：按物种数量与 provider 能力选择策略
-        species_count = len(request.input.species)
-
-        # method-specific / plot-only 请求没有 species[]，直接交给 provider 自行处理
-        if species_count == 0:
-            return provider.run(request, signal_bus)
-
-        # 恰好两个物种：直接交给 provider 的 pairwise 能力
-        if species_count == 2:
-            return provider.run(request, signal_bus)
-
-        # 多于两个物种且 provider 声明原生支持：走原生多物种策略
-        if provider.supports_native_multi_species():
-            from genomelens.app.controller.strategies.native_multi_species import NativeMultiSpecies
-
-            return NativeMultiSpecies().execute(request, provider, signal_bus)
-
-        # 默认：pairwise 聚合策略
-        return PairwiseAggregatedMultiSpecies().execute(request, provider, signal_bus)
-
-    def _apply_scoring(self, summary: RunSummary, request: AnalysisRequest) -> RunSummary:
-        """在工作流成功后注入评分结果；评分失败不改变原始 SUCCEEDED 状态"""
-
+    def _apply_scoring(self, summary: RunSummary, request: WorkflowRequest) -> RunSummary:
         if summary.status != "SUCCEEDED" or not self._scoring_provider.is_available():
             return summary
 
         try:
             scoring = self._scoring_provider.score(summary, request)
             return replace(summary, scoring=scoring)
-        except Exception as exc:  # noqa: BLE001 - 评分是增量增强，失败不应影响主流程
+        except Exception as exc:  # noqa: BLE001 - scoring is optional enrichment
             warnings.warn(f"Scoring provider failed and was skipped: {exc}", stacklevel=2)
             return summary
-
-    def _emit_state(self, signal_bus: SignalBus, state: WorkflowState) -> None:
-        """统一发射状态事件"""
-
-        signal_bus.emit("state", state=state.value)

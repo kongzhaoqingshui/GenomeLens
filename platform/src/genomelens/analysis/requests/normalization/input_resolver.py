@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from genomelens.analysis.requests.models import AnalysisSpeciesInput
+from genomelens.analysis.requests.models import WorkflowSpeciesInput
 from genomelens.app.errors import messages
 from genomelens.app.errors.exceptions import InputValidationError
 
@@ -38,7 +38,7 @@ def _stemmed_files(input_dir: Path, suffixes: set[str]) -> dict[str, Path]:
     return files
 
 
-def discover_species_from_directory(input_dir: str | Path) -> list[AnalysisSpeciesInput]:
+def discover_species_from_directory(input_dir: str | Path) -> list[WorkflowSpeciesInput]:
     """从目录自动发现同名物种输入文件对"""
 
     root = Path(input_dir).expanduser().resolve(strict=False)
@@ -49,7 +49,7 @@ def discover_species_from_directory(input_dir: str | Path) -> list[AnalysisSpeci
     cds_files = _stemmed_files(root, {".cds", ".cds.fa", ".cds.fasta", ".pep", ".pep.fa", ".pep.fasta", ".faa"})
 
     prepared = {
-        name: AnalysisSpeciesInput(
+        name: WorkflowSpeciesInput(
             name=name,
             input_mode="bed_cds",
             bed=str(bed),
@@ -62,7 +62,7 @@ def discover_species_from_directory(input_dir: str | Path) -> list[AnalysisSpeci
     gffs = _stemmed_files(root, {".gff", ".gff3", ".gtf"})
     genomes = _stemmed_files(root, {".fa", ".fasta", ".fna"})
     raw = {
-        name: AnalysisSpeciesInput(
+        name: WorkflowSpeciesInput(
             name=name,
             input_mode="gff_genome",
             gff=str(gff),
