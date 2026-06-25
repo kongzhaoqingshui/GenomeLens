@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# -*- coding: UTF-8 -*-
 
 """镜像核型图：在多个基因组轨道间展示宏共线性(macrosynteny)
 
