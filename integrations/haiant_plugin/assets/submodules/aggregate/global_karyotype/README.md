@@ -4,7 +4,7 @@
 
 `gljcvi-global-karyotype` 是 GenomeLens 在 HAIant（智然体）平台上的**多物种全局核型总图**聚合子模块插件。它适合把多个物种之间已经整理好的染色体轨道和跨物种连线汇总成一张总览图，用于整体观察保守框架和主要结构差异。
 
-> `module_kind = aggregate`。调用方必须先准备好多物种聚合后的 `tracks` / `edges` 输入；该插件不负责前置 pairwise 结果拼装。
+> 这是一个 aggregate 子模块。调用方必须先准备好多物种聚合后的 `tracks` / `edges` 输入；该插件不负责前置双物种结果拼装。
 
 全局核型总图把多个物种的染色体以轨道形式排列，并用连线展示物种间的共线性关系，特别适合在多物种比较里回答“谁和谁在染色体尺度上最接近”“哪些物种共享相似结构骨架”这类问题。
 运行完成后，通常会得到一张多物种全局染色体总览图，用于集中展示跨物种保守框架与主要结构差异。
@@ -70,5 +70,5 @@ GenomeLens.exe analyze run output\submodule_request.json
 ## 注意事项
 
 1. `tracks` 与 `edges` 必须在 `params.json` 中以 JSON 数组字符串或 JSON 数组形式提供。
-2. 该插件依赖上游 pairwise 流程产出的 `.simple` 边文件，通常作为 `gljcvi-synteny` 一站式流的补充产物使用。
+2. 该插件依赖上游双物种基础共线性流程产出的 `.simple` 边文件，通常作为 `gljcvi-synteny` 一站式工作流的补充产物使用。
 3. 若 `GenomeLens_Path` 指向 `.cmd` / `.bat`，插件会自动通过 `cmd.exe /c` 分派。

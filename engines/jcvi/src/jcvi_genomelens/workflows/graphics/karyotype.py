@@ -9,7 +9,6 @@ from jcvi_genomelens.runtime.command_runner import CommandAudit, run_python_step
 from jcvi_genomelens.workflows.common import _assert_ok, close_matplotlib_figures
 from jcvi_genomelens.workflows.graphics.karyotype_support import format_track_row, select_karyotype_renderer
 from jcvi_genomelens.workflows.pairwise.artifact_reuse import ensure_pairwise_artifacts
-from jcvi_genomelens.workflows.pairwise.mcscan import run as run_pairwise
 
 
 def _seqids_from_bed(path: Path) -> list[str]:
@@ -92,7 +91,6 @@ def run(manifest: EngineRunManifest, outdir: str | Path) -> tuple[list[CommandAu
             manifest,
             outdir,
             required_fields=("simple",),
-            fallback_runner=run_pairwise,
         )
     root = Path(outdir).expanduser().resolve(strict=False)
     root.mkdir(parents=True, exist_ok=True)

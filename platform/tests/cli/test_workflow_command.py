@@ -33,7 +33,7 @@ def test_workflow_list_json(capsys) -> None:
     assert "one_stop_workflows" in payload
     assert "submodules" in payload
     assert "synteny" in {item["workflow_id"] for item in payload["one_stop_workflows"]}
-    assert "jcvi.mcscan_pairwise" in {item["module_id"] for item in payload["submodules"]}
+    assert "jcvi.pairwise" in {item["module_id"] for item in payload["submodules"]}
 
 
 def test_workflow_list_filters(capsys) -> None:

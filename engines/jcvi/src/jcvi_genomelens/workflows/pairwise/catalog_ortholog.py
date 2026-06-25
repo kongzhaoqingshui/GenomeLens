@@ -1,4 +1,8 @@
-"""真实 JCVI `catalog.ortholog` workflow(工作流)"""
+"""真实 JCVI `catalog.ortholog` workflow(工作流)
+
+注意：本模块已不再作为独立 engine workflow 注册，而是作为 ``pairwise`` 计算工作流
+（``mcscan.run`` 的 catalog 路径）的内部实现，在 LAST/Diamond 后端或需要 ortholog 目录时被调用。
+"""
 
 # region import
 from __future__ import annotations

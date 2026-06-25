@@ -11,13 +11,12 @@ from features.submodules.aggregate import (
     multi_local_synteny_entry,
 )
 from features.submodules.lightweight import (
-    catalog_ortholog_entry,
     dotplot_entry,
     heatmap_entry,
     histogram_entry,
     karyotype_entry,
     local_synteny_entry,
-    mcscan_pairwise_entry,
+    pairwise_entry,
     synteny_figure_entry,
 )
 
@@ -120,15 +119,9 @@ SUBMODULE_CASES: list[
     tuple[FeatureEntryModule, str, str, Callable[[Path], dict[str, Any]]]
 ] = [
     (
-        cast(FeatureEntryModule, mcscan_pairwise_entry),
-        "jcvi.mcscan_pairwise",
-        "gljcvi_mcscan_pairwise",
-        _no_overrides,
-    ),
-    (
-        cast(FeatureEntryModule, catalog_ortholog_entry),
-        "jcvi.catalog_ortholog",
-        "gljcvi_catalog_ortholog",
+        cast(FeatureEntryModule, pairwise_entry),
+        "jcvi.pairwise",
+        "gljcvi_pairwise",
         _no_overrides,
     ),
     (
@@ -361,8 +354,7 @@ def test_synteny_entry_main_skips_compression_on_failure(tmp_path: Path) -> None
     ("module", "label"),
     [
         (cast(FeatureEntryModule, synteny_entry), "synteny workflow"),
-        (cast(FeatureEntryModule, mcscan_pairwise_entry), "pairwise synteny foundation"),
-        (cast(FeatureEntryModule, catalog_ortholog_entry), "catalog_ortholog"),
+        (cast(FeatureEntryModule, pairwise_entry), "pairwise synteny foundation"),
         (cast(FeatureEntryModule, dotplot_entry), "dotplot"),
         (cast(FeatureEntryModule, synteny_figure_entry), "synteny figure"),
         (cast(FeatureEntryModule, karyotype_entry), "karyotype"),

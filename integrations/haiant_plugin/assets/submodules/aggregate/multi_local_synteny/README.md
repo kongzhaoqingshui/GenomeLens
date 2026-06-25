@@ -4,9 +4,9 @@
 
 `gljcvi-multi-local-synteny` 是 GenomeLens 在 HAIant（智然体）平台上的**多物种局部共线性总图**聚合子模块插件。它适合把某个候选基因窗口在多个物种中的对应局部区域汇总到一张图里，直接比较邻域保守性、片段拆分和结构差异。
 
-> `module_kind = aggregate`。调用方必须先准备好多物种聚合后的 `tracks`、聚合 `blocks`、merged BED 与目标基因列表；该插件不负责 reference-vs-targets 的前置拼装。
+> 这是一个 aggregate 子模块。调用方必须先准备好多物种聚合后的 `tracks`、聚合 `blocks`、merged BED 与目标基因列表；该插件不负责“以参考物种为中心、逐个目标物种展开”的前置拼装。
 
-该子模块把 reference-vs-targets pairwise 局部共线性结果聚合成一张多物种总图，适合回答“同一个目标位点在多个基因组里还保留了多少共同结构”这类问题。
+该子模块把“参考物种对多个目标物种”的局部共线性结果聚合成一张多物种总图，适合回答“同一个目标位点在多个基因组里还保留了多少共同结构”这类问题。
 运行完成后，通常会得到一张围绕目标位点的多物种局部共线性总图，用于直接比较不同基因组中的邻域保守模式。
 
 本目录是 `gljcvi-multi-local-synteny` 插件包内容：
@@ -75,5 +75,5 @@ GenomeLens.exe analyze run output\submodule_request.json
 ## 注意事项
 
 1. `tracks`、`blocks`、`bed`、`target_genes` 必须全部提供。
-2. 该插件通常作为 `gljcvi-synteny` 一站式 reference-vs-targets 流程的后续步骤使用，输入由平台聚合生成。
+2. 该插件通常作为 `gljcvi-synteny` 一站式“目标基因驱动多物种局部分析”流程的后续步骤使用，输入由平台聚合生成。
 3. 若 `GenomeLens_Path` 指向 `.cmd` / `.bat`，插件会自动通过 `cmd.exe /c` 分派。

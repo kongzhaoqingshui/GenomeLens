@@ -1,4 +1,4 @@
-"""HAIant 轻量功能入口：``jcvi.catalog_ortholog``"""
+"""HAIant 轻量功能入口：``jcvi.pairwise``"""
 
 from __future__ import annotations
 
@@ -21,18 +21,20 @@ from genomelens_haiant_plugin._core import (
     setup_adapter_logging,
 )
 
-LOGGER_NAME = "gljcvi_catalog_ortholog"
-ERROR_PREFIX = "GenomeLens catalog_ortholog feature plugin error"
-SUB_MODULE_ID = "jcvi.catalog_ortholog"
+LOGGER_NAME = "gljcvi_pairwise"
+ERROR_PREFIX = "GenomeLens pairwise synteny foundation plugin error"
+SUB_MODULE_ID = "jcvi.pairwise"
 
 # 子模块可调参数（param_id, 类型），作为 ``parameters`` 写入 ``SubmoduleRequest``
 DECLARED_PARAMS = [
     ("align_soft", "str"),
     ("dbtype", "str"),
+    ("emit_ortholog", "bool"),
     ("cscore", "float"),
     ("dist", "int"),
     ("iter", "int"),
     ("min_block_size", "int"),
+    ("threads", "int"),
 ]
 
 
@@ -76,7 +78,7 @@ def run_runtime(argv: list[str]) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
-    """运行 catalog_ortholog 功能入口"""
+    """运行双物种共线性基础分析入口"""
 
     args = sys.argv[1:] if argv is None else argv
     try:

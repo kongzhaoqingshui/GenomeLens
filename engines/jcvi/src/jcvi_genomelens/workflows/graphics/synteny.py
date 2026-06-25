@@ -13,7 +13,6 @@ from jcvi_genomelens.workflows.graphics.dotplot import draw_dotplots
 from jcvi_genomelens.workflows.graphics.plot_optimization import prepare_synteny_plot_inputs
 from jcvi_genomelens.workflows.pairwise.artifact_reuse import ensure_pairwise_artifacts
 from jcvi_genomelens.workflows.pairwise.mcscan import _write_default_layout
-from jcvi_genomelens.workflows.pairwise.mcscan import run as run_pairwise
 
 # endregion
 
@@ -21,13 +20,12 @@ from jcvi_genomelens.workflows.pairwise.mcscan import run as run_pairwise
 def run(manifest: EngineRunManifest, outdir: str | Path) -> tuple[list[CommandAudit], dict[str, object]]:
     """运行真实 pairwise MCscan(成对 MCscan) 制品，并绘制真实 JCVI synteny figure(共线性图)"""
 
-    # 先复用 pairwise 主流程产出 anchors/blocks/layout，再叠加 dotplot 和 synteny 图
+    # 复用上游 pairwise 产出的 anchors/blocks/layout（缺产物即报错），再叠加 dotplot 和 synteny 图
     commands, artifacts = ensure_pairwise_artifacts(
         manifest,
         outdir,
         required_fields=("blocks",),
         ensure_merged_bed=True,
-        fallback_runner=run_pairwise,
     )
     root = Path(outdir).expanduser().resolve(strict=False)
     if "layout" not in artifacts:

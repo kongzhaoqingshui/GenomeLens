@@ -324,6 +324,7 @@ def load_manifest(path: str | Path) -> EngineRunManifest:
             allow_simplified_fallback=allow_simplified_fallback,
             align_soft=_string(options_raw.get("align_soft"), "blast"),
             dbtype=_string(options_raw.get("dbtype"), "nucl"),
+            emit_ortholog=_bool(options_raw.get("emit_ortholog", False)),
             cscore=_float(options_raw.get("cscore"), 0.7),
             dist=_int(options_raw.get("dist"), 20),
             iter=_int(options_raw.get("iter"), 1),

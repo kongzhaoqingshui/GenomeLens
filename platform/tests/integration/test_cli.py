@@ -537,15 +537,24 @@ def test_analyze_workflow_synteny_pairwise_with_source_engine(tmp_path: Path) ->
     engine_summary = json.loads(Path(extensions["engine_summary_path"]).read_text(encoding="utf-8"))
     assert engine_summary["task"]["task_type"] == "pairwise_synteny"
     assert [item["role"] for item in engine_summary["species"]] == ["reference", "target"]
+    # 渲染回合（graphics_synteny）只承担出图，pairwise 计算已拆分到独立子目录
     assert [command["name"] for command in engine_summary["commands"]] == [
+        "jcvi.graphics.dotplot",
+        "jcvi.graphics.synteny",
+    ]
+    # pairwise 计算回合在 jcvi/pairwise/ 子目录留下完整的同源比对与共线性命令链
+    pairwise_summary = json.loads(
+        (Path(extensions["engine_summary_path"]).parent / "pairwise" / "engine_run_summary.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert [command["name"] for command in pairwise_summary["commands"]] == [
         "makeblastdb.exe",
         "blastn.exe",
         "jcvi.compara.synteny.scan",
         "jcvi.compara.synteny.simple",
         "jcvi.compara.synteny.mcscan",
         "jcvi.formats.bed.merge",
-        "jcvi.graphics.dotplot",
-        "jcvi.graphics.synteny",
     ]
     assert any(Path(path).name == "dotplot.svg" for path in summary["final_figures"])
     assert any(Path(path).name == "synteny.svg" for path in summary["final_figures"])
@@ -558,8 +567,10 @@ def test_analyze_workflow_synteny_pairwise_with_source_engine(tmp_path: Path) ->
     assert "task_finished task_id=query__subject__graphics_synteny step=run_engine status=SUCCEEDED" in run_log
     engine_log = (outdir / "intermediate" / "jcvi" / "run.log").read_text(encoding="utf-8")
     assert "task_started task_id=engine step=load_manifest" in engine_log
-    assert "task_finished task_id=engine step=makeblastdb.exe status=SUCCEEDED" in engine_log
     assert "task_finished task_id=engine step=jcvi.graphics.synteny status=SUCCEEDED" in engine_log
+    # 同源比对命令在拆分出的 pairwise 计算回合日志中
+    pairwise_engine_log = (outdir / "intermediate" / "jcvi" / "pairwise" / "run.log").read_text(encoding="utf-8")
+    assert "task_finished task_id=engine step=makeblastdb.exe status=SUCCEEDED" in pairwise_engine_log
 
 
 def test_analyze_workflow_synteny_multi_species(tmp_path: Path) -> None:
@@ -1070,8 +1081,8 @@ def test_analyze_workflow_synteny_pairwise_end_to_end(tmp_path: Path) -> None:
     assert request_snapshot["workflow_id"] == "synteny"
 
 
-def test_analyze_submodule_mcscan_pairwise_end_to_end(tmp_path: Path) -> None:
-    """验证 jcvi.mcscan_pairwise 子模块端到端执行"""
+def test_analyze_submodule_pairwise_end_to_end(tmp_path: Path) -> None:
+    """验证 jcvi.pairwise 子模块端到端执行"""
     root = Path(__file__).resolve().parents[3]
     sample = root / "references" / "samples" / "shell" / "bed_cds_minimal"
     input_dir = tmp_path / "input-submodule"
@@ -1082,7 +1093,7 @@ def test_analyze_submodule_mcscan_pairwise_end_to_end(tmp_path: Path) -> None:
         [
             "analyze",
             "submodule",
-            "jcvi.mcscan_pairwise",
+            "jcvi.pairwise",
             "--input-ports",
             json.dumps({"species_pair": str(input_dir)}),
             "--output-dir",
@@ -1099,12 +1110,12 @@ def test_analyze_submodule_mcscan_pairwise_end_to_end(tmp_path: Path) -> None:
 
     request_snapshot = json.loads((outdir / "inputs" / "submodule_request.json").read_text(encoding="utf-8"))
     assert request_snapshot["kind"] == "submodule_request"
-    assert request_snapshot["module_id"] == "jcvi.mcscan_pairwise"
+    assert request_snapshot["module_id"] == "jcvi.pairwise"
     assert request_snapshot["inputs"]["species_pair"] == str(input_dir)
 
 
 def test_analyze_submodule_graphics_dotplot_reuses_pairwise_artifacts(tmp_path: Path) -> None:
-    """验证 graphics_dotplot 子模块可复用 mcscan_pairwise 生成的锚点文件（anchors）"""
+    """验证 graphics_dotplot 子模块可复用 jcvi.pairwise 生成的锚点文件（anchors）"""
     root = Path(__file__).resolve().parents[3]
     sample = root / "references" / "samples" / "shell" / "bed_cds_minimal"
     input_dir = tmp_path / "input-submodule-reuse"
@@ -1115,7 +1126,7 @@ def test_analyze_submodule_graphics_dotplot_reuses_pairwise_artifacts(tmp_path: 
         [
             "analyze",
             "submodule",
-            "jcvi.mcscan_pairwise",
+            "jcvi.pairwise",
             "--input-ports",
             json.dumps({"species_pair": str(input_dir)}),
             "--output-dir",

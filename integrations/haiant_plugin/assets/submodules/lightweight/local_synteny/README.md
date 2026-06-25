@@ -79,7 +79,7 @@ GenomeLens.exe analyze run output\submodule_request.json
 
 ## 注意事项
 
-1. `blocks` 与 `target_genes` 均为必填；可由 `gljcvi-mcscan-pairwise` 子模块或 `gljcvi-synteny` 一站式工作流先行生成 blocks。
+1. `blocks` 与 `target_genes` 均为必填；其中 `blocks` 可由 `gljcvi-mcscan-pairwise`（双物种共线性基础分析）或 `gljcvi-synteny`（一站式工作流）先行生成。
 2. 当目标基因存在多个拷贝或位于重叠区域时，建议开启 `split_targets` 避免图像拥挤。
 3. `use_native_local_synteny_renderer` 会启用 GenomeLens 增强局部共线性渲染器，更适合跨染色体命中、截断轨道与复杂局部窗口；关闭时沿用默认渲染路径。
 4. 一键“从物种目录直接出图”的端到端路径由 `gljcvi-synteny` 一站式工作流承担。

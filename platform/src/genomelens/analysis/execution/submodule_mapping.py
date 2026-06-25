@@ -316,6 +316,7 @@ def to_synteny_like_request(request: SubmoduleRequest, engine_workflow: str) -> 
         input_ports=dict(ports),
         align_soft=_str_param(parameters, "align_soft", "blast"),
         dbtype=_str_param(parameters, "dbtype", "nucl"),
+        emit_ortholog=_bool_param(parameters, "emit_ortholog", False),
         cscore=_float_param(parameters, "cscore", 0.7),
         dist=_int_param(parameters, "dist", 20),
         iter=_int_param(parameters, "iter", 1),

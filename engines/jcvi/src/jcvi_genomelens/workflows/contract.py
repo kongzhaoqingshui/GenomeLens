@@ -16,13 +16,12 @@ HEATMAP_WORKFLOW = "graphics_heatmap"
 HISTOGRAM_WORKFLOW = "graphics_histogram"
 
 SUPPORTED_WORKFLOWS = (
-    "mcscan_pairwise",
+    "pairwise",
     "graphics_synteny",
     "graphics_dotplot",
     "graphics_histogram",
     "graphics_karyotype",
     HEATMAP_WORKFLOW,
-    "catalog_ortholog",
     "local_synteny",
     GLOBAL_KARYOTYPE_WORKFLOW,
     MULTI_LOCAL_SYNTENY_WORKFLOW,

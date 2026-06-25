@@ -4,12 +4,11 @@ param(
     "dotplot",
     "synteny",
     "karyotype",
-    "catalog_ortholog",
     "local_synteny",
     "synteny_figure",
     "histogram",
     "heatmap",
-    "mcscan_pairwise",
+    "pairwise",
     "global_karyotype",
     "multi_local_synteny"
   )]
@@ -32,15 +31,9 @@ $featureMap = @{
     ModuleKind = ""
   }
   # 可编排子模块插件（analyze submodule <module_id>）
-  mcscan_pairwise = @{
-    Package = "gljcvi-mcscan-pairwise"
-    Entry = "features\submodules\lightweight\mcscan_pairwise_entry.py"
-    Category = "submodules"
-    ModuleKind = "lightweight"
-  }
-  catalog_ortholog = @{
-    Package = "gljcvi-catalog-ortholog"
-    Entry = "features\submodules\lightweight\catalog_ortholog_entry.py"
+  pairwise = @{
+    Package = "gljcvi-pairwise"
+    Entry = "features\submodules\lightweight\pairwise_entry.py"
     Category = "submodules"
     ModuleKind = "lightweight"
   }
@@ -177,8 +170,7 @@ New-Item -ItemType Directory -Force -Path $outputDir | Out-Null
 # 只有使用 species_pair 端口的插件才复制示例物种输入；histogram/heatmap/global_karyotype/multi_local_synteny 保持 input 空目录
 $speciesInputFeatures = @(
   "synteny",
-  "mcscan_pairwise",
-  "catalog_ortholog",
+  "pairwise",
   "dotplot",
   "synteny_figure",
   "karyotype",

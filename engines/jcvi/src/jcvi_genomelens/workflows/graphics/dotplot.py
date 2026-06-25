@@ -10,7 +10,6 @@ from jcvi_genomelens.manifest.models import EngineRunManifest
 from jcvi_genomelens.runtime.command_runner import CommandAudit, run_python_step
 from jcvi_genomelens.workflows.common import _assert_ok, close_matplotlib_figures
 from jcvi_genomelens.workflows.pairwise.artifact_reuse import ensure_pairwise_artifacts
-from jcvi_genomelens.workflows.pairwise.mcscan import run as run_pairwise
 
 # endregion
 
@@ -64,12 +63,11 @@ def draw_dotplots(
 def run(manifest: EngineRunManifest, outdir: str | Path) -> tuple[list[CommandAudit], dict[str, object]]:
     """运行真实 pairwise MCscan(成对 MCscan) 后绘制 dotplot(点图)"""
 
-    # 独立 dotplot 工作流本质上是“pairwise + 只画 dotplot”
+    # 独立 dotplot 渲染：仅消费上游 pairwise 的 anchors，缺产物即报错（绝不重算）
     commands, artifacts = ensure_pairwise_artifacts(
         manifest,
         outdir,
         required_fields=("anchors",),
-        fallback_runner=run_pairwise,
     )
     root = Path(outdir).expanduser().resolve(strict=False)
     dotplot_commands, figures = draw_dotplots(manifest, root, artifacts)

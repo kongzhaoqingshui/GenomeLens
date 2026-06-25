@@ -16,7 +16,58 @@ def _blast_executable(name: str) -> Path:
     return (BLAST_BIN / f"{name}.exe").resolve()
 
 
-def _local_manifest(target_gene_ids: list[str], split_targets: bool = False) -> dict[str, object]:
+def _pairwise_manifest() -> dict[str, object]:
+    species = [
+        {
+            "name": "query",
+            "role": "reference",
+            "input_mode": "bed_cds",
+            "bed": str(SAMPLE / "query.bed"),
+            "cds": str(SAMPLE / "query.cds"),
+        },
+        {
+            "name": "subject",
+            "role": "target",
+            "input_mode": "bed_cds",
+            "bed": str(SAMPLE / "subject.bed"),
+            "cds": str(SAMPLE / "subject.cds"),
+        },
+    ]
+    return {
+        "schema_version": 3,
+        "workflow": "pairwise",
+        "task": {
+            "task_id": "query__subject__pairwise",
+            "task_type": "pairwise_synteny",
+            "workflow": "pairwise",
+            "source": "pytest",
+        },
+        "inputs": {"species": species},
+        "species": species,
+        "toolchain": {
+            "blastn": str(_blast_executable("blastn")),
+            "makeblastdb": str(_blast_executable("makeblastdb")),
+        },
+        "parameters": {"threads": 1, "min_block_size": 1, "formats": ["png"]},
+        "expected_outputs": ["blast_table", "anchors", "simple", "blocks"],
+    }
+
+
+def _run_pairwise_artifacts(tmp_path: Path) -> dict[str, object]:
+    """先跑一遍 pairwise 计算工作流，返回产物字典供 local_synteny 渲染复用"""
+
+    manifest = tmp_path / "pairwise.json"
+    manifest.write_text(json.dumps(_pairwise_manifest()), encoding="utf-8")
+    summary = json.loads(run_manifest(manifest, tmp_path / "pairwise").read_text(encoding="utf-8"))
+    assert summary["status"] == "ok"
+    return summary["artifacts"]
+
+
+def _local_manifest(
+    target_gene_ids: list[str],
+    pairwise_artifacts: dict[str, object],
+    split_targets: bool = False,
+) -> dict[str, object]:
     species = [
         {
             "name": "query",
@@ -42,7 +93,14 @@ def _local_manifest(target_gene_ids: list[str], split_targets: bool = False) -> 
             "workflow": "local_synteny",
             "source": "pytest",
         },
-        "inputs": {"species": species},
+        "inputs": {
+            "species": species,
+            "pairwise_artifacts": {
+                key: pairwise_artifacts[key]
+                for key in ("blast_table", "anchors", "simple", "blocks", "merged_bed", "layout")
+                if pairwise_artifacts.get(key)
+            },
+        },
         "species": species,
         "toolchain": {
             "blastn": str(_blast_executable("blastn")),
@@ -72,8 +130,9 @@ def _local_manifest(target_gene_ids: list[str], split_targets: bool = False) -> 
 
 
 def test_engine_run_local_synteny_single_target(tmp_path: Path) -> None:
+    pairwise_artifacts = _run_pairwise_artifacts(tmp_path)
     manifest = tmp_path / "local.json"
-    manifest.write_text(json.dumps(_local_manifest(["qgene2"])), encoding="utf-8")
+    manifest.write_text(json.dumps(_local_manifest(["qgene2"], pairwise_artifacts)), encoding="utf-8")
     summary_path = run_manifest(manifest, tmp_path / "engine")
     payload = json.loads(summary_path.read_text(encoding="utf-8"))
     assert payload["status"] == "ok"
@@ -103,8 +162,12 @@ def test_engine_run_local_synteny_single_target(tmp_path: Path) -> None:
 
 
 def test_engine_run_local_synteny_split_targets(tmp_path: Path) -> None:
+    pairwise_artifacts = _run_pairwise_artifacts(tmp_path)
     manifest = tmp_path / "local_split.json"
-    manifest.write_text(json.dumps(_local_manifest(["qgene1", "qgene4"], split_targets=True)), encoding="utf-8")
+    manifest.write_text(
+        json.dumps(_local_manifest(["qgene1", "qgene4"], pairwise_artifacts, split_targets=True)),
+        encoding="utf-8",
+    )
     summary_path = run_manifest(manifest, tmp_path / "engine")
     payload = json.loads(summary_path.read_text(encoding="utf-8"))
     assert payload["status"] == "ok"

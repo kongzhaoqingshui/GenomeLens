@@ -30,6 +30,7 @@ from genomelens.data.logging.log_setup import close_logging, logger_name_for_pat
 from genomelens.data.logging.task_log import task_scope
 from genomelens.data.workspace.output_layout import OutputLayout, build_output_layout, create_output_layout
 from genomelens.engines.jcvi.adapter import JcviEngineAdapter
+from genomelens.engines.jcvi.command_mapping import requires_precomputed_pairwise
 from genomelens.engines.jcvi.manifest_builder import JcviManifestBuilder
 from genomelens.engines.jcvi.models import JcviRunResult
 from genomelens.preprocessing.annotation import write_preprocessing_summary
@@ -172,6 +173,55 @@ def _pairwise_artifacts_from_engine_result(engine_result: JcviRunResult) -> Pair
         layout=_artifact_path("layout"),
     )
     return artifacts if artifacts.has_any else None
+
+
+def _run_pairwise_compute_pass(
+    adapter: JcviEngineAdapter,
+    request: SyntenyExecutionRequest,
+    layout: OutputLayout,
+    query: PreparedGenomeInputSpec,
+    subject: PreparedGenomeInputSpec,
+    *,
+    blastn_path: str,
+    makeblastdb_path: str,
+    lastal_path: str,
+    lastdb_path: str,
+    logger: logging.Logger,
+) -> PairwiseArtifactInputs:
+    """先跑一遍 ``pairwise`` 计算，产出渲染所需的共线性基础产物。
+
+    渲染类 workflow（synteny/karyotype/dotplot/local_synteny）自身不再内置计算回退，
+    因此当请求未携带预算产物时，由编排层在独立子目录里执行一次计算，再把产物注入渲染。
+    """
+
+    compute_request = replace(request, engine_workflow="pairwise", precomputed_artifacts=None)
+    compute_manifest_path = layout.inputs / "pairwise_input_manifest.json"
+    compute_outdir = layout.jcvi / "pairwise"
+    with task_scope(
+        logger,
+        task_id=request.task_id,
+        step="run_pairwise_compute",
+        context={"engine_outdir": str(compute_outdir)},
+    ):
+        compute_manifest = JcviManifestBuilder().build_pairwise_manifest(
+            compute_request,
+            query=query,
+            subject=subject,
+            blastn_path=blastn_path,
+            makeblastdb_path=makeblastdb_path,
+            lastal_path=lastal_path,
+            lastdb_path=lastdb_path,
+        )
+        adapter.write_manifest(compute_manifest, compute_manifest_path)
+        compute_result = adapter.run_manifest(compute_manifest_path, compute_outdir)
+
+    artifacts = _pairwise_artifacts_from_engine_result(compute_result)
+    if artifacts is None:
+        raise ToolchainError(
+            "pairwise compute pass did not produce reusable synteny artifacts",
+            code=ErrorCode.ENGINE_FAILED,
+        )
+    return artifacts
 
 
 def _summary_extra_extensions(
@@ -329,6 +379,32 @@ def _run_pairwise_mcscan(
             ):
                 pass
 
+    # 渲染类 workflow 不再自带计算回退：缺少共线性基础产物时，先独立跑一遍 pairwise 计算，
+    # 再把产物注入渲染请求。pairwise 工作流自身则直接进入下方的单次引擎调用。
+    if request_for_manifest.precomputed_artifacts is None and requires_precomputed_pairwise(
+        effective_request.engine_workflow
+    ):
+        pairwise_artifacts = _run_pairwise_compute_pass(
+            adapter,
+            request_for_manifest,
+            layout,
+            query,
+            subject,
+            blastn_path=blastn.path,
+            makeblastdb_path=makeblastdb.path,
+            lastal_path=lastal_path,
+            lastdb_path=lastdb_path,
+            logger=logger,
+        )
+        request_for_manifest = replace(request_for_manifest, precomputed_artifacts=pairwise_artifacts)
+        if context is not None and not pairwise_cache_hit:
+            cache_key = context.store_pairwise_result(
+                effective_request,
+                pairwise_artifacts,
+                logger,
+                cache_key=cache_key,
+            )
+
     set_state(WorkflowState.WRITING_MANIFEST)
     with task_scope(
         logger,
@@ -357,7 +433,13 @@ def _run_pairwise_mcscan(
     ):
         engine_result = adapter.run_manifest(layout.manifest, layout.jcvi)
 
-    if context is not None and not pairwise_cache_hit and effective_request.precomputed_artifacts is None:
+    # 仅 pairwise 计算入口的 engine_result 才直接携带共线性产物；渲染类的产物已在计算回合存入缓存。
+    if (
+        context is not None
+        and not pairwise_cache_hit
+        and effective_request.precomputed_artifacts is None
+        and not requires_precomputed_pairwise(effective_request.engine_workflow)
+    ):
         artifacts_for_cache = _pairwise_artifacts_from_engine_result(engine_result)
         if artifacts_for_cache is not None:
             cache_key = context.store_pairwise_result(

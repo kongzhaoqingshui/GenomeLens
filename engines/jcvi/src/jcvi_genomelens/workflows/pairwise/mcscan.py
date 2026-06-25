@@ -263,8 +263,13 @@ def _run_with_blast(manifest: EngineRunManifest, root: Path) -> tuple[list[Comma
     }
 
 
-def _run_with_catalog(manifest: EngineRunManifest, root: Path) -> tuple[list[CommandAudit], dict[str, object]]:
-    """使用 JCVI catalog.ortholog（支持 LAST / Diamond）运行 pairwise 并返回标准 artifacts"""
+def _run_with_catalog(
+    manifest: EngineRunManifest, root: Path, *, emit_ortholog: bool = False
+) -> tuple[list[CommandAudit], dict[str, object]]:
+    """使用 JCVI catalog.ortholog（支持 LAST / Diamond）运行 pairwise 并返回标准 artifacts
+
+    ``emit_ortholog`` 为真时，额外把双向 ortholog 目录透传到返回的 artifact 字典。
+    """
 
     if manifest.query is None or manifest.subject is None:
         raise ValueError("catalog pairwise workflow requires query and subject species")
@@ -288,13 +293,19 @@ def _run_with_catalog(manifest: EngineRunManifest, root: Path) -> tuple[list[Com
     blocks = catalog_artifacts.get("blocks") or str(root / f"{prefix}.1x1.blocks")
     simple = catalog_artifacts.get("lifted_anchors") or anchors
 
-    return catalog_commands + [merge_cmd], {
+    artifacts: dict[str, object] = {
         "blast_table": str(blast_table),
         "anchors": str(anchors),
         "simple": str(simple),
         "blocks": str(blocks),
         "merged_bed": str(merged_bed),
     }
+    if emit_ortholog:
+        for key in ("ortholog", "reverse_ortholog"):
+            value = catalog_artifacts.get(key)
+            if value:
+                artifacts[key] = str(value)
+    return catalog_commands + [merge_cmd], artifacts
 
 
 def run(manifest: EngineRunManifest, outdir: str | Path) -> tuple[list[CommandAudit], dict[str, object]]:
@@ -316,10 +327,12 @@ def run(manifest: EngineRunManifest, outdir: str | Path) -> tuple[list[CommandAu
         _write_default_layout(layout, manifest.query.name, manifest.subject.name)
 
     align_soft = manifest.options.align_soft or "blast"
-    if align_soft == "blast":
+    emit_ortholog = manifest.options.emit_ortholog
+    # ortholog 目录只能由 catalog 后端产出；用户要 ortholog 时强制走 catalog 路径
+    if emit_ortholog or align_soft in {"last", "diamond_blastp"}:
+        commands, pairwise_artifacts = _run_with_catalog(manifest, root, emit_ortholog=emit_ortholog)
+    elif align_soft == "blast":
         commands, pairwise_artifacts = _run_with_blast(manifest, root)
-    elif align_soft in {"last", "diamond_blastp"}:
-        commands, pairwise_artifacts = _run_with_catalog(manifest, root)
     else:
         raise ValueError(f"unsupported align_soft: {align_soft}")
 

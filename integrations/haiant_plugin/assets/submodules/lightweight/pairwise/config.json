@@ -76,6 +76,15 @@
       "description_en": "Sequence type used for homology search: nucleotide or protein. This influences the alignment strategy and the most suitable backend choice."
     },
     {
+      "label": "额外产出双向同源目录",
+      "label_en": "Emit Ortholog Catalog",
+      "key": "emit_ortholog",
+      "valueType": "bool",
+      "example_value": false,
+      "description": "开启后，在共线性结果之外额外产出双向 ortholog（同源基因对）目录；该目录由 catalog 后端生成，可供下游同源关系分析使用。",
+      "description_en": "When enabled, additionally emits a bidirectional ortholog catalog alongside the synteny results. The catalog is produced by the catalog backend and can feed downstream homology analyses."
+    },
+    {
       "label": "同源匹配过滤强度",
       "label_en": "C-score Threshold",
       "key": "cscore",

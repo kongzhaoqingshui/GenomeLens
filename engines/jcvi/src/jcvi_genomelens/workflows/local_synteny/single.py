@@ -17,7 +17,6 @@ from jcvi_genomelens.runtime.command_runner import CommandAudit, run_python_step
 from jcvi_genomelens.workflows.common import _assert_ok, build_figure_options, close_matplotlib_figures
 from jcvi_genomelens.workflows.graphics.plot_optimization import prepare_synteny_plot_inputs
 from jcvi_genomelens.workflows.pairwise.artifact_reuse import ensure_pairwise_artifacts
-from jcvi_genomelens.workflows.pairwise.mcscan import run as run_pairwise
 
 # endregion
 
@@ -243,13 +242,12 @@ def run(manifest: EngineRunManifest, outdir: str | Path) -> tuple[list[CommandAu
 
     use_native = manifest.options.use_native_local_synteny_renderer
 
-    # local_synteny 的上游依赖就是完整 pairwise 结果，局部图只是在 blocks 上二次裁切
+    # local_synteny 仅在上游 pairwise 的 blocks 上二次裁切；缺产物即报错（绝不重算）
     commands, pairwise_artifacts = ensure_pairwise_artifacts(
         manifest,
         root,
         required_fields=("blocks",),
         ensure_merged_bed=True,
-        fallback_runner=run_pairwise,
     )
     blocks_path = Path(str(pairwise_artifacts["blocks"]))
     merged_bed = Path(str(pairwise_artifacts["merged_bed"]))

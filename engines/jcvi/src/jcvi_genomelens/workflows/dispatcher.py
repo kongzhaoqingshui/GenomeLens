@@ -43,13 +43,12 @@ def _load_runner(runner_ref: RunnerRef) -> Runner:
 
 
 _WORKFLOW_REGISTRY: dict[str, RunnerRef] = {
-    "mcscan_pairwise": ("jcvi_genomelens.workflows.pairwise.mcscan", "run"),
+    "pairwise": ("jcvi_genomelens.workflows.pairwise.mcscan", "run"),
     "graphics_synteny": ("jcvi_genomelens.workflows.graphics.synteny", "run"),
     "graphics_dotplot": ("jcvi_genomelens.workflows.graphics.dotplot", "run"),
     HISTOGRAM_WORKFLOW: ("jcvi_genomelens.workflows.graphics.histogram", "run"),
     "graphics_karyotype": ("jcvi_genomelens.workflows.graphics.karyotype", "run"),
     HEATMAP_WORKFLOW: ("jcvi_genomelens.workflows.graphics.heatmap", "run"),
-    "catalog_ortholog": ("jcvi_genomelens.workflows.pairwise.catalog_ortholog", "run"),
     "local_synteny": ("jcvi_genomelens.workflows.local_synteny.single", "run"),
     MULTI_LOCAL_SYNTENY_WORKFLOW: ("jcvi_genomelens.workflows.local_synteny.multi", "run"),
     GLOBAL_KARYOTYPE_WORKFLOW: ("jcvi_genomelens.workflows.graphics.global_karyotype", "run"),

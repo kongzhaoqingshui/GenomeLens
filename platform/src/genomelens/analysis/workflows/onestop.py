@@ -97,7 +97,7 @@ class OneStopWorkflowRegistry:
             runner="synteny_router",
             engine_workflow=None,
             equivalent_modules=[
-                "jcvi.mcscan_pairwise",
+                "jcvi.pairwise",
                 "jcvi.graphics_synteny",
                 "jcvi.graphics_dotplot",
                 "jcvi.graphics_karyotype_global",

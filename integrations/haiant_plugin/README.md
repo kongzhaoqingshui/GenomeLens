@@ -35,6 +35,22 @@
 
 其中 `dotplot`、`synteny-figure`、`karyotype`、`local-synteny` 为下游可视化 lightweight 子模块，需要用户显式提供上游产物（`.anchors` / `.blocks` / `target_genes`）。`global-karyotype` 与 `multi-local-synteny` 属于 aggregate 子模块，通常由一站式 `synteny` 或平台聚合步骤自动准备输入，不建议普通用户手工拼接。一键“从物种目录直接出图”的端到端路径由 `gljcvi-synteny` 一站式工作流承担。
 
+## 插件速览
+
+| 插件 | 最适合做什么 | 典型输入 | 典型输出 |
+|---|---|---|---|
+| `gljcvi-synteny` | 从原始物种目录直接跑完整共线性流程 | 2~n 个物种目录 | blocks、全局共线性图、局部共线性图 |
+| `gljcvi-mcscan-pairwise` | 先建立双物种基础共线性结果 | 双物种原始输入目录 | anchors、blocks、simple 等中间结果 |
+| `gljcvi-dotplot` | 快速看双物种宏观结构轮廓 | `input_dir` + `.anchors` | 双物种点图 |
+| `gljcvi-synteny-figure` | 做适合正文或补充材料的基因级图件 | `input_dir` + `.blocks` | 双物种共线性图 |
+| `gljcvi-karyotype` | 看染色体尺度保守与重排 | `input_dir` + `.blocks` | 双物种核型图 |
+| `gljcvi-local-synteny` | 围绕候选基因看局部邻域保守性 | `input_dir` + `.blocks` + `target_genes` | 双物种局部共线性图 |
+| `gljcvi-catalog-ortholog` | 整理高可信直系同源目录 | 双物种原始输入目录 | `.ortholog` 目录与相关中间结果 |
+| `gljcvi-histogram` | 把数值结果快速整理成分布图 | 数值文件 | 直方图 |
+| `gljcvi-heatmap` | 把矩阵结果快速整理成热图 | CSV 矩阵 | 热图 |
+| `gljcvi-global-karyotype` | 汇总多物种染色体尺度对应关系 | `tracks` + `edges` | 多物种全局核型总图 |
+| `gljcvi-multi-local-synteny` | 汇总多个基因组中的同一目标位点邻域 | `tracks` + `blocks` + `bed` + `target_genes` | 多物种局部共线性总图 |
+
 ## 怎么选插件
 
 - 如果你手里只有多个物种的原始输入目录，希望直接拿到共线性结果与图件：优先用 `gljcvi-synteny`。

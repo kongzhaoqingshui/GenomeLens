@@ -49,17 +49,17 @@ $env:GENOMELENS_EXE = "C:\GenomeLens\GenomeLens.exe"
 
 ### 2.2 一站式工作流插件
 
-`gljcvi-synteny` 面向“我只想把一组物种扔进去，然后直接拿到可解释的共线性结果”这一类使用方式。它构造 `WorkflowRequest(workflow_id="synteny")`，写入 `output/workflow_request.json`，然后调用外部 GenomeLens：
+`gljcvi-synteny` 面向“我只想把一组物种扔进去，然后直接拿到可解释的共线性结果”这一类使用方式。它会生成标准工作流请求 `output/workflow_request.json`，然后调用外部 GenomeLens：
 
 ```powershell
 <GenomeLens_Path> analyze run output/workflow_request.json
 ```
 
-未填写 `target_gene_ids` 时，它更偏向全局共线性比较；填写 `target_gene_ids` 时，它会转入目标基因驱动的局部共线性分析；当物种数达到 3 个及以上时，平台会自动拆分 pairwise 结果并聚合全局核型总图与多物种局部总图。对最终用户来说，这意味着无需手工拼接多步流程，也能直接得到更完整的比较结果。
+未填写 `target_gene_ids` 时，它更偏向全局共线性比较；填写 `target_gene_ids` 时，它会转入目标基因驱动的局部共线性分析；当物种数达到 3 个及以上时，平台会自动拆分双物种基础结果并聚合全局核型总图与多物种局部总图。对最终用户来说，这意味着无需手工拼接多步流程，也能直接得到更完整的比较结果。
 
 ### 2.3 可编排子模块插件
 
-可编排子模块适合已经知道自己想做哪一步的人，例如“我已经有 pairwise 结果了，现在只想出 dotplot”或“我已经聚合好了多物种 tracks/edges，只想出总图”。它们对应平台 `SubModuleRegistry` 中的 10 个独立子模块，继续分为 8 个 lightweight 与 2 个 aggregate：
+可编排子模块适合已经知道自己想做哪一步的人，例如“我已经有双物种基础结果了，现在只想出 dotplot”或“我已经聚合好了多物种 tracks/edges，只想出总图”。当前共提供 10 个独立子模块，继续分为 8 个 lightweight 与 2 个 aggregate：
 
 | 插件 | 固定 module_id | 类型 |
 |---|---|---|
@@ -99,7 +99,7 @@ gljcvi-<feature>/
 
 - `gljcvi-synteny` 使用 `input_dir` 自动发现同名物种文件对，适合直接从原始物种目录起步。
 - 可编排子模块插件通过 `params.json` 中的显式端口字段接收输入，例如 `species_pair`、`anchors`、`blocks`、`target_genes`、`numeric_files`、`matrix_csv`、`tracks`/`edges`、`bed` 等，适合已经拥有中间结果的场景。
-- aggregate 子模块要求调用方已经准备好跨 pair / 跨物种聚合输入，不承担前置 pairwise 产物拼装职责；它们更像“把前面已经算好的结果汇总成一张总图”。
+- aggregate 子模块要求调用方已经准备好跨比较对 / 跨物种聚合输入，不承担前置双物种结果拼装职责；它们更像“把前面已经算好的结果汇总成一张总图”。
 - 下游 4 个可视化子模块（`dotplot`、`synteny_figure`、`karyotype`、`local_synteny`）需要用户显式提供上游产物（`.anchors` / `.blocks` / `target_genes`）。如果希望“一次性从物种目录直接跑到图”，更推荐使用 `gljcvi-synteny` 一站式工作流。
 
 ---
@@ -126,7 +126,7 @@ gljcvi-<feature>/
 | 产物路径 | 类型 | 请求文件 | 说明 |
 |---|---|---|---|
 | `app/onestop/gljcvi-synteny.zip` | 一站式工作流 | `output/workflow_request.json` | 自动路由 |
-| `app/submodules/lightweight/gljcvi-mcscan-pairwise.zip` | 可编排子模块 | `output/submodule_request.json` | pairwise block 计算 |
+| `app/submodules/lightweight/gljcvi-mcscan-pairwise.zip` | 可编排子模块 | `output/submodule_request.json` | 双物种共线性基础结果 |
 | `app/submodules/lightweight/gljcvi-catalog-ortholog.zip` | 可编排子模块 | `output/submodule_request.json` | 双向 ortholog 目录 |
 | `app/submodules/lightweight/gljcvi-dotplot.zip` | 可编排子模块 | `output/submodule_request.json` | 双物种点图 |
 | `app/submodules/lightweight/gljcvi-synteny-figure.zip` | 可编排子模块 | `output/submodule_request.json` | 双物种共线性图 |

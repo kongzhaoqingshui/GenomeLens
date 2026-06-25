@@ -16,7 +16,7 @@ def _blast_executable(name: str) -> Path:
     return (BLAST_BIN / f"{name}.exe").resolve()
 
 
-def _manifest(workflow: str) -> dict[str, object]:
+def _manifest(workflow: str, *, extra_parameters: dict[str, object] | None = None) -> dict[str, object]:
     species = [
         {
             "name": "query",
@@ -48,7 +48,7 @@ def _manifest(workflow: str) -> dict[str, object]:
             "blastn": str(_blast_executable("blastn")),
             "makeblastdb": str(_blast_executable("makeblastdb")),
         },
-        "parameters": {"threads": 1, "min_block_size": 1, "formats": ["png"]},
+        "parameters": {"threads": 1, "min_block_size": 1, "formats": ["png"], **(extra_parameters or {})},
         "expected_outputs": ["blast_table", "anchors", "simple", "blocks", "figures"],
     }
 
@@ -80,9 +80,39 @@ def _heatmap_manifest(matrix: Path, rowgroups: Path | None = None) -> dict[str, 
     }
 
 
+def _run_pairwise_artifacts(tmp_path: Path, *, subdir: str = "pairwise") -> dict[str, object]:
+    """先跑一遍 pairwise 计算工作流，返回其产出的产物字典，供下游渲染工作流复用"""
+
+    pairwise_manifest = tmp_path / f"{subdir}.json"
+    pairwise_manifest.write_text(json.dumps(_manifest("pairwise")), encoding="utf-8")
+    summary = json.loads(run_manifest(pairwise_manifest, tmp_path / subdir).read_text(encoding="utf-8"))
+    assert summary["status"] == "ok"
+    return summary["artifacts"]
+
+
+def _render_manifest(
+    workflow: str,
+    pairwise_artifacts: dict[str, object],
+    *,
+    parameters: dict[str, object] | None = None,
+) -> dict[str, object]:
+    """构造复用上游 pairwise 产物的渲染工作流 manifest（渲染层绝不自行计算）"""
+
+    data = _manifest(workflow)
+    data["inputs"]["pairwise_artifacts"] = {
+        key: pairwise_artifacts[key]
+        for key in ("blast_table", "anchors", "simple", "blocks", "merged_bed", "layout")
+        if pairwise_artifacts.get(key)
+    }
+    if parameters:
+        data["parameters"] = {**data["parameters"], **parameters}
+    return data
+
+
 def test_engine_run_graphics_synteny(tmp_path: Path) -> None:
+    pairwise_artifacts = _run_pairwise_artifacts(tmp_path)
     manifest = tmp_path / "manifest.json"
-    manifest.write_text(json.dumps(_manifest("graphics_synteny")), encoding="utf-8")
+    manifest.write_text(json.dumps(_render_manifest("graphics_synteny", pairwise_artifacts)), encoding="utf-8")
     summary_path = run_manifest(manifest, tmp_path / "engine")
     payload = json.loads(summary_path.read_text(encoding="utf-8"))
     assert payload["status"] == "ok"
@@ -94,13 +124,8 @@ def test_engine_run_graphics_synteny(tmp_path: Path) -> None:
     assert isinstance(payload["loaded_extensions"], list)
     assert isinstance(payload["missing_extensions"], list)
     command_names = [command["name"] for command in payload["commands"]]
+    # 渲染层只剩绘图命令，不再偷偷重算 blast/scan/mcscan
     assert command_names == [
-        "makeblastdb.exe",
-        "blastn.exe",
-        "jcvi.compara.synteny.scan",
-        "jcvi.compara.synteny.simple",
-        "jcvi.compara.synteny.mcscan",
-        "jcvi.formats.bed.merge",
         "jcvi.graphics.dotplot",
         "jcvi.graphics.synteny",
     ]
@@ -114,12 +139,13 @@ def test_engine_run_graphics_synteny(tmp_path: Path) -> None:
 
 
 def test_engine_run_graphics_dotplot(tmp_path: Path) -> None:
+    pairwise_artifacts = _run_pairwise_artifacts(tmp_path)
     manifest = tmp_path / "manifest.json"
-    manifest.write_text(json.dumps(_manifest("graphics_dotplot")), encoding="utf-8")
+    manifest.write_text(json.dumps(_render_manifest("graphics_dotplot", pairwise_artifacts)), encoding="utf-8")
     summary_path = run_manifest(manifest, tmp_path / "engine")
     payload = json.loads(summary_path.read_text(encoding="utf-8"))
     assert payload["status"] == "ok"
-    assert [command["name"] for command in payload["commands"]][-1] == "jcvi.graphics.dotplot"
+    assert [command["name"] for command in payload["commands"]] == ["jcvi.graphics.dotplot"]
     assert Path(payload["artifacts"]["dotplot_figures"][0]).is_file()
 
 
@@ -184,8 +210,9 @@ def test_engine_run_graphics_histogram(tmp_path: Path) -> None:
 
 
 def test_engine_run_graphics_karyotype(tmp_path: Path) -> None:
+    pairwise_artifacts = _run_pairwise_artifacts(tmp_path)
     manifest = tmp_path / "manifest.json"
-    manifest.write_text(json.dumps(_manifest("graphics_karyotype")), encoding="utf-8")
+    manifest.write_text(json.dumps(_render_manifest("graphics_karyotype", pairwise_artifacts)), encoding="utf-8")
     summary_path = run_manifest(manifest, tmp_path / "engine")
     payload = json.loads(summary_path.read_text(encoding="utf-8"))
     assert payload["status"] == "ok"
@@ -198,11 +225,12 @@ def test_engine_run_graphics_karyotype(tmp_path: Path) -> None:
 
 
 def test_engine_run_graphics_karyotype_with_label_overlap_fix(tmp_path: Path) -> None:
-    data = _manifest("graphics_karyotype")
-    data["parameters"] = {
-        **data["parameters"],
-        "auto_optimization": {"optimize_karyotype_labels": True},
-    }
+    pairwise_artifacts = _run_pairwise_artifacts(tmp_path)
+    data = _render_manifest(
+        "graphics_karyotype",
+        pairwise_artifacts,
+        parameters={"auto_optimization": {"optimize_karyotype_labels": True}},
+    )
     manifest = tmp_path / "manifest.json"
     manifest.write_text(json.dumps(data), encoding="utf-8")
     summary_path = run_manifest(manifest, tmp_path / "engine")
@@ -216,26 +244,28 @@ def test_engine_run_graphics_karyotype_with_label_overlap_fix(tmp_path: Path) ->
     assert "0.12, 0.88" in layout_text
 
 
-def test_engine_run_catalog_ortholog(tmp_path: Path) -> None:
+def test_engine_run_pairwise_emit_ortholog(tmp_path: Path) -> None:
+    # 合并后的 pairwise 计算工作流：emit_ortholog=True 时透传双向 ortholog 目录
     manifest = tmp_path / "manifest.json"
-    manifest.write_text(json.dumps(_manifest("catalog_ortholog")), encoding="utf-8")
+    manifest.write_text(
+        json.dumps(_manifest("pairwise", extra_parameters={"emit_ortholog": True})),
+        encoding="utf-8",
+    )
     summary_path = run_manifest(manifest, tmp_path / "engine")
     payload = json.loads(summary_path.read_text(encoding="utf-8"))
     assert payload["status"] == "ok"
-    assert [command["name"] for command in payload["commands"]] == ["jcvi.compara.catalog.ortholog"]
-    command_stderr = payload["commands"][0]["stderr"]
-    assert "Objective value = 4" in command_stderr
-    assert "MCscan blocks written" in command_stderr
+    command_names = [command["name"] for command in payload["commands"]]
+    assert "jcvi.compara.catalog.ortholog" in command_names
     assert Path(payload["artifacts"]["ortholog"]).stat().st_size > 0
     assert Path(payload["artifacts"]["reverse_ortholog"]).stat().st_size > 0
     assert Path(payload["artifacts"]["blast_table"]).stat().st_size > 0
-    assert payload["artifacts"]["backend"] == "jcvi.catalog.ortholog"
+    assert payload["artifacts"]["backend"] == "jcvi"
 
 
 def test_engine_run_graphics_karyotype_global(tmp_path: Path) -> None:
     # 先跑一对 pairwise 拿到真实 .anchors.simple，再喂给全局总图工作流
     pairwise_manifest = tmp_path / "pairwise.json"
-    pairwise_manifest.write_text(json.dumps(_manifest("mcscan_pairwise")), encoding="utf-8")
+    pairwise_manifest.write_text(json.dumps(_manifest("pairwise")), encoding="utf-8")
     pairwise_summary = json.loads(run_manifest(pairwise_manifest, tmp_path / "pairwise").read_text(encoding="utf-8"))
     assert pairwise_summary["status"] == "ok"
     simple = pairwise_summary["artifacts"]["simple"]
@@ -289,7 +319,7 @@ def test_engine_run_graphics_karyotype_global(tmp_path: Path) -> None:
 
 def test_engine_run_graphics_karyotype_global_with_label_overlap_fix(tmp_path: Path) -> None:
     pairwise_manifest = tmp_path / "pairwise.json"
-    pairwise_manifest.write_text(json.dumps(_manifest("mcscan_pairwise")), encoding="utf-8")
+    pairwise_manifest.write_text(json.dumps(_manifest("pairwise")), encoding="utf-8")
     pairwise_summary = json.loads(run_manifest(pairwise_manifest, tmp_path / "pairwise").read_text(encoding="utf-8"))
     simple = pairwise_summary["artifacts"]["simple"]
 

@@ -77,6 +77,10 @@ class JcviManifestBuilder:
         if request.precomputed_artifacts is not None:
             inputs["pairwise_artifacts"] = _pairwise_artifact_manifest(request.precomputed_artifacts.to_manifest_json())
 
+        expected_outputs = ["blast_table", "anchors", "simple", "blocks", "figures"]
+        if request.emit_ortholog:
+            expected_outputs += ["ortholog", "reverse_ortholog"]
+
         return {
             "schema_version": 3,
             "workflow": workflow,
@@ -88,7 +92,7 @@ class JcviManifestBuilder:
             ],
             "toolchain": toolchain,
             "parameters": self._synteny_parameters(request),
-            "expected_outputs": ["blast_table", "anchors", "simple", "blocks", "figures"],
+            "expected_outputs": expected_outputs,
             "meta": {
                 "source": "genomelens-platform",
                 "shell_version": __version__,
@@ -278,6 +282,7 @@ class JcviManifestBuilder:
             "allow_simplified_fallback": request.allow_simplified_fallback,
             "align_soft": request.align_soft,
             "dbtype": request.dbtype,
+            "emit_ortholog": request.emit_ortholog,
             "cscore": request.cscore,
             "dist": request.dist,
             "iter": request.iter,

@@ -12,13 +12,12 @@ def test_probe_contract() -> None:
     assert isinstance(payload["extension_errors"], dict)
     assert payload["capabilities"] == list(SUPPORTED_WORKFLOWS)
     assert payload["capabilities"] == [
-        "mcscan_pairwise",
+        "pairwise",
         "graphics_synteny",
         "graphics_dotplot",
         "graphics_histogram",
         "graphics_karyotype",
         "graphics_heatmap",
-        "catalog_ortholog",
         "local_synteny",
         "graphics_karyotype_global",
         "local_synteny_multi",

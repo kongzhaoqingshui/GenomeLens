@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+
 from jcvi_genomelens.manifest.models import (
     ArtifactBundleSpec,
     EngineRunManifest,
@@ -8,7 +10,10 @@ from jcvi_genomelens.manifest.models import (
     ToolchainSpec,
     WorkflowOptions,
 )
-from jcvi_genomelens.workflows.pairwise.artifact_reuse import ensure_pairwise_artifacts
+from jcvi_genomelens.workflows.pairwise.artifact_reuse import (
+    MissingPairwiseArtifactsError,
+    ensure_pairwise_artifacts,
+)
 
 
 def _genome(tmp_path: Path, name: str) -> GenomeSpec:
@@ -19,19 +24,11 @@ def _genome(tmp_path: Path, name: str) -> GenomeSpec:
     return GenomeSpec(name=name, bed=bed, cds=cds)
 
 
-def test_ensure_pairwise_artifacts_uses_precomputed_files(monkeypatch, tmp_path: Path) -> None:
+def test_ensure_pairwise_artifacts_uses_precomputed_files(tmp_path: Path) -> None:
     query = _genome(tmp_path, "query")
     subject = _genome(tmp_path, "subject")
     blocks = tmp_path / "query.subject.blocks"
     blocks.write_text("q1\ts1\n", encoding="utf-8")
-
-    def fail_run_pairwise(*args, **kwargs):  # noqa: ANN002, ANN003
-        raise AssertionError("run_pairwise should not be called")
-
-    monkeypatch.setattr(
-        "jcvi_genomelens.workflows.pairwise.artifact_reuse.run_pairwise",
-        fail_run_pairwise,
-    )
 
     manifest = EngineRunManifest(
         workflow="graphics_synteny",
@@ -54,19 +51,10 @@ def test_ensure_pairwise_artifacts_uses_precomputed_files(monkeypatch, tmp_path:
     assert Path(str(artifacts["merged_bed"])).is_file()
 
 
-def test_ensure_pairwise_artifacts_falls_back_when_required_file_missing(monkeypatch, tmp_path: Path) -> None:
+def test_ensure_pairwise_artifacts_raises_when_required_file_missing(tmp_path: Path) -> None:
+    # 渲染层绝不自行计算：缺必需产物时报错，而不是偷偷重跑 pairwise
     query = _genome(tmp_path, "query")
     subject = _genome(tmp_path, "subject")
-    calls: list[str] = []
-
-    def fake_run_pairwise(*args, **kwargs):  # noqa: ANN002, ANN003
-        calls.append("run")
-        return [], {"blocks": str(tmp_path / "fallback.blocks")}
-
-    monkeypatch.setattr(
-        "jcvi_genomelens.workflows.pairwise.artifact_reuse.run_pairwise",
-        fake_run_pairwise,
-    )
 
     manifest = EngineRunManifest(
         workflow="graphics_synteny",
@@ -77,30 +65,39 @@ def test_ensure_pairwise_artifacts_falls_back_when_required_file_missing(monkeyp
         pairwise_artifacts=PairwiseArtifacts(blocks=tmp_path / "missing.blocks"),
     )
 
-    commands, artifacts = ensure_pairwise_artifacts(
-        manifest,
-        tmp_path / "out",
-        required_fields=("blocks",),
+    with pytest.raises(MissingPairwiseArtifactsError, match="blocks"):
+        ensure_pairwise_artifacts(
+            manifest,
+            tmp_path / "out",
+            required_fields=("blocks",),
+        )
+
+
+def test_ensure_pairwise_artifacts_raises_when_no_artifacts_declared(tmp_path: Path) -> None:
+    query = _genome(tmp_path, "query")
+    subject = _genome(tmp_path, "subject")
+
+    manifest = EngineRunManifest(
+        workflow="graphics_synteny",
+        query=query,
+        subject=subject,
+        toolchain=ToolchainSpec(),
+        options=WorkflowOptions(),
     )
 
-    assert calls == ["run"]
-    assert commands == []
-    assert artifacts["blocks"] == str(tmp_path / "fallback.blocks")
+    with pytest.raises(MissingPairwiseArtifactsError, match="anchors"):
+        ensure_pairwise_artifacts(
+            manifest,
+            tmp_path / "out",
+            required_fields=("anchors",),
+        )
 
 
-def test_ensure_pairwise_artifacts_uses_bundle_contract(monkeypatch, tmp_path: Path) -> None:
+def test_ensure_pairwise_artifacts_uses_bundle_contract(tmp_path: Path) -> None:
     query = _genome(tmp_path, "query")
     subject = _genome(tmp_path, "subject")
     blocks = tmp_path / "bundle.blocks"
     blocks.write_text("q1\ts1\n", encoding="utf-8")
-
-    def fail_run_pairwise(*args, **kwargs):  # noqa: ANN002, ANN003
-        raise AssertionError("run_pairwise should not be called")
-
-    monkeypatch.setattr(
-        "jcvi_genomelens.workflows.pairwise.artifact_reuse.run_pairwise",
-        fail_run_pairwise,
-    )
 
     manifest = EngineRunManifest(
         workflow="graphics_synteny",

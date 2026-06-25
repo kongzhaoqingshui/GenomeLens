@@ -1,7 +1,13 @@
 from pathlib import Path
 
 from jcvi_genomelens.graphics.karyotype import mirrored
-from jcvi_genomelens.manifest.models import EngineRunManifest, GenomeSpec, ToolchainSpec, WorkflowOptions
+from jcvi_genomelens.manifest.models import (
+    EngineRunManifest,
+    GenomeSpec,
+    PairwiseArtifacts,
+    ToolchainSpec,
+    WorkflowOptions,
+)
 from jcvi_genomelens.runtime.command_runner import CommandAudit
 from jcvi_genomelens.workflows.graphics import karyotype as graphics_karyotype
 
@@ -53,13 +59,6 @@ def test_pairwise_karyotype_uses_mirrored_renderer_when_fix_enabled(tmp_path: Pa
     simple = tmp_path / "pair.simple"
     simple.write_text("simple\n", encoding="utf-8")
 
-    def _fake_pairwise_run(
-        _manifest: EngineRunManifest,
-        _outdir: str | Path,
-    ) -> tuple[list[CommandAudit], dict[str, object]]:
-        return [CommandAudit(name="pairwise", argv=["pairwise"], returncode=0)], {"simple": str(simple)}
-
-    monkeypatch.setattr(graphics_karyotype, "run_pairwise", _fake_pairwise_run)
     monkeypatch.setattr(graphics_karyotype, "run_python_step", _fake_karyotype_step)
 
     manifest = EngineRunManifest(
@@ -71,6 +70,7 @@ def test_pairwise_karyotype_uses_mirrored_renderer_when_fix_enabled(tmp_path: Pa
         ),
         query=query,
         subject=subject,
+        pairwise_artifacts=PairwiseArtifacts(simple=simple),
     )
 
     commands, artifacts = graphics_karyotype.run(manifest, tmp_path / "engine")

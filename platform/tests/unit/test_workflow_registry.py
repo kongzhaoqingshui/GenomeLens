@@ -55,13 +55,14 @@ def test_describe_ports_returns_json_list() -> None:
     assert PortSystem.describe_ports(ports)[0]["artifact_type"] == "figures"
 
 
-def test_submodule_registry_contains_mcscan_pairwise() -> None:
-    spec = SubModuleRegistry().get("jcvi.mcscan_pairwise")
+def test_submodule_registry_contains_pairwise() -> None:
+    spec = SubModuleRegistry().get("jcvi.pairwise")
     assert spec is not None
-    assert spec.module_id == "jcvi.mcscan_pairwise"
+    assert spec.module_id == "jcvi.pairwise"
     assert spec.module_kind == "lightweight"
     assert spec.standalone is True
     assert any(port.port_id == "species_pair" for port in spec.inputs)
+    assert any(param.param_id == "emit_ortholog" for param in spec.parameters)
 
 
 def test_submodule_spec_to_json_includes_module_kind() -> None:
@@ -72,7 +73,7 @@ def test_submodule_spec_to_json_includes_module_kind() -> None:
 
 def test_submodule_registry_list_all_has_expected_modules() -> None:
     ids = {spec.module_id for spec in SubModuleRegistry().list_all()}
-    assert {"jcvi.mcscan_pairwise", "jcvi.graphics_histogram", "jcvi.local_synteny_multi"}.issubset(ids)
+    assert {"jcvi.pairwise", "jcvi.graphics_histogram", "jcvi.local_synteny_multi"}.issubset(ids)
 
 
 def test_submodule_registry_get_returns_none_for_unknown() -> None:
@@ -86,8 +87,7 @@ def test_submodule_registry_can_filter_by_kind() -> None:
     aggregate_ids = {spec.module_id for spec in registry.list_by_kind("aggregate")}
 
     assert {
-        "jcvi.mcscan_pairwise",
-        "jcvi.catalog_ortholog",
+        "jcvi.pairwise",
         "jcvi.graphics_dotplot",
         "jcvi.graphics_synteny",
         "jcvi.graphics_karyotype",
@@ -138,9 +138,9 @@ def test_port_binding_round_trip() -> None:
     assert binding.to_json() == {"port_id": "blocks", "value": "path/to/blocks"}
 
 
-def test_list_submodules_includes_mcscan_modules() -> None:
+def test_list_submodules_includes_pairwise_modules() -> None:
     ids = {spec.module_id for spec in list_submodules()}
-    assert "jcvi.mcscan_pairwise" in ids
+    assert "jcvi.pairwise" in ids
     assert "jcvi.graphics_dotplot" in ids
 
 

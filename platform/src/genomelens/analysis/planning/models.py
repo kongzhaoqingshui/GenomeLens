@@ -108,6 +108,7 @@ class SyntenyExecutionRequest:
     input_ports: dict[str, object] = field(default_factory=dict)
     align_soft: str = "blast"
     dbtype: str = "nucl"
+    emit_ortholog: bool = False
     cscore: float = 0.7
     dist: int = 20
     iter: int = 1

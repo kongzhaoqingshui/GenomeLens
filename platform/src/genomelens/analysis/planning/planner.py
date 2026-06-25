@@ -93,7 +93,8 @@ class WorkflowPlanner:
             StepOutputRef("simple", "simple"),
             StepOutputRef("blocks", "blocks"),
         ]
-        if engine_workflow != "catalog_ortholog":
+        # 计算专用的 pairwise 工作流不产出图件；图形工作流才声明必需 figure
+        if engine_workflow != "pairwise":
             outputs.append(StepOutputRef("figures", "figure", required=True))
         return outputs
 

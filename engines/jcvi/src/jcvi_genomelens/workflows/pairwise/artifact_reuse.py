@@ -2,17 +2,21 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
 from pathlib import Path
 
 from jcvi.formats.bed import merge as jcvi_bed_merge
 from jcvi_genomelens.manifest.models import EngineRunManifest, PairwiseArtifacts
 from jcvi_genomelens.runtime.command_runner import CommandAudit, run_python_step
 from jcvi_genomelens.workflows.common import _assert_ok
-from jcvi_genomelens.workflows.pairwise.mcscan import run as run_pairwise
 from jcvi_genomelens.workflows.reuse.bundles import pairwise_artifacts_from_manifest
 
-PairwiseFallbackRunner = Callable[[EngineRunManifest, str | Path], tuple[list[CommandAudit], dict[str, object]]]
+
+class MissingPairwiseArtifactsError(RuntimeError):
+    """渲染工作流缺少必需的上游 pairwise 产物时抛出
+
+    渲染层（render_*）绝不自行计算 pairwise；缺产物意味着上游 ``jcvi.pairwise``
+    没有把对应端口接进来，应由调用方补齐输入端口，而非在渲染期偷偷重算。
+    """
 
 
 def ensure_pairwise_artifacts(
@@ -21,16 +25,18 @@ def ensure_pairwise_artifacts(
     *,
     required_fields: tuple[str, ...],
     ensure_merged_bed: bool = False,
-    fallback_runner: PairwiseFallbackRunner | None = None,
 ) -> tuple[list[CommandAudit], dict[str, object]]:
-    """优先使用预计算产物，不足时回退到完整 pairwise 运行"""
+    """复用上游预计算的 pairwise 产物；缺必需产物时报错（绝不重算）"""
 
     root = Path(outdir).expanduser().resolve(strict=False)
     root.mkdir(parents=True, exist_ok=True)
     precomputed = pairwise_artifacts_from_manifest(manifest)
-    runner = fallback_runner or run_pairwise
     if precomputed is None or not _has_required_artifacts(precomputed, required_fields):
-        return runner(manifest, root)
+        missing = _missing_fields(precomputed, required_fields)
+        raise MissingPairwiseArtifactsError(
+            "缺少必需的上游 pairwise 产物："
+            f"{', '.join(missing)}；请先运行 jcvi.pairwise 并将对应端口接入渲染模块。"
+        )
 
     commands: list[CommandAudit] = []
     artifacts = _artifacts_to_dict(precomputed)
@@ -51,6 +57,18 @@ def _has_required_artifacts(artifacts: PairwiseArtifacts, required_fields: tuple
         if path is None or not path.is_file() or path.stat().st_size == 0:
             return False
     return True
+
+
+def _missing_fields(artifacts: PairwiseArtifacts | None, required_fields: tuple[str, ...]) -> list[str]:
+    if artifacts is None:
+        return list(required_fields)
+    missing: list[str] = []
+    for field_name in required_fields:
+        path = getattr(artifacts, field_name)
+        if path is None or not path.is_file() or path.stat().st_size == 0:
+            missing.append(field_name)
+    return missing
+
 
 
 def _artifacts_to_dict(artifacts: PairwiseArtifacts) -> dict[str, object]:
