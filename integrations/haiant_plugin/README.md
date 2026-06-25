@@ -7,7 +7,7 @@
    - **lightweight 子模块**：输入是单一任务域内的原始数据或轻量中间产物，不要求调用方先构造跨 pair / 跨物种聚合输入。
    - **aggregate 子模块**：输入是 `tracks`、`edges`、聚合 `blocks`、merged BED 等构造式聚合输入，用于总图或汇总结果。
 
-平台最新架构只承认这两类公开任务协议：`WorkflowRequest`（仅 `synteny`）和 `SubmoduleRequest`（10 个子模块）。所有插件本身都不实现分析算法；真正的同源搜索、共线性识别、聚合绘图与结果归档由外部 GenomeLens 可执行文件完成。
+平台最新架构只承认这两类公开任务协议：`WorkflowRequest`（仅 `synteny`）和 `SubmoduleRequest`（9 个子模块）。所有插件本身都不实现分析算法；真正的同源搜索、共线性识别、聚合绘图与结果归档由外部 GenomeLens 可执行文件完成。
 
 ## 当前范围
 
@@ -19,8 +19,7 @@
 
 #### lightweight
 
-- `gljcvi-mcscan-pairwise` — 双物种共线性基础分析，产出 anchors、blocks 等核心中间结果。
-- `gljcvi-catalog-ortholog` — 双物种直系同源目录整理。
+- `gljcvi-pairwise` — 双物种共线性基础分析，产出 anchors、blocks 等核心中间结果；`emit_ortholog=true` 时附带整理双向直系同源目录。
 - `gljcvi-dotplot` — 双物种共线性点图，适合快速总览宏观结构。
 - `gljcvi-synteny-figure` — 双物种共线性图，适合展示基因级或片段级对应关系。
 - `gljcvi-karyotype` — 双物种核型图，适合染色体尺度结构比较。
@@ -40,12 +39,11 @@
 | 插件 | 最适合做什么 | 典型输入 | 典型输出 |
 |---|---|---|---|
 | `gljcvi-synteny` | 从原始物种目录直接跑完整共线性流程 | 2~n 个物种目录 | blocks、全局共线性图、局部共线性图 |
-| `gljcvi-mcscan-pairwise` | 先建立双物种基础共线性结果 | 双物种原始输入目录 | anchors、blocks、simple 等中间结果 |
+| `gljcvi-pairwise` | 先建立双物种基础共线性结果（可选 `emit_ortholog` 出直系同源目录） | 双物种原始输入目录 | anchors、blocks、simple 等中间结果（可选 `.ortholog` 目录） |
 | `gljcvi-dotplot` | 快速看双物种宏观结构轮廓 | `input_dir` + `.anchors` | 双物种点图 |
 | `gljcvi-synteny-figure` | 做适合正文或补充材料的基因级图件 | `input_dir` + `.blocks` | 双物种共线性图 |
 | `gljcvi-karyotype` | 看染色体尺度保守与重排 | `input_dir` + `.blocks` | 双物种核型图 |
 | `gljcvi-local-synteny` | 围绕候选基因看局部邻域保守性 | `input_dir` + `.blocks` + `target_genes` | 双物种局部共线性图 |
-| `gljcvi-catalog-ortholog` | 整理高可信直系同源目录 | 双物种原始输入目录 | `.ortholog` 目录与相关中间结果 |
 | `gljcvi-histogram` | 把数值结果快速整理成分布图 | 数值文件 | 直方图 |
 | `gljcvi-heatmap` | 把矩阵结果快速整理成热图 | CSV 矩阵 | 热图 |
 | `gljcvi-global-karyotype` | 汇总多物种染色体尺度对应关系 | `tracks` + `edges` | 多物种全局核型总图 |
@@ -57,7 +55,7 @@
 - 如果你已经做完双物种基础共线性，想继续看宏观结构：用 `gljcvi-dotplot` 或 `gljcvi-karyotype`。
 - 如果你已经有 `.blocks`，想做更适合正文展示的基因级图：用 `gljcvi-synteny-figure`。
 - 如果你想围绕候选基因看上下游邻域保守性：用 `gljcvi-local-synteny`。
-- 如果你想把双物种同源关系整理成可检索目录：用 `gljcvi-catalog-ortholog`。
+- 如果你想先拿到双物种基础共线性结果，或把同源关系整理成可检索的直系同源目录：用 `gljcvi-pairwise`（后者打开 `emit_ortholog`）。
 - 如果你手里已经是矩阵或数值结果，只想快速转成图：用 `gljcvi-heatmap` 或 `gljcvi-histogram`。
 - 如果你已经准备好了多物种聚合后的 `tracks / edges` 或 `tracks / blocks / bed / target_genes`：再考虑 `gljcvi-global-karyotype` 与 `gljcvi-multi-local-synteny`。
 
@@ -112,8 +110,7 @@ main.exe params.json
 scripts/build_gljcvi_feature_plugin.ps1 -Feature synteny
 
 # 可编排子模块插件
-scripts/build_gljcvi_feature_plugin.ps1 -Feature mcscan_pairwise
-scripts/build_gljcvi_feature_plugin.ps1 -Feature catalog_ortholog
+scripts/build_gljcvi_feature_plugin.ps1 -Feature pairwise
 scripts/build_gljcvi_feature_plugin.ps1 -Feature dotplot
 scripts/build_gljcvi_feature_plugin.ps1 -Feature synteny_figure
 scripts/build_gljcvi_feature_plugin.ps1 -Feature karyotype

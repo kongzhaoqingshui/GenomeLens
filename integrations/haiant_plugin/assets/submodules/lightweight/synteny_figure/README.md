@@ -79,7 +79,7 @@ GenomeLens.exe analyze run output\submodule_request.json
 
 ## 注意事项
 
-1. `blocks` 为必填上游产物；可由 `gljcvi-mcscan-pairwise`（双物种共线性基础分析）或 `gljcvi-synteny`（一站式工作流）先行生成。
+1. `blocks` 为必填上游产物；可由 `gljcvi-pairwise`（双物种共线性基础分析）或 `gljcvi-synteny`（一站式工作流）先行生成。
 2. `glyphstyle`、`glyphcolor`、`shadestyle` 留空时使用 JCVI 默认样式。
 3. 一键“从物种目录直接出图”的端到端路径由 `gljcvi-synteny` 一站式工作流承担。
 4. 若 `GenomeLens_Path` 指向 `.cmd` / `.bat`，插件会自动通过 `cmd.exe /c` 分派。

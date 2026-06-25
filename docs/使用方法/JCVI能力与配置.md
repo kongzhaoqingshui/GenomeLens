@@ -13,8 +13,7 @@ GenomeLens 平台当前把 JCVI 能力分为两类公开入口：
 
 | 子模块 | 说明 |
 |---|---|
-| `jcvi.mcscan_pairwise` | 执行 BLAST+ 与 JCVI MCscan，输出 anchors、simple blocks 和 blocks。 |
-| `jcvi.catalog_ortholog` | 调用 `jcvi.compara.catalog.ortholog --full` 输出双向 ortholog 结果。 |
+| `jcvi.pairwise` | 执行 BLAST+ 与 JCVI MCscan，输出 anchors、simple blocks 和 blocks；`emit_ortholog=true` 时额外调用 `jcvi.compara.catalog.ortholog --full` 输出双向 ortholog 结果。 |
 | `jcvi.graphics_dotplot` | 基于 anchors 输出共线性点图。 |
 | `jcvi.graphics_synteny` | 输出 synteny figure（共线性对齐图）。 |
 | `jcvi.graphics_karyotype` | 输出 karyotype（核型共线性图）。 |

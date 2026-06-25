@@ -59,12 +59,11 @@ $env:GENOMELENS_EXE = "C:\GenomeLens\GenomeLens.exe"
 
 ### 2.3 可编排子模块插件
 
-可编排子模块适合已经知道自己想做哪一步的人，例如“我已经有双物种基础结果了，现在只想出 dotplot”或“我已经聚合好了多物种 tracks/edges，只想出总图”。当前共提供 10 个独立子模块，继续分为 8 个 lightweight 与 2 个 aggregate：
+可编排子模块适合已经知道自己想做哪一步的人，例如“我已经有双物种基础结果了，现在只想出 dotplot”或“我已经聚合好了多物种 tracks/edges，只想出总图”。当前共提供 9 个独立子模块，继续分为 7 个 lightweight 与 2 个 aggregate：
 
 | 插件 | 固定 module_id | 类型 |
 |---|---|---|
-| `gljcvi-mcscan-pairwise` | `jcvi.mcscan_pairwise` | lightweight |
-| `gljcvi-catalog-ortholog` | `jcvi.catalog_ortholog` | lightweight |
+| `gljcvi-pairwise` | `jcvi.pairwise` | lightweight |
 | `gljcvi-dotplot` | `jcvi.graphics_dotplot` | lightweight |
 | `gljcvi-synteny-figure` | `jcvi.graphics_synteny` | lightweight |
 | `gljcvi-karyotype` | `jcvi.graphics_karyotype` | lightweight |
@@ -126,8 +125,7 @@ gljcvi-<feature>/
 | 产物路径 | 类型 | 请求文件 | 说明 |
 |---|---|---|---|
 | `app/onestop/gljcvi-synteny.zip` | 一站式工作流 | `output/workflow_request.json` | 自动路由 |
-| `app/submodules/lightweight/gljcvi-mcscan-pairwise.zip` | 可编排子模块 | `output/submodule_request.json` | 双物种共线性基础结果 |
-| `app/submodules/lightweight/gljcvi-catalog-ortholog.zip` | 可编排子模块 | `output/submodule_request.json` | 双向 ortholog 目录 |
+| `app/submodules/lightweight/gljcvi-pairwise.zip` | 可编排子模块 | `output/submodule_request.json` | 双物种共线性基础结果（`emit_ortholog=true` 时附带双向 ortholog 目录） |
 | `app/submodules/lightweight/gljcvi-dotplot.zip` | 可编排子模块 | `output/submodule_request.json` | 双物种点图 |
 | `app/submodules/lightweight/gljcvi-synteny-figure.zip` | 可编排子模块 | `output/submodule_request.json` | 双物种共线性图 |
 | `app/submodules/lightweight/gljcvi-karyotype.zip` | 可编排子模块 | `output/submodule_request.json` | 双物种核型图 |
@@ -162,8 +160,7 @@ scripts/build_gljcvi_feature_plugin.ps1 -Feature synteny
 ### 6.2 可编排子模块插件
 
 ```powershell
-scripts/build_gljcvi_feature_plugin.ps1 -Feature mcscan_pairwise
-scripts/build_gljcvi_feature_plugin.ps1 -Feature catalog_ortholog
+scripts/build_gljcvi_feature_plugin.ps1 -Feature pairwise
 scripts/build_gljcvi_feature_plugin.ps1 -Feature dotplot
 scripts/build_gljcvi_feature_plugin.ps1 -Feature synteny_figure
 scripts/build_gljcvi_feature_plugin.ps1 -Feature karyotype

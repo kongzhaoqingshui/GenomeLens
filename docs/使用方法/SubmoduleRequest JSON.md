@@ -47,11 +47,10 @@ GenomeLens.exe analyze schema --kind union
 
 ## 子模块 ID 列表
 
-当前注册 10 个子模块，按 `module_kind` 分为两类：
+当前注册 9 个子模块，按 `module_kind` 分为两类：
 
 - `lightweight`：输入是单一任务域内的原始数据或轻量中间产物。
-  - `jcvi.mcscan_pairwise`：双物种同源搜索与 block 计算。
-  - `jcvi.catalog_ortholog`：双向 ortholog 目录。
+  - `jcvi.pairwise`：双物种同源搜索与 block 计算；`emit_ortholog=true` 时附带双向 ortholog 目录。
   - `jcvi.graphics_dotplot`：共线性点图。
   - `jcvi.graphics_synteny`：共线性对齐图。
   - `jcvi.graphics_karyotype`：核型共线性图。
@@ -107,7 +106,7 @@ GenomeLens.exe analyze schema --kind union
 {
   "schema_version": 3,
   "kind": "submodule_request",
-  "module_id": "jcvi.mcscan_pairwise",
+  "module_id": "jcvi.pairwise",
   "inputs": {
     "species_pair": "input"
   },
