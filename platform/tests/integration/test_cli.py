@@ -830,8 +830,11 @@ def test_analyze_workflow_synteny_reference_vs_targets_local_synteny_flags(tmp_p
     # 局部共线性总图应存在
     assert summary["extensions"]["multi_species_local_figures"]
     assert all(Path(path).is_file() for path in summary["extensions"]["multi_species_local_figures"])
+    assert summary["extensions"]["global_figures"]
+    assert all(Path(path).is_file() for path in summary["extensions"]["global_figures"])
     assert summary["final_figures"]
     assert any(path in summary["final_figures"] for path in summary["extensions"]["multi_species_local_figures"])
+    assert any(path in summary["final_figures"] for path in summary["extensions"]["global_figures"])
 
 
 def test_analyze_workflow_synteny_reference_vs_targets_reference_swap(tmp_path: Path) -> None:
@@ -932,10 +935,19 @@ def test_analyze_workflow_synteny_reference_vs_targets_three_species(tmp_path: P
     assert pair_ids == {"query__subject", "query__third"}
     assert all(job["status"] == "SUCCEEDED" for job in summary["child_runs"])
     local_figures = summary["extensions"]["multi_species_local_figures"]
+    global_figures = summary["extensions"]["global_figures"]
     assert local_figures, "expected a multi-species local synteny figure"
+    assert global_figures, "expected a global core synteny figure"
     assert all(Path(path).is_file() for path in local_figures)
+    assert all(Path(path).is_file() for path in global_figures)
     assert any(Path(path).name.startswith("multi_species_local.") for path in local_figures)
+    assert any(Path(path).name.startswith("global.") for path in global_figures)
     assert any(path in summary["final_figures"] for path in local_figures)
+    assert any(path in summary["final_figures"] for path in global_figures)
+    global_manifest = json.loads(
+        (outdir / "intermediate" / "global_karyotype" / "global_manifest.json").read_text(encoding="utf-8")
+    )
+    assert global_manifest["workflow"] == "graphics_karyotype_global"
     local_manifest = json.loads(
         (outdir / "intermediate" / "multi_species_local_synteny" / "local_synteny_multi_manifest.json").read_text(
             encoding="utf-8"
@@ -961,6 +973,7 @@ def test_analyze_workflow_synteny_reference_vs_targets_three_species(tmp_path: P
     assert "--figsize" in local_command
     run_log = (outdir / "logs" / "run.log").read_text(encoding="utf-8")
     assert "task_id=query__subject step=run_pairwise_job status=STARTED" in run_log
+    assert "step=build_global_karyotype status=SUCCEEDED" in run_log
     assert "step=build_multi_local_synteny status=SUCCEEDED" in run_log
     assert "step=run_pairwise_job status=STARTED" in run_log
 

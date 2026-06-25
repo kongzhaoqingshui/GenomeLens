@@ -176,9 +176,33 @@ class WorkflowPlanner:
                         engine_workflow="local_synteny",
                         force=True,
                     ),
-                    outputs=[StepOutputRef("blocks", "blocks"), StepOutputRef("figures", "figure")],
+                    outputs=[
+                        StepOutputRef("simple", "simple"),
+                        StepOutputRef("blocks", "blocks"),
+                        StepOutputRef("figures", "figure"),
+                    ],
                 )
             )
+        steps.append(
+            ExecutionStep(
+                step_id="global_karyotype",
+                kind="global_karyotype",
+                payload={
+                    "request": build_synteny_request(
+                        request,
+                        reference=reference,
+                        target=targets[0],
+                        additional_species=targets[1:],
+                        outdir=outdir,
+                        engine_workflow="local_synteny",
+                        force=request.output.force,
+                    )
+                },
+                depends_on=pair_steps,
+                inputs=[StepInputRef(step_id=item, artifact_id="simple") for item in pair_steps],
+                outputs=[StepOutputRef("global_karyotype_figures", "figure")],
+            )
+        )
         steps.append(
             ExecutionStep(
                 step_id="multi_local_synteny",
