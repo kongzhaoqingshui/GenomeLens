@@ -28,13 +28,13 @@ class SignalBus:
     def subscribe(self, callback: Callable[[Event], None]) -> None:
         """注册一个回调"""
 
-        # 这里保持最轻量的同步模型，CLI/workbench/plugin 都可直接复用。
+        # 这里保持最轻量的同步模型，CLI/workbench/plugin 都可直接复用
         self._subscribers.append(callback)
 
     def emit(self, name: str, **payload: object) -> None:
         """向所有回调发送事件"""
 
         event = Event(name=name, payload=payload)
-        # 事件对象先组装一次，避免各订阅者看到不一致的 payload。
+        # 事件对象先组装一次，避免各订阅者看到不一致的 payload
         for callback in self._subscribers:
             callback(event)

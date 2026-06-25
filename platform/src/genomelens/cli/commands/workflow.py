@@ -1,4 +1,4 @@
-"""`genomelens workflow` metadata command."""
+"""`genomelens workflow` metadata command"""
 
 from __future__ import annotations
 

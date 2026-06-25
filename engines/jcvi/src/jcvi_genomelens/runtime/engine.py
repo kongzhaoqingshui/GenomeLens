@@ -24,7 +24,7 @@ def run_manifest(manifest_path: str | Path, outdir: str | Path) -> Path:
     workflow = "unknown"
     manifest = None
     try:
-        # 先解析 manifest，再把 workflow 名称传播到日志和最终摘要。
+        # 先解析 manifest，再把 workflow 名称传播到日志和最终摘要
         with task_scope(task_id="engine", step="load_manifest", context={"manifest": str(manifest_path)}):
             manifest = load_manifest(manifest_path)
         workflow = manifest.workflow
@@ -49,7 +49,7 @@ def run_manifest(manifest_path: str | Path, outdir: str | Path) -> Path:
         logger.exception("Engine run failed")
         manifest_kwargs = {}
         if manifest is not None:
-            # manifest 已可用时，失败摘要也尽量保留任务上下文，便于 shell 层复盘。
+            # manifest 已可用时，失败摘要也尽量保留任务上下文，便于 shell 层复盘
             manifest_kwargs = {
                 "schema_version": manifest.schema_version,
                 "task": manifest.task,

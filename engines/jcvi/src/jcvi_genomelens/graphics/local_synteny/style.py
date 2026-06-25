@@ -1,4 +1,4 @@
-"""Style constants for the local synteny renderer."""
+"""Style constants for the local synteny renderer"""
 
 # region 常量与配色
 DEFAULT_TRACK_COLORS = ("#5f8f91", "#9a775f", "#718f6f", "#837a9d", "#9a9068", "#697d9b")

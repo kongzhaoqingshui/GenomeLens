@@ -1,4 +1,4 @@
-"""Lightweight HAIant feature entry for ``jcvi.catalog_ortholog``."""
+"""Lightweight HAIant feature entry for ``jcvi.catalog_ortholog``"""
 
 from __future__ import annotations
 
@@ -25,7 +25,7 @@ LOGGER_NAME = "gljcvi_catalog_ortholog"
 ERROR_PREFIX = "GenomeLens catalog_ortholog feature plugin error"
 SUB_MODULE_ID = "jcvi.catalog_ortholog"
 
-# 子模块可调参数（param_id, 类型），作为 ``parameters`` 写入 ``SubmoduleRequest``。
+# 子模块可调参数（param_id, 类型），作为 ``parameters`` 写入 ``SubmoduleRequest``
 DECLARED_PARAMS = [
     ("align_soft", "str"),
     ("dbtype", "str"),
@@ -37,7 +37,7 @@ DECLARED_PARAMS = [
 
 
 def build_runtime_command(params_path: str | Path) -> list[str]:
-    """Build the GenomeLens ``analyze run submodule_request.json`` command."""
+    """Build the GenomeLens ``analyze run submodule_request.json`` command"""
 
     params, base = load_params(params_path)
     output_dir = Path(resolve_param_path(base, params.get("output_dir") or "output"))
@@ -67,7 +67,7 @@ def build_runtime_command(params_path: str | Path) -> list[str]:
 
 
 def run_runtime(argv: list[str]) -> int:
-    """Run a prepared command and return its exit code."""
+    """Run a prepared command and return its exit code"""
 
     import subprocess
 
@@ -76,7 +76,7 @@ def run_runtime(argv: list[str]) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
-    """Run the catalog ortholog feature entry."""
+    """Run the catalog ortholog feature entry"""
 
     args = sys.argv[1:] if argv is None else argv
     try:

@@ -1,4 +1,4 @@
-"""Shared runtime resources reused across composite execution plans."""
+"""Shared runtime resources reused across composite execution plans"""
 
 from __future__ import annotations
 
@@ -34,7 +34,7 @@ PAIRWISE_SHARED_RUNTIME_PROFILE_ID = "pairwise_synteny_v1"
 
 @dataclass(frozen=True)
 class PreparedSpeciesRecord:
-    """Prepared species record cached inside a shared runtime resource pool."""
+    """Prepared species record cached inside a shared runtime resource pool"""
 
     fingerprint: str
     prepared: PreparedGenomeInputSpec
@@ -43,7 +43,7 @@ class PreparedSpeciesRecord:
 
 @dataclass(frozen=True)
 class ResolvedPairwiseToolchain:
-    """Resolved engine and pairwise toolchain, including a single probe result."""
+    """Resolved engine and pairwise toolchain, including a single probe result"""
 
     engine: LocatedResource
     blastn: LocatedResource
@@ -55,7 +55,7 @@ class ResolvedPairwiseToolchain:
 
 @dataclass(frozen=True)
 class PairwiseReuseDecision:
-    """Resolved pairwise reuse outcome for a single execution request."""
+    """Resolved pairwise reuse outcome for a single execution request"""
 
     request: SyntenyExecutionRequest
     cache_key: str = ""
@@ -64,7 +64,7 @@ class PairwiseReuseDecision:
 
 @dataclass
 class SharedRuntimeResources:
-    """Plan-scoped shared runtime resources and reuse statistics."""
+    """Plan-scoped shared runtime resources and reuse statistics"""
 
     root_outdir: Path
     cache_root: Path
@@ -79,17 +79,17 @@ class SharedRuntimeResources:
 
     @property
     def pairwise_cache_index_path(self) -> Path:
-        """Return the JSON index path for cached pairwise artifacts."""
+        """Return the JSON index path for cached pairwise artifacts"""
 
         return self.cache_root / "pairwise" / "index.json"
 
     def prepared_for(self, species: GenomeInputSpec) -> PreparedSpeciesRecord | None:
-        """Return a prepared species record by its deterministic fingerprint."""
+        """Return a prepared species record by its deterministic fingerprint"""
 
         return self.prepared_species.get(species_fingerprint(species))
 
     def lookup_pairwise_cache(self, cache_key: str) -> PairwiseArtifactInputs | None:
-        """Look up plan-scoped reusable pairwise core artifacts."""
+        """Look up plan-scoped reusable pairwise core artifacts"""
 
         payload = self.pairwise_cache_index.get(cache_key)
         if payload is None:
@@ -109,7 +109,7 @@ class SharedRuntimeResources:
         request: SyntenyExecutionRequest,
         logger: logging.Logger,
     ) -> PairwiseReuseDecision:
-        """Inject cached pairwise artifacts into a request when available."""
+        """Inject cached pairwise artifacts into a request when available"""
 
         if request.precomputed_artifacts is not None:
             return PairwiseReuseDecision(request=request)
@@ -141,7 +141,7 @@ class SharedRuntimeResources:
         )
 
     def store_pairwise_cache(self, cache_key: str, artifacts: PairwiseArtifactInputs) -> PairwiseArtifactInputs | None:
-        """Copy reusable pairwise artifacts into the plan-scoped cache."""
+        """Copy reusable pairwise artifacts into the plan-scoped cache"""
 
         if not _validate_pairwise_artifacts(artifacts, required_fields=PAIRWISE_CACHE_REQUIRED_FIELDS):
             return None
@@ -165,7 +165,7 @@ class SharedRuntimeResources:
         *,
         cache_key: str = "",
     ) -> str:
-        """Persist pairwise artifacts for later requests in the same composite plan."""
+        """Persist pairwise artifacts for later requests in the same composite plan"""
 
         query_record = self.prepared_for(request.query)
         subject_record = self.prepared_for(request.subject)
@@ -188,7 +188,7 @@ class SharedRuntimeResources:
         return effective_cache_key if stored is not None else cache_key
 
     def extension_stats(self) -> dict[str, object]:
-        """Build summary extensions describing plan-scoped reuse behavior."""
+        """Build summary extensions describing plan-scoped reuse behavior"""
 
         return {
             "plan_context": {
@@ -218,7 +218,7 @@ def build_shared_runtime_resources(
     layout: OutputLayout,
     logger: logging.Logger,
 ) -> SharedRuntimeResources:
-    """Build shared runtime resources for composite pairwise-heavy plans."""
+    """Build shared runtime resources for composite pairwise-heavy plans"""
 
     exemplar = requests[0]
     with task_scope(
@@ -292,7 +292,7 @@ def build_shared_runtime_for_plan(
     layout: OutputLayout,
     logger: logging.Logger,
 ) -> SharedRuntimeResources | None:
-    """Build plan-scoped shared runtime resources based on plan optimization metadata."""
+    """Build plan-scoped shared runtime resources based on plan optimization metadata"""
 
     if plan.shared_runtime_profile_id != PAIRWISE_SHARED_RUNTIME_PROFILE_ID:
         return None
@@ -311,7 +311,7 @@ build_plan_run_context = build_shared_runtime_resources
 
 
 def species_fingerprint(species: GenomeInputSpec) -> str:
-    """Build a deterministic fingerprint from species inputs and file metadata."""
+    """Build a deterministic fingerprint from species inputs and file metadata"""
 
     if species.prepared is not None:
         parts = {
@@ -339,7 +339,7 @@ def pairwise_cache_key(
     subject_record: PreparedSpeciesRecord,
     probe: dict[str, object],
 ) -> str:
-    """Build a deterministic key for reusable pairwise core artifacts."""
+    """Build a deterministic key for reusable pairwise core artifacts"""
 
     payload = {
         "version": PAIRWISE_CACHE_VERSION,
@@ -359,7 +359,7 @@ def pairwise_cache_key(
 
 
 def pairwise_artifacts_from_json(data: dict[str, str]) -> PairwiseArtifactInputs:
-    """Parse cached artifact JSON back into a typed payload."""
+    """Parse cached artifact JSON back into a typed payload"""
 
     values = {key: raw for key in PAIRWISE_CACHE_FIELDS if (raw := data.get(key))}
     return PairwiseArtifactInputs.from_mapping(values)

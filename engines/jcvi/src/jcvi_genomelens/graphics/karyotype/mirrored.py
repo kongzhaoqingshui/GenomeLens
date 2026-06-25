@@ -26,7 +26,7 @@ from jcvi.graphics.glyph import TextCircle
 
 
 def _synteny_graphics():
-    """Load JCVI synteny graphics only when shade rendering is needed."""
+    """Load JCVI synteny graphics only when shade rendering is needed"""
 
     from jcvi.graphics.synteny import Shade, ymid_offset
 
@@ -116,7 +116,7 @@ MaxSeqids = 16  # above which no labels are written
 
 
 def make_circle_name(sid, rev):
-    """Extract a succinct label based on sid.
+    """Extract a succinct label based on sid
 
     If there are numbers to be extracted, returns the first group of number.
     Otherwise, the first letter is returned.

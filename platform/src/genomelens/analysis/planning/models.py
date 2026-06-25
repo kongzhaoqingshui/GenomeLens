@@ -1,4 +1,4 @@
-"""Platform execution plan and internal request models."""
+"""Platform execution plan and internal request models"""
 
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ StepKind = Literal[
 
 @dataclass(frozen=True)
 class StepInputRef:
-    """Reference to an upstream step artifact."""
+    """Reference to an upstream step artifact"""
 
     step_id: str
     artifact_id: str
@@ -32,7 +32,7 @@ class StepInputRef:
 
 @dataclass(frozen=True)
 class StepOutputRef:
-    """Declaration of an expected step artifact."""
+    """Declaration of an expected step artifact"""
 
     artifact_id: str
     artifact_type: str
@@ -48,7 +48,7 @@ class StepOutputRef:
 
 @dataclass(frozen=True)
 class PairwiseArtifactInputs:
-    """Reusable pairwise-core artifacts."""
+    """Reusable pairwise-core artifacts"""
 
     blast_table: Path | None = None
     anchors: Path | None = None
@@ -84,7 +84,7 @@ class PairwiseArtifactInputs:
 
 @dataclass(frozen=True)
 class SyntenyExecutionRequest:
-    """Internal request for synteny and MCscan-style workflows."""
+    """Internal request for synteny and MCscan-style workflows"""
 
     reference: GenomeInputSpec
     target: GenomeInputSpec
@@ -172,7 +172,7 @@ class SyntenyExecutionRequest:
 
 @dataclass(frozen=True)
 class HeatmapExecutionRequest:
-    """Internal request for heatmap rendering."""
+    """Internal request for heatmap rendering"""
 
     matrix: Path
     outdir: Path
@@ -206,7 +206,7 @@ class HeatmapExecutionRequest:
 
 @dataclass(frozen=True)
 class HistogramExecutionRequest:
-    """Internal request for histogram rendering."""
+    """Internal request for histogram rendering"""
 
     inputs: list[Path]
     outdir: Path
@@ -249,7 +249,7 @@ class HistogramExecutionRequest:
 
 @dataclass(frozen=True)
 class ExecutionStep:
-    """A typed node inside an execution DAG."""
+    """A typed node inside an execution DAG"""
 
     step_id: str
     kind: StepKind
@@ -261,7 +261,7 @@ class ExecutionStep:
 
 @dataclass(frozen=True)
 class ExecutionPlan:
-    """Expanded execution DAG derived from a workflow request."""
+    """Expanded execution DAG derived from a workflow request"""
 
     plan_id: str
     workflow_id: str

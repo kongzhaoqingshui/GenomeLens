@@ -23,7 +23,7 @@ from genomelens.analysis.requests.normalization.request_assembler import (
 
 
 __all__ = [
-    # 这里显式列出对外 API，避免调用方依赖子模块内部实现细节。
+    # 这里显式列出对外 API，避免调用方依赖子模块内部实现细节
     "discover_species_from_directory",
     "read_request_config",
     "mcscan_auto_request_from_cli",

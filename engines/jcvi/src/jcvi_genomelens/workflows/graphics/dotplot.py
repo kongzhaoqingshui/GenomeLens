@@ -30,7 +30,7 @@ def draw_dotplots(
     commands: list[CommandAudit] = []
     figures: list[str] = []
     formats = manifest.options.formats or ["svg"]
-    # dotplot 直接消费 pairwise 阶段生成的 anchors，不重复做同源搜索。
+    # dotplot 直接消费 pairwise 阶段生成的 anchors，不重复做同源搜索
     anchors = str(artifacts["anchors"])
     for fmt in formats:
         figure = root / f"{output_prefix}.{fmt}"
@@ -64,7 +64,7 @@ def draw_dotplots(
 def run(manifest: EngineRunManifest, outdir: str | Path) -> tuple[list[CommandAudit], dict[str, object]]:
     """运行真实 pairwise MCscan(成对 MCscan) 后绘制 dotplot(点图)"""
 
-    # 独立 dotplot 工作流本质上是“pairwise + 只画 dotplot”。
+    # 独立 dotplot 工作流本质上是“pairwise + 只画 dotplot”
     commands, artifacts = ensure_pairwise_artifacts(
         manifest,
         outdir,

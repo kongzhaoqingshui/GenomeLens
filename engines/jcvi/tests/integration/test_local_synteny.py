@@ -88,7 +88,7 @@ def test_engine_run_local_synteny_single_target(tmp_path: Path) -> None:
     local_artifacts = artifacts["local_artifacts"]
     assert len(local_artifacts) == 1
     item = local_artifacts[0]
-    # 单个目标且未开启 split_targets 时，仍保留真实目标基因 ID，避免报错和产物指向 "merged"。
+    # 单个目标且未开启 split_targets 时，仍保留真实目标基因 ID，避免报错和产物指向 "merged"
     assert item["target"] == "qgene2"
     assert Path(item["blocks"]).is_file()
     assert Path(item["bed"]).is_file()

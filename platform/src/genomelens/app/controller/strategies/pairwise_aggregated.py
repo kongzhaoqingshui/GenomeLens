@@ -1,4 +1,4 @@
-"""Compatibility strategy backed by the v2 plan executor."""
+"""Compatibility strategy backed by the v2 plan executor"""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from genomelens.contracts.summaries import RunSummary
 
 
 class PairwiseAggregatedMultiSpecies:
-    """Execute multi-species workflows through the unified v2 plan."""
+    """Execute multi-species workflows through the unified v2 plan"""
 
     def execute(
         self,

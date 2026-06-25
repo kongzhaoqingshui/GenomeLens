@@ -21,7 +21,7 @@ class GenomeLensError(Exception):
         message_key: str = "",
     ) -> None:
         super().__init__(message)
-        # code/message_key 会被 CLI 格式化层和潜在 GUI 层复用。
+        # code/message_key 会被 CLI 格式化层和潜在 GUI 层复用
         self.code = code
         self.message_key = message_key
 
@@ -50,7 +50,7 @@ class ToolchainError(GenomeLensError):
     exit_code = 5
 
     def __init__(self, message: str, *, code: ErrorCode = ErrorCode.TOOLCHAIN_MISSING) -> None:
-        # toolchain 失败既可能是“找不到”，也可能是“存在但不可运行”，所以 code 可覆写。
+        # toolchain 失败既可能是“找不到”，也可能是“存在但不可运行”，所以 code 可覆写
         super().__init__(message, code=code)
 
 

@@ -12,6 +12,6 @@ def ensure_dir(path: str | Path) -> Path:
     """创建并返回目录路径"""
 
     target = Path(path).expanduser().resolve(strict=False)
-    # engine workflow 常把 outdir/path 当作“存在即可”的契约，这里集中兜底。
+    # engine workflow 常把 outdir/path 当作“存在即可”的契约，这里集中兜底
     target.mkdir(parents=True, exist_ok=True)
     return target

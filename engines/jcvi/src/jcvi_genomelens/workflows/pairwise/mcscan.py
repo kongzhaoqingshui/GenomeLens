@@ -48,7 +48,7 @@ def _normalize_simple_name(generated_simple: Path, expected_simple: Path) -> Pat
     """JCVI 写出 `<prefix>.simple`；GenomeLens 发布 `<prefix>.anchors.simple`"""
 
     if generated_simple.is_file() and generated_simple != expected_simple:
-        # JCVI 默认文件名与 GenomeLens 对外发布名不同，这里补一份稳定别名。
+        # JCVI 默认文件名与 GenomeLens 对外发布名不同，这里补一份稳定别名
         shutil.copy2(generated_simple, expected_simple)
     if expected_simple.is_file():
         return expected_simple
@@ -72,7 +72,7 @@ def _run_makeblastdb(
     if manifest.query is None or manifest.subject is None:
         raise ValueError("makeblastdb step requires query and subject species")
 
-    # BLAST 路径在 manifest 阶段允许为空，这里到真正执行时再转成硬错误。
+    # BLAST 路径在 manifest 阶段允许为空，这里到真正执行时再转成硬错误
     makeblastdb = _required_tool(manifest.toolchain.makeblastdb, "makeblastdb")
     cmd = run_command(
         [
@@ -136,7 +136,7 @@ def _run_scan(
     if manifest.query is None or manifest.subject is None:
         raise ValueError("scan step requires query and subject species")
 
-    # min_size/dist 在 engine 边界再做一次下限保护，避免异常配置穿透到 JCVI。
+    # min_size/dist 在 engine 边界再做一次下限保护，避免异常配置穿透到 JCVI
     min_size = max(1, manifest.options.min_block_size)
     dist = max(1, manifest.options.dist)
     cmd = run_python_step(
@@ -245,7 +245,7 @@ def _run_with_blast(manifest: EngineRunManifest, root: Path) -> tuple[list[Comma
     blocks = root / f"{prefix}.blocks"
     merged_bed = root / "all.bed"
 
-    # BLAST 路径走原生命令，scan/simple/mcscan 走进程内 JCVI 函数，最后统一归档。
+    # BLAST 路径走原生命令，scan/simple/mcscan 走进程内 JCVI 函数，最后统一归档
     commands: list[CommandAudit] = []
     commands.append(_run_makeblastdb(manifest, root, db_prefix))
     commands.append(_run_blastn(manifest, root, db_prefix, blast_table))
@@ -269,7 +269,7 @@ def _run_with_catalog(manifest: EngineRunManifest, root: Path) -> tuple[list[Com
     if manifest.query is None or manifest.subject is None:
         raise ValueError("catalog pairwise workflow requires query and subject species")
 
-    # LAST / Diamond 直接复用 catalog workflow，避免在这里重复维护同源搜索细节。
+    # LAST / Diamond 直接复用 catalog workflow，避免在这里重复维护同源搜索细节
     catalog_commands, catalog_artifacts = catalog_ortholog.run(manifest, root)
     prefix = f"{manifest.query.name}.{manifest.subject.name}"
     merged_bed = root / "all.bed"
@@ -310,7 +310,7 @@ def run(manifest: EngineRunManifest, outdir: str | Path) -> tuple[list[CommandAu
 
     root = Path(outdir).expanduser().resolve(strict=False)
     root.mkdir(parents=True, exist_ok=True)
-    # graphics.synteny 需要 layout；用户没给时这里生成一个稳定的默认双轨布局。
+    # graphics.synteny 需要 layout；用户没给时这里生成一个稳定的默认双轨布局
     layout = manifest.options.layout if manifest.options.layout else root / "synteny.layout"
     if manifest.options.layout is None:
         _write_default_layout(layout, manifest.query.name, manifest.subject.name)
@@ -323,7 +323,7 @@ def run(manifest: EngineRunManifest, outdir: str | Path) -> tuple[list[CommandAu
     else:
         raise ValueError(f"unsupported align_soft: {align_soft}")
 
-    # pairwise 结果先收敛为统一 artifact 字典，供 graphics/local 等后续 workflow 继续消费。
+    # pairwise 结果先收敛为统一 artifact 字典，供 graphics/local 等后续 workflow 继续消费
     artifacts = {
         **pairwise_artifacts,
         "layout": str(layout),

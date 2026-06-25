@@ -228,7 +228,7 @@ def normalize_optional_path(value: object) -> str:
     if value is None or str(value).strip() == "":
         return ""
 
-    # 只有真正配置了路径时才做绝对化，空串语义要原样保留。
+    # 只有真正配置了路径时才做绝对化，空串语义要原样保留
     return normalize_path_string(str(value))
 
 

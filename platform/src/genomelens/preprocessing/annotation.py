@@ -107,7 +107,7 @@ def parse_attributes(raw: str) -> dict[str, str]:
             key, value = part.split(" ", 1)
         else:
             continue
-        # 同时兼容 GFF3 的 `key=value` 和 GTF 的 `key "value"` 风格。
+        # 同时兼容 GFF3 的 `key=value` 和 GTF 的 `key "value"` 风格
         attrs[key.strip()] = value.strip().strip('"')
     return attrs
 
@@ -126,7 +126,7 @@ def read_fasta(path: Path) -> dict[str, str]:
                 current = normalize_seqid(line[1:].split()[0])
                 records.setdefault(current, [])
             elif current:
-                # 先聚合分段，最后统一 join，避免长序列反复拼接。
+                # 先聚合分段，最后统一 join，避免长序列反复拼接
                 records[current].append(line.upper())
     return {key: "".join(value) for key, value in records.items()}
 
@@ -159,7 +159,7 @@ def parse_gff(path: Path) -> dict[str, TranscriptRecord]:
             if feature in {"gene"}:
                 continue
             if feature in {"mrna", "transcript"}:
-                # transcript 先建主体记录，后续 CDS 再补片段和边界。
+                # transcript 先建主体记录，后续 CDS 再补片段和边界
                 transcript_id = normalize_id(attrs.get("ID") or attrs.get("transcript_id") or attrs.get("Name") or "")
                 gene_id = normalize_id(attrs.get("Parent") or attrs.get("gene_id") or transcript_id)
                 if not transcript_id:
@@ -179,7 +179,7 @@ def parse_gff(path: Path) -> dict[str, TranscriptRecord]:
                     continue
                 parent = normalize_id(parent_raw.split(",")[0])
                 gene_id = gene_for_transcript.get(parent, normalize_id(attrs.get("gene_id") or parent))
-                # 有些注释文件会先出现 CDS，这里允许按 parent 懒创建 transcript 占位。
+                # 有些注释文件会先出现 CDS，这里允许按 parent 懒创建 transcript 占位
                 record = transcripts.setdefault(
                     parent,
                     TranscriptRecord(
@@ -235,7 +235,7 @@ def select_primary_transcripts(
             seq = extract_cds_sequence(record, genome)
             scored.append(
                 (
-                    # 这个排序元组就是主转录本选择策略的精确编码。
+                    # 这个排序元组就是主转录本选择策略的精确编码
                     -record.cds_length,
                     has_internal_stop(seq),  # False（无终止）排在 True 前面
                     -len(record.cds),
@@ -285,7 +285,7 @@ def preprocess_one(label: str, gff: str | Path, genome_fasta: str | Path, output
             warnings.append(f"No CDS sequence extracted for {record.transcript_id}")
             continue
         kept += 1
-        # BED name 列与 CDS FASTA header 保持一致，后续 JCVI 直接用 transcript_id 对齐。
+        # BED name 列与 CDS FASTA header 保持一致，后续 JCVI 直接用 transcript_id 对齐
         bed_lines.append(
             "\t".join(
                 [
@@ -314,7 +314,7 @@ def preprocess_one(label: str, gff: str | Path, genome_fasta: str | Path, output
         "selection_strategy": "longest_cds_no_internal_stop_most_cds_fragments_then_id",
         "warnings": warnings,
     }
-    # 这份 summary 会被 shell summary 和 GUI 直接引用，所以尽量保留足够的输入上下文。
+    # 这份 summary 会被 shell summary 和 GUI 直接引用，所以尽量保留足够的输入上下文
     return PreprocessResult(bed=bed_path, cds=cds_path, summary=summary)
 
 
@@ -323,7 +323,7 @@ def write_preprocessing_summary(path: str | Path, summaries: list[dict[str, obje
 
     target = Path(path)
     target.parent.mkdir(parents=True, exist_ok=True)
-    # 无论 pairwise 还是多物种流程，都统一走同一个 preprocessing_summary 协议。
+    # 无论 pairwise 还是多物种流程，都统一走同一个 preprocessing_summary 协议
     payload = {"input_mode": "gff_genome", "genomes": summaries}
     target.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     return target

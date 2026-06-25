@@ -1,4 +1,4 @@
-"""Validated JCVI engine manifest dataclasses."""
+"""Validated JCVI engine manifest dataclasses"""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from pathlib import Path
 
 @dataclass(frozen=True)
 class GenomeSpec:
-    """Prepared BED/CDS inputs for a species."""
+    """Prepared BED/CDS inputs for a species"""
 
     name: str
     bed: Path
@@ -17,7 +17,7 @@ class GenomeSpec:
 
 @dataclass(frozen=True)
 class ToolchainSpec:
-    """Resolved executable paths for the engine runtime."""
+    """Resolved executable paths for the engine runtime"""
 
     blastn: Path | None = None
     makeblastdb: Path | None = None
@@ -27,7 +27,7 @@ class ToolchainSpec:
 
 @dataclass(frozen=True)
 class PairwiseArtifacts:
-    """Reusable pairwise-core artifacts."""
+    """Reusable pairwise-core artifacts"""
 
     blast_table: Path | None = None
     anchors: Path | None = None
@@ -39,7 +39,7 @@ class PairwiseArtifacts:
 
 @dataclass(frozen=True)
 class ArtifactBundleSpec:
-    """Generic reusable artifact bundle loaded from manifest inputs."""
+    """Generic reusable artifact bundle loaded from manifest inputs"""
 
     bundle_type: str
     artifacts: dict[str, Path] = field(default_factory=dict)
@@ -50,7 +50,7 @@ class ArtifactBundleSpec:
 
 @dataclass(frozen=True)
 class WorkflowOptions:
-    """Resolved workflow options passed from the platform manifest."""
+    """Resolved workflow options passed from the platform manifest"""
 
     threads: int = 4
     min_block_size: int = 5
@@ -96,7 +96,7 @@ class WorkflowOptions:
 
 @dataclass(frozen=True)
 class EngineTrack:
-    """One species track in a multi-species graphic workflow."""
+    """One species track in a multi-species graphic workflow"""
 
     name: str
     bed: Path
@@ -104,7 +104,7 @@ class EngineTrack:
 
 @dataclass(frozen=True)
 class EngineEdge:
-    """Track-to-track connection consumed by global karyotype workflows."""
+    """Track-to-track connection consumed by global karyotype workflows"""
 
     i: int
     j: int
@@ -113,7 +113,7 @@ class EngineEdge:
 
 @dataclass(frozen=True)
 class EngineRunManifest:
-    """Validated engine manifest."""
+    """Validated engine manifest"""
 
     workflow: str
     toolchain: ToolchainSpec

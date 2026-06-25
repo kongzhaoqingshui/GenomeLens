@@ -1,4 +1,4 @@
-"""Passes that attach shared-runtime directives to an execution plan."""
+"""Passes that attach shared-runtime directives to an execution plan"""
 
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ def attach_shared_runtime_profile(
     step_kinds: tuple[str, ...] = ("pairwise_synteny",),
     composite_only: bool = True,
 ) -> ExecutionPlan:
-    """Attach a shared-runtime profile when the plan structure can benefit from it."""
+    """Attach a shared-runtime profile when the plan structure can benefit from it"""
 
     if composite_only and len(plan.steps) < 2:
         return plan

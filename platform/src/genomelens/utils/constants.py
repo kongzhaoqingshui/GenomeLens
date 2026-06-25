@@ -1,4 +1,4 @@
-"""GenomeLens platform-wide constants.
+"""GenomeLens platform-wide constants
 
 Constants that cross module boundaries (timeouts, default paths) live here so
 that runners, adapters, and CLI commands do not hard-code the same magic numbers.

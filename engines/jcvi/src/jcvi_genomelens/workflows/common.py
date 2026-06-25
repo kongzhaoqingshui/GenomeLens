@@ -18,7 +18,7 @@ def _assert_ok(command: CommandAudit) -> None:
 
 
 def close_matplotlib_figures() -> None:
-    """Best-effort close of all matplotlib figures to avoid cross-workflow state leakage."""
+    """Best-effort close of all matplotlib figures to avoid cross-workflow state leakage"""
 
     try:
         import matplotlib.pyplot as plt
@@ -32,7 +32,7 @@ def build_figure_options(
     fmt: str,
     figsize: str = "",
 ) -> list[str]:
-    """把 manifest 图件参数转成 JCVI ``graphics.synteny`` 命令行参数。
+    """把 manifest 图件参数转成 JCVI ``graphics.synteny`` 命令行参数
 
     ``options`` 可以是 ``WorkflowOptions`` 模型或任何提供 ``figsize``、``dpi``、
     ``glyphstyle``、``glyphcolor``、``shadestyle`` 属性的对象。
@@ -67,6 +67,6 @@ def read_bed_names(path: Path) -> list[str]:
             continue
         parts = line.split("\t")
         if len(parts) >= 4:
-            # 第 4 列是 BED name，GenomeLens/JCVI 都把它当作基因主键。
+            # 第 4 列是 BED name，GenomeLens/JCVI 都把它当作基因主键
             names.append(parts[3])
     return names

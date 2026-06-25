@@ -60,7 +60,7 @@ def _write_params_from_sample(
 
 
 def _load_request(argv: list[str]) -> dict[str, Any]:
-    """Load the request JSON referenced by an ``analyze run`` argv."""
+    """Load the request JSON referenced by an ``analyze run`` argv"""
 
     run_index = argv.index("run")
     request_path = Path(argv[run_index + 1])
@@ -72,7 +72,7 @@ def _touch(path: Path) -> str:
     return str(path)
 
 
-# 每个子模块入口的最小可运行 override 工厂；返回喂给 ``_write_params_from_sample`` 的额外参数。
+# 每个子模块入口的最小可运行 override 工厂；返回喂给 ``_write_params_from_sample`` 的额外参数
 def _no_overrides(_tmp_path: Path) -> dict[str, Any]:
     return {}
 

@@ -53,7 +53,7 @@ class ChildRunRecord:
             "status": self.status,
             "outdir": self.outdir,
         }
-        # pairwise 子任务的产物多少取决于工作流，因此按需序列化更利于阅读。
+        # pairwise 子任务的产物多少取决于工作流，因此按需序列化更利于阅读
         if self.run_summary_path:
             data["run_summary_path"] = self.run_summary_path
         if self.engine_summary_path:

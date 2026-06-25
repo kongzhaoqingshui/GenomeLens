@@ -1,4 +1,4 @@
-"""Pairwise MCscan execution handler."""
+"""Pairwise MCscan execution handler"""
 
 from __future__ import annotations
 
@@ -51,7 +51,7 @@ def _prepare_pairwise_inputs(
     PreparedGenomeInputSpec,
     list[dict[str, object]],
 ]:
-    """Validate and prepare pairwise inputs."""
+    """Validate and prepare pairwise inputs"""
 
     validate_request(request)
     if len(request.species) != 2:
@@ -405,7 +405,7 @@ def run_pairwise_mcscan(
     *,
     context: PlanRunContext | None = None,
 ) -> RunSummary:
-    """Run pairwise MCscan and release task log handles."""
+    """Run pairwise MCscan and release task log handles"""
 
     log_path = build_output_layout(request.outdir).logs / "run.log"
     logger_name = logger_name_for_path(log_path)

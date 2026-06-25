@@ -72,7 +72,7 @@ def discover_species_from_directory(input_dir: str | Path) -> list[WorkflowSpeci
         if name in genomes
     }
 
-    # 同一物种同时存在 prepared/raw 时优先使用已经准备好的 BED+CDS/PEP。
+    # 同一物种同时存在 prepared/raw 时优先使用已经准备好的 BED+CDS/PEP
     species_by_name = {**raw, **prepared}
     species = [species_by_name[name] for name in sorted(species_by_name)]
     if len(species) < 2:

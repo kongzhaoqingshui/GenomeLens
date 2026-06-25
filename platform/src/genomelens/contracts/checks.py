@@ -1,4 +1,4 @@
-"""Environment check contract models."""
+"""Environment check contract models"""
 
 from __future__ import annotations
 

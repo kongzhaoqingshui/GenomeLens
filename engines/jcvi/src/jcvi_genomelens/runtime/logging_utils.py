@@ -31,7 +31,7 @@ def _close_handlers(logger: logging.Logger) -> None:
 
 
 def close_engine_logging() -> None:
-    """Flush and close JCVI engine logging handlers."""
+    """Flush and close JCVI engine logging handlers"""
 
     _close_handlers(logging.getLogger(LOGGER_NAME))
 
@@ -41,11 +41,11 @@ def setup_engine_logging(path: str | Path, *, level: str = "INFO") -> logging.Lo
 
     target = Path(path)
     target.parent.mkdir(parents=True, exist_ok=True)
-    # engine 统一使用固定 logger 名称，方便 shell 层按单文件收集运行日志。
+    # engine 统一使用固定 logger 名称，方便 shell 层按单文件收集运行日志
     logger = logging.getLogger(LOGGER_NAME)
     logger.setLevel(getattr(logging, normalize_log_level(level), logging.INFO))
     logger.propagate = False
-    # 同进程重复运行时先清空旧 handler，避免日志重复写入。
+    # 同进程重复运行时先清空旧 handler，避免日志重复写入
     _close_handlers(logger)
     handler = logging.FileHandler(target, encoding="utf-8")
     handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))

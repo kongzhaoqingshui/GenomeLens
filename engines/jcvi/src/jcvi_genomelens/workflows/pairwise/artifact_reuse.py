@@ -1,4 +1,4 @@
-"""Pairwise artifact reuse helpers."""
+"""Pairwise artifact reuse helpers"""
 
 from __future__ import annotations
 
@@ -23,7 +23,7 @@ def ensure_pairwise_artifacts(
     ensure_merged_bed: bool = False,
     fallback_runner: PairwiseFallbackRunner | None = None,
 ) -> tuple[list[CommandAudit], dict[str, object]]:
-    """Prefer precomputed artifacts and fall back to a full pairwise run when needed."""
+    """Prefer precomputed artifacts and fall back to a full pairwise run when needed"""
 
     root = Path(outdir).expanduser().resolve(strict=False)
     root.mkdir(parents=True, exist_ok=True)

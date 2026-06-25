@@ -1,4 +1,4 @@
-"""Helpers shared by GenomeLens karyotype workflows."""
+"""Helpers shared by GenomeLens karyotype workflows"""
 
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ FIXED_XEND = 0.88
 
 
 def default_label_va(va: str) -> str:
-    """Infer the opposite-side track label position from circle placement."""
+    """Infer the opposite-side track label position from circle placement"""
 
     return "top" if va == "bottom" else "bottom" if va == "top" else "center"
 
@@ -41,7 +41,7 @@ def format_track_row(
     *,
     optimize_labels: bool,
 ) -> str:
-    """Format an auto-generated karyotype track row."""
+    """Format an auto-generated karyotype track row"""
 
     xstart = FIXED_XSTART if optimize_labels else DEFAULT_XSTART
     xend = FIXED_XEND if optimize_labels else DEFAULT_XEND

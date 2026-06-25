@@ -1,4 +1,4 @@
-"""Tests for workflow metadata and v2 analyze CLI entry points."""
+"""Tests for workflow metadata and v2 analyze CLI entry points"""
 
 from __future__ import annotations
 

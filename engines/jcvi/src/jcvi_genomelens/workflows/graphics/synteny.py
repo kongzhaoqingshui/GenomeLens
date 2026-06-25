@@ -21,7 +21,7 @@ from jcvi_genomelens.workflows.pairwise.mcscan import run as run_pairwise
 def run(manifest: EngineRunManifest, outdir: str | Path) -> tuple[list[CommandAudit], dict[str, object]]:
     """运行真实 pairwise MCscan(成对 MCscan) 制品，并绘制真实 JCVI synteny figure(共线性图)"""
 
-    # 先复用 pairwise 主流程产出 anchors/blocks/layout，再叠加 dotplot 和 synteny 图。
+    # 先复用 pairwise 主流程产出 anchors/blocks/layout，再叠加 dotplot 和 synteny 图
     commands, artifacts = ensure_pairwise_artifacts(
         manifest,
         outdir,
@@ -75,7 +75,7 @@ def run(manifest: EngineRunManifest, outdir: str | Path) -> tuple[list[CommandAu
         if not figure.is_file() or figure.stat().st_size == 0:
             raise RuntimeError(f"JCVI synteny figure was not created: {figure}")
         figures.append(str(figure))
-    # `figures` 是统一公开入口，细分列表则给 shell/GUI 做更精细展示。
+    # `figures` 是统一公开入口，细分列表则给 shell/GUI 做更精细展示
     artifacts["figures"] = figures
     artifacts["dotplot_figures"] = dotplot_figures
     artifacts["synteny_figures"] = [str(root / f"synteny.{fmt}") for fmt in formats]

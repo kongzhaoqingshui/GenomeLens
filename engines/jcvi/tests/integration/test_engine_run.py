@@ -233,7 +233,7 @@ def test_engine_run_catalog_ortholog(tmp_path: Path) -> None:
 
 
 def test_engine_run_graphics_karyotype_global(tmp_path: Path) -> None:
-    # 先跑一对 pairwise 拿到真实 .anchors.simple，再喂给全局总图工作流。
+    # 先跑一对 pairwise 拿到真实 .anchors.simple，再喂给全局总图工作流
     pairwise_manifest = tmp_path / "pairwise.json"
     pairwise_manifest.write_text(json.dumps(_manifest("mcscan_pairwise")), encoding="utf-8")
     pairwise_summary = json.loads(run_manifest(pairwise_manifest, tmp_path / "pairwise").read_text(encoding="utf-8"))

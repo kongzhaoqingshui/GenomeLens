@@ -43,7 +43,7 @@ class CommandAudit:
 def run_command(argv: list[str], *, cwd: str | Path | None = None, timeout: int = 600) -> CommandAudit:
     """运行外部命令并捕获输出"""
 
-    # 所有 engine 外部进程都走同一审计结构，便于失败时统一写进 summary。
+    # 所有 engine 外部进程都走同一审计结构，便于失败时统一写进 summary
     step = Path(argv[0]).name
     context = {"argv": argv, "cwd": str(cwd) if cwd else ""}
     started = time.perf_counter()
@@ -109,7 +109,7 @@ def run_python_step(
 
             os.chdir(cwd)
         with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
-            # 部分 JCVI 入口仍是函数式调用，这里把它们伪装成“可审计命令”。
+            # 部分 JCVI 入口仍是函数式调用，这里把它们伪装成“可审计命令”
             func(args)
     except SystemExit as exc:
         returncode = int(exc.code or 0)
@@ -120,7 +120,7 @@ def run_python_step(
         if cwd is not None:
             import os
 
-            # Python 进程内步骤会改 cwd，结束时一定恢复，避免污染后续工作流步骤。
+            # Python 进程内步骤会改 cwd，结束时一定恢复，避免污染后续工作流步骤
             os.chdir(old_cwd)
         elapsed_ms = int((time.perf_counter() - started) * 1000)
         task_finished(

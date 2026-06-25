@@ -117,7 +117,7 @@ def test_cli_progress_reporter_ignores_inner_success_until_all_pairs_finish() ->
 
 
 def test_cli_progress_reporter_finalizing_does_not_regress_below_ninety() -> None:
-    """FINALIZING 可能早于最后一个 pair_finished 到达，此时进度不应掉到 90% 以下。"""
+    """FINALIZING 可能早于最后一个 pair_finished 到达，此时进度不应掉到 90% 以下"""
 
     request = _request(["query", "subject"])
     stream = io.StringIO()

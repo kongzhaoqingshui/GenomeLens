@@ -46,7 +46,7 @@ class ToolchainInstallResult:
 def downloads_root() -> Path:
     """返回工具链下载缓存根目录"""
 
-    # 下载缓存和安装目录分离，便于重复安装时复用归档包。
+    # 下载缓存和安装目录分离，便于重复安装时复用归档包
     return project_root() / "references" / "downloads" / "toolchains"
 
 
@@ -113,7 +113,7 @@ def _verify_archive(name: str, url: str, target: Path) -> bool:
         return False
     if recorded_url and recorded_url != url:
         return False
-    # 本地包一旦验证通过，就刷新 manifest，后续可直接信任缓存。
+    # 本地包一旦验证通过，就刷新 manifest，后续可直接信任缓存
     _write_download_manifest(name, url, target, digest)
     return True
 
@@ -127,7 +127,7 @@ def _download(name: str, url: str, target: Path) -> Path:
     if target.exists():
         target.unlink()
     tmp = target.with_suffix(target.suffix + ".part")
-    # 先落到 .part，再替换目标文件，避免半截下载伪装成可用缓存。
+    # 先落到 .part，再替换目标文件，避免半截下载伪装成可用缓存
     with urllib.request.urlopen(url, timeout=120) as response, tmp.open("wb") as handle:
         shutil.copyfileobj(response, handle)
     tmp.replace(target)
@@ -154,7 +154,7 @@ def _safe_extract_tar(archive: Path, target: Path) -> None:
         for member in tar.getmembers():
             if member.issym() or member.islnk():
                 raise RuntimeError(f"Refusing to extract archive link: {member.name}")
-            # 在真正 extractall 前先检查每个成员是否越界。
+            # 在真正 extractall 前先检查每个成员是否越界
             _ensure_within(target, target / member.name)
         tar.extractall(target)
 
@@ -188,7 +188,7 @@ def _find_child_with_files(root: Path, required: list[str]) -> Path:
         names = {item.name.lower() for item in candidate.iterdir() if item.is_file()}
         bin_dir = candidate / "bin"
         bin_names = {item.name.lower() for item in bin_dir.iterdir() if item.is_file()} if bin_dir.is_dir() else set()
-        # 兼容“可执行文件在根目录”和“可执行文件在 bin/”两种归档布局。
+        # 兼容“可执行文件在根目录”和“可执行文件在 bin/”两种归档布局
         if required_lower.issubset(names) or required_lower.issubset(bin_names):
             return candidate
     raise FileNotFoundError(f"Downloaded archive did not contain required files: {required}")
@@ -202,7 +202,7 @@ def _latest_blast_windows_archive() -> str:
     matches = re.findall(r'href="([^"]*ncbi-blast-[^"]+-x64-win64\.tar\.gz)"', listing)
     if not matches:
         raise RuntimeError("Could not find an x64 Windows BLAST+ tar.gz archive in NCBI LATEST")
-    # 目录页里可能同时保留多个版本，按文件名排序后取最新值。
+    # 目录页里可能同时保留多个版本，按文件名排序后取最新值
     return BLAST_LATEST_URL + sorted(matches)[-1]
 
 
@@ -249,7 +249,7 @@ def install_imagemagick() -> ToolchainInstallResult:
 def install_toolchain(name: str) -> ToolchainInstallResult:
     """按公开名称安装受支持的 toolchain(工具链)"""
 
-    # 统一的名称分发表同时服务于 CLI、配置和诊断模块。
+    # 统一的名称分发表同时服务于 CLI、配置和诊断模块
     if name == "blast":
         return install_blast()
     if name == "imagemagick":

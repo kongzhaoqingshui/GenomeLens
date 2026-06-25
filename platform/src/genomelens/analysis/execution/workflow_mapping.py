@@ -74,7 +74,7 @@ def _pairwise_artifacts_from_ports(ports: dict[str, object]) -> PairwiseArtifact
 
 
 def _artifact_bundles_from_ports(ports: dict[str, object]) -> list[ArtifactBundle]:
-    """Build reusable artifact bundles from submodule ports."""
+    """Build reusable artifact bundles from submodule ports"""
 
     artifacts = _pairwise_artifacts_from_ports(ports)
     if artifacts is None:
@@ -172,7 +172,7 @@ def build_synteny_request(
 
 
 def to_mcscan_request(request: WorkflowRequest) -> SyntenyExecutionRequest:
-    """Build the primary pairwise synteny request for a two-species workflow."""
+    """Build the primary pairwise synteny request for a two-species workflow"""
 
     species = validate_workflow_species(request)
     reference = species[request.reference_index]

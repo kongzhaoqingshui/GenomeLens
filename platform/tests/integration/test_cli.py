@@ -567,7 +567,7 @@ def test_analyze_workflow_synteny_multi_species(tmp_path: Path) -> None:
     assert all(Path(job["run_summary_path"]).is_file() for job in summary["child_runs"])
     assert any(Path(path).name.startswith("query__subject.") for path in summary["final_figures"])
     assert any(item["artifact_type"] == "figure" for item in summary["artifact_index"])
-    # 全局多物种核型总图：所有 pairwise 成功后应聚合出至少一张总图。
+    # 全局多物种核型总图：所有 pairwise 成功后应聚合出至少一张总图
     assert extensions["global_figures"], "expected a global multi-species karyotype figure"
     assert all(Path(path).is_file() for path in extensions["global_figures"])
     assert any(Path(path).name.startswith("global.") for path in extensions["global_figures"])
@@ -875,7 +875,7 @@ def test_analyze_workflow_synteny_reference_vs_targets_reference_swap(tmp_path: 
             encoding="utf-8"
         )
     )
-    # Target genes route synteny into local_synteny pairwise steps.
+    # Target genes route synteny into local_synteny pairwise steps
     assert manifest["schema_version"] == 3
     assert manifest["workflow"] == "local_synteny"
 

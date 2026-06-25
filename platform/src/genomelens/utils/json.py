@@ -35,7 +35,7 @@ def _str(value: object, default: str = "") -> str:
 
     if value is None:
         return default
-    # 字符串字段默认走最宽松转换，避免上层为展示型字段反复判型。
+    # 字符串字段默认走最宽松转换，避免上层为展示型字段反复判型
     return str(value)
 
 
@@ -44,7 +44,7 @@ def _int(value: object, default: int = 0) -> int:
 
     if value is None:
         return default
-    # 需要“带默认值的整数”时统一走这里，失败分支集中在 _optional_int 之后处理。
+    # 需要“带默认值的整数”时统一走这里，失败分支集中在 _optional_int 之后处理
     result = _optional_int(value)
     if result is None:
         _warn(value, "int")
@@ -58,10 +58,10 @@ def _optional_int(value: object) -> int | None:
     if value is None:
         return None
     if isinstance(value, bool):
-        # bool 是 int 子类，这里显式处理可以把意图写清楚。
+        # bool 是 int 子类，这里显式处理可以把意图写清楚
         return int(value)
     if isinstance(value, int):
-        # 这里保留原始 dict，不做深拷贝，让调用方自己决定是否需要隔离修改。
+        # 这里保留原始 dict，不做深拷贝，让调用方自己决定是否需要隔离修改
         return value
     if isinstance(value, float):
         return int(value)
@@ -102,7 +102,7 @@ def _optional_float(value: object) -> float | None:
     if isinstance(value, bool):
         return float(value)
     if isinstance(value, int | float):
-        # 数字类型直接收敛为 float，避免上层再分 int/float 分支。
+        # 数字类型直接收敛为 float，避免上层再分 int/float 分支
         return float(value)
     if isinstance(value, str):
         try:
@@ -118,7 +118,7 @@ def _bool(value: object, default: bool = False) -> bool:
 
     if value is None:
         return default
-    # 保持 Python 原生 truthy/falsy 语义，避免在多个摘要模型里重复约定。
+    # 保持 Python 原生 truthy/falsy 语义，避免在多个摘要模型里重复约定
     return bool(value)
 
 
@@ -139,7 +139,7 @@ def _dict(value: object) -> dict[str, object]:
     if value is None:
         return {}
     if isinstance(value, dict):
-        # 与 _dict 一样保持浅层宽松策略，避免辅助函数偷偷改变对象语义。
+        # 与 _dict 一样保持浅层宽松策略，避免辅助函数偷偷改变对象语义
         return value
     _warn(value, "dict[str, object]")
     return {}
@@ -151,7 +151,7 @@ def _list(value: object) -> list[Any]:
     if value is None:
         return []
     if isinstance(value, list):
-        # _any_list 给 truly-generic 列表字段使用，不额外做元素级收窄。
+        # _any_list 给 truly-generic 列表字段使用，不额外做元素级收窄
         return value
     _warn(value, "list")
     return []
@@ -207,5 +207,5 @@ def _str_dict(value: object) -> dict[str, str]:
 def _nested[T: _SupportsFromJson](cls: type[T], value: object) -> T:
     """安全调用 dataclass.from_json，非 dict 时构造默认对象"""
 
-    # 嵌套 dataclass 一律走同一个入口，保证“宽松 dict -> 强类型对象”的路径一致。
+    # 嵌套 dataclass 一律走同一个入口，保证“宽松 dict -> 强类型对象”的路径一致
     return cls.from_json(_dict(value))

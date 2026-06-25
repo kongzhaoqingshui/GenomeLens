@@ -20,7 +20,7 @@ def run_blastn(
 ) -> CommandResult:
     """运行 blastn 并生成表格输出"""
 
-    # 统一通过 subprocess_runner 返回结构化结果，调用方不用直接摸 subprocess。
+    # 统一通过 subprocess_runner 返回结构化结果，调用方不用直接摸 subprocess
     return run_command(
         [
             blastn,

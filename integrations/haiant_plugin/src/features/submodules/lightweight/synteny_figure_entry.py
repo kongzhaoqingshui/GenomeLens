@@ -1,4 +1,4 @@
-"""Lightweight HAIant feature entry for ``jcvi.graphics_synteny``."""
+"""Lightweight HAIant feature entry for ``jcvi.graphics_synteny``"""
 
 from __future__ import annotations
 
@@ -24,7 +24,7 @@ LOGGER_NAME = "gljcvi_synteny_figure"
 ERROR_PREFIX = "GenomeLens synteny figure feature plugin error"
 SUB_MODULE_ID = "jcvi.graphics_synteny"
 
-# 子模块可调参数（param_id, 类型），作为 ``parameters`` 写入 ``SubmoduleRequest``。
+# 子模块可调参数（param_id, 类型），作为 ``parameters`` 写入 ``SubmoduleRequest``
 DECLARED_PARAMS = [
     ("glyphstyle", "str"),
     ("glyphcolor", "str"),
@@ -35,7 +35,7 @@ DECLARED_PARAMS = [
 
 
 def build_runtime_command(params_path: str | Path) -> list[str]:
-    """Build the GenomeLens ``analyze run submodule_request.json`` command."""
+    """Build the GenomeLens ``analyze run submodule_request.json`` command"""
 
     params, base = load_params(params_path)
     output_dir = Path(resolve_param_path(base, params.get("output_dir") or "output"))
@@ -81,7 +81,7 @@ def build_runtime_command(params_path: str | Path) -> list[str]:
 
 
 def run_runtime(argv: list[str]) -> int:
-    """Run a prepared command and return its exit code."""
+    """Run a prepared command and return its exit code"""
 
     import subprocess
 
@@ -90,7 +90,7 @@ def run_runtime(argv: list[str]) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
-    """Run the synteny figure feature entry."""
+    """Run the synteny figure feature entry"""
 
     args = sys.argv[1:] if argv is None else argv
     try:

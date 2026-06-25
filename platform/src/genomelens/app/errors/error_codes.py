@@ -15,7 +15,7 @@ class ErrorCode(Enum):
     （GUI、插件、Agent）统一处理重试、提示或兜底策略。
     """
 
-    # 这些值面向 GUI / 插件 / 自动化调用方，名称应保持稳定。
+    # 这些值面向 GUI / 插件 / 自动化调用方，名称应保持稳定
     UNKNOWN = "unknown"
     REQUEST_INVALID = "request_invalid"
     TOOLCHAIN_MISSING = "toolchain_missing"

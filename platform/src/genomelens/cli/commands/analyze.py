@@ -1,4 +1,4 @@
-"""`genomelens analyze` command registration."""
+"""`genomelens analyze` command registration"""
 
 # region import
 from __future__ import annotations
@@ -32,7 +32,7 @@ _CONSOLE = ConsoleWriter()
 
 
 def register(subparsers: argparse._SubParsersAction) -> None:
-    """Register the analyze command and its subcommands."""
+    """Register the analyze command and its subcommands"""
 
     parser = subparsers.add_parser("analyze", help="运行 GenomeLens 分析")
     nested = parser.add_subparsers(dest="analysis_command", required=True, parser_class=StyledArgumentParser)
@@ -164,7 +164,7 @@ def _register_submodule_command(nested: argparse._SubParsersAction) -> None:
 
 
 def _print_summary(summary: RunSummary | dict[str, object], json_output: bool = False) -> int:
-    """Print the analysis summary."""
+    """Print the analysis summary"""
 
     run_summary = summary if isinstance(summary, RunSummary) else RunSummary.from_json(summary)
 
@@ -178,7 +178,7 @@ def _print_summary(summary: RunSummary | dict[str, object], json_output: bool = 
 
 
 def _dispatch_request(request: WorkflowRequest | SubmoduleRequest, *, json_output: bool) -> RunSummary:
-    """Dispatch a request and attach the compact progress renderer when needed."""
+    """Dispatch a request and attach the compact progress renderer when needed"""
 
     signal_bus = SignalBus()
     reporter: CliProgressReporter | None = None
@@ -195,7 +195,7 @@ def _dispatch_request(request: WorkflowRequest | SubmoduleRequest, *, json_outpu
 
 
 def _run_request_json(args: argparse.Namespace) -> int:
-    """Run an analysis from a task request JSON file."""
+    """Run an analysis from a task request JSON file"""
 
     request = load_task_request(args.request_json)
     summary = _dispatch_request(request, json_output=bool(args.json))
@@ -203,7 +203,7 @@ def _run_request_json(args: argparse.Namespace) -> int:
 
 
 def _print_template(args: argparse.Namespace) -> int:
-    """Print the template request for the selected kind and id."""
+    """Print the template request for the selected kind and id"""
 
     if args.kind == "workflow":
         if args.id != "synteny":
@@ -219,7 +219,7 @@ def _print_template(args: argparse.Namespace) -> int:
 
 
 def _print_schema(args: argparse.Namespace) -> int:
-    """Print the requested JSON schema."""
+    """Print the requested JSON schema"""
 
     kind = getattr(args, "kind", "union")
     if kind == "workflow":

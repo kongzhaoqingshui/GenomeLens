@@ -42,7 +42,7 @@ def build_output_layout(outdir: str | Path) -> OutputLayout:
     inputs = root / "inputs"
     prepared = inputs / "prepared"
     intermediate = root / "intermediate"
-    # 这里先只声明稳定路径，不做 mkdir，方便 dry-run/测试直接断言布局。
+    # 这里先只声明稳定路径，不做 mkdir，方便 dry-run/测试直接断言布局
     jcvi = intermediate / "jcvi"
     ortholog = intermediate / "ortholog"
     mcscan = intermediate / "mcscan"
@@ -73,7 +73,7 @@ def create_output_layout(outdir: str | Path, *, force: bool = False) -> OutputLa
     """为一次运行创建目录，并保护已有的非空输出目录"""
 
     layout = build_output_layout(outdir)
-    # 非空 outdir 默认视为危险复用，只有明确 --force 才允许继续写入。
+    # 非空 outdir 默认视为危险复用，只有明确 --force 才允许继续写入
     if layout.root.exists() and any(layout.root.iterdir()) and not force:
         from genomelens.app.errors.exceptions import WorkspaceError
 
@@ -91,6 +91,6 @@ def create_output_layout(outdir: str | Path, *, force: bool = False) -> OutputLa
         layout.report,
         layout.figures,
     ]:
-        # 只创建稳定目录；具体产物文件由对应阶段按需写入。
+        # 只创建稳定目录；具体产物文件由对应阶段按需写入
         directory.mkdir(parents=True, exist_ok=True)
     return layout

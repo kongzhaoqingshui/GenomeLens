@@ -18,7 +18,7 @@ from jcvi_genomelens.workflows.common import _assert_ok
 
 @contextlib.contextmanager
 def _blast_path_injected(manifest: EngineRunManifest):
-    """把 BLAST+ 目录临时注入 PATH，让 JCVI 按名字调用 blastn/makeblastdb。"""
+    """把 BLAST+ 目录临时注入 PATH，让 JCVI 按名字调用 blastn/makeblastdb"""
 
     old_path = os.environ.get("PATH", "")
     blast_dir = str(manifest.toolchain.blastn.parent) if manifest.toolchain.blastn else ""
@@ -38,7 +38,7 @@ def _copy_inputs_for_catalog(manifest: EngineRunManifest, root: Path) -> tuple[s
 
     query = manifest.query.name
     subject = manifest.subject.name
-    # catalog.ortholog 假设文件名由物种名推导，所以先把输入复制成 JCVI 期望命名。
+    # catalog.ortholog 假设文件名由物种名推导，所以先把输入复制成 JCVI 期望命名
     shutil.copy2(manifest.query.bed, root / f"{query}.bed")
     shutil.copy2(manifest.query.cds, root / f"{query}.cds")
     shutil.copy2(manifest.subject.bed, root / f"{subject}.bed")

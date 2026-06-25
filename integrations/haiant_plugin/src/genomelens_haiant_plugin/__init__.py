@@ -1,4 +1,4 @@
-"""Public API for the GenomeLens HAIant plugin adapter."""
+"""Public API for the GenomeLens HAIant plugin adapter"""
 
 from __future__ import annotations
 

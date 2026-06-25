@@ -1,4 +1,4 @@
-"""Real JCVI graphics.karyotype workflow."""
+"""Real JCVI graphics.karyotype workflow"""
 
 from __future__ import annotations
 
@@ -79,7 +79,7 @@ def _write_default_layout(path: Path, manifest: EngineRunManifest, simple: str) 
 
 
 def run(manifest: EngineRunManifest, outdir: str | Path) -> tuple[list[CommandAudit], dict[str, object]]:
-    """Run pairwise MCscan and render the karyotype figure."""
+    """Run pairwise MCscan and render the karyotype figure"""
 
     if manifest.query is None or manifest.subject is None:
         raise ValueError("karyotype requires query and subject species")

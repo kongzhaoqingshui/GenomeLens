@@ -1,4 +1,4 @@
-"""Optimization profile models for execution-plan rewriting."""
+"""Optimization profile models for execution-plan rewriting"""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ PAIRWISE_SHARED_RUNTIME_PROFILE_ID = "pairwise_synteny_v1"
 
 @dataclass(frozen=True)
 class OptimizationProfileSpec:
-    """Declarative optimization profile applied between planning and execution."""
+    """Declarative optimization profile applied between planning and execution"""
 
     profile_id: str
     shared_runtime_profile_id: str = ""
@@ -18,7 +18,7 @@ class OptimizationProfileSpec:
 
 
 class OptimizationProfileRegistry:
-    """Registry of built-in optimization profiles."""
+    """Registry of built-in optimization profiles"""
 
     def __init__(self) -> None:
         self._profiles = {
@@ -30,7 +30,7 @@ class OptimizationProfileRegistry:
         }
 
     def get(self, profile_id: str) -> OptimizationProfileSpec | None:
-        """Return a registered optimization profile."""
+        """Return a registered optimization profile"""
 
         return self._profiles.get(profile_id)
 
@@ -39,7 +39,7 @@ _OPTIMIZATION_REGISTRY: OptimizationProfileRegistry | None = None
 
 
 def get_optimization_registry() -> OptimizationProfileRegistry:
-    """Return the process-wide optimization registry."""
+    """Return the process-wide optimization registry"""
 
     global _OPTIMIZATION_REGISTRY
     if _OPTIMIZATION_REGISTRY is None:

@@ -18,7 +18,7 @@ def executable_candidates(name: str) -> list[str]:
     """返回当前平台优先尝试的 executable(可执行文件) 名称"""
 
     if is_windows():
-        # Windows 上优先尝试显式 .exe，再回退到裸名，兼容 PATH/包装差异。
+        # Windows 上优先尝试显式 .exe，再回退到裸名，兼容 PATH/包装差异
         return [f"{name}.exe", name]
     return [name]
 
@@ -26,7 +26,7 @@ def executable_candidates(name: str) -> list[str]:
 def blastn_candidates() -> list[str]:
     """返回 blastn 可执行文件候选名称"""
 
-    # 这些小包装函数把调用方从具体二进制名里解耦出来。
+    # 这些小包装函数把调用方从具体二进制名里解耦出来
     return executable_candidates("blastn")
 
 

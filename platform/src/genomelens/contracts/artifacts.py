@@ -1,4 +1,4 @@
-"""Artifact contract models shared by CLI, GUI and integrations."""
+"""Artifact contract models shared by CLI, GUI and integrations"""
 
 from __future__ import annotations
 

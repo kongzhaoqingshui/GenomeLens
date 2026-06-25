@@ -126,7 +126,7 @@ def _boxed(lines: list[str], *, enabled: bool, min_width: int = 0) -> list[str]:
 
 # region 进度渲染
 def _duration_text(seconds: float) -> str:
-    """Render elapsed seconds as h:mm:ss."""
+    """Render elapsed seconds as h:mm:ss"""
 
     total = max(0, int(seconds))
     minutes, seconds = divmod(total, 60)
@@ -135,7 +135,7 @@ def _duration_text(seconds: float) -> str:
 
 
 def _progress_bar(progress: float, *, enabled: bool, width: int = 24) -> str:
-    """Render a compact single-line progress bar."""
+    """Render a compact single-line progress bar"""
 
     clamped = max(0.0, min(progress, 1.0))
     filled = min(width, max(0, int(round(clamped * width))))
@@ -485,7 +485,7 @@ class McscanProgressAdapter:
             return min(0.12, STATE_PROGRESS.get(self._state, 0.0) * 0.4)
 
         # 解析/收尾/终止态意味着 pairwise 计算实质上已经结束；
-        # 即使最后一个 pair_finished 事件尚未到达，也不应把进度拉回 80%+。
+        # 即使最后一个 pair_finished 事件尚未到达，也不应把进度拉回 80%+
         if self._state in {"PARSING_ENGINE_SUMMARY", "FINALIZING", "SUCCEEDED", "FAILED", "CANCELLED"}:
             if self._state in {"SUCCEEDED", "FAILED", "CANCELLED"}:
                 return 1.0
@@ -535,7 +535,7 @@ def render_workbench_banner(*, color: bool | None = None) -> str:
     )
 
     # 从注册表读取可用分析方法，stable=False 的标记为预览
-    # 方法列表直接读注册表，workbench 首页不会再维护一份手写清单。
+    # 方法列表直接读注册表，workbench 首页不会再维护一份手写清单
     methods = [
         f"{_paint(spec.name, PALETTE.cyan, enabled=enabled)}"
         f"{_paint('  ' + spec.description, PALETTE.gray, enabled=enabled)}"
@@ -568,7 +568,7 @@ def render_workbench_banner(*, color: bool | None = None) -> str:
     lines = ["", *[f"  {line}" for line in boxed], "", f"  {_paint('常用命令', PALETTE.bold, enabled=enabled)}"]
 
     for command, description in commands:
-        # 命令列宽固定，保证中英文混排时依然能大致对齐。
+        # 命令列宽固定，保证中英文混排时依然能大致对齐
         command_cell = f"{command:<36}"
         lines.append(
             f"    {_paint(command_cell, PALETTE.cyan, enabled=enabled)} "
@@ -671,7 +671,7 @@ def _color_help(text: str, *, enabled: bool) -> str:
             prefix, argument, gap, description = match.groups()
 
             # {} 包裹的是子命令占位符，用蓝色；普通参数用青色
-            # `{subcommands}` 这类占位符用蓝色，其余普通参数保持青色。
+            # `{subcommands}` 这类占位符用蓝色，其余普通参数保持青色
             argument_color = PALETTE.blue if argument.startswith("{") else PALETTE.cyan
             lines.append(
                 prefix
@@ -746,7 +746,7 @@ class StyledArgumentParser(argparse.ArgumentParser):
 def render_check_report(payload: CheckReport | dict[str, object], *, color: bool | None = None) -> str:
     """生成整理后的 check(检查) 文本报告"""
 
-    # 既支持直接喂 dataclass，也支持命令层传来的原始 JSON dict。
+    # 既支持直接喂 dataclass，也支持命令层传来的原始 JSON dict
     report = payload if isinstance(payload, CheckReport) else CheckReport.from_json(payload)
     enabled = _supports_color() if color is None else color
     status = report.status
@@ -802,7 +802,7 @@ def render_check_report(payload: CheckReport | dict[str, object], *, color: bool
 def render_analysis_summary(summary: RunSummary | dict[str, object], *, color: bool | None = None) -> str:
     """生成整理后的 analyze(分析) 文本摘要"""
 
-    # analyze 命令和 workbench 都复用这条摘要渲染路径。
+    # analyze 命令和 workbench 都复用这条摘要渲染路径
     run_summary = summary if isinstance(summary, RunSummary) else RunSummary.from_json(summary)
     enabled = _supports_color() if color is None else color
     md = run_summary.extensions
@@ -816,7 +816,7 @@ def render_analysis_summary(summary: RunSummary | dict[str, object], *, color: b
 
     species = run_summary.species
     species_names = [str(item.get("name")) for item in species if isinstance(item, dict)]
-    # 多物种摘要优先信任 extensions 里的显式 species_count，缺失时再回退到 species 列表长度。
+    # 多物种摘要优先信任 extensions 里的显式 species_count，缺失时再回退到 species 列表长度
     species_count_value = md.get("species_count")
     species_count = int(species_count_value) if isinstance(species_count_value, int) else len(species_names)
     lines = [

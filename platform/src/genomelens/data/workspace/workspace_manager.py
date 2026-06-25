@@ -16,5 +16,5 @@ class WorkspaceManager:
     def prepare_run(self, outdir: str | Path, *, force: bool = False) -> OutputLayout:
         """准备一次运行的输出目录"""
 
-        # manager 目前只是薄封装，但保留这个入口便于以后接入更多 workspace 策略。
+        # manager 目前只是薄封装，但保留这个入口便于以后接入更多 workspace 策略
         return create_output_layout(outdir, force=force)

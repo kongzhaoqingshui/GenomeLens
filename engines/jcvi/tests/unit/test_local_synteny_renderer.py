@@ -90,7 +90,7 @@ def fixture_dir(tmp_path: Path) -> Path:
 def test_strip_highlight_prefix() -> None:
     assert _strip_highlight_prefix("r*geneA") == (True, "geneA")
     assert _strip_highlight_prefix("geneA") == (False, "geneA")
-    # Whitespace is trimmed only from the body; the prefix must be exactly "r".
+    # Whitespace is trimmed only from the body; the prefix must be exactly "r"
     assert _strip_highlight_prefix("r*  geneA  ") == (True, "geneA")
     assert _strip_highlight_prefix(" x*geneA") == (False, "geneA")
 
@@ -129,7 +129,7 @@ def test_render_local_synteny_produces_non_empty_svg(fixture_dir: Path) -> None:
 
 
 def test_render_keeps_cross_chromosome_segments(fixture_dir: Path) -> None:
-    """跨染色体参考基因应生成多个 segment，而不是被裁切。"""
+    """跨染色体参考基因应生成多个 segment，而不是被裁切"""
 
     output = fixture_dir / "out.svg"
     render_local_synteny(
@@ -139,7 +139,7 @@ def test_render_keeps_cross_chromosome_segments(fixture_dir: Path) -> None:
         track_names=["Ref", "Sub"],
     )
     content = output.read_text(encoding="utf-8")
-    # SVG should contain chromosome labels for chr1, chr2 and chr3.
+    # SVG should contain chromosome labels for chr1, chr2 and chr3
     assert "chr1" in content
     assert "chr2" in content
     assert "chr3" in content
@@ -155,7 +155,7 @@ def test_render_highlights_target_genes(fixture_dir: Path) -> None:
         target_gene_ids=["g2", "g5"],
     )
     content = output.read_text(encoding="utf-8")
-    # Target genes are shown in the bottom colour legend, not as star markers.
+    # Target genes are shown in the bottom colour legend, not as star markers
     assert "g2" in content
     assert "g5" in content
     assert "#000000" not in content
@@ -170,7 +170,7 @@ def test_render_includes_chromosome_legend(fixture_dir: Path) -> None:
         track_names=["Ref", "Sub"],
     )
     content = output.read_text(encoding="utf-8")
-    # Legend entries for all chromosomes should be present.
+    # Legend entries for all chromosomes should be present
     assert "chr1" in content
     assert "chrA" in content
 
@@ -249,7 +249,7 @@ def test_build_track_window_maps_genes_proportionally() -> None:
     window = _build_track_window(name="Ref", index=0, color="#2f6f73", genes=genes, scale=0.01)
     assert len(window.segments) == 1
     assert window.segments[0].chromosome == "chr1"
-    # g1 and g2 are separated by a 100 bp gap; at scale 0.01 that gap is 1.0 visual unit.
+    # g1 and g2 are separated by a 100 bp gap; at scale 0.01 that gap is 1.0 visual unit
     assert window.all_genes[0].x < window.all_genes[1].x
 
 
@@ -259,9 +259,9 @@ def test_build_track_window_compresses_large_gap() -> None:
         GeneRecord("g2", "chr1", 1_000_200, 1_000_300, "+"),
     ]
     window = _build_track_window(name="Ref", index=0, color="#2f6f73", genes=genes, scale=1e-5)
-    # The 1 Mb gap should be compressed.
+    # The 1 Mb gap should be compressed
     assert window.segments[0].has_compressed_gaps is True
-    # Visual distance should be much smaller than the raw 1 Mb * scale = 10 units.
+    # Visual distance should be much smaller than the raw 1 Mb * scale = 10 units
     assert window.all_genes[1].x - window.all_genes[0].x < 1.0
 
 
@@ -287,7 +287,7 @@ def test_render_range_labels_appear_in_svg(fixture_dir: Path) -> None:
         track_names=["Ref", "Sub"],
     )
     content = output.read_text(encoding="utf-8")
-    # Range labels like "chr1 0.10-0.60kb" should be present.
+    # Range labels like "chr1 0.10-0.60kb" should be present
     assert "chr1" in content
     assert "chr2" in content
 
@@ -307,7 +307,7 @@ def test_render_track_labels_on_both_sides_appear(fixture_dir: Path) -> None:
 
 def test_custom_figsize_is_respected(fixture_dir: Path) -> None:
     output = fixture_dir / "out.svg"
-    # Just ensure no exception and file is produced.
+    # Just ensure no exception and file is produced
     render_local_synteny(
         blocks_path=fixture_dir / "blocks.txt",
         bed_path=fixture_dir / "all.bed",

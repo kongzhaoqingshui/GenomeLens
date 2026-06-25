@@ -27,7 +27,7 @@ def resolve_jcvi_engine(
     explicit: str = "",
     config: ConfigModel | None = None,
 ) -> LocatedResource:
-    """定位 JCVI 引擎，优先使用显式路径或配置中的路径。"""
+    """定位 JCVI 引擎，优先使用显式路径或配置中的路径"""
 
     return locate_engine(explicit=explicit, config=config)
 
@@ -40,7 +40,7 @@ def resolve_blast_toolchain(
     makeblastdb_config: str = "",
     auto_install: bool = True,
 ) -> tuple[LocatedResource, LocatedResource, list[dict[str, object]]]:
-    """定位 BLAST+ 工具链，缺失时可选自动安装。
+    """定位 BLAST+ 工具链，缺失时可选自动安装
 
     返回 (blastn, makeblastdb, install_attempts)。
     """
@@ -90,7 +90,7 @@ def resolve_last_toolchain(
     lastal_explicit: str = "",
     lastdb_explicit: str = "",
 ) -> tuple[str, str]:
-    """定位 LAST 比对工具链，返回 (lastal_path, lastdb_path)。"""
+    """定位 LAST 比对工具链，返回 (lastal_path, lastdb_path)"""
 
     lastal = locate_tool("last", explicit=lastal_explicit, packaged_names=lastal_candidates())
     lastdb = locate_tool("last", explicit=lastdb_explicit, packaged_names=lastdb_candidates())
@@ -113,7 +113,7 @@ def resolve_pairwise_toolchain(
     align_soft: str = "blast",
     config: ConfigModel | None = None,
 ) -> tuple[LocatedResource, LocatedResource, LocatedResource, str, str]:
-    """定位 pairwise MCscan 所需的引擎与 BLAST/LAST 工具链。
+    """定位 pairwise MCscan 所需的引擎与 BLAST/LAST 工具链
 
     返回 (engine, blastn, makeblastdb, lastal_path, lastdb_path)。
     """
@@ -154,7 +154,7 @@ def resolve_imagemagick(
     explicit: str = "",
     config_value: str = "",
 ) -> LocatedResource:
-    """定位 ImageMagick 可执行文件。"""
+    """定位 ImageMagick 可执行文件"""
 
     from genomelens.toolchain.runtime.platform_names import magick_candidates
 

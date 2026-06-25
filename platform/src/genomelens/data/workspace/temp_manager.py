@@ -21,7 +21,7 @@ class TempManager:
     def create(self) -> Path:
         """创建并返回临时根目录"""
 
-        # 调用方持有 TempManager 时，只约定 root，不关心具体 mkdir 细节。
+        # 调用方持有 TempManager 时，只约定 root，不关心具体 mkdir 细节
         self.root.mkdir(parents=True, exist_ok=True)
         return self.root
 
@@ -29,5 +29,5 @@ class TempManager:
         """仅在临时根目录存在时删除它"""
 
         if self.root.exists():
-            # 临时目录允许整树删除，但删除边界严格限定在 manager.root。
+            # 临时目录允许整树删除，但删除边界严格限定在 manager.root
             shutil.rmtree(self.root)

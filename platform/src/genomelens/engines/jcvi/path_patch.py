@@ -13,5 +13,5 @@ def absolute_path(value: str | Path) -> str:
 
     if not value:
         return ""
-    # manifest 对外使用字符串协议，这里集中处理 Path -> 绝对字符串 的收敛。
+    # manifest 对外使用字符串协议，这里集中处理 Path -> 绝对字符串 的收敛
     return str(Path(value).expanduser().resolve(strict=False))

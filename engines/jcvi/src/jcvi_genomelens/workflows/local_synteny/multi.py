@@ -32,7 +32,7 @@ def _write_multi_local_layout(path: Path, manifest: EngineRunManifest) -> Path:
         lines.append(f"0.50, {y:.4f}, 0, {ha}, {va}, {color}, 1, {display_label}, {fontsize}")
 
     for index in range(1, count):
-        # 多物种局部图以参考物种为中心，连接参考轨道与每个目标轨道。
+        # 多物种局部图以参考物种为中心，连接参考轨道与每个目标轨道
         lines.append(f"e, 0, {index}, #c8c8c8")
 
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
@@ -75,7 +75,7 @@ def run(manifest: EngineRunManifest, outdir: str | Path) -> tuple[list[CommandAu
         )
     else:
         # Native renderer does not need a JCVI layout for drawing, but the
-        # figsize optimization helper still expects one to count tracks.
+        # figsize optimization helper still expects one to count tracks
         layout = _write_multi_local_layout(root / "local_multi.layout", manifest)
         plot_inputs = prepare_synteny_plot_inputs(
             blocks=manifest.blocks,

@@ -41,5 +41,5 @@ WORKFLOW_ALIASES = {
 def normalize_workflow(name: str) -> str:
     """Normalize compatible workflow aliases to their public names"""
 
-    # shell、配置和 engine 都通过这里收敛别名，避免各处维护一份映射。
+    # shell、配置和 engine 都通过这里收敛别名，避免各处维护一份映射
     return WORKFLOW_ALIASES.get(name, name)

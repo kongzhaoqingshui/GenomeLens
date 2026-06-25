@@ -15,7 +15,7 @@ def initialize_cache(path: str | Path) -> Path:
     db_path = Path(path).expanduser().resolve(strict=False)
     db_path.parent.mkdir(parents=True, exist_ok=True)
     with sqlite3.connect(db_path) as con:
-        # 当前只保留最小 fingerprints 表，为后续缓存复用/跳过重复计算预留位置。
+        # 当前只保留最小 fingerprints 表，为后续缓存复用/跳过重复计算预留位置
         con.execute(
             "CREATE TABLE IF NOT EXISTS fingerprints ("
             "key TEXT PRIMARY KEY, "

@@ -1,4 +1,4 @@
-"""Lightweight HAIant feature entry for ``jcvi.mcscan_pairwise``."""
+"""Lightweight HAIant feature entry for ``jcvi.mcscan_pairwise``"""
 
 from __future__ import annotations
 
@@ -25,7 +25,7 @@ LOGGER_NAME = "gljcvi_mcscan_pairwise"
 ERROR_PREFIX = "GenomeLens MCscan pairwise feature plugin error"
 SUB_MODULE_ID = "jcvi.mcscan_pairwise"
 
-# 子模块可调参数（param_id, 类型），作为 ``parameters`` 写入 ``SubmoduleRequest``。
+# 子模块可调参数（param_id, 类型），作为 ``parameters`` 写入 ``SubmoduleRequest``
 DECLARED_PARAMS = [
     ("align_soft", "str"),
     ("dbtype", "str"),
@@ -38,7 +38,7 @@ DECLARED_PARAMS = [
 
 
 def build_runtime_command(params_path: str | Path) -> list[str]:
-    """Build the GenomeLens ``analyze run submodule_request.json`` command."""
+    """Build the GenomeLens ``analyze run submodule_request.json`` command"""
 
     params, base = load_params(params_path)
     output_dir = Path(resolve_param_path(base, params.get("output_dir") or "output"))
@@ -68,7 +68,7 @@ def build_runtime_command(params_path: str | Path) -> list[str]:
 
 
 def run_runtime(argv: list[str]) -> int:
-    """Run a prepared command and return its exit code."""
+    """Run a prepared command and return its exit code"""
 
     import subprocess
 
@@ -77,7 +77,7 @@ def run_runtime(argv: list[str]) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
-    """Run the MCscan pairwise feature entry."""
+    """Run the MCscan pairwise feature entry"""
 
     args = sys.argv[1:] if argv is None else argv
     try:

@@ -1,4 +1,4 @@
-"""Build validated JCVI engine manifest payloads."""
+"""Build validated JCVI engine manifest payloads"""
 
 from __future__ import annotations
 
@@ -43,7 +43,7 @@ def _artifact_bundle_manifest(bundle: ArtifactBundle) -> dict[str, object]:
 
 
 class JcviManifestBuilder:
-    """Convert platform execution requests into engine manifest v3 payloads."""
+    """Convert platform execution requests into engine manifest v3 payloads"""
 
     def build_pairwise_manifest(
         self,

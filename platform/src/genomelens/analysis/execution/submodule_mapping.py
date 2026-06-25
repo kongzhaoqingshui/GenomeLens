@@ -128,7 +128,7 @@ def _pairwise_artifacts_from_ports(ports: dict[str, object]) -> PairwiseArtifact
 
 
 def _artifact_bundles_from_ports(ports: dict[str, object]) -> list[ArtifactBundle]:
-    """Build reusable artifact bundles from submodule ports."""
+    """Build reusable artifact bundles from submodule ports"""
 
     artifacts = _pairwise_artifacts_from_ports(ports)
     if artifacts is None:

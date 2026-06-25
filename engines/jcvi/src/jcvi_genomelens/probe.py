@@ -28,7 +28,7 @@ def build_probe_payload() -> dict[str, object]:
     """返回公开 probe JSON(探测 JSON) 契约"""
 
     profile = build_runtime_profile()
-    # probe 输出既给 shell 做能力探测，也给 check 命令做诊断展示。
+    # probe 输出既给 shell 做能力探测，也给 check 命令做诊断展示
     return {
         "engine_name": ENGINE_NAME,
         "engine_version": ENGINE_VERSION,
@@ -38,7 +38,7 @@ def build_probe_payload() -> dict[str, object]:
         "python": platform.python_version(),
         "distribution": "source",
         "status": "ok",
-        # capabilities/dispatchable_workflows 目前保持同值，给未来更细粒度区分留接口。
+        # capabilities/dispatchable_workflows 目前保持同值，给未来更细粒度区分留接口
         "capabilities": list(SUPPORTED_WORKFLOWS),
         "dispatchable_workflows": list(SUPPORTED_WORKFLOWS),
         "bundled_jcvi_modules": BUNDLED_JCVI_MODULES,

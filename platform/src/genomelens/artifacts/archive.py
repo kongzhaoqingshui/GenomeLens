@@ -20,7 +20,7 @@ def archive_figures(figures: list[str], target_dir: str | Path) -> list[str]:
         if source.is_file():
             target = destination / source.name
             if source.resolve(strict=False) != target.resolve(strict=False):
-                # engine 产物可能散落在多个子目录，这里统一归档到公开结果目录。
+                # engine 产物可能散落在多个子目录，这里统一归档到公开结果目录
                 shutil.copy2(source, target)
             archived.append(str(target))
     return archived

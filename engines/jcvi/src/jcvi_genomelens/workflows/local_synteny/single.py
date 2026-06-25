@@ -70,7 +70,7 @@ def _read_bed_order(bed_path: Path) -> tuple[list[str], dict[str, int]]:
             if accn not in seen:
                 seen.add(accn)
                 order.append(accn)
-    # BED 顺序就是局部窗口裁切时的“基因坐标轴”。
+    # BED 顺序就是局部窗口裁切时的“基因坐标轴”
     index = {accn: idx for idx, accn in enumerate(order)}
     return order, index
 
@@ -234,7 +234,7 @@ def run(manifest: EngineRunManifest, outdir: str | Path) -> tuple[list[CommandAu
 
     use_native = manifest.options.use_native_local_synteny_renderer
 
-    # local_synteny 的上游依赖就是完整 pairwise 结果，局部图只是在 blocks 上二次裁切。
+    # local_synteny 的上游依赖就是完整 pairwise 结果，局部图只是在 blocks 上二次裁切
     commands, pairwise_artifacts = ensure_pairwise_artifacts(
         manifest,
         root,
@@ -260,7 +260,7 @@ def run(manifest: EngineRunManifest, outdir: str | Path) -> tuple[list[CommandAu
     )
 
     formats = manifest.options.formats or ["svg"]
-    # 局部图单独落到 sibling `local/` 目录，避免与全局 pairwise 产物混在一起。
+    # 局部图单独落到 sibling `local/` 目录，避免与全局 pairwise 产物混在一起
     local_dir = root.parent / "local"
     local_dir.mkdir(parents=True, exist_ok=True)
     local_figures: list[str] = []
@@ -281,7 +281,7 @@ def run(manifest: EngineRunManifest, outdir: str | Path) -> tuple[list[CommandAu
         local_layout = local_dir / f"{key}.local.layout"
         local_bed = local_dir / f"{key}.local.bed"
 
-        # 每个 target/window 都生成自己的 blocks/layout/bed，方便后续单独复检。
+        # 每个 target/window 都生成自己的 blocks/layout/bed，方便后续单独复检
         local_blocks.write_text("\n".join(lines) + ("\n" if lines else ""), encoding="utf-8")
         shutil.copy2(merged_bed, local_bed)
         _write_local_layout(local_layout, manifest.query.name, manifest.subject.name)
@@ -299,7 +299,7 @@ def run(manifest: EngineRunManifest, outdir: str | Path) -> tuple[list[CommandAu
             figure = Path(f"{output_prefix}.{fmt}")
 
             if use_native:
-                # Use the native matplotlib renderer for cross-chromosome support.
+                # Use the native matplotlib renderer for cross-chromosome support
                 argv = [
                     str(plot_inputs.blocks),
                     str(plot_inputs.bed),

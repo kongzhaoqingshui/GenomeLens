@@ -1,4 +1,4 @@
-"""Shared helpers for HAIant plugin entries."""
+"""Shared helpers for HAIant plugin entries"""
 
 # region import
 from __future__ import annotations
@@ -21,11 +21,11 @@ GENOMELENS_EXE_ENV = "GENOMELENS_EXE"
 
 
 class PluginError(Exception):
-    """Raised when a HAIant entry cannot build a valid GenomeLens request."""
+    """Raised when a HAIant entry cannot build a valid GenomeLens request"""
 
 
 def resource_path(*parts: str | Path) -> Path:
-    """Return a path inside the plugin root for source and frozen layouts."""
+    """Return a path inside the plugin root for source and frozen layouts"""
 
     if getattr(sys, "frozen", False):
         frozen_root = getattr(sys, "_MEIPASS", "")
@@ -38,7 +38,7 @@ def resource_path(*parts: str | Path) -> Path:
 
 
 def load_params(path: str | Path) -> tuple[dict[str, object], Path]:
-    """Load a params.json file and return its payload with the base directory."""
+    """Load a params.json file and return its payload with the base directory"""
 
     source = Path(path).expanduser().resolve(strict=False)
     if not source.is_file():
@@ -59,7 +59,7 @@ def resolve_param_path(
     required: bool = False,
     must_exist: bool = False,
 ) -> str:
-    """Resolve a path-like parameter relative to the params.json directory."""
+    """Resolve a path-like parameter relative to the params.json directory"""
 
     if value is None or str(value).strip() == "":
         if required:
@@ -74,7 +74,7 @@ def resolve_param_path(
 
 
 def parse_bool(value: object) -> bool:
-    """Parse user-facing boolean forms from HAIant params."""
+    """Parse user-facing boolean forms from HAIant params"""
 
     if isinstance(value, bool):
         return value
@@ -147,7 +147,7 @@ def _target_gene_ids(params: Mapping[str, object]) -> list[str]:
 def _discover_species_from_input_dir(
     base: Path, input_dir: object
 ) -> list[dict[str, object]]:
-    """Mirror the platform auto-directory species discovery."""
+    """Mirror the platform auto-directory species discovery"""
 
     from genomelens.analysis.requests.normalization.input_resolver import (
         discover_species_from_directory,
@@ -161,7 +161,7 @@ def _discover_species_from_input_dir(
 def setup_adapter_logging(
     output_dir: str | Path, *, logger_name: str = LOGGER_NAME
 ) -> logging.Logger:
-    """Set up adapter logging under output_dir/run.log."""
+    """Set up adapter logging under output_dir/run.log"""
 
     destination = Path(output_dir).expanduser().resolve(strict=False)
     destination.mkdir(parents=True, exist_ok=True)
@@ -182,7 +182,7 @@ def setup_adapter_logging(
 
 
 def close_logging(*, logger_name: str = LOGGER_NAME) -> None:
-    """Flush and close adapter log handlers."""
+    """Flush and close adapter log handlers"""
 
     logger = logging.getLogger(logger_name)
     for handler in list(logger.handlers):
@@ -194,13 +194,13 @@ def close_logging(*, logger_name: str = LOGGER_NAME) -> None:
 
 
 def close_adapter_logging(logger_name: str = LOGGER_NAME) -> None:
-    """Flush and close adapter log handlers."""
+    """Flush and close adapter log handlers"""
 
     close_logging(logger_name=logger_name)
 
 
 def resolve_genomelens_exe(params: Mapping[str, object], base: Path) -> Path:
-    """Locate the external GenomeLens executable from params or environment."""
+    """Locate the external GenomeLens executable from params or environment"""
 
     raw = str(
         params.get("GenomeLens_Path")
@@ -223,7 +223,7 @@ def resolve_genomelens_exe(params: Mapping[str, object], base: Path) -> Path:
 
 
 def _parse_formats(value: object) -> list[str]:
-    """Return the selected output format as a single-item list (default svg).
+    """Return the selected output format as a single-item list (default svg)
 
     The UI exposes ``formats`` as a single-select (``customer_selector``), so
     only the first selected value is honored.  Lists are accepted defensively
@@ -243,7 +243,7 @@ def coerce_submodule_params(
     base: Path,
     declared: Sequence[tuple[str, str]],
 ) -> dict[str, object]:
-    """Coerce declared submodule parameters into a JSON-ready ``parameters`` payload.
+    """Coerce declared submodule parameters into a JSON-ready ``parameters`` payload
 
     ``declared`` is a list of ``(param_id, ptype)`` pairs where ``ptype`` is one of
     ``int`` / ``float`` / ``bool`` / ``str`` / ``path`` / ``int_array``.  Keys that
@@ -278,7 +278,7 @@ def write_request_json(
     *,
     filename: str = "request.json",
 ) -> Path:
-    """Write a request JSON object under ``output_dir`` and return its path."""
+    """Write a request JSON object under ``output_dir`` and return its path"""
 
     destination = Path(output_dir).expanduser().resolve(strict=False)
     destination.mkdir(parents=True, exist_ok=True)
@@ -294,7 +294,7 @@ def build_run_command(
     genomelens_exe: str | Path,
     request_path: str | Path,
 ) -> list[str]:
-    """Build the ``<GenomeLens.exe> analyze run <request.json>`` argv."""
+    """Build the ``<GenomeLens.exe> analyze run <request.json>`` argv"""
 
     exe = Path(genomelens_exe)
     args = ["analyze", "run", str(request_path)]
@@ -308,7 +308,7 @@ def build_workflow_request(
     base: Path,
     output_dir: str | Path,
 ) -> dict[str, object]:
-    """Build a V3 ``WorkflowRequest`` JSON for the synteny one-stop workflow.
+    """Build a V3 ``WorkflowRequest`` JSON for the synteny one-stop workflow
 
     The request encodes species auto-discovery, reference selection, target genes,
     and all algorithm/plot options directly.  No external ``jcvi.config.json`` is
@@ -402,7 +402,7 @@ def build_workflow_runtime_command(
     base: Path,
     output_dir: str | Path,
 ) -> list[str]:
-    """Write the one-stop ``WorkflowRequest`` and return the ``analyze run`` argv."""
+    """Write the one-stop ``WorkflowRequest`` and return the ``analyze run`` argv"""
 
     request = build_workflow_request(params, base, output_dir)
     request_path = write_request_json(
@@ -421,7 +421,7 @@ def build_submodule_request(
     threads: int | None = None,
     force: bool = True,
 ) -> dict[str, object]:
-    """Build a V3 ``SubmoduleRequest`` JSON for a single orchestratable submodule."""
+    """Build a V3 ``SubmoduleRequest`` JSON for a single orchestratable submodule"""
 
     runtime: dict[str, object] = {
         "project_config": "",
@@ -464,7 +464,7 @@ def build_submodule_runtime_command(
     threads: int | None = None,
     force: bool = True,
 ) -> list[str]:
-    """Write the ``SubmoduleRequest`` and return the ``analyze run`` argv."""
+    """Write the ``SubmoduleRequest`` and return the ``analyze run`` argv"""
 
     request = build_submodule_request(
         module_id,
@@ -488,7 +488,7 @@ def compress_output_intermediates(
     marker_name: str = "intermediates.zip.deletable",
     preserve: set[str] | None = None,
 ) -> Path | None:
-    """Package everything except ``results`` into a zip and mark it as deletable.
+    """Package everything except ``results`` into a zip and mark it as deletable
 
     The ``results`` directory is left untouched.  After archiving, the original
     intermediate files and directories are removed so the output root only keeps
@@ -536,7 +536,7 @@ def compress_output_intermediates(
 
 
 def _rm_tree(path: Path) -> None:
-    """Recursively remove a directory tree."""
+    """Recursively remove a directory tree"""
 
     for child in path.iterdir():
         if child.is_dir():
@@ -547,7 +547,7 @@ def _rm_tree(path: Path) -> None:
 
 
 def run_process(argv: Sequence[str]) -> int:
-    """Run a prepared command and return its exit code."""
+    """Run a prepared command and return its exit code"""
 
     completed = subprocess.run(list(argv), shell=False, check=False)
     return int(completed.returncode)

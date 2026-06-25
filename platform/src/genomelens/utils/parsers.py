@@ -19,7 +19,7 @@ def parse_formats(value: str | list[str] | None) -> list[str]:
     else:
         raw_items = value.split(",")
 
-    # shell/JSON 两条入口都收敛到小写格式列表，后续工作流就不再区分来源。
+    # shell/JSON 两条入口都收敛到小写格式列表，后续工作流就不再区分来源
     formats = [item.strip().lower() for item in raw_items if item and item.strip()]
     return formats or ["svg"]
 
@@ -27,7 +27,7 @@ def parse_formats(value: str | list[str] | None) -> list[str]:
 def parse_seqids_file(path: Path) -> list[str]:
     """读取 seqids 文件，并忽略空行和注释行"""
 
-    # seqids 文件允许注释行，便于用户把染色体分组说明直接写在旁边。
+    # seqids 文件允许注释行，便于用户把染色体分组说明直接写在旁边
     return [
         line.strip()
         for line in path.read_text(encoding="utf-8").splitlines()

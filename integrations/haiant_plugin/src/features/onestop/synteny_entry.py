@@ -1,4 +1,4 @@
-"""Lightweight HAIant feature entry for the integrated ``analyze workflow synteny`` flow.
+"""Lightweight HAIant feature entry for the integrated ``analyze workflow synteny`` flow
 
 This entry builds a V3 ``WorkflowRequest`` JSON from the HAIant ``params.json`` and
 invokes the external GenomeLens executable with:
@@ -32,7 +32,7 @@ LOGGER_NAME = "gljcvi_synteny"
 
 
 def build_runtime_command(params_path: str | Path) -> list[str]:
-    """Build the ``analyze run workflow_request.json`` command from HAIant params."""
+    """Build the ``analyze run workflow_request.json`` command from HAIant params"""
 
     params, base = load_params(params_path)
     output_dir = Path(resolve_param_path(base, params.get("output_dir") or "output"))
@@ -52,7 +52,7 @@ def build_runtime_command(params_path: str | Path) -> list[str]:
 
 
 def run_runtime(argv: list[str]) -> int:
-    """Run a prepared command and return its exit code."""
+    """Run a prepared command and return its exit code"""
 
     import subprocess
 
@@ -61,7 +61,7 @@ def run_runtime(argv: list[str]) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
-    """Run the ``analyze workflow synteny`` feature entry."""
+    """Run the ``analyze workflow synteny`` feature entry"""
 
     args = sys.argv[1:] if argv is None else argv
     try:

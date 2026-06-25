@@ -1,4 +1,4 @@
-"""Aggregate HAIant feature entry for ``jcvi.local_synteny_multi``."""
+"""Aggregate HAIant feature entry for ``jcvi.local_synteny_multi``"""
 
 from __future__ import annotations
 
@@ -26,7 +26,7 @@ LOGGER_NAME = "gljcvi_multi_local_synteny"
 ERROR_PREFIX = "GenomeLens multi-species local synteny feature plugin error"
 SUB_MODULE_ID = "jcvi.local_synteny_multi"
 
-# 子模块可调参数（param_id, 类型），作为 ``parameters`` 写入 ``SubmoduleRequest``。
+# 子模块可调参数（param_id, 类型），作为 ``parameters`` 写入 ``SubmoduleRequest``
 DECLARED_PARAMS = [
     ("up", "int"),
     ("down", "int"),
@@ -51,7 +51,7 @@ def _parse_json_list(value: object, label: str) -> list[object]:
 
 
 def build_runtime_command(params_path: str | Path) -> list[str]:
-    """Build the GenomeLens ``analyze run submodule_request.json`` command."""
+    """Build the GenomeLens ``analyze run submodule_request.json`` command"""
 
     params, base = load_params(params_path)
     output_dir = Path(resolve_param_path(base, params.get("output_dir") or "output"))
@@ -101,7 +101,7 @@ def build_runtime_command(params_path: str | Path) -> list[str]:
 
 
 def run_runtime(argv: list[str]) -> int:
-    """Run a prepared command and return its exit code."""
+    """Run a prepared command and return its exit code"""
 
     import subprocess
 
@@ -110,7 +110,7 @@ def run_runtime(argv: list[str]) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
-    """Run the multi-species local synteny feature entry."""
+    """Run the multi-species local synteny feature entry"""
 
     args = sys.argv[1:] if argv is None else argv
     try:

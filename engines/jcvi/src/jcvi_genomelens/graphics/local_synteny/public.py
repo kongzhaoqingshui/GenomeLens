@@ -87,7 +87,7 @@ from jcvi_genomelens.graphics.local_synteny.style import (
 
 # region 场景构建与布局求解
 class LocalSyntenySceneBuilder:
-    """Build a chromosome-aware scene from JCVI-style input files."""
+    """Build a chromosome-aware scene from JCVI-style input files"""
 
     def build(
         self,
@@ -110,7 +110,7 @@ class LocalSyntenySceneBuilder:
 
 
 class LocalSyntenyLayoutSolver:
-    """Place chromosome segments, compressed gaps, lanes, and adjacent links."""
+    """Place chromosome segments, compressed gaps, lanes, and adjacent links"""
 
     def solve(self, scene: LocalSyntenyScene, *, figsize: str = "", dpi: int = 300) -> LocalSyntenyLayout:
         """求解染色体片段位置、压缩间隙、lane 与相邻连线"""
@@ -164,7 +164,7 @@ class LocalSyntenyLayoutSolver:
 
 
 class MatplotlibLocalSyntenyRenderer:
-    """Render a solved local synteny layout as a compact publication-style figure."""
+    """Render a solved local synteny layout as a compact publication-style figure"""
 
     def render(
         self,
@@ -271,7 +271,7 @@ class MatplotlibLocalSyntenyRenderer:
 
 # region 输入解析与工具函数
 def _strip_highlight_prefix(value: str) -> tuple[bool, str]:
-    """Return ``(is_highlighted, accn)`` after stripping a JCVI ``r*`` prefix."""
+    """Return ``(is_highlighted, accn)`` after stripping a JCVI ``r*`` prefix"""
 
     if "*" in value:
         prefix, body = value.split("*", 1)
@@ -280,7 +280,7 @@ def _strip_highlight_prefix(value: str) -> tuple[bool, str]:
 
 
 def _read_bed(path: Path) -> dict[str, GeneRecord]:
-    """Read a BED file and map ``accn -> GeneRecord``."""
+    """Read a BED file and map ``accn -> GeneRecord``"""
 
     genes: dict[str, GeneRecord] = {}
     with path.open("r", encoding="utf-8") as handle:
@@ -303,7 +303,7 @@ def _read_bed(path: Path) -> dict[str, GeneRecord]:
 
 
 def _read_blocks(path: Path, track_count: int) -> list[RenderBlock]:
-    """Parse a JCVI-style blocks file."""
+    """Parse a JCVI-style blocks file"""
 
     rows: list[RenderBlock] = []
     with path.open("r", encoding="utf-8") as handle:
@@ -328,7 +328,7 @@ def _read_blocks(path: Path, track_count: int) -> list[RenderBlock]:
 
 
 def _scope_of(accn: str) -> tuple[str, str]:
-    """Split ``species__gene`` into ``(species, gene)``."""
+    """Split ``species__gene`` into ``(species, gene)``"""
 
     if "__" in accn:
         species, _, gene = accn.partition("__")
@@ -337,26 +337,26 @@ def _scope_of(accn: str) -> tuple[str, str]:
 
 
 def _safe_prefix(value: str) -> str:
-    """Return the scoped-ID prefix used by multi-species local BED files."""
+    """Return the scoped-ID prefix used by multi-species local BED files"""
 
     text = re.sub(r"[^0-9A-Za-z_.-]+", "_", value.strip())
     return text or "species"
 
 
 def _track_prefix(track_name: str) -> str:
-    """Return the expected scoped-ID prefix for a track name."""
+    """Return the expected scoped-ID prefix for a track name"""
 
     return _safe_prefix(track_name)
 
 
 def _display_accn(accn: str) -> str:
-    """Return the human-readable part of an accn."""
+    """Return the human-readable part of an accn"""
 
     return _scope_of(accn)[1]
 
 
 def _format_bp_range(start_bp: float, end_bp: float) -> str:
-    """Format a base-pair range like JCVI does."""
+    """Format a base-pair range like JCVI does"""
 
     span = abs(end_bp - start_bp)
     if span >= 1_000_000:
@@ -367,7 +367,7 @@ def _format_bp_range(start_bp: float, end_bp: float) -> str:
 
 
 def _chromosome_ordered_groups(items: list[tuple[GeneRecord, int]]) -> list[tuple[str, list[tuple[GeneRecord, int]]]]:
-    """Group genes by chromosome while preserving first block-row appearance."""
+    """Group genes by chromosome while preserving first block-row appearance"""
 
     order: list[str] = []
     grouped: dict[str, list[tuple[GeneRecord, int]]] = {}
@@ -380,7 +380,7 @@ def _chromosome_ordered_groups(items: list[tuple[GeneRecord, int]]) -> list[tupl
 
 
 def _dedupe_gene_rows(items: list[tuple[GeneRecord, int]]) -> list[tuple[GeneRecord, int]]:
-    """Keep the first visual occurrence of each gene for segment placement."""
+    """Keep the first visual occurrence of each gene for segment placement"""
 
     seen: set[str] = set()
     unique: list[tuple[GeneRecord, int]] = []
@@ -398,7 +398,7 @@ def _track_chromosome_genes(
     track_name: str,
     chromosome: str,
 ) -> list[GeneRecord]:
-    """Return all BED genes for a track/chromosome, preferring scoped IDs."""
+    """Return all BED genes for a track/chromosome, preferring scoped IDs"""
 
     prefix = _track_prefix(track_name)
     scoped_matches = [
@@ -411,7 +411,7 @@ def _track_chromosome_genes(
 
 
 def _should_expand_context(anchors: list[tuple[GeneRecord, int]], start_bp: float, end_bp: float) -> bool:
-    """Return True for very small local segments that need flanking context."""
+    """Return True for very small local segments that need flanking context"""
 
     return len(anchors) <= SHORT_SEGMENT_CONTEXT_ANCHORS or (end_bp - start_bp) <= SHORT_SEGMENT_CONTEXT_BP
 
@@ -425,7 +425,7 @@ def _genes_in_track_interval(
     end_bp: float,
     anchors: list[tuple[GeneRecord, int]],
 ) -> TrackIntervalGenes:
-    """Return all BED genes from one track interval, preserving anchor rows and context."""
+    """Return all BED genes from one track interval, preserving anchor rows and context"""
 
     anchor_rows = {gene.accn: row_index for gene, row_index in anchors}
     chromosome_genes = _track_chromosome_genes(genes, track_name=track_name, chromosome=chromosome)
@@ -461,7 +461,7 @@ def _genes_in_track_interval(
 
 
 def _total_track_span(items: list[tuple[GeneRecord, int]]) -> float:
-    """Return total BED span across chromosome segments in one track."""
+    """Return total BED span across chromosome segments in one track"""
 
     total = 0.0
     for _chromosome, group in _chromosome_ordered_groups(_dedupe_gene_rows(items)):
@@ -470,7 +470,7 @@ def _total_track_span(items: list[tuple[GeneRecord, int]]) -> float:
 
 
 def _track_visual_width_for_span(span: float, max_span: float) -> float:
-    """Scale a track's total visual width against the longest local window."""
+    """Scale a track's total visual width against the longest local window"""
 
     if max_span <= 0:
         return MAX_TRACK_WIDTH
@@ -478,7 +478,7 @@ def _track_visual_width_for_span(span: float, max_span: float) -> float:
 
 
 def _center_track_window(track: TrackWindow) -> None:
-    """Center one track's solved visual span on the shared canvas axis."""
+    """Center one track's solved visual span on the shared canvas axis"""
 
     if not track.segments:
         return
@@ -494,7 +494,7 @@ def _build_target_legend_entries(
     block_rows: list[RenderBlock],
     target_gene_ids: set[str],
 ) -> list[TargetLegendEntry]:
-    """Build stable target legend entries from highlighted rows and explicit target genes."""
+    """Build stable target legend entries from highlighted rows and explicit target genes"""
 
     ordered: list[str] = []
     for row in block_rows:
@@ -514,13 +514,13 @@ def _build_target_legend_entries(
 
 
 def _target_color_by_gene(layout: LocalSyntenyLayout) -> dict[str, str]:
-    """Return legend colour by full gene ID."""
+    """Return legend colour by full gene ID"""
 
     return {entry.gene_id: entry.color for entry in layout.target_legend_entries}
 
 
 def _estimate_segment_width(genes: list[GeneRecord]) -> float:
-    """Estimate a compact segment width before gap-compressed mapping."""
+    """Estimate a compact segment width before gap-compressed mapping"""
 
     if not genes:
         return MIN_SEGMENT_WIDTH
@@ -531,7 +531,7 @@ def _estimate_segment_width(genes: list[GeneRecord]) -> float:
 
 
 def _allocate_segment_widths_by_span(spans: list[float], available_width: float) -> list[float]:
-    """Allocate same-row chromosome widths proportionally to real BED spans."""
+    """Allocate same-row chromosome widths proportionally to real BED spans"""
 
     if not spans:
         return []
@@ -576,7 +576,7 @@ def _map_segment_genes(
     start_x: float,
     target_width: float,
 ) -> tuple[list[MappedGene], list[float], bool]:
-    """Map one chromosome segment with compressed intra-chromosomal gaps."""
+    """Map one chromosome segment with compressed intra-chromosomal gaps"""
 
     ordered = sorted(items, key=lambda item: (item[0].start, item[0].end, item[0].accn))
     genes = [gene for gene, _ in ordered]
@@ -611,7 +611,7 @@ def _map_segment_genes(
 
 
 def _flip_strand(strand: str) -> str:
-    """Flip a BED strand for a visually reversed segment."""
+    """Flip a BED strand for a visually reversed segment"""
 
     if strand == "-":
         return "+"
@@ -621,7 +621,7 @@ def _flip_strand(strand: str) -> str:
 
 
 def _should_reverse_segment(group: list[tuple[GeneRecord, int]], row_x: dict[int, float]) -> bool:
-    """Infer whether a target segment should be drawn in reverse orientation."""
+    """Infer whether a target segment should be drawn in reverse orientation"""
 
     pairs = sorted((row_x[row_index], gene.start) for gene, row_index in group if row_index in row_x)
     if len(pairs) < 2:
@@ -640,7 +640,7 @@ def _reverse_mapped_segment(
     start_x: float,
     width: float,
 ) -> None:
-    """Mirror mapped genes inside a segment and flip their displayed strand."""
+    """Mirror mapped genes inside a segment and flip their displayed strand"""
 
     for item in mapped:
         offset = item.x - start_x
@@ -651,7 +651,7 @@ def _reverse_mapped_segment(
 
 
 def _set_segment_orientation(segment: ChromosomeSegment, *, reversed_orientation: bool) -> None:
-    """Mirror a solved segment when enforcing same-track visual orientation."""
+    """Mirror a solved segment when enforcing same-track visual orientation"""
 
     if segment.reversed == reversed_orientation:
         return
@@ -666,7 +666,7 @@ def _set_segment_orientation(segment: ChromosomeSegment, *, reversed_orientation
 
 
 def _unify_track_segment_orientations(segments: list[ChromosomeSegment]) -> None:
-    """Keep all chromosome segments in one track oriented like the leftmost segment."""
+    """Keep all chromosome segments in one track oriented like the leftmost segment"""
 
     if len(segments) <= 1:
         return
@@ -682,7 +682,7 @@ def _cap_mapped_segment_width(
     start_x: float,
     max_width: float,
 ) -> None:
-    """Keep compressed gap glyphs from expanding a segment beyond its real-width allocation."""
+    """Keep compressed gap glyphs from expanding a segment beyond its real-width allocation"""
 
     if not mapped:
         return
@@ -711,7 +711,7 @@ def _map_reference_segment_genes(
     visual_start: float,
     visual_width: float,
 ) -> tuple[list[MappedGene], float, float]:
-    """Map reference genes by true BED coordinates without row-order spacing."""
+    """Map reference genes by true BED coordinates without row-order spacing"""
 
     ordered = sorted(items, key=lambda item: (item[0].start, item[0].end, item[0].accn))
     start_bp = min(gene.start for gene, _ in ordered)
@@ -736,7 +736,7 @@ def _build_track_window(
     genes: list[GeneRecord],
     scale: float,
 ) -> TrackWindow:
-    """Build a standalone gap-compressed track window.
+    """Build a standalone gap-compressed track window
 
     This helper is retained for existing tests and for simple proportional
     mapping.  The production renderer uses the reference-aware builder below.
@@ -799,7 +799,7 @@ def _build_reference_track(
     *,
     max_visual_width: float = MAX_TRACK_WIDTH,
 ) -> tuple[TrackWindow, dict[int, float]]:
-    """Build the reference track on true BED coordinates."""
+    """Build the reference track on true BED coordinates"""
 
     segments: list[ChromosomeSegment] = []
     all_mapped: list[MappedGene] = []
@@ -874,7 +874,7 @@ def _build_target_track(
     *,
     max_visual_width: float = MAX_TRACK_WIDTH,
 ) -> TrackWindow:
-    """Build a non-reference track and align segments to reference anchors."""
+    """Build a non-reference track and align segments to reference anchors"""
 
     segments: list[ChromosomeSegment] = []
     all_mapped: list[MappedGene] = []
@@ -977,14 +977,14 @@ def _build_target_track(
 
 
 def _assign_segment_lanes(segments: list[ChromosomeSegment]) -> None:
-    """Keep chromosome segments on the same species row."""
+    """Keep chromosome segments on the same species row"""
 
     for segment in segments:
         segment.lane = 0
 
 
 def _shift_segment(segment: ChromosomeSegment, delta: float) -> None:
-    """Shift a solved chromosome segment horizontally."""
+    """Shift a solved chromosome segment horizontally"""
 
     if delta == 0:
         return
@@ -996,7 +996,7 @@ def _shift_segment(segment: ChromosomeSegment, delta: float) -> None:
 
 
 def _rescale_segment(segment: ChromosomeSegment, *, new_start: float, new_width: float) -> None:
-    """Rescale a segment into a new horizontal span."""
+    """Rescale a segment into a new horizontal span"""
 
     old_start = segment.visual_start
     old_width = max(1e-9, segment.visual_end - segment.visual_start)
@@ -1010,7 +1010,7 @@ def _rescale_segment(segment: ChromosomeSegment, *, new_start: float, new_width:
 
 
 def _pack_segments_same_row(segments: list[ChromosomeSegment]) -> None:
-    """Pack same-track chromosome segments on one row without overlaps."""
+    """Pack same-track chromosome segments on one row without overlaps"""
 
     if not segments:
         return
@@ -1052,7 +1052,7 @@ def _collect_track_gene_rows(
     block_rows: list[RenderBlock],
     track_count: int,
 ) -> list[list[tuple[GeneRecord, int]]]:
-    """Collect genes per track from parsed blocks."""
+    """Collect genes per track from parsed blocks"""
 
     track_items: list[list[tuple[GeneRecord, int]]] = [[] for _ in range(track_count)]
     for row_index, row in enumerate(block_rows):
@@ -1069,7 +1069,7 @@ def _collect_track_gene_rows(
 
 
 def _build_links(block_rows: list[RenderBlock], track_count: int) -> list[AnchorLink]:
-    """Build adjacent-track links from block rows."""
+    """Build adjacent-track links from block rows"""
 
     links: list[AnchorLink] = []
     for row_index, row in enumerate(block_rows):

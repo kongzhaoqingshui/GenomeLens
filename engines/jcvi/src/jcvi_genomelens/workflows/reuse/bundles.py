@@ -1,4 +1,4 @@
-"""Reusable artifact bundle helpers shared by JCVI workflows."""
+"""Reusable artifact bundle helpers shared by JCVI workflows"""
 
 from __future__ import annotations
 
@@ -9,13 +9,13 @@ PAIRWISE_CORE_ARTIFACT_IDS = ("blast_table", "anchors", "simple", "blocks", "mer
 
 
 def find_bundle(bundles: list[ArtifactBundleSpec], bundle_type: str) -> ArtifactBundleSpec | None:
-    """Return the first bundle matching the requested type."""
+    """Return the first bundle matching the requested type"""
 
     return next((bundle for bundle in bundles if bundle.bundle_type == bundle_type), None)
 
 
 def pairwise_artifacts_from_bundles(bundles: list[ArtifactBundleSpec]) -> PairwiseArtifacts | None:
-    """Resolve pairwise artifacts from the generic bundle list."""
+    """Resolve pairwise artifacts from the generic bundle list"""
 
     bundle = find_bundle(bundles, PAIRWISE_CORE_BUNDLE_TYPE)
     if bundle is None:
@@ -35,13 +35,13 @@ def pairwise_artifacts_from_bundles(bundles: list[ArtifactBundleSpec]) -> Pairwi
 
 
 def pairwise_artifacts_from_manifest(manifest: EngineRunManifest) -> PairwiseArtifacts | None:
-    """Resolve pairwise artifacts from either legacy or bundle-based inputs."""
+    """Resolve pairwise artifacts from either legacy or bundle-based inputs"""
 
     return manifest.pairwise_artifacts or pairwise_artifacts_from_bundles(manifest.artifact_bundles)
 
 
 def pairwise_core_bundle_from_artifacts(artifacts: PairwiseArtifacts) -> ArtifactBundleSpec:
-    """Convert legacy pairwise artifacts into a generic bundle spec."""
+    """Convert legacy pairwise artifacts into a generic bundle spec"""
 
     return ArtifactBundleSpec(
         bundle_type=PAIRWISE_CORE_BUNDLE_TYPE,

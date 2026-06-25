@@ -23,7 +23,7 @@ def _artifact_index(artifacts: dict[str, object], workflow: str) -> list[dict[st
                 continue
             suffix = Path(item).suffix.lower().lstrip(".")
             artifact_id = key if len(values) == 1 else f"{key}_{index + 1}"
-            # engine summary 先把 artifact 平铺成索引，方便 shell/GUI 不理解业务键也能浏览。
+            # engine summary 先把 artifact 平铺成索引，方便 shell/GUI 不理解业务键也能浏览
             records.append(
                 {
                     "artifact_id": artifact_id,
@@ -58,7 +58,7 @@ def write_summary(
     target = Path(path)
     target.parent.mkdir(parents=True, exist_ok=True)
     profile = build_runtime_profile()
-    # 运行时画像与版本信息在 engine 侧一次性固化，shell 层只做透传。
+    # 运行时画像与版本信息在 engine 侧一次性固化，shell 层只做透传
     payload = {
         "status": status,
         "schema_version": schema_version,
