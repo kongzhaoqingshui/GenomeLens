@@ -15,8 +15,8 @@
       "key": "output_dir",
       "valueType": "dir_selector",
       "example_value": "output",
-      "description": "结果输出目录。",
-      "description_en": "Output directory for results."
+      "description": "多物种局部共线性总图输出目录。这里通常会生成围绕候选位点的跨物种汇总图件。",
+      "description_en": "Output directory for multi-species local synteny results. This usually contains the cross-species summary figure centered on candidate loci."
     },
     {
       "label": "Tracks",
@@ -60,8 +60,8 @@
       "key": "up",
       "valueType": "int",
       "example_value": 20,
-      "description": "目标基因上游取多少个基因。",
-      "description_en": "Number of genes upstream of each target gene."
+      "description": "在每个目标基因上游保留多少个基因进入多物种局部汇总图，用于扩展比较窗口。",
+      "description_en": "How many genes upstream of each target gene should be retained in the multi-species local summary figure, extending the comparison window."
     },
     {
       "label": "下游窗口基因数",
@@ -69,8 +69,8 @@
       "key": "down",
       "valueType": "int",
       "example_value": 20,
-      "description": "目标基因下游取多少个基因。",
-      "description_en": "Number of genes downstream of each target gene."
+      "description": "在每个目标基因下游保留多少个基因进入多物种局部汇总图，与上游窗口共同决定观察范围。",
+      "description_en": "How many genes downstream of each target gene should be retained in the multi-species local summary figure. Together with the upstream window, it defines the inspected range."
     },
     {
       "label": "输出格式",
@@ -78,8 +78,8 @@
       "key": "formats",
       "valueType": "customer_selector",
       "example_value": "svg",
-      "description": "输出图片格式。",
-      "description_en": "Output image format.",
+      "description": "多物种局部共线性图输出格式。若计划进一步编辑标注与排版，推荐优先使用矢量格式。",
+      "description_en": "Output format for the multi-species local synteny figure. Vector formats are recommended if further annotation and layout editing is planned.",
       "options": ["svg", "png", "pdf", "eps", "jpg"]
     }
   ]

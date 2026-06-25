@@ -2,13 +2,22 @@
 
 ## 概述
 
-`gljcvi-synteny` 是 GenomeLens 在 HAIant（智然体）平台上的 **MCscan JCVI 一键自动流** 插件。它根据 `params.json` 动态生成 `output/jcvi.config.json`，并直接调用外部 `GenomeLens.exe`：
+`gljcvi-synteny` 是 GenomeLens 在 HAIant（智然体）平台上的 **MCscan JCVI 一键自动流** 插件。它面向 2~n 个物种的比较基因组学场景，把同源搜索、共线性区块识别、全局绘图和目标基因局部共线性出图整合成一条稳定的端到端流程。
+
+在实际使用中，它最适合回答这几类问题：
+
+- 多个基因组之间是否存在清晰的染色体保守框架；
+- 是否出现倒位、易位、断裂、融合或复制等结构变化；
+- 某个候选基因在其他物种中是否保留了相似的上下游邻域；
+- 是否可以直接得到适合汇报或论文整理的共线性图件与中间结果。
+
+插件执行时会根据 `params.json` 动态生成 `output/jcvi.config.json`，并直接调用外部 `GenomeLens.exe`：
 
 ```text
 <GenomeLens_Path> analyze workflow synteny <input_dir> <output_dir> --jcvi-config output/jcvi.config.json
 ```
 
-与其他单一功能插件不同，`gljcvi-synteny` **不生成 `genomelens_request.json`**，也不走 `analyze run` 流程。它封装了 GenomeLens 原生的 `analyze workflow synteny` 自动目录分析命令，自动完成物种发现、比对、共线性识别、绘图或局部共线性出图。
+与其他单一功能插件不同，`gljcvi-synteny` **不生成 `genomelens_request.json`**，也不走 `analyze run` 流程。它直接封装 GenomeLens 原生的 `analyze workflow synteny` 自动目录分析命令，自动完成物种发现、配对、比对、共线性识别以及全局或局部图件输出。
 
 本目录是 `gljcvi-synteny` 插件包内容：
 
@@ -121,17 +130,17 @@ my_project/
 
 | 参数 | 类型 | 必填 | 默认值 | 说明 |
 |------|------|------|--------|------|
-| `input_dir` | dir | 是* | — | 输入目录 |
+| `input_dir` | dir | 是* | — | 至少包含 2 个物种的输入目录，支持 BED+CDS/PEP 或 GFF/GTF+FASTA，同一物种需按同名前缀成对提供 |
 | `output_dir` | dir | 否 | `output` | 输出目录 |
-| `reference` | str/int | 否 | `1` | 参考物种 |
+| `reference` | str/int | 否 | `1` | 参考物种名称或 1-based 索引，影响多物种比较中的主坐标与局部共线性解释视角 |
 | `threads` | int | 否 | `4` | 线程数 |
-| `min_block_size` | int | 否 | `1` | 最小 block 基因数 |
+| `min_block_size` | int | 否 | `1` | 保留共线性区块所需的最小基因数，越高通常越保守 |
 | `formats` | enum | 否 | `svg` | 输出格式 |
-| `align_soft` | enum | 否 | `blast` | 比对后端 |
-| `dbtype` | enum | 否 | `nucl` | 序列类型 |
-| `cscore` | float | 否 | `0.7` | 同源过滤强度 |
-| `dist` | int | 否 | `20` | 锚点最大基因距离 |
-| `iter` | int | 否 | `1` | 过滤迭代次数 |
+| `align_soft` | enum | 否 | `blast` | 同源搜索所使用的比对后端，会影响速度、灵敏度与锚点数量 |
+| `dbtype` | enum | 否 | `nucl` | 同源搜索使用的序列类型：核酸或蛋白 |
+| `cscore` | float | 否 | `0.7` | 同源匹配过滤强度，越高通常越严格 |
+| `dist` | int | 否 | `20` | 锚点在基因顺序上允许相隔的最大距离，越大越宽松 |
+| `iter` | int | 否 | `1` | 共线性区块过滤迭代次数，更多迭代通常更保守 |
 | `glyphstyle` | enum | 否 | `""` | 基因形状：`box` / `arrow` |
 | `glyphcolor` | enum | 否 | `""` | 基因着色：`orientation` / `orthogroup` |
 | `shadestyle` | enum | 否 | `""` | 连线样式：`curve` / `line` |
@@ -149,9 +158,9 @@ my_project/
 
 | 参数 | 类型 | 必填 | 默认值 | 说明 |
 |------|------|------|--------|------|
-| `target_gene_ids` | str | 否 | `""` | 目标基因 ID，多个用逗号分隔 |
-| `up` | int | 否 | `20` | 上游窗口基因数 |
-| `down` | int | 否 | `20` | 下游窗口基因数 |
+| `target_gene_ids` | str | 否 | `""` | 目标基因 ID，填写后切换到局部共线性模式；多个用逗号分隔 |
+| `up` | int | 否 | `20` | 每个目标基因上游纳入的基因数，用于扩展局部观察范围 |
+| `down` | int | 否 | `20` | 每个目标基因下游纳入的基因数，与 `up` 一起决定局部窗口大小 |
 | `split_targets` | bool | 否 | `false` | 每个目标单独出图（`gljcvi-synteny` 默认单图全出） |
 | `label_targets` | bool | 否 | `false` | 在图中标注目标基因 |
 

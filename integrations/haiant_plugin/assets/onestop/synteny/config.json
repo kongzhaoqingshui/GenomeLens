@@ -24,8 +24,8 @@
       "key": "output_dir",
       "valueType": "dir_selector",
       "example_value": "output",
-      "description": "结果输出目录。",
-      "description_en": "Output directory for results."
+      "description": "分析结果输出目录。这里通常会生成同源搜索结果、共线性区块文件、汇总图件以及后续可复用的中间文件。",
+      "description_en": "Output directory for analysis results. This is where homology search outputs, synteny block files, summary figures, and reusable intermediate files are usually written."
     },
     {
       "label": "参考物种",
@@ -33,8 +33,8 @@
       "key": "reference",
       "valueType": "str",
       "example_value": "1",
-      "description": "参考物种名称或 1-based 索引；默认第一个物种。",
-      "description_en": "Reference species name or 1-based index; defaults to the first species."
+      "description": "指定比较中的参考物种名称或 1-based 索引；默认第一个物种。它会影响多物种比较中的主坐标、局部共线性对齐方向以及目标基因所在的解释视角。",
+      "description_en": "Specify the reference species name or 1-based index; the first species is used by default. This affects the main coordinate system in multi-species comparisons, the alignment perspective of local synteny, and how target-gene-centered results are interpreted."
     },
     {
       "label": "目标基因 ID",
@@ -51,8 +51,8 @@
       "key": "up",
       "valueType": "int",
       "example_value": 20,
-      "description": "目标基因上游取多少个基因。",
-      "description_en": "Number of genes upstream of each target gene."
+      "description": "局部共线性模式下，从每个目标基因上游额外纳入多少个基因。数值越大，越适合观察更长范围的邻域保守性与局部重排。",
+      "description_en": "In local synteny mode, controls how many additional genes upstream of each target gene are included. Larger values are useful for inspecting broader neighborhood conservation and local rearrangements."
     },
     {
       "label": "下游窗口基因数",
@@ -60,8 +60,8 @@
       "key": "down",
       "valueType": "int",
       "example_value": 20,
-      "description": "目标基因下游取多少个基因。",
-      "description_en": "Number of genes downstream of each target gene."
+      "description": "局部共线性模式下，从每个目标基因下游额外纳入多少个基因。与上游窗口共同决定局部图的观察范围。",
+      "description_en": "In local synteny mode, controls how many additional genes downstream of each target gene are included. Together with the upstream window, it defines the visible range of the local synteny figure."
     },
     {
       "label": "多个目标各自出图",
@@ -87,8 +87,8 @@
       "key": "threads",
       "valueType": "int",
       "example_value": 4,
-      "description": "运行时工作线程数。",
-      "description_en": "Number of worker threads."
+      "description": "运行时可并行使用的线程数，主要影响同源搜索与部分文件处理阶段的速度。",
+      "description_en": "Number of worker threads available during execution, mainly affecting the speed of homology search and parts of the file-processing pipeline."
     },
     {
       "label": "最小共线性区块大小",
@@ -96,8 +96,8 @@
       "key": "min_block_size",
       "valueType": "int",
       "example_value": 1,
-      "description": "保留 block 所需的最小基因数。",
-      "description_en": "Minimum gene count for retained synteny blocks."
+      "description": "保留一个共线性区块所需的最小基因数。数值越高，结果通常越保守、越偏向稳定大片段；数值越低，则更容易保留短小但可能有意义的局部区块。",
+      "description_en": "Minimum number of genes required to retain a synteny block. Higher values usually make the result more conservative and biased toward stable large segments, while lower values retain shorter local blocks that may still be biologically meaningful."
     },
     {
       "label": "输出格式",
@@ -106,8 +106,8 @@
       "valueType": "customer_selector",
       "options": ["svg", "png", "pdf", "eps", "jpg"],
       "example_value": "svg",
-      "description": "输出图片格式。",
-      "description_en": "Output image format."
+      "description": "最终图件输出格式。`svg`/`pdf` 更适合后续编辑与论文排版，`png`/`jpg` 更适合快速预览与汇报。",
+      "description_en": "Final figure output format. `svg` and `pdf` are better for downstream editing and manuscript layout, while `png` and `jpg` are more convenient for quick preview and presentation."
     },
     {
       "label": "比对后端",
@@ -116,8 +116,8 @@
       "valueType": "customer_selector",
       "options": ["blast", "last", "diamond_blastp"],
       "example_value": "blast",
-      "description": "同源搜索比对后端。",
-      "description_en": "Homology search alignment backend."
+      "description": "同源搜索所使用的比对后端。不同工具在速度、灵敏度和适用序列类型上各有侧重，会直接影响后续锚点数量与共线性区块识别结果。",
+      "description_en": "Alignment backend used for homology search. Different tools vary in speed, sensitivity, and suitable sequence types, and they directly influence the number of anchors and the downstream synteny block results."
     },
     {
       "label": "序列类型",
@@ -126,8 +126,8 @@
       "valueType": "customer_selector",
       "options": ["nucl", "prot"],
       "example_value": "nucl",
-      "description": "序列数据库类型：nucl（核酸）或 prot（蛋白）。",
-      "description_en": "Sequence database type: nucl or prot."
+      "description": "指定用于同源搜索的序列类型：`nucl` 为核酸，`prot` 为蛋白。它会影响比对策略以及最终同源命中的组成。",
+      "description_en": "Specify the sequence type used in homology search: `nucl` for nucleotide sequences and `prot` for protein sequences. This affects the alignment strategy and the composition of final homologous hits."
     },
     {
       "label": "同源匹配过滤强度",
@@ -135,8 +135,8 @@
       "key": "cscore",
       "valueType": "float",
       "example_value": 0.7,
-      "description": "同源匹配过滤强度。",
-      "description_en": "Homology match filtering strength."
+      "description": "同源匹配过滤强度阈值。更高的值通常会保留更可信的匹配、减少噪声，但也可能丢失较弱的远缘同源信号。",
+      "description_en": "Filtering strength threshold for homology matches. Higher values usually retain more confident matches and reduce noise, but may also remove weaker signals from more distant homologs."
     },
     {
       "label": "共线性锚点最大基因距离",
@@ -144,8 +144,8 @@
       "key": "dist",
       "valueType": "int",
       "example_value": 20,
-      "description": "共线性锚点间允许的最大基因距离。",
-      "description_en": "Maximum gene distance between synteny anchors."
+      "description": "定义两个锚点在基因顺序上允许相隔的最大距离。较大的值更宽松，适合结构扰动较多的基因组；较小的值更严格，更强调紧密保守的共线性片段。",
+      "description_en": "Maximum allowed distance between anchors in gene order. Larger values are more permissive and suit genomes with heavier structural disturbance, while smaller values are stricter and emphasize tightly conserved syntenic segments."
     },
     {
       "label": "Block 过滤迭代次数",
@@ -153,8 +153,8 @@
       "key": "iter",
       "valueType": "int",
       "example_value": 1,
-      "description": "Block 过滤迭代次数。",
-      "description_en": "Number of block filtering iterations."
+      "description": "共线性区块过滤的迭代次数。更多迭代通常会进一步清理不稳定或边缘性区块，但也可能让结果更保守。",
+      "description_en": "Number of synteny block filtering iterations. More iterations usually further clean unstable or marginal blocks, but can also make the final result more conservative."
     },
     {
       "label": "基因形状",
@@ -163,8 +163,8 @@
       "valueType": "customer_selector",
       "options": ["box", "arrow"],
       "example_value": "",
-      "description": "基因形状：box / arrow。",
-      "description_en": "Gene glyph style: box / arrow."
+      "description": "共线性图中基因的绘制样式。`arrow` 更适合强调方向信息，`box` 更适合简洁展示区段对应关系。",
+      "description_en": "Drawing style for genes in synteny figures. `arrow` is better for emphasizing directionality, whereas `box` is cleaner for simplified segment correspondence."
     },
     {
       "label": "基因着色",
@@ -173,8 +173,8 @@
       "valueType": "customer_selector",
       "options": ["orientation", "orthogroup"],
       "example_value": "",
-      "description": "基因着色策略：orientation / orthogroup。",
-      "description_en": "Gene coloring strategy: orientation / orthogroup."
+      "description": "基因着色策略。`orientation` 更适合观察方向一致性与倒位，`orthogroup` 更适合强调同源组别和配对关系。",
+      "description_en": "Gene coloring strategy. `orientation` is more useful for inspecting strand consistency and inversions, while `orthogroup` is better for highlighting orthologous grouping and pairing relationships."
     },
     {
       "label": "连线样式",
@@ -183,8 +183,8 @@
       "valueType": "customer_selector",
       "options": ["curve", "line"],
       "example_value": "",
-      "description": "共线性连线样式：curve / line。",
-      "description_en": "Synteny link style: curve / line."
+      "description": "共线性连接的绘制方式。`curve` 更平滑、通常更适合展示；`line` 更直接，适合在结构较简单时强调对应关系。",
+      "description_en": "How syntenic connections are drawn. `curve` is smoother and usually better for presentation, while `line` is more direct and can be useful when the structure is simple and explicit correspondence is preferred."
     },
     {
       "label": "画布尺寸",
@@ -192,8 +192,8 @@
       "key": "figsize",
       "valueType": "str",
       "example_value": "",
-      "description": "画布尺寸，例如 10x5；留空使用默认。",
-      "description_en": "Figure size, e.g. 10x5; leave empty for default."
+      "description": "手动指定画布尺寸，例如 `10x5`。适合在轨道数量较多或准备论文排版时精调图件比例；留空则使用默认或自动优化尺寸。",
+      "description_en": "Manually set the figure size, for example `10x5`. This is useful when many tracks are present or when fine-tuning figure proportions for publication; leave empty to use the default or auto-optimized size."
     },
     {
       "label": "分辨率",
@@ -201,8 +201,8 @@
       "key": "dpi",
       "valueType": "int",
       "example_value": 300,
-      "description": "图片分辨率。",
-      "description_en": "Image resolution."
+      "description": "栅格图的输出分辨率。更高的 DPI 更适合汇报或发表，但也会增加文件体积与导出时间。",
+      "description_en": "Output resolution for raster figures. Higher DPI is better for presentations and publication, but also increases file size and export time."
     },
     {
       "label": "出图自动优化 (GenomeLens)",

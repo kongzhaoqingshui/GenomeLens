@@ -2,9 +2,9 @@
 
 ## 概述
 
-`gljcvi-heatmap` 是 GenomeLens 在 HAIant（智然体）平台上的**矩阵热图**可编排子模块插件。它把 `params.json` 直接转换为 `analyze submodule jcvi.graphics_heatmap` 调用，不生成 `genomelens_request.json`。
+`gljcvi-heatmap` 是 GenomeLens 在 HAIant（智然体）平台上的**矩阵热图**可编排子模块插件。它适合把相似度矩阵、共线性计数矩阵、表达矩阵或其他二维数值关系直接整理成热图，用于观察聚类格局、异常样本与强弱关联区域。
 
-该子模块适用于展示基因表达矩阵、共线性计数矩阵等二维数值数据。
+该子模块很适合作为“已有矩阵结果，想快速转成可读图件”的轻量可视化入口。
 
 本目录是 `gljcvi-heatmap` 插件包内容：
 
@@ -31,9 +31,9 @@ module_id = jcvi.graphics_heatmap
 | 参数 | 类型 | 必填 | 默认值 | 说明 |
 |------|------|------|--------|------|
 | `GenomeLens_Path` | file | 是* | — | 外部 GenomeLens 可执行文件路径 |
-| `input_file` | file | 是 | — | 输入矩阵 CSV 文件路径（matrix_csv 端口） |
+| `input_file` | file | 是 | — | 输入矩阵 CSV 文件路径（matrix_csv 端口）；行列通常代表物种、样本或基因集等比较单元 |
 | `output_dir` | dir | 否 | `output` | 结果输出目录 |
-| `cmap` | str | 否 | `""` | matplotlib 颜色映射名称 |
+| `cmap` | str | 否 | `""` | matplotlib 颜色映射名称，会影响强弱差异和聚类结构的可读性 |
 | `groups` | bool | 否 | `false` | 是否按列分组聚类 |
 | `rowgroups` | file | 否 | `""` | 行分组文件路径 |
 | `horizontalbar` | bool | 否 | `false` | 是否在顶部绘制水平颜色条 |

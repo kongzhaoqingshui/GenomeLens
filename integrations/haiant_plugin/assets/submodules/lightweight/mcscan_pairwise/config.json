@@ -24,8 +24,8 @@
       "key": "output_dir",
       "valueType": "dir_selector",
       "example_value": "output",
-      "description": "结果输出目录。",
-      "description_en": "Output directory for results."
+      "description": "该双物种分析的输出目录。通常会写出锚点、共线性区块以及可供后续图形模块继续使用的中间结果。",
+      "description_en": "Output directory for this pairwise analysis. It typically contains anchors, synteny blocks, and reusable intermediate results for downstream visualization modules."
     },
     {
       "label": "线程数",
@@ -33,8 +33,8 @@
       "key": "threads",
       "valueType": "int",
       "example_value": 4,
-      "description": "运行时工作线程数。",
-      "description_en": "Number of worker threads."
+      "description": "可用于该双物种流程的并行线程数，主要影响同源搜索阶段的运行速度。",
+      "description_en": "Number of parallel threads available to the pairwise workflow, mainly affecting the runtime of the homology search stage."
     },
     {
       "label": "最小共线性区块大小",
@@ -42,8 +42,8 @@
       "key": "min_block_size",
       "valueType": "int",
       "example_value": 1,
-      "description": "保留 block 所需的最小基因数。",
-      "description_en": "Minimum gene count for retained synteny blocks."
+      "description": "保留一个双物种共线性区块所需的最小基因数。提高该值会让结果更保守，更偏向稳定的大区段。",
+      "description_en": "Minimum number of genes required to retain a pairwise synteny block. Increasing this value makes the result more conservative and biased toward stable large segments."
     },
     {
       "label": "输出格式",
@@ -51,8 +51,8 @@
       "key": "formats",
       "valueType": "customer_selector",
       "example_value": "svg",
-      "description": "输出图片格式。",
-      "description_en": "Output image format.",
+      "description": "若该流程附带图件输出时使用的格式。矢量格式更适合后续编辑，位图格式更适合快速查看。",
+      "description_en": "Figure format used when this workflow emits graphics. Vector formats are better for downstream editing, while raster formats are convenient for quick viewing.",
       "options": ["svg", "png", "pdf", "eps", "jpg"]
     },
     {
@@ -62,8 +62,8 @@
       "valueType": "customer_selector",
       "options": ["blast", "last", "diamond_blastp"],
       "example_value": "blast",
-      "description": "同源搜索比对后端。",
-      "description_en": "Homology search alignment backend."
+      "description": "双物种同源搜索所使用的比对工具，不同后端会影响命中灵敏度、运行速度与最终锚点数量。",
+      "description_en": "Alignment tool used for pairwise homology search. Different backends affect hit sensitivity, runtime, and the final number of anchors."
     },
     {
       "label": "序列类型",
@@ -72,8 +72,8 @@
       "valueType": "customer_selector",
       "options": ["nucl", "prot"],
       "example_value": "nucl",
-      "description": "序列数据库类型：nucl（核酸）或 prot（蛋白）。",
-      "description_en": "Sequence database type: nucl or prot."
+      "description": "同源搜索时使用的序列类型：核酸或蛋白。它会影响比对策略以及更适合的比对后端选择。",
+      "description_en": "Sequence type used for homology search: nucleotide or protein. This influences the alignment strategy and the most suitable backend choice."
     },
     {
       "label": "同源匹配过滤强度",
@@ -81,8 +81,8 @@
       "key": "cscore",
       "valueType": "float",
       "example_value": 0.7,
-      "description": "同源匹配过滤强度。",
-      "description_en": "Homology match filtering strength."
+      "description": "控制同源匹配筛选的严格程度。更高的阈值通常能降低噪声，但可能同时减少远缘保守信号。",
+      "description_en": "Controls the strictness of homology match filtering. Higher thresholds usually reduce noise but may also remove more distant conserved signals."
     },
     {
       "label": "共线性锚点最大基因距离",
@@ -90,8 +90,8 @@
       "key": "dist",
       "valueType": "int",
       "example_value": 20,
-      "description": "共线性锚点间允许的最大基因距离。",
-      "description_en": "Maximum gene distance between synteny anchors."
+      "description": "定义锚点之间在基因顺序上允许的最大间隔，影响区块拼接的宽松程度。",
+      "description_en": "Defines the maximum allowed spacing between anchors in gene order, affecting how permissively blocks are assembled."
     },
     {
       "label": "Block 过滤迭代次数",
@@ -99,8 +99,8 @@
       "key": "iter",
       "valueType": "int",
       "example_value": 1,
-      "description": "Block 过滤迭代次数。",
-      "description_en": "Number of block filtering iterations."
+      "description": "控制共线性区块清理的迭代次数。更多迭代通常让结果更干净，但也更保守。",
+      "description_en": "Controls how many rounds of synteny block cleanup are performed. More iterations usually produce cleaner but more conservative results."
     }
   ]
 }

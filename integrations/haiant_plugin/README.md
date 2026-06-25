@@ -1,13 +1,13 @@
 # GenomeLens HAIant plugin（智然体插件）
 
-这一 integration layer（集成层）把 HAIant `params.json` 转换为 GenomeLens 平台公开入口调用。平台能力只有两类，但子模块插件继续细分为 lightweight / aggregate 两种编排语义：
+这一集成层把 GenomeLens 的比较基因组学能力接入到 HAIant（智然体）里，让用户在插件表单中直接完成共线性分析、直系同源整理和论文级图件输出，而不需要手写命令。平台能力只有两类，但子模块插件继续细分为 lightweight / aggregate 两种编排语义：
 
 1. **一站式工作流插件**：构造 `WorkflowRequest` JSON 并调用 `analyze run`，由平台自动完成路由与聚合。
 2. **可编排子模块插件**：构造 `SubmoduleRequest` JSON 并调用 `analyze run`，输入/输出通过端口显式传递。
    - **lightweight 子模块**：输入是单一任务域内的原始数据或轻量中间产物，不要求调用方先构造跨 pair / 跨物种聚合输入。
    - **aggregate 子模块**：输入是 `tracks`、`edges`、聚合 `blocks`、merged BED 等构造式聚合输入，用于总图或汇总结果。
 
-平台最新架构只承认这两类公开任务协议：`WorkflowRequest`（仅 `synteny`）和 `SubmoduleRequest`（10 个子模块）。所有插件都不实现分析算法，也不直接调用 JCVI；它们依赖外部 GenomeLens 可执行文件。
+平台最新架构只承认这两类公开任务协议：`WorkflowRequest`（仅 `synteny`）和 `SubmoduleRequest`（10 个子模块）。所有插件本身都不实现分析算法；真正的同源搜索、共线性识别、聚合绘图与结果归档由外部 GenomeLens 可执行文件完成。
 
 ## 当前范围
 

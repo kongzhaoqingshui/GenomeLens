@@ -15,8 +15,8 @@
       "key": "output_dir",
       "valueType": "dir_selector",
       "example_value": "output",
-      "description": "结果输出目录。",
-      "description_en": "Output directory for results."
+      "description": "全局核型总图输出目录。通常会在这里写出多物种染色体总览图及相关文件。",
+      "description_en": "Output directory for the global karyotype overview. This usually contains the multi-species chromosome overview figure and related files."
     },
     {
       "label": "Tracks",
@@ -42,8 +42,8 @@
       "key": "formats",
       "valueType": "customer_selector",
       "example_value": "svg",
-      "description": "输出图片格式。",
-      "description_en": "Output image format.",
+      "description": "全局核型图输出格式。若用于最终展示或排版，矢量格式通常更合适。",
+      "description_en": "Output format for the global karyotype figure. Vector formats are usually preferable for final presentation or layout work.",
       "options": ["svg", "png", "pdf", "eps", "jpg"]
     }
   ]

@@ -42,8 +42,8 @@
       "key": "output_dir",
       "valueType": "dir_selector",
       "example_value": "output",
-      "description": "结果输出目录。",
-      "description_en": "Output directory for results."
+      "description": "局部共线性图输出目录。这里通常会生成围绕目标位点的局部图件及其相关中间文件。",
+      "description_en": "Output directory for local synteny results. This usually contains the local figures centered on target loci together with related intermediate files."
     },
     {
       "label": "上游窗口基因数",
@@ -51,8 +51,8 @@
       "key": "up",
       "valueType": "int",
       "example_value": 20,
-      "description": "目标基因上游取多少个基因。",
-      "description_en": "Number of genes upstream of each target gene."
+      "description": "在每个目标基因上游纳入多少个基因进入局部图，数值越大越适合观察更长距离的邻域保守性。",
+      "description_en": "How many genes upstream of each target gene should be included in the local figure. Larger values are better for inspecting broader neighborhood conservation."
     },
     {
       "label": "下游窗口基因数",
@@ -60,8 +60,8 @@
       "key": "down",
       "valueType": "int",
       "example_value": 20,
-      "description": "目标基因下游取多少个基因。",
-      "description_en": "Number of genes downstream of each target gene."
+      "description": "在每个目标基因下游纳入多少个基因进入局部图，与上游窗口共同决定局部区域大小。",
+      "description_en": "How many genes downstream of each target gene should be included in the local figure. Together with the upstream window, this determines the size of the local region."
     },
     {
       "label": "多个目标各自出图",
@@ -69,8 +69,8 @@
       "key": "split_targets",
       "valueType": "bool",
       "example_value": false,
-      "description": "多个目标基因时各自单独出图。",
-      "description_en": "Generate separate figures when multiple target genes are given."
+      "description": "多个目标基因时分别输出独立图件，方便逐个比对不同位点的保守模式。",
+      "description_en": "Generate a separate figure for each target gene, making it easier to compare conservation patterns across different loci."
     },
     {
       "label": "标注目标基因",
@@ -78,8 +78,8 @@
       "key": "label_targets",
       "valueType": "bool",
       "example_value": false,
-      "description": "在图中标注目标基因名称。",
-      "description_en": "Label target gene names on the figure."
+      "description": "在局部共线性图中直接标注目标基因名称，便于人工核对与结果汇报。",
+      "description_en": "Label target gene names directly on local synteny figures for easier manual checking and reporting."
     },
     {
       "label": "使用原生局部共线性渲染器 (GenomeLens)",
@@ -96,8 +96,8 @@
       "key": "formats",
       "valueType": "customer_selector",
       "example_value": "svg",
-      "description": "输出图片格式。",
-      "description_en": "Output image format.",
+      "description": "局部共线性图输出格式。若需要后续编辑标签或版式，优先选择矢量格式。",
+      "description_en": "Output format for local synteny figures. Vector formats are preferred if you expect to edit labels or layout later.",
       "options": ["svg", "png", "pdf", "eps", "jpg"]
     }
   ]

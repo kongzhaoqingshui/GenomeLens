@@ -24,8 +24,8 @@
       "key": "output_dir",
       "valueType": "dir_selector",
       "example_value": "output",
-      "description": "结果输出目录。",
-      "description_en": "Output directory for results."
+      "description": "直方图输出目录。这里通常会生成一个或多个统计量分布图。",
+      "description_en": "Output directory for histogram results. This usually contains one or more distribution plots for the selected statistics."
     },
     {
       "label": "输出格式",
@@ -33,8 +33,8 @@
       "key": "formats",
       "valueType": "customer_selector",
       "example_value": "svg",
-      "description": "输出图片格式。",
-      "description_en": "Output image format.",
+      "description": "直方图输出格式。矢量格式适合排版，位图格式适合快速查看。",
+      "description_en": "Output format for histograms. Vector formats are suitable for layout work, while raster formats are convenient for quick preview.",
       "options": ["svg", "png", "pdf", "eps", "jpg"]
     },
     {
@@ -43,8 +43,8 @@
       "key": "histogram_bins",
       "valueType": "int",
       "example_value": 20,
-      "description": "直方图 bin 数量。",
-      "description_en": "Number of histogram bins."
+      "description": "直方图分箱数量。较少的 bin 更适合观察总体趋势，较多的 bin 更利于查看细节峰形。",
+      "description_en": "Number of bins in the histogram. Fewer bins are better for overall trends, while more bins help reveal fine-grained peak structure."
     },
     {
       "label": "读取列号",
@@ -52,8 +52,8 @@
       "key": "histogram_columns",
       "valueType": "str",
       "example_value": "0",
-      "description": "读取的列号，多个用逗号分隔。",
-      "description_en": "Column indices to read, comma-separated."
+      "description": "从输入文件中读取哪些数值列参与绘图，多个列号可用逗号分隔，适合比较同一文件中的不同统计量。",
+      "description_en": "Which numeric columns from the input files should be used for plotting. Multiple column indices can be separated by commas, which is useful for comparing different statistics within the same file."
     },
     {
       "label": "X 轴标签",
@@ -61,8 +61,8 @@
       "key": "histogram_xlabel",
       "valueType": "str",
       "example_value": "value",
-      "description": "X 轴标签。",
-      "description_en": "X-axis label."
+      "description": "直方图 X 轴标签，用于明确当前展示的统计量名称或单位。",
+      "description_en": "Label for the histogram X-axis, used to clarify the name or unit of the statistic being shown."
     },
     {
       "label": "图标题",
@@ -70,8 +70,8 @@
       "key": "histogram_title",
       "valueType": "str",
       "example_value": "",
-      "description": "图标题。",
-      "description_en": "Figure title."
+      "description": "图标题，可用于标注数据来源、比较对象或分析主题。",
+      "description_en": "Figure title, useful for indicating the data source, comparison object, or analysis topic."
     },
     {
       "label": "柱体填充色",
@@ -79,8 +79,8 @@
       "key": "histogram_fill",
       "valueType": "str",
       "example_value": "white",
-      "description": "柱体填充色。",
-      "description_en": "Bar fill color."
+      "description": "柱体填充颜色，用于提升多图或多组结果展示时的区分度。",
+      "description_en": "Fill color of histogram bars, useful for improving visual distinction across multiple figures or groups."
     }
   ]
 }

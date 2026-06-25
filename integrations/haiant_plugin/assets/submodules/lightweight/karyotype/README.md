@@ -2,9 +2,9 @@
 
 ## 概述
 
-`gljcvi-karyotype` 是 GenomeLens 在 HAIant（智然体）平台上的**双物种核型共线性图**可编排子模块插件。它把 `params.json` 直接转换为 `analyze submodule jcvi.graphics_karyotype` 调用，不生成 `genomelens_request.json`。
+`gljcvi-karyotype` 是 GenomeLens 在 HAIant（智然体）平台上的**双物种核型共线性图**可编排子模块插件。它适合把两个物种的染色体尺度共线性关系整理成一张直观的结构图，用于观察整条染色体或大片段之间的保守、断裂、重排与融合情况。
 
-核型图（karyotype figure）以染色体为轨道，把两个物种的整条染色体并排展示，并用连线/阴影带描绘同源区块，强调染色体级别的对应关系，适合展示全染色体尺度的结构保守性与重排事件。本子模块为下游可视化模块，需提供上游 MCscan pairwise 产出的 `.blocks` 文件。
+核型图（karyotype figure）以染色体为轨道，把两个物种的整条染色体并排展示，并用连线/阴影带描绘同源区块。本子模块依赖上游 MCscan pairwise 产出的 `.blocks` 文件，因此更偏向“在已经识别出共线性区块之后，做宏观结构解释和展示”的场景。
 
 本目录是 `gljcvi-karyotype` 插件包内容：
 
@@ -25,15 +25,15 @@ module_id = jcvi.graphics_karyotype
 | 端口 | 类型 | 必填 | 说明 |
 |------|------|------|------|
 | `species_pair` | dir | 是 | 包含两物种 BED/序列的输入目录（由 `input_dir` 映射） |
-| `blocks` | file | 是 | 上游 MCscan pairwise 产出的 `.blocks` 文件 |
+| `blocks` | file | 是 | 上游 MCscan pairwise 产出的 `.blocks` 文件，决定核型图中哪些染色体片段彼此连接 |
 
 ## 主要参数说明
 
 | 参数 | 类型 | 必填 | 默认值 | 说明 |
 |------|------|------|--------|------|
 | `GenomeLens_Path` | file | 是* | — | 外部 GenomeLens 可执行文件路径 |
-| `input_dir` | dir | 是 | — | 输入目录（species_pair 端口） |
-| `blocks` | file | 是 | — | `.blocks` 文件路径（blocks 端口） |
+| `input_dir` | dir | 是 | — | 双物种输入目录，用于解析染色体轨道与长度背景 |
+| `blocks` | file | 是 | — | `.blocks` 文件路径（blocks 端口），是核型图结构关系的核心输入 |
 | `output_dir` | dir | 否 | `output` | 结果输出目录 |
 | `figsize` | str | 否 | `""` | 画布尺寸，例如 `8x6` |
 | `dpi` | int | 否 | `300` | 图片分辨率 |

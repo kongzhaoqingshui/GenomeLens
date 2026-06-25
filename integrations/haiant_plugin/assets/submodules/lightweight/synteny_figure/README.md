@@ -2,9 +2,9 @@
 
 ## 概述
 
-`gljcvi-synteny-figure` 是 GenomeLens 在 HAIant（智然体）平台上的**双物种共线性图**可编排子模块插件。它把 `params.json` 直接转换为 `analyze submodule jcvi.graphics_synteny` 调用，不生成 `genomelens_request.json`。
+`gljcvi-synteny-figure` 是 GenomeLens 在 HAIant（智然体）平台上的**双物种共线性图**可编排子模块插件。它适合把两个物种之间已经识别出的保守区块整理成更适合正文或补充材料展示的基因级图件。
 
-共线性图（synteny figure）以染色体条带/轨道形式展示两个物种的保守基因区块，并通过连线把同源基因对连接起来，是发表级比较基因组学最常用的图型之一。本子模块为下游可视化模块，需提供上游 MCscan pairwise 产出的 `.blocks` 文件。
+共线性图（synteny figure）以染色体条带/轨道形式展示两个物种的保守基因区块，并通过连线把同源基因对连接起来，是发表级比较基因组学最常用的图型之一。相比点图，它更强调“具体是哪些基因和片段彼此对应”。
 
 本目录是 `gljcvi-synteny-figure` 插件包内容：
 
@@ -25,7 +25,7 @@ module_id = jcvi.graphics_synteny
 | 端口 | 类型 | 必填 | 说明 |
 |------|------|------|------|
 | `species_pair` | dir | 是 | 包含两物种 BED/序列的输入目录（由 `input_dir` 映射） |
-| `blocks` | file | 是 | 上游 MCscan pairwise 产出的 `.blocks` 文件 |
+| `blocks` | file | 是 | 上游 MCscan pairwise 产出的 `.blocks` 文件，决定图中哪些区段与基因建立对应关系 |
 | `layout` | file | 否 | 可选的 `.layout` 文件 |
 
 ## 主要参数说明
@@ -33,8 +33,8 @@ module_id = jcvi.graphics_synteny
 | 参数 | 类型 | 必填 | 默认值 | 说明 |
 |------|------|------|--------|------|
 | `GenomeLens_Path` | file | 是* | — | 外部 GenomeLens 可执行文件路径 |
-| `input_dir` | dir | 是 | — | 输入目录（species_pair 端口） |
-| `blocks` | file | 是 | — | `.blocks` 文件路径（blocks 端口） |
+| `input_dir` | dir | 是 | — | 双物种输入目录，用于构建基因轨道、顺序和物种背景 |
+| `blocks` | file | 是 | — | `.blocks` 文件路径（blocks 端口），是共线性图组织连线的核心输入 |
 | `layout` | file | 否 | `""` | `.layout` 文件路径（layout 端口） |
 | `output_dir` | dir | 否 | `output` | 结果输出目录 |
 | `glyphstyle` | enum | 否 | `""` | 基因形状：`box` / `arrow` |

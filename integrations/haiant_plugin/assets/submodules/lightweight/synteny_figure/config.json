@@ -42,8 +42,8 @@
       "key": "output_dir",
       "valueType": "dir_selector",
       "example_value": "output",
-      "description": "结果输出目录。",
-      "description_en": "Output directory for results."
+      "description": "共线性图输出目录。这里通常会生成适合正文或补充材料展示的双物种共线性图件。",
+      "description_en": "Output directory for synteny figures. This usually contains pairwise synteny figures suitable for main-text or supplementary presentation."
     },
     {
       "label": "基因形状",
@@ -52,8 +52,8 @@
       "valueType": "customer_selector",
       "options": ["box", "arrow"],
       "example_value": "",
-      "description": "基因形状：box / arrow。",
-      "description_en": "Gene glyph style: box / arrow."
+      "description": "图中基因块的绘制样式。箭头更强调方向性，方框则更简洁，适合信息密度较高的图面。",
+      "description_en": "Drawing style of gene glyphs in the figure. Arrows emphasize directionality, whereas boxes are cleaner for figures with high information density."
     },
     {
       "label": "基因着色",
@@ -62,8 +62,8 @@
       "valueType": "customer_selector",
       "options": ["orientation", "orthogroup"],
       "example_value": "",
-      "description": "基因着色策略：orientation / orthogroup。",
-      "description_en": "Gene coloring strategy: orientation / orthogroup."
+      "description": "基因颜色的分配方式。可用于突出方向差异，也可用于强调同源组归属。",
+      "description_en": "How colors are assigned to genes. This can be used either to highlight orientation differences or to emphasize orthogroup membership."
     },
     {
       "label": "连线样式",
@@ -72,8 +72,8 @@
       "valueType": "customer_selector",
       "options": ["curve", "line"],
       "example_value": "",
-      "description": "共线性连线样式：curve / line。",
-      "description_en": "Synteny link style: curve / line."
+      "description": "基因间共线性连接的绘制风格。曲线通常更柔和易读，直线更利于强调直接对应关系。",
+      "description_en": "Drawing style of syntenic connections between genes. Curves are usually smoother and easier to read, while straight lines emphasize direct correspondence."
     },
     {
       "label": "画布尺寸",
@@ -81,8 +81,8 @@
       "key": "figsize",
       "valueType": "str",
       "example_value": "",
-      "description": "画布尺寸，例如 10x5；留空使用默认。",
-      "description_en": "Figure size, e.g. 10x5; leave empty for default."
+      "description": "共线性图画布尺寸，例如 `10x5`。在轨道较多、标签较密或需要排版适配时可手动设定。",
+      "description_en": "Figure size for the synteny figure, for example `10x5`. This can be set manually when many tracks are present, labels are dense, or specific layout fitting is needed."
     },
     {
       "label": "分辨率",
@@ -90,8 +90,8 @@
       "key": "dpi",
       "valueType": "int",
       "example_value": 300,
-      "description": "图片分辨率。",
-      "description_en": "Image resolution."
+      "description": "共线性图的栅格输出分辨率，更高的 DPI 更利于保留细粒度基因与连线细节。",
+      "description_en": "Raster output resolution for the synteny figure. Higher DPI helps preserve fine-grained gene and link details."
     },
     {
       "label": "输出格式",
@@ -99,8 +99,8 @@
       "key": "formats",
       "valueType": "customer_selector",
       "example_value": "svg",
-      "description": "输出图片格式。",
-      "description_en": "Output image format.",
+      "description": "共线性图输出格式。若希望后续继续精修图件，建议优先使用矢量格式。",
+      "description_en": "Output format for the synteny figure. Vector formats are recommended if further figure polishing is expected.",
       "options": ["svg", "png", "pdf", "eps", "jpg"]
     }
   ]

@@ -33,8 +33,8 @@
       "key": "output_dir",
       "valueType": "dir_selector",
       "example_value": "output",
-      "description": "结果输出目录。",
-      "description_en": "Output directory for results."
+      "description": "点图输出目录。通常会在这里生成用于快速质检和结构判读的双物种点图文件。",
+      "description_en": "Output directory for the dotplot. This is where the pairwise dotplot used for quick quality control and structural inspection is usually generated."
     },
     {
       "label": "画布尺寸",
@@ -42,8 +42,8 @@
       "key": "figsize",
       "valueType": "str",
       "example_value": "",
-      "description": "画布尺寸，例如 10x10；留空使用默认。",
-      "description_en": "Figure size, e.g. 10x10; leave empty for default."
+      "description": "点图画布尺寸，例如 `10x10`。当染色体数较多或希望放大局部结构时，可手动调整版面比例。",
+      "description_en": "Figure size for the dotplot, for example `10x10`. This can be adjusted manually when many chromosomes are present or when you want to enlarge local structure."
     },
     {
       "label": "分辨率",
@@ -51,8 +51,8 @@
       "key": "dpi",
       "valueType": "int",
       "example_value": 300,
-      "description": "图片分辨率。",
-      "description_en": "Image resolution."
+      "description": "点图的栅格输出分辨率。更高的 DPI 有助于保留密集散点细节。",
+      "description_en": "Raster output resolution for the dotplot. Higher DPI helps preserve detail in dense point distributions."
     },
     {
       "label": "输出格式",
@@ -60,8 +60,8 @@
       "key": "formats",
       "valueType": "customer_selector",
       "example_value": "svg",
-      "description": "输出图片格式。",
-      "description_en": "Output image format.",
+      "description": "点图输出格式。若需要后续放大、标注或排版，优先考虑矢量格式。",
+      "description_en": "Dotplot output format. If you need to zoom, annotate, or typeset the figure later, vector formats are preferred.",
       "options": ["svg", "png", "pdf", "eps", "jpg"]
     }
   ]

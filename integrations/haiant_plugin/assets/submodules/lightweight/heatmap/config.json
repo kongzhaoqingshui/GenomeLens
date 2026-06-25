@@ -24,8 +24,8 @@
       "key": "output_dir",
       "valueType": "dir_selector",
       "example_value": "output",
-      "description": "结果输出目录。",
-      "description_en": "Output directory for results."
+      "description": "热图输出目录。这里通常会生成展示矩阵关系的图件文件。",
+      "description_en": "Output directory for heatmap results. This usually contains the figure files visualizing matrix relationships."
     },
     {
       "label": "输出格式",
@@ -33,8 +33,8 @@
       "key": "formats",
       "valueType": "customer_selector",
       "example_value": "svg",
-      "description": "输出图片格式。",
-      "description_en": "Output image format.",
+      "description": "热图输出格式。若需要继续编辑标签或组合图版，建议优先使用矢量格式。",
+      "description_en": "Output format for the heatmap. Vector formats are recommended when labels or composite figure layout may be edited later.",
       "options": ["svg", "png", "pdf", "eps", "jpg"]
     },
     {
@@ -43,8 +43,8 @@
       "key": "cmap",
       "valueType": "str",
       "example_value": "jet",
-      "description": "matplotlib colormap，例如 jet / viridis。",
-      "description_en": "matplotlib colormap, e.g. jet / viridis."
+      "description": "热图颜色映射方案，例如 `jet` 或 `viridis`。不同 colormap 会影响强弱差异与分层结构的可读性。",
+      "description_en": "Color mapping scheme for the heatmap, such as `jet` or `viridis`. Different colormaps affect how clearly intensity differences and stratified structure can be read."
     },
     {
       "label": "行分组文件",
@@ -52,8 +52,8 @@
       "key": "rowgroups",
       "valueType": "file_selector",
       "example_value": "",
-      "description": "行分组 TSV 文件路径。",
-      "description_en": "Path to row groups TSV file."
+      "description": "可选的行分组文件，用于把矩阵行按类别分组展示，便于观察同组样本或同类条目的聚集模式。",
+      "description_en": "Optional row-group file used to display matrix rows by category, making it easier to inspect clustering patterns among samples or entries within the same group."
     },
     {
       "label": "首行作为列分组",
@@ -61,8 +61,8 @@
       "key": "groups",
       "valueType": "bool",
       "example_value": false,
-      "description": "是否将首行作为列分组。",
-      "description_en": "Whether to use the first row as column groups."
+      "description": "是否将输入矩阵首行解释为列分组信息，以便在热图中显示列侧分组结构。",
+      "description_en": "Whether the first row of the input matrix should be interpreted as column-group information so that column-side grouping structure can be displayed in the heatmap."
     },
     {
       "label": "水平色条",
@@ -70,8 +70,8 @@
       "key": "horizontalbar",
       "valueType": "bool",
       "example_value": false,
-      "description": "是否显示水平色条。",
-      "description_en": "Whether to display a horizontal color bar."
+      "description": "是否显示水平色条，用于帮助解释颜色与数值强度的对应关系。",
+      "description_en": "Whether to display a horizontal color bar, helping readers interpret the mapping between color and numeric intensity."
     }
   ]
 }

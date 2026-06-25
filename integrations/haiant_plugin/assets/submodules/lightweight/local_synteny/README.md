@@ -2,9 +2,9 @@
 
 ## 概述
 
-`gljcvi-local-synteny` 是 GenomeLens 在 HAIant（智然体）平台上的**目标基因局部共线性图**可编排子模块插件。它把 `params.json` 直接转换为 `analyze submodule jcvi.local_synteny` 调用，不生成 `genomelens_request.json`。
+`gljcvi-local-synteny` 是 GenomeLens 在 HAIant（智然体）平台上的**目标基因局部共线性图**可编排子模块插件。它适合围绕候选基因或感兴趣位点观察上下游邻域在另一个物种中是否仍保持相似顺序、方向和对应关系。
 
-局部共线性图聚焦于一个或多个目标基因所在的局部邻域：以目标基因为中心，向上下游各取若干基因，展示这些基因在两个物种间的排列顺序、方向、同源性与结构变异。适合候选基因验证、QTL 区间精细定位、保守调控模块分析。本子模块为下游可视化模块，需提供上游 MCscan pairwise 产出的 `.blocks` 文件与目标基因 ID。
+局部共线性图会以目标基因为中心，向上下游各取若干基因，展示这些基因在两个物种间的排列顺序、方向、同源性与结构变异。它特别适合候选基因验证、QTL 区间精细定位、保守调控模块分析，以及“这个基因周边结构在别的物种里还在不在”的问题。
 
 本目录是 `gljcvi-local-synteny` 插件包内容：
 
@@ -25,7 +25,7 @@ module_id = jcvi.local_synteny
 | 端口 | 类型 | 必填 | 说明 |
 |------|------|------|------|
 | `species_pair` | dir | 是 | 包含两物种 BED/序列的输入目录（由 `input_dir` 映射） |
-| `blocks` | file | 是 | 上游 MCscan pairwise 产出的 `.blocks` 文件 |
+| `blocks` | file | 是 | 上游 MCscan pairwise 产出的 `.blocks` 文件，用于筛出与目标基因相关的局部保守连接 |
 | `target_genes` | list | 是 | 目标基因 ID 列表（由 `target_genes` 逗号串拆分） |
 
 ## 主要参数说明
@@ -33,12 +33,12 @@ module_id = jcvi.local_synteny
 | 参数 | 类型 | 必填 | 默认值 | 说明 |
 |------|------|------|--------|------|
 | `GenomeLens_Path` | file | 是* | — | 外部 GenomeLens 可执行文件路径 |
-| `input_dir` | dir | 是 | — | 输入目录（species_pair 端口） |
-| `blocks` | file | 是 | — | `.blocks` 文件路径（blocks 端口） |
+| `input_dir` | dir | 是 | — | 双物种输入目录，用于恢复目标区域的基因顺序、坐标和物种背景 |
+| `blocks` | file | 是 | — | `.blocks` 文件路径（blocks 端口），是局部共线性图抽取保守连接的依据 |
 | `target_genes` | str | 是 | — | 目标基因 ID（target_genes 端口），多个用逗号分隔 |
 | `output_dir` | dir | 否 | `output` | 结果输出目录 |
-| `up` | int | 否 | `20` | 上游窗口基因数 |
-| `down` | int | 否 | `20` | 下游窗口基因数 |
+| `up` | int | 否 | `20` | 每个目标基因上游纳入的基因数，数值越大观察范围越宽 |
+| `down` | int | 否 | `20` | 每个目标基因下游纳入的基因数，与 `up` 一起决定局部窗口大小 |
 | `split_targets` | bool | 否 | `false` | 每个目标基因单独出图 |
 | `label_targets` | bool | 否 | `false` | 在图中标注目标基因 |
 | `use_native_local_synteny_renderer` | bool | 否 | `false` | 使用 GenomeLens 原生渲染器（支持跨染色体） |

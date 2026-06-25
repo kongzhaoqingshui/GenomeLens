@@ -2,9 +2,9 @@
 
 ## 概述
 
-`gljcvi-histogram` 是 GenomeLens 在 HAIant（智然体）平台上的**数值分布直方图**可编排子模块插件。它把 `params.json` 直接转换为 `analyze submodule jcvi.graphics_histogram` 调用，不生成 `genomelens_request.json`。
+`gljcvi-histogram` 是 GenomeLens 在 HAIant（智然体）平台上的**数值分布直方图**可编排子模块插件。它适合把 Ks、距离、打分或其他连续统计量整理成分布图，用于快速判断峰值结构、离散程度和可能的数据分层。
 
-该子模块适用于展示 Ks 分布、共线性得分等连续数值的分布情况。
+该子模块尤其适合放在“分析结果已经出来，现在想快速看某类数值整体长什么样”的环节。
 
 本目录是 `gljcvi-histogram` 插件包内容：
 
@@ -31,10 +31,10 @@ module_id = jcvi.graphics_histogram
 | 参数 | 类型 | 必填 | 默认值 | 说明 |
 |------|------|------|--------|------|
 | `GenomeLens_Path` | file | 是* | — | 外部 GenomeLens 可执行文件路径 |
-| `input_files` | list/str | 是 | — | 输入数值文件（numeric_files 端口）；字符串时用逗号分隔 |
+| `input_files` | list/str | 是 | — | 输入数值文件（numeric_files 端口）；可同时比较多个样本、方法或参数条件下的分布 |
 | `output_dir` | dir | 否 | `output` | 结果输出目录 |
 | `histogram_columns` | list/int | 否 | `[0]` | 要绘制的列索引 |
-| `histogram_bins` | int | 否 | `20` | 分箱数量 |
+| `histogram_bins` | int | 否 | `20` | 直方图分箱数量；较少更适合总体趋势，较多更利于观察细节峰形 |
 | `histogram_vmin` | float | 否 | — | 数值下界 |
 | `histogram_vmax` | float | 否 | — | 数值上界 |
 | `histogram_xlabel` | str | 否 | `value` | X 轴标签 |

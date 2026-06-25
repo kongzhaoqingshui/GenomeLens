@@ -2,9 +2,9 @@
 
 ## 概述
 
-`gljcvi-mcscan-pairwise` 是 GenomeLens 在 HAIant（智然体）平台上的**双物种 MCscan pairwise** 原子子模块插件。它把 `params.json` 直接转换为 `analyze submodule jcvi.mcscan_pairwise` 调用，不需要生成 `genomelens_request.json`。
+`gljcvi-mcscan-pairwise` 是 GenomeLens 在 HAIant（智然体）平台上的**双物种 MCscan pairwise** 原子子模块插件。它适合在两个基因组之间先建立最基础的同源与共线性关系，为后续点图、共线性图、核型图和局部共线性分析提供核心中间结果。
 
-该子模块对两个物种执行同源搜索、锚点扫描与 block 计算，输出 blast table、anchors、simple、blocks 等中间产物，可作为更复杂流程的输入。
+该子模块会完成双物种同源搜索、锚点扫描与共线性区块识别，并输出 blast table、anchors、simple、blocks 等结果。它最适合用于“先算清楚两个基因组之间有哪些稳定共线性片段，再决定后面怎么可视化或做候选位点分析”的场景。
 
 本目录是 `gljcvi-mcscan-pairwise` 插件包内容：
 
@@ -33,14 +33,14 @@ module_id = jcvi.mcscan_pairwise
 | 参数 | 类型 | 必填 | 默认值 | 说明 |
 |------|------|------|--------|------|
 | `GenomeLens_Path` | file | 是* | — | 外部 GenomeLens 可执行文件路径 |
-| `input_dir` | dir | 是 | — | 输入目录，自动发现物种文件对 |
+| `input_dir` | dir | 是 | — | 双物种输入目录，自动按同名前缀发现物种文件对并建立同源搜索输入 |
 | `output_dir` | dir | 否 | `output` | 结果输出目录 |
-| `align_soft` | enum | 否 | `blast` | 比对后端：`blast` / `last` / `diamond_blastp` |
-| `dbtype` | enum | 否 | `nucl` | 序列类型：`nucl` / `prot` |
-| `cscore` | float | 否 | `0.7` | 同源匹配过滤强度 |
-| `dist` | int | 否 | `20` | 共线性锚点间最大基因距离 |
-| `iter` | int | 否 | `1` | Block 过滤迭代次数 |
-| `min_block_size` | int | 否 | `1` | 保留 block 的最小基因数 |
+| `align_soft` | enum | 否 | `blast` | 同源搜索后端：`blast` / `last` / `diamond_blastp`，会影响速度、灵敏度与锚点数量 |
+| `dbtype` | enum | 否 | `nucl` | 同源搜索使用的序列类型：`nucl` / `prot` |
+| `cscore` | float | 否 | `0.7` | 同源匹配过滤强度，越高通常越严格 |
+| `dist` | int | 否 | `20` | 锚点在基因顺序上允许相隔的最大距离 |
+| `iter` | int | 否 | `1` | 共线性区块过滤迭代次数，更多迭代通常更保守 |
+| `min_block_size` | int | 否 | `1` | 保留一个共线性区块所需的最小基因数 |
 | `threads` | int | 否 | `4` | 运行时线程数 |
 | `formats` | enum | 否 | `svg` | 输出格式 |
 

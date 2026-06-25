@@ -24,8 +24,8 @@
       "key": "output_dir",
       "valueType": "dir_selector",
       "example_value": "output",
-      "description": "结果输出目录。",
-      "description_en": "Output directory for results."
+      "description": "直系同源目录输出位置。这里通常会保存可检索的同源配对结果及相关中间文件。",
+      "description_en": "Output location for the ortholog catalog. This usually stores searchable ortholog pairing results together with related intermediate files."
     },
     {
       "label": "比对后端",
@@ -34,8 +34,8 @@
       "valueType": "customer_selector",
       "options": ["blast", "last", "diamond_blastp"],
       "example_value": "blast",
-      "description": "同源搜索比对后端。",
-      "description_en": "Homology search alignment backend."
+      "description": "直系同源识别所依赖的同源搜索后端，会影响候选同源匹配的灵敏度与数量。",
+      "description_en": "Homology search backend used for ortholog discovery. It influences the sensitivity and number of candidate homologous matches."
     },
     {
       "label": "序列类型",
@@ -44,8 +44,8 @@
       "valueType": "customer_selector",
       "options": ["nucl", "prot"],
       "example_value": "nucl",
-      "description": "序列数据库类型：nucl（核酸）或 prot（蛋白）。",
-      "description_en": "Sequence database type: nucl or prot."
+      "description": "用于直系同源识别的序列类型：核酸或蛋白。不同选择会影响匹配策略与最终同源集合。",
+      "description_en": "Sequence type used for ortholog discovery: nucleotide or protein. Different choices affect the matching strategy and the resulting homolog set."
     },
     {
       "label": "同源匹配过滤强度",
@@ -53,8 +53,8 @@
       "key": "cscore",
       "valueType": "float",
       "example_value": 0.7,
-      "description": "同源匹配过滤强度。",
-      "description_en": "Homology match filtering strength."
+      "description": "控制进入直系同源目录的匹配严格程度。阈值越高，保留下来的配对通常越可信。",
+      "description_en": "Controls how strict the filtering is for matches entering the ortholog catalog. Higher thresholds usually retain more reliable pairs."
     },
     {
       "label": "共线性锚点最大基因距离",
@@ -62,8 +62,8 @@
       "key": "dist",
       "valueType": "int",
       "example_value": 20,
-      "description": "共线性锚点间允许的最大基因距离。",
-      "description_en": "Maximum gene distance between synteny anchors."
+      "description": "定义在共线性约束下可接受的锚点最大间隔，从而影响哪些同源关系能被视为稳定的直系同源背景。",
+      "description_en": "Defines the maximum anchor spacing accepted under synteny constraints, influencing which homologous relationships can be treated as occurring in a stable orthologous context."
     },
     {
       "label": "Block 过滤迭代次数",
@@ -71,8 +71,8 @@
       "key": "iter",
       "valueType": "int",
       "example_value": 1,
-      "description": "Block 过滤迭代次数。",
-      "description_en": "Number of block filtering iterations."
+      "description": "控制共线性背景清理的迭代次数，从而间接影响直系同源目录的保守程度。",
+      "description_en": "Controls how many rounds of synteny-context cleanup are performed, indirectly affecting how conservative the ortholog catalog becomes."
     },
     {
       "label": "最小共线性区块大小",
@@ -80,8 +80,8 @@
       "key": "min_block_size",
       "valueType": "int",
       "example_value": 1,
-      "description": "保留 block 所需的最小基因数。",
-      "description_en": "Minimum gene count for retained synteny blocks."
+      "description": "保留支撑直系同源判断的最小区块大小。更高的值通常意味着更严格的共线性支持。",
+      "description_en": "Minimum block size required to support ortholog calling. Higher values usually imply stricter syntenic support."
     },
     {
       "label": "线程数",
@@ -89,8 +89,8 @@
       "key": "threads",
       "valueType": "int",
       "example_value": 4,
-      "description": "运行时工作线程数。",
-      "description_en": "Number of worker threads."
+      "description": "该流程可用的并行线程数，主要影响前期同源搜索速度。",
+      "description_en": "Number of parallel threads available to this workflow, mainly affecting the speed of the upstream homology search."
     }
   ]
 }
