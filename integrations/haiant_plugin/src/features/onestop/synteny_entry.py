@@ -1,12 +1,12 @@
-"""Lightweight HAIant feature entry for the integrated ``analyze workflow synteny`` flow
+"""HAIant 轻量功能入口：集成 ``analyze workflow synteny`` 流程
 
-This entry builds a V3 ``WorkflowRequest`` JSON from the HAIant ``params.json`` and
-invokes the external GenomeLens executable with:
+该入口从 HAIant ``params.json`` 构建 V3 ``WorkflowRequest`` JSON，
+并调用外部 GenomeLens 可执行文件：
 
     <genomelens_exe> analyze run <output_dir>/workflow_request.json
 
-The ``synteny`` one-stop workflow auto-routes to pairwise / multi-species /
-reference-vs-targets based on species count and target genes.
+``synteny`` 一站式工作流根据物种数量与目标基因自动路由到
+pairwise / 多物种 / 参考种对目标种 模式
 """
 
 from __future__ import annotations
@@ -32,7 +32,7 @@ LOGGER_NAME = "gljcvi_synteny"
 
 
 def build_runtime_command(params_path: str | Path) -> list[str]:
-    """Build the ``analyze run workflow_request.json`` command from HAIant params"""
+    """从 HAIant params 构建 ``analyze run workflow_request.json`` 命令"""
 
     params, base = load_params(params_path)
     output_dir = Path(resolve_param_path(base, params.get("output_dir") or "output"))
@@ -52,7 +52,7 @@ def build_runtime_command(params_path: str | Path) -> list[str]:
 
 
 def run_runtime(argv: list[str]) -> int:
-    """Run a prepared command and return its exit code"""
+    """运行已准备好的命令并返回退出码"""
 
     import subprocess
 
@@ -61,7 +61,7 @@ def run_runtime(argv: list[str]) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
-    """Run the ``analyze workflow synteny`` feature entry"""
+    """运行 ``analyze workflow synteny`` 功能入口"""
 
     args = sys.argv[1:] if argv is None else argv
     try:

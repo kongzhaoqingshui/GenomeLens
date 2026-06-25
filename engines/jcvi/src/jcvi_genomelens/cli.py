@@ -19,7 +19,7 @@ from jcvi_genomelens.runtime.engine import run_manifest
 
 
 def build_parser() -> argparse.ArgumentParser:
-    """Build the engine CLI parser"""
+    """构建 engine CLI 解析器 (parser)"""
 
     parser = argparse.ArgumentParser(prog="jcvi-genomelens", description="GenomeLens JCVI engine")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -36,7 +36,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def run_probe(args: argparse.Namespace) -> int:
-    """Print the engine probe payload"""
+    """打印 engine probe 载荷 (payload)"""
 
     payload = build_probe_payload()
     if args.json:
@@ -47,7 +47,7 @@ def run_probe(args: argparse.Namespace) -> int:
 
 
 def run_engine(args: argparse.Namespace) -> int:
-    """Run a manifest and return the process exit code"""
+    """运行 manifest 并返回进程退出码"""
 
     summary = run_manifest(args.manifest, args.outdir)
     payload = json.loads(summary.read_text(encoding="utf-8"))

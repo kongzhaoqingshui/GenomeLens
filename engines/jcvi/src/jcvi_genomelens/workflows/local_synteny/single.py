@@ -299,7 +299,7 @@ def run(manifest: EngineRunManifest, outdir: str | Path) -> tuple[list[CommandAu
             figure = Path(f"{output_prefix}.{fmt}")
 
             if use_native:
-                # Use the native matplotlib renderer for cross-chromosome support
+                # 使用原生 matplotlib 渲染器以支持跨染色体绘制
                 argv = [
                     str(plot_inputs.blocks),
                     str(plot_inputs.bed),

@@ -1,4 +1,4 @@
-"""Artifact contract models shared by CLI, GUI and integrations"""
+"""Artifact contract models(产物契约模型) shared by CLI, GUI and integrations"""
 
 from __future__ import annotations
 
@@ -23,7 +23,7 @@ class ArtifactRecord:
     # fmt: on
 
     def to_json(self) -> dict[str, object]:
-        """转成稳定 JSON(结构化数据)"""
+        """转为稳定 JSON(结构化数据)"""
 
         return {
             "artifact_id": self.artifact_id,

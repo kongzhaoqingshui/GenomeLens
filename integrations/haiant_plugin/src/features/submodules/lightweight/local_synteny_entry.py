@@ -1,4 +1,4 @@
-"""Lightweight HAIant feature entry for ``jcvi.local_synteny``"""
+"""HAIant 轻量功能入口：``jcvi.local_synteny``"""
 
 from __future__ import annotations
 
@@ -36,7 +36,7 @@ DECLARED_PARAMS = [
 
 
 def build_runtime_command(params_path: str | Path) -> list[str]:
-    """Build the GenomeLens ``analyze run submodule_request.json`` command"""
+    """构建 GenomeLens ``analyze run submodule_request.json`` 命令"""
 
     params, base = load_params(params_path)
     output_dir = Path(resolve_param_path(base, params.get("output_dir") or "output"))
@@ -83,7 +83,7 @@ def build_runtime_command(params_path: str | Path) -> list[str]:
 
 
 def run_runtime(argv: list[str]) -> int:
-    """Run a prepared command and return its exit code"""
+    """运行已准备好的命令并返回退出码"""
 
     import subprocess
 
@@ -92,7 +92,7 @@ def run_runtime(argv: list[str]) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
-    """Run the local synteny feature entry"""
+    """运行 local synteny 功能入口"""
 
     args = sys.argv[1:] if argv is None else argv
     try:

@@ -1,4 +1,4 @@
-"""Compatibility shell around the v2 workflow planner/executor"""
+"""v2 工作流规划器/执行器的兼容性外壳（compatibility shell）"""
 
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ from genomelens.services.scoring import NoOpScoringProvider, ScoringProvider
 
 
 class WorkflowOrchestrator:
-    """Run a v2 WorkflowRequest through the platform execution plan"""
+    """通过平台执行计划运行 v2 WorkflowRequest"""
 
     def __init__(self, scoring_provider: ScoringProvider | None = None) -> None:
         self._scoring_provider = scoring_provider or NoOpScoringProvider()
@@ -26,7 +26,7 @@ class WorkflowOrchestrator:
         provider: WorkflowProvider,
         signal_bus: SignalBus,
     ) -> RunSummary:
-        """Run the request; provider is accepted for older call sites"""
+        """运行请求；provider 参数用于兼容旧调用点"""
 
         _ = provider
         plan = WorkflowPlanner().build(request)

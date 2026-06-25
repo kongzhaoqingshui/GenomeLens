@@ -8,6 +8,7 @@ from genomelens.data.workspace.output_layout import create_output_layout
 
 
 def _write_third_species(tmp_path: Path, sample: Path) -> tuple[Path, Path]:
+    """基于 query 样本生成第三个物种的 bed 与 cds 文件（仅用于多物种测试）"""
     bed = tmp_path / "third.bed"
     cds = tmp_path / "third.cds"
     bed.write_text(
@@ -22,16 +23,19 @@ def _write_third_species(tmp_path: Path, sample: Path) -> tuple[Path, Path]:
 
 
 def _copy_species_files(input_dir: Path, sample: Path, names: list[str]) -> None:
+    """将样本文件复制到输入目录"""
     input_dir.mkdir(parents=True, exist_ok=True)
     for name in names:
         shutil.copy2(sample / name, input_dir / name)
 
 
 def _auto_args(input_dir: Path, outdir: Path) -> list[str]:
+    """生成默认 CLI 位置参数列表"""
     return [str(input_dir), str(outdir)]
 
 
 def _blast_executable(root: Path, name: str) -> Path:
+    """查找 blast 可执行文件路径，优先使用系统 PATH，否则回退到工具链目录"""
     candidate = shutil.which(name)
     if candidate:
         return Path(candidate).resolve()
@@ -39,6 +43,7 @@ def _blast_executable(root: Path, name: str) -> Path:
 
 
 def _workflow_request_payload(sample: Path, outdir: Path) -> dict[str, object]:
+    """构造 synteny 工作流请求 JSON 负载（用于 analyze run 测试）"""
     return {
         "schema_version": 3,
         "kind": "workflow_request",
@@ -66,10 +71,12 @@ def _workflow_request_payload(sample: Path, outdir: Path) -> dict[str, object]:
 
 
 def test_cli_help() -> None:
+    """验证 --help 返回成功"""
     assert main(["--help"]) == 0
 
 
 def test_cli_help_for_workflow(capsys) -> None:
+    """验证 workflow 子命令 help 与直接 --help 输出一致，并包含关键参数"""
     assert main(["help", "analyze", "workflow"]) == 0
     help_command_output = capsys.readouterr().out
 
@@ -82,6 +89,7 @@ def test_cli_help_for_workflow(capsys) -> None:
 
 
 def test_cli_help_for_submodule(capsys) -> None:
+    """验证 submodule 子命令 help 包含关键参数"""
     assert main(["help", "analyze", "submodule"]) == 0
     output = capsys.readouterr().out
 
@@ -91,6 +99,7 @@ def test_cli_help_for_submodule(capsys) -> None:
 
 
 def test_cli_help_for_command_uses_color_when_enabled(capsys, monkeypatch) -> None:
+    """验证启用颜色后 help 输出包含 ANSI 转义序列"""
     monkeypatch.setenv("GENOMELENS_FORCE_COLOR", "1")
 
     assert main(["help", "analyze", "workflow"]) == 0
@@ -101,6 +110,7 @@ def test_cli_help_for_command_uses_color_when_enabled(capsys, monkeypatch) -> No
 
 
 def test_cli_help_for_analyze_run(capsys) -> None:
+    """验证 analyze run 的 help 包含 request_json 与 --json 参数"""
     assert main(["help", "analyze", "run"]) == 0
     output = capsys.readouterr().out
 
@@ -109,6 +119,7 @@ def test_cli_help_for_analyze_run(capsys) -> None:
 
 
 def test_analyze_template_synteny(capsys) -> None:
+    """验证 analyze template synteny 输出符合 V3 协议"""
     assert main(["analyze", "template", "workflow", "synteny"]) == 0
     payload = json.loads(capsys.readouterr().out)
     assert payload["kind"] == "workflow_request"
@@ -117,6 +128,7 @@ def test_analyze_template_synteny(capsys) -> None:
 
 
 def test_analyze_schema(capsys) -> None:
+    """验证 analyze schema 输出包含 workflow_request 与 submodule_request 定义"""
     assert main(["analyze", "schema"]) == 0
     payload = json.loads(capsys.readouterr().out)
 
@@ -128,16 +140,19 @@ def test_analyze_schema(capsys) -> None:
 
 
 def test_check_json_short_option() -> None:
+    """验证 check -j 短选项返回预期退出码"""
     assert main(["check", "-j"]) in {0, 5}
 
 
 def test_config_init(tmp_path: Path) -> None:
+    """验证 config init 创建 genomelens 与 jcvi 配置文件"""
     assert main(["config", "init", "--workspace", str(tmp_path / "work"), "--force"]) == 0
     assert (tmp_path / "work" / "genomelens.config.json").is_file()
     assert (tmp_path / "work" / "jcvi.config.json").is_file()
 
 
 def test_analyze_workflow_force_before_positionals_reuses_output_dir(tmp_path: Path, monkeypatch) -> None:
+    """验证 --force 在位置参数之前时仍可复用输出目录"""
     root = Path(__file__).resolve().parents[3]
     sample = root / "references" / "samples" / "shell" / "bed_cds_minimal"
     input_dir = tmp_path / "input"
@@ -186,6 +201,7 @@ def test_analyze_workflow_force_before_positionals_reuses_output_dir(tmp_path: P
 
 
 def test_analyze_workflow_reuses_existing_execution_path(tmp_path: Path, monkeypatch) -> None:
+    """验证分析工作流可复用已有执行路径（execution path）"""
     root = Path(__file__).resolve().parents[3]
     sample = root / "references" / "samples" / "shell" / "bed_cds_minimal"
     input_dir = tmp_path / "input"
@@ -221,6 +237,7 @@ def test_analyze_workflow_reuses_existing_execution_path(tmp_path: Path, monkeyp
 
 
 def test_analyze_workflow_log_level_overrides_verbose(tmp_path: Path, monkeypatch) -> None:
+    """验证 --log-level 显式值会覆盖 --verbose 的默认 log_level"""
     root = Path(__file__).resolve().parents[3]
     sample = root / "references" / "samples" / "shell" / "bed_cds_minimal"
     input_dir = tmp_path / "input"
@@ -270,6 +287,7 @@ def test_analyze_workflow_log_level_overrides_verbose(tmp_path: Path, monkeypatc
 
 
 def test_analyze_workflow_uses_configured_log_level(tmp_path: Path, monkeypatch) -> None:
+    """验证配置文件中的 log_level 会被正确传递到运行时"""
     root = Path(__file__).resolve().parents[3]
     sample = root / "references" / "samples" / "shell" / "bed_cds_minimal"
     input_dir = tmp_path / "input-config-log"
@@ -329,6 +347,7 @@ def test_analyze_workflow_uses_configured_log_level(tmp_path: Path, monkeypatch)
 
 
 def test_analyze_workflow_default_cli_uses_progress_reporter(tmp_path: Path, monkeypatch, capsys) -> None:
+    """验证默认 CLI 模式使用进度报告器（progress reporter）并输出百分比"""
     root = Path(__file__).resolve().parents[3]
     sample = root / "references" / "samples" / "shell" / "bed_cds_minimal"
     input_dir = tmp_path / "input-progress"
@@ -366,6 +385,7 @@ def test_analyze_workflow_default_cli_uses_progress_reporter(tmp_path: Path, mon
 
 
 def test_analyze_run_json_suppresses_progress_reporter(tmp_path: Path, monkeypatch, capsys) -> None:
+    """验证 --json 模式抑制进度报告器，仅输出 JSON 结果"""
     root = Path(__file__).resolve().parents[3]
     sample = root / "references" / "samples" / "shell" / "bed_cds_minimal"
     outdir = tmp_path / "out-json-run"
@@ -400,6 +420,7 @@ def test_analyze_run_json_suppresses_progress_reporter(tmp_path: Path, monkeypat
 
 
 def test_analyze_run_dispatches_request_json(tmp_path: Path, monkeypatch) -> None:
+    """验证 analyze run 正确分发自定义请求 JSON"""
     root = Path(__file__).resolve().parents[3]
     sample = root / "references" / "samples" / "shell" / "bed_cds_minimal"
     outdir = tmp_path / "out-run"
@@ -434,6 +455,7 @@ def test_analyze_run_dispatches_request_json(tmp_path: Path, monkeypatch) -> Non
 
 
 def test_analyze_run_request_json(tmp_path: Path, monkeypatch) -> None:
+    """验证 analyze run 正确解析请求 JSON 中的物种列表"""
     root = Path(__file__).resolve().parents[3]
     sample = root / "references" / "samples" / "shell" / "bed_cds_minimal"
     outdir = tmp_path / "out-run"
@@ -466,6 +488,7 @@ def test_analyze_run_request_json(tmp_path: Path, monkeypatch) -> None:
 
 
 def test_analyze_workflow_synteny_pairwise_with_source_engine(tmp_path: Path) -> None:
+    """验证 synteny 成对工作流（pairwise synteny）端到端执行，使用 source engine"""
     root = Path(__file__).resolve().parents[3]
     sample = root / "references" / "samples" / "shell" / "bed_cds_minimal"
     input_dir = tmp_path / "input"
@@ -529,6 +552,7 @@ def test_analyze_workflow_synteny_pairwise_with_source_engine(tmp_path: Path) ->
 
 
 def test_analyze_workflow_synteny_multi_species(tmp_path: Path) -> None:
+    """验证 synteny 多物种（multi-species）端到端执行，包含全局核型总图与局部共线性图"""
     root = Path(__file__).resolve().parents[3]
     sample = root / "references" / "samples" / "shell" / "bed_cds_minimal"
     third_bed, third_cds = _write_third_species(tmp_path, sample)
@@ -606,6 +630,7 @@ def test_analyze_workflow_synteny_multi_species(tmp_path: Path) -> None:
 
 
 def test_analyze_workflow_synteny_pairwise_discovers_bed_cds_directory(tmp_path: Path) -> None:
+    """验证 synteny 成对工作流可自动从目录发现 bed/cds 文件"""
     root = Path(__file__).resolve().parents[3]
     sample = root / "references" / "samples" / "shell" / "bed_cds_minimal"
     input_dir = tmp_path / "input"
@@ -632,6 +657,7 @@ def test_analyze_workflow_synteny_pairwise_discovers_bed_cds_directory(tmp_path:
 
 
 def test_analyze_workflow_synteny_pairwise_with_explicit_jcvi_config(tmp_path: Path) -> None:
+    """验证通过 --jcvi-config 显式指定引擎配置后，参数被正确注入工作流"""
     root = Path(__file__).resolve().parents[3]
     sample = root / "references" / "samples" / "shell" / "bed_cds_minimal"
     blastn_path = _blast_executable(root, "blastn")
@@ -691,6 +717,7 @@ def test_analyze_workflow_synteny_pairwise_with_explicit_jcvi_config(tmp_path: P
 
 
 def test_analyze_workflow_synteny_pairwise_uses_config_defaults(tmp_path: Path) -> None:
+    """验证 genomelens.config.json 与 jcvi.config.json 的默认值被正确加载"""
     root = Path(__file__).resolve().parents[3]
     sample = root / "references" / "samples" / "shell" / "bed_cds_minimal"
     blastn_path = _blast_executable(root, "blastn")
@@ -757,6 +784,7 @@ def test_analyze_workflow_synteny_pairwise_uses_config_defaults(tmp_path: Path) 
 
 
 def test_analyze_workflow_synteny_reference_vs_targets_local_synteny_flags(tmp_path: Path) -> None:
+    """验证 reference_vs_targets 模式下的局部共线性（local synteny）参数被正确传递"""
     root = Path(__file__).resolve().parents[3]
     sample = root / "references" / "samples" / "shell" / "bed_cds_minimal"
     input_dir = tmp_path / "input-local"
@@ -838,6 +866,7 @@ def test_analyze_workflow_synteny_reference_vs_targets_local_synteny_flags(tmp_p
 
 
 def test_analyze_workflow_synteny_reference_vs_targets_reference_swap(tmp_path: Path) -> None:
+    """验证 reference_vs_targets 模式支持 reference 与 target 互换"""
     root = Path(__file__).resolve().parents[3]
     sample = root / "references" / "samples" / "shell" / "bed_cds_minimal"
     input_dir = tmp_path / "input-ref"
@@ -875,7 +904,7 @@ def test_analyze_workflow_synteny_reference_vs_targets_reference_swap(tmp_path: 
             encoding="utf-8"
         )
     )
-    # Target genes route synteny into local_synteny pairwise steps
+    # 目标基因（target genes）会将 synteny 路由到 local_synteny pairwise 步骤
     assert manifest["schema_version"] == 3
     assert manifest["workflow"] == "local_synteny"
 
@@ -895,6 +924,7 @@ def test_analyze_workflow_synteny_reference_vs_targets_reference_swap(tmp_path: 
 
 
 def test_analyze_workflow_synteny_reference_vs_targets_three_species(tmp_path: Path) -> None:
+    """验证 reference_vs_targets 三物种模式正确生成局部共线性与全局核型图"""
     root = Path(__file__).resolve().parents[3]
     sample = root / "references" / "samples" / "shell" / "bed_cds_minimal"
     third_bed, third_cds = _write_third_species(tmp_path, sample)
@@ -979,6 +1009,7 @@ def test_analyze_workflow_synteny_reference_vs_targets_three_species(tmp_path: P
 
 
 def test_analyze_mcscan_config_defaults_exposed_in_init(tmp_path: Path) -> None:
+    """验证 config init 暴露的 mcscan 默认值与预期一致"""
     code = main(["config", "init", "--workspace", str(tmp_path / "work"), "--force"])
     assert code == 0
     jcvi_config = json.loads((tmp_path / "work" / "jcvi.config.json").read_text(encoding="utf-8"))
@@ -998,6 +1029,7 @@ def test_analyze_mcscan_config_defaults_exposed_in_init(tmp_path: Path) -> None:
 
 
 def test_analyze_workflow_synteny_pairwise_end_to_end(tmp_path: Path) -> None:
+    """验证 synteny 成对工作流端到端执行（无 mock）"""
     root = Path(__file__).resolve().parents[3]
     sample = root / "references" / "samples" / "shell" / "bed_cds_minimal"
     input_dir = tmp_path / "input-workflow"
@@ -1028,6 +1060,7 @@ def test_analyze_workflow_synteny_pairwise_end_to_end(tmp_path: Path) -> None:
 
 
 def test_analyze_submodule_mcscan_pairwise_end_to_end(tmp_path: Path) -> None:
+    """验证 jcvi.mcscan_pairwise 子模块端到端执行"""
     root = Path(__file__).resolve().parents[3]
     sample = root / "references" / "samples" / "shell" / "bed_cds_minimal"
     input_dir = tmp_path / "input-submodule"
@@ -1060,6 +1093,7 @@ def test_analyze_submodule_mcscan_pairwise_end_to_end(tmp_path: Path) -> None:
 
 
 def test_analyze_submodule_graphics_dotplot_reuses_pairwise_artifacts(tmp_path: Path) -> None:
+    """验证 graphics_dotplot 子模块可复用 mcscan_pairwise 生成的锚点文件（anchors）"""
     root = Path(__file__).resolve().parents[3]
     sample = root / "references" / "samples" / "shell" / "bed_cds_minimal"
     input_dir = tmp_path / "input-submodule-reuse"
@@ -1107,6 +1141,7 @@ def test_analyze_submodule_graphics_dotplot_reuses_pairwise_artifacts(tmp_path: 
 
 
 def test_analyze_submodule_graphics_histogram_end_to_end(tmp_path: Path) -> None:
+    """验证 graphics_histogram 子模块端到端执行"""
     numbers = tmp_path / "numbers-sub.txt"
     numbers.write_text("1\n2\n2\n3\n5\n8\n13\n", encoding="utf-8-sig")
     outdir = tmp_path / "out-sub-histogram"

@@ -1,4 +1,4 @@
-"""WorkflowRequest 到内部 synteny 执行请求的映射"""
+"""WorkflowRequest 到内部 synteny 执行请求的映射(mapping)"""
 
 # region import
 from __future__ import annotations
@@ -20,19 +20,19 @@ from genomelens.contracts.species import GenomeInputSpec, PreparedGenomeInputSpe
 
 
 def _configured(value: str, fallback: str) -> str:
-    """在显式值与回退值之间选择非空字符串"""
+    """在显式值与回退值(fallback)之间选择非空字符串"""
 
     return value if str(value).strip() else fallback
 
 
 def _path(value: str) -> Path:
-    """把字符串解析为已展开用户目录的 Path"""
+    """把字符串解析为已展开用户目录的 Path(路径)"""
 
     return Path(value).expanduser().resolve(strict=False)
 
 
 def _optional_path(value: object) -> Path | None:
-    """把可选端口值解析为 Path，空值时返回 None"""
+    """把可选端口值解析为 Path(路径)，空值时返回 None"""
 
     if not isinstance(value, str) or not value.strip():
         return None
@@ -40,14 +40,14 @@ def _optional_path(value: object) -> Path | None:
 
 
 def _input_ports(request: WorkflowRequest) -> dict[str, object]:
-    """读取子模块输入端口字典"""
+    """读取子模块输入端口字典(ports)"""
 
     raw = request.inputs.get("ports")
     return dict(raw) if isinstance(raw, dict) else {}
 
 
 def _target_gene_ids(request: WorkflowRequest, ports: dict[str, object]) -> list[str]:
-    """合并显式参数与 `target_genes` 端口中的目标基因列表"""
+    """合并显式参数与 `target_genes` 端口中的目标基因列表(gene list)"""
 
     if request.parameters.local_synteny.target_gene_ids:
         return list(request.parameters.local_synteny.target_gene_ids)
@@ -60,7 +60,7 @@ def _target_gene_ids(request: WorkflowRequest, ports: dict[str, object]) -> list
 
 
 def _pairwise_artifacts_from_ports(ports: dict[str, object]) -> PairwiseArtifactInputs | None:
-    """把子模块 artifact 端口转换为内部的 pairwise 产物载荷"""
+    """把子模块 artifact 端口转换为内部的 pairwise 产物载荷(若无可复用产物则返回 None)"""
 
     artifacts = PairwiseArtifactInputs(
         blast_table=_optional_path(ports.get("blast_table")),
@@ -74,7 +74,7 @@ def _pairwise_artifacts_from_ports(ports: dict[str, object]) -> PairwiseArtifact
 
 
 def _artifact_bundles_from_ports(ports: dict[str, object]) -> list[ArtifactBundle]:
-    """Build reusable artifact bundles from submodule ports"""
+    """从子模块端口构建可复用的 artifact bundle(产物包)列表"""
 
     artifacts = _pairwise_artifacts_from_ports(ports)
     if artifacts is None:
@@ -83,7 +83,7 @@ def _artifact_bundles_from_ports(ports: dict[str, object]) -> list[ArtifactBundl
 
 
 def species_to_genome_input(species: WorkflowSpeciesInput) -> GenomeInputSpec:
-    """把 WorkflowSpeciesInput 转成内部 GenomeInputSpec"""
+    """把 WorkflowSpeciesInput 转成内部 GenomeInputSpec(基因组输入规范)"""
 
     if species.input_mode == "bed_cds":
         return GenomeInputSpec(
@@ -99,7 +99,7 @@ def species_to_genome_input(species: WorkflowSpeciesInput) -> GenomeInputSpec:
 
 
 def _toolchain_paths(request: WorkflowRequest) -> dict[str, str]:
-    """合并显式 runtime 与配置文件中的工具链路径"""
+    """合并显式 runtime 与配置文件中的工具链路径(toolchain paths)"""
 
     config = read_request_config(request)
     toolchain = config.toolchain if config else None
@@ -172,7 +172,9 @@ def build_synteny_request(
 
 
 def to_mcscan_request(request: WorkflowRequest) -> SyntenyExecutionRequest:
-    """Build the primary pairwise synteny request for a two-species workflow"""
+    """Build the primary pairwise synteny request for a two-species workflow
+    (为双物种工作流构建主 pairwise synteny 请求)
+    """
 
     species = validate_workflow_species(request)
     reference = species[request.reference_index]
@@ -191,7 +193,7 @@ def to_mcscan_request(request: WorkflowRequest) -> SyntenyExecutionRequest:
 
 
 def validate_workflow_species(request: WorkflowRequest) -> list[GenomeInputSpec]:
-    """校验并转换 species[]"""
+    """校验并转换 species[](物种列表)"""
 
     species = [species_to_genome_input(item) for item in request.species]
     if len(species) < 2 and request.workflow_id == "synteny":

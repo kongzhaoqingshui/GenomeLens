@@ -31,13 +31,13 @@ def _close_handlers(logger: logging.Logger) -> None:
 
 
 def close_engine_logging() -> None:
-    """Flush and close JCVI engine logging handlers"""
+    """刷新并关闭 JCVI engine 日志 handler(处理器)"""
 
     _close_handlers(logging.getLogger(LOGGER_NAME))
 
 
 def setup_engine_logging(path: str | Path, *, level: str = "INFO") -> logging.Logger:
-    """创建写出 UTF-8 日志的 engine logger(引擎日志器)"""
+    """创建写出 UTF-8 日志的 engine logger(日志器)"""
 
     target = Path(path)
     target.parent.mkdir(parents=True, exist_ok=True)

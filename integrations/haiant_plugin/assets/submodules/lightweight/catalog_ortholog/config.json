@@ -1,11 +1,11 @@
 {
   "title": "GenomeLens 直系同源目录",
   "title_en": "GenomeLens Catalog Ortholog",
-  "description": "对应 ``jcvi.catalog_ortholog`` 子模块：从输入目录自动发现物种文件对，生成直系同源基因目录（.anchors 等）。",
-  "description_en": "Matches the ``jcvi.catalog_ortholog`` submodule: auto-discovers species file pairs from an input directory and generates an ortholog catalog (.anchors, etc.).",
+  "description": "用于整理双物种之间的高可信直系同源关系。该子模块会在同源搜索与共线性约束基础上输出可检索的直系同源目录，适合做基因功能对照、候选基因跨物种映射和保守基因集整理。",
+  "description_en": "Used to derive high-confidence ortholog relationships between two species. This submodule combines homology search with synteny constraints to produce a searchable ortholog catalog for functional comparison, cross-species candidate-gene mapping, and conserved gene set curation.",
   "version": "v1.0.0",
-  "context": "双物种直系同源目录",
-  "context_en": "Pairwise ortholog catalog",
+  "context": "双物种直系同源整理与功能映射入口。",
+  "context_en": "Entry point for pairwise ortholog curation and functional mapping.",
   "env": "Python",
   "outputType": "dir",
   "params": [
@@ -15,8 +15,8 @@
       "key": "input_dir",
       "valueType": "dir_selector",
       "example_value": "input",
-      "description": "自动发现同名物种文件对的输入目录（species_pair 端口）。",
-      "description_en": "Directory where same-stem species file pairs are auto-discovered (species_pair port)."
+      "description": "输入两个物种的原始文件目录。插件会自动识别同名前缀文件对，并据此建立直系同源目录所需的双物种输入。",
+      "description_en": "Directory containing the raw files for two species. The plugin auto-discovers same-stem pairs and uses them to build the pairwise input required for ortholog catalog generation."
     },
     {
       "label": "输出目录",

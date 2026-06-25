@@ -1,4 +1,4 @@
-"""SubmoduleRequest 到内部执行请求的映射"""
+"""SubmoduleRequest 到内部执行请求的映射(mapping)"""
 
 # region import
 from __future__ import annotations
@@ -22,13 +22,13 @@ from genomelens.contracts.species import GenomeInputSpec, PreparedGenomeInputSpe
 
 
 def _path(value: str) -> Path:
-    """把字符串解析为已展开用户目录的 Path"""
+    """把字符串解析为已展开用户目录的 Path(路径)"""
 
     return Path(value).expanduser().resolve(strict=False)
 
 
 def _optional_path(value: object) -> Path | None:
-    """把可选端口值解析为 Path，空值时返回 None"""
+    """把可选端口值解析为 Path(路径)，空值时返回 None"""
 
     if not isinstance(value, str) or not value.strip():
         return None
@@ -36,7 +36,7 @@ def _optional_path(value: object) -> Path | None:
 
 
 def _str_param(parameters: dict[str, object], key: str, default: str = "") -> str:
-    """安全读取字符串参数"""
+    """安全读取字符串参数(按 key 取值，空值返回 default)"""
 
     value = parameters.get(key)
     if value is None:
@@ -45,7 +45,7 @@ def _str_param(parameters: dict[str, object], key: str, default: str = "") -> st
 
 
 def _int_param(parameters: dict[str, object], key: str, default: int) -> int:
-    """安全读取整数参数"""
+    """安全读取整数参数(按 key 取值，空值返回 default)"""
 
     value = parameters.get(key, default)
     if isinstance(value, bool):
@@ -63,7 +63,7 @@ def _int_param(parameters: dict[str, object], key: str, default: int) -> int:
 
 
 def _float_param(parameters: dict[str, object], key: str, default: float) -> float:
-    """安全读取浮点参数"""
+    """安全读取浮点参数(按 key 取值，空值返回 default)"""
 
     value = parameters.get(key, default)
     if isinstance(value, bool):
@@ -79,7 +79,7 @@ def _float_param(parameters: dict[str, object], key: str, default: float) -> flo
 
 
 def _bool_param(parameters: dict[str, object], key: str, default: bool = False) -> bool:
-    """安全读取布尔参数"""
+    """安全读取布尔参数(按 key 取值，空值返回 default)"""
 
     value = parameters.get(key, default)
     if isinstance(value, bool):
@@ -90,7 +90,7 @@ def _bool_param(parameters: dict[str, object], key: str, default: bool = False) 
 
 
 def _str_list_param(parameters: dict[str, object], key: str) -> list[str]:
-    """安全读取字符串列表参数"""
+    """安全读取字符串列表参数(按 key 取值，非列表时返回空列表)"""
 
     value = parameters.get(key)
     if not isinstance(value, list):
@@ -99,7 +99,7 @@ def _str_list_param(parameters: dict[str, object], key: str) -> list[str]:
 
 
 def _int_list_param(parameters: dict[str, object], key: str, default: list[int]) -> list[int]:
-    """安全读取整数列表参数"""
+    """安全读取整数列表参数(按 key 取值，非列表时返回 default 副本)"""
 
     value = parameters.get(key)
     if not isinstance(value, list):
@@ -114,7 +114,7 @@ def _int_list_param(parameters: dict[str, object], key: str, default: list[int])
 
 
 def _pairwise_artifacts_from_ports(ports: dict[str, object]) -> PairwiseArtifactInputs | None:
-    """把子模块 artifact 端口转换为内部的 pairwise 产物载荷"""
+    """把子模块 artifact 端口转换为内部的 pairwise 产物载荷(若无可复用产物则返回 None)"""
 
     artifacts = PairwiseArtifactInputs(
         blast_table=_optional_path(ports.get("blast_table")),
@@ -128,7 +128,7 @@ def _pairwise_artifacts_from_ports(ports: dict[str, object]) -> PairwiseArtifact
 
 
 def _artifact_bundles_from_ports(ports: dict[str, object]) -> list[ArtifactBundle]:
-    """Build reusable artifact bundles from submodule ports"""
+    """从子模块端口构建可复用的 artifact bundle(产物包)列表"""
 
     artifacts = _pairwise_artifacts_from_ports(ports)
     if artifacts is None:
@@ -137,7 +137,7 @@ def _artifact_bundles_from_ports(ports: dict[str, object]) -> list[ArtifactBundl
 
 
 def _target_gene_ids(ports: dict[str, object], parameters: dict[str, object]) -> list[str]:
-    """合并端口与参数中的目标基因列表"""
+    """合并端口与参数中的目标基因列表(去重并过滤空值)"""
 
     raw = ports.get("target_genes") or parameters.get("target_genes")
     if isinstance(raw, list):
@@ -148,7 +148,7 @@ def _target_gene_ids(ports: dict[str, object], parameters: dict[str, object]) ->
 
 
 def _parse_species_pair(value: object) -> tuple[GenomeInputSpec, GenomeInputSpec]:
-    """从 species_pair 端口解析出两个物种的 GenomeInputSpec"""
+    """从 species_pair 端口解析出两个物种的 GenomeInputSpec(基因组输入规范)"""
 
     if isinstance(value, dict):
         reference = _species_from_dict(value.get("reference") or value.get("ref") or {})
@@ -170,7 +170,7 @@ def _parse_species_pair(value: object) -> tuple[GenomeInputSpec, GenomeInputSpec
 
 
 def _species_from_dict(data: object) -> GenomeInputSpec | None:
-    """从字典构造 GenomeInputSpec"""
+    """从字典构造 GenomeInputSpec(基因组输入规范)"""
 
     if not isinstance(data, dict):
         return None
@@ -190,7 +190,7 @@ def _species_from_dict(data: object) -> GenomeInputSpec | None:
 
 
 def _auto_optimization(parameters: dict[str, object]) -> dict[str, bool]:
-    """读取自动优化参数"""
+    """读取自动优化参数(返回 optimize_figsize / rewrite_layout_links / optimize_karyotype_labels 字典)"""
 
     return {
         "optimize_figsize": _bool_param(parameters, "optimize_figsize"),
@@ -200,7 +200,7 @@ def _auto_optimization(parameters: dict[str, object]) -> dict[str, bool]:
 
 
 def to_histogram_request(request: SubmoduleRequest) -> HistogramExecutionRequest:
-    """把 graphics_histogram 子模块请求转为内部 HistogramExecutionRequest"""
+    """把 graphics_histogram 子模块请求转为内部 HistogramExecutionRequest(直方图执行请求)"""
 
     ports = request.inputs
     parameters = request.parameters
@@ -215,7 +215,7 @@ def to_histogram_request(request: SubmoduleRequest) -> HistogramExecutionRequest
     if not inputs:
         raise InputValidationError("graphics_histogram 需要 numeric_files 输入端口")
 
-    # 兼容 SubmoduleRequest 中不带 histogram_ 前缀的键
+    # 兼容 SubmoduleRequest 中不带 histogram_ 前缀的键(key)
     prefix_keys = {
         "histogram_columns": "columns",
         "histogram_skip": "skip",
@@ -261,7 +261,7 @@ def to_histogram_request(request: SubmoduleRequest) -> HistogramExecutionRequest
 
 
 def to_heatmap_request(request: SubmoduleRequest) -> HeatmapExecutionRequest:
-    """把 graphics_heatmap 子模块请求转为内部 HeatmapExecutionRequest"""
+    """把 graphics_heatmap 子模块请求转为内部 HeatmapExecutionRequest(热图执行请求)"""
 
     ports = request.inputs
     parameters = request.parameters
@@ -290,7 +290,7 @@ def to_heatmap_request(request: SubmoduleRequest) -> HeatmapExecutionRequest:
 
 
 def to_synteny_like_request(request: SubmoduleRequest, engine_workflow: str) -> SyntenyExecutionRequest:
-    """把 synteny-like 子模块请求转为内部 SyntenyExecutionRequest"""
+    """把 synteny-like 子模块请求转为内部 SyntenyExecutionRequest(共线性执行请求)"""
 
     ports = request.inputs
     parameters = request.parameters

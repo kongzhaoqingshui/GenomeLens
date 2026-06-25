@@ -1,4 +1,4 @@
-"""`genomelens workflow` metadata command"""
+"""`genomelens workflow` 元数据命令 (metadata command)"""
 
 from __future__ import annotations
 
@@ -19,6 +19,7 @@ _CONSOLE = ConsoleWriter()
 
 
 def register(subparsers: argparse._SubParsersAction) -> None:
+    """注册 workflow 子命令 (register workflow subcommands)"""
     parser = subparsers.add_parser("workflow", help="列出、描述与验证工作流元数据")
     nested = parser.add_subparsers(dest="workflow_command", required=True, parser_class=StyledArgumentParser)
 
@@ -49,6 +50,7 @@ def register(subparsers: argparse._SubParsersAction) -> None:
 
 
 def _find_spec(spec_id: str) -> OneStopWorkflowSpec | SubModuleSpec | None:
+    """按 ID 查找一站式工作流或子模块规范 (find spec by ID)"""
     onestop = get_onestop_registry().get(spec_id)
     if onestop is not None:
         return onestop
@@ -56,10 +58,12 @@ def _find_spec(spec_id: str) -> OneStopWorkflowSpec | SubModuleSpec | None:
 
 
 def _spec_kind(spec: OneStopWorkflowSpec | SubModuleSpec) -> str:
+    """返回规范类型标识 (return spec kind identifier)"""
     return "one_stop" if isinstance(spec, OneStopWorkflowSpec) else "sub_module"
 
 
 def _list(args: argparse.Namespace) -> int:
+    """列出工作流或子模块 (list workflows or submodules)"""
     kind: str = args.kind
     module_kind: str = args.module_kind
     include_one_stop = kind in {"one_stop", "all"}
@@ -100,6 +104,7 @@ def _list(args: argparse.Namespace) -> int:
 
 
 def _describe(args: argparse.Namespace) -> int:
+    """描述指定工作流或子模块 (describe a workflow or submodule)"""
     spec = _find_spec(args.id)
     if spec is None:
         _CONSOLE.print_error(f"Workflow or submodule not found: {args.id}")
@@ -121,6 +126,7 @@ def _describe(args: argparse.Namespace) -> int:
 
 
 def _load_json(value: str) -> dict[str, Any]:
+    """将字符串解析为 JSON 对象 (parse string as JSON object)"""
     if not value:
         return {}
     parsed = json.loads(value)
@@ -130,6 +136,7 @@ def _load_json(value: str) -> dict[str, Any]:
 
 
 def _validate(args: argparse.Namespace) -> int:
+    """验证端口绑定或 WorkflowRequest (validate port bindings or WorkflowRequest)"""
     errors: list[str] = []
 
     if args.request:

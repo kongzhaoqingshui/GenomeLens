@@ -15,7 +15,7 @@ CYTHON_EXTENSION_MODULES = (
 
 
 def build_runtime_profile() -> dict[str, object]:
-    """Describe the current engine runtime mode and compiled extensions"""
+    """描述当前 engine 运行模式及已编译扩展"""
 
     loaded: list[str] = []
     missing: list[str] = []
@@ -27,7 +27,7 @@ def build_runtime_profile() -> dict[str, object]:
         except ModuleNotFoundError:
             # 缺少可选扩展不应阻止 engine 运行，只影响 runtime_mode/诊断信息
             missing.append(module_name)
-        except Exception as exc:  # noqa: BLE001 - diagnostic payload should report import failures verbatim
+        except Exception as exc:  # noqa: BLE001 - 诊断载荷应如实报告导入失败
             errors[module_name] = f"{exc.__class__.__name__}: {exc}"
     # 只要有扩展成功加载就标记 accelerated；具体缺哪些扩展仍由明细字段表达
     runtime_mode = "accelerated" if loaded else "core"

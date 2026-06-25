@@ -1,4 +1,4 @@
-"""Tests for workflow metadata and v2 analyze CLI entry points"""
+"""测试 workflow 元数据与 v2 analyze CLI 入口点"""
 
 from __future__ import annotations
 
@@ -11,6 +11,7 @@ from genomelens.contracts.summaries import RunSummary, ScoringBlock, UiBlock
 
 
 def _dummy_summary(**extra) -> RunSummary:
+    """构造一个用于测试的最小化 RunSummary（运行摘要）"""
     return RunSummary(
         status="SUCCEEDED",
         schema_version=3,
@@ -26,6 +27,7 @@ def _dummy_summary(**extra) -> RunSummary:
 
 
 def test_workflow_list_json(capsys) -> None:
+    """workflow list --json 应返回包含 one_stop_workflows 与 submodules 的 JSON"""
     assert main(["workflow", "list", "--json"]) == 0
     payload = json.loads(capsys.readouterr().out)
     assert "one_stop_workflows" in payload
@@ -35,6 +37,7 @@ def test_workflow_list_json(capsys) -> None:
 
 
 def test_workflow_list_filters(capsys) -> None:
+    """workflow list --kind 过滤应仅返回对应类别的工作流"""
     assert main(["workflow", "list", "--kind", "one_stop", "--json"]) == 0
     payload = json.loads(capsys.readouterr().out)
     assert "one_stop_workflows" in payload
@@ -47,6 +50,7 @@ def test_workflow_list_filters(capsys) -> None:
 
 
 def test_workflow_list_can_filter_submodules_by_module_kind(capsys) -> None:
+    """--module-kind aggregate 应仅返回 module_kind 为 aggregate 的子模块"""
     assert (
         main(
             [
@@ -70,6 +74,7 @@ def test_workflow_list_can_filter_submodules_by_module_kind(capsys) -> None:
 
 
 def test_workflow_describe_json(capsys) -> None:
+    """workflow describe --json 应返回对应 workflow_id 或 module_id 的 JSON 描述"""
     assert main(["workflow", "describe", "synteny", "--json"]) == 0
     payload = json.loads(capsys.readouterr().out)
     assert payload["workflow_id"] == "synteny"
@@ -83,11 +88,13 @@ def test_workflow_describe_json(capsys) -> None:
 
 
 def test_workflow_describe_unknown_returns_error(capsys) -> None:
+    """描述不存在的 workflow 时应返回错误码 2"""
     assert main(["workflow", "describe", "not.found"]) == 2
     assert "not.found" in capsys.readouterr().err
 
 
 def test_workflow_validate_submodule_ports_json(capsys) -> None:
+    """验证子模块端口时，传入合法端口应返回 valid: True"""
     code = main(
         [
             "workflow",
@@ -105,6 +112,7 @@ def test_workflow_validate_submodule_ports_json(capsys) -> None:
 
 
 def test_workflow_validate_submodule_missing_required(capsys) -> None:
+    """缺少必填端口时，验证应返回 valid: False 并包含对应错误信息"""
     code = main(
         [
             "workflow",
@@ -123,6 +131,7 @@ def test_workflow_validate_submodule_missing_required(capsys) -> None:
 
 
 def test_workflow_validate_workflow_request(tmp_path) -> None:
+    """通过 --request 传入完整 WorkflowRequest JSON 文件，验证应通过"""
     request_path = tmp_path / "request.json"
     (tmp_path / "a.bed").write_text("chr1\t1\t100\tg1\n", encoding="utf-8")
     (tmp_path / "a.cds").write_text(">g1\nATGC\n", encoding="utf-8")
@@ -161,6 +170,7 @@ def test_workflow_validate_workflow_request(tmp_path) -> None:
 
 
 def test_analyze_schema_with_capabilities(capsys) -> None:
+    """analyze schema --with-capabilities 应返回包含 schema 与能力列表的 JSON"""
     assert main(["analyze", "schema", "--with-capabilities"]) == 0
     payload = json.loads(capsys.readouterr().out)
     assert "analysis_request_schema" in payload
@@ -169,6 +179,7 @@ def test_analyze_schema_with_capabilities(capsys) -> None:
 
 
 def test_analyze_schema_default_is_union_schema(capsys) -> None:
+    """analyze schema 默认应返回 workflow_request 与 submodule_request 的联合 schema（union schema）"""
     assert main(["analyze", "schema"]) == 0
     payload = json.loads(capsys.readouterr().out)
     assert payload["$schema"] == "https://json-schema.org/draft/2020-12/schema"
@@ -181,18 +192,21 @@ def test_analyze_schema_default_is_union_schema(capsys) -> None:
 
 
 def test_analyze_workflow_unknown_returns_error(capsys) -> None:
+    """analyze workflow 传入未知 workflow_id 时应返回错误码 3"""
     code = main(["analyze", "workflow", "not_found", "in", "out"])
     assert code == 3
     assert "not_found" in capsys.readouterr().err
 
 
 def test_analyze_submodule_unknown_returns_error(capsys) -> None:
+    """analyze submodule 传入未知 module_id 时应返回错误码 3"""
     code = main(["analyze", "submodule", "not.found", "--input-ports", "{}", "--output-dir", "out"])
     assert code == 3
     assert "not.found" in capsys.readouterr().err
 
 
 def test_analyze_submodule_missing_required_port_returns_error(capsys) -> None:
+    """缺少必填 input port 时，analyze submodule 应返回错误码 3 并在 stderr 中提示缺失字段"""
     code = main(
         [
             "analyze",
@@ -209,6 +223,7 @@ def test_analyze_submodule_missing_required_port_returns_error(capsys) -> None:
 
 
 def test_analyze_workflow_synteny_routes_to_workflow_request(monkeypatch, tmp_path) -> None:
+    """analyze workflow synteny 应将 CLI 参数组装为 WorkflowRequest 并调用 dispatch"""
     captured: dict[str, WorkflowRequest] = {}
 
     def fake_dispatch(self, request, signal_bus=None):
@@ -232,6 +247,7 @@ def test_analyze_workflow_synteny_routes_to_workflow_request(monkeypatch, tmp_pa
 
 
 def test_analyze_submodule_heatmap_routes_to_submodule_request(monkeypatch, tmp_path) -> None:
+    """analyze submodule 应将 CLI 参数组装为 SubmoduleRequest 并调用 dispatch"""
     captured: dict[str, SubmoduleRequest] = {}
 
     def fake_dispatch(self, request, signal_bus=None):

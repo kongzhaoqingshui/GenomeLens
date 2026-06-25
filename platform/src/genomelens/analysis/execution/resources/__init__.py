@@ -1,4 +1,4 @@
-"""Shared execution resources for optimized composite plans"""
+"""为优化后的复合计划提供共享执行资源"""
 
 from genomelens.analysis.execution.resources.shared_runtime import (
     PlanRunContext,

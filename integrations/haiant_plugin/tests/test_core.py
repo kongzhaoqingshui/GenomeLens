@@ -213,7 +213,7 @@ def test_coerce_submodule_params_coerces_declared_types(tmp_path: Path) -> None:
     assert out["figsize"] == "8x6"
     assert Path(str(out["rowgroups"])).is_absolute()
     assert out["histogram_columns"] == [0, 1, 2]
-    # blank / None / missing keys are dropped so the submodule keeps its defaults
+    # 空白 / None / 缺失的键会被丢弃，使子模块保持自身默认值
     assert "blank" not in out
     assert "absent" not in out
     assert "missing" not in out

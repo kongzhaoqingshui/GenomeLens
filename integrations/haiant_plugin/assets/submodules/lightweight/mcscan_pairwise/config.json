@@ -1,11 +1,11 @@
 {
   "title": "GenomeLens MCscan Pairwise",
   "title_en": "GenomeLens MCscan Pairwise",
-  "description": "对应 ``jcvi.mcscan_pairwise`` 子模块：对两个物种执行 BLAST/LAST/Diamond 比对、锚点扫描与 block 计算。",
-  "description_en": "Matches the ``jcvi.mcscan_pairwise`` submodule: run BLAST/LAST/Diamond alignment, anchor scanning, and block computation for two species.",
+  "description": "双物种基础共线性分析子模块。它在两个物种之间完成序列比对、同源锚点筛选和共线性区块识别，得到后续点图、共线性图、核型图和局部共线性分析所需的核心中间结果。",
+  "description_en": "A foundational pairwise synteny analysis submodule. It performs sequence alignment, homologous anchor filtering, and synteny block discovery between two species, producing the core intermediate results required for downstream dotplots, synteny figures, karyotypes, and local synteny analyses.",
   "version": "v1.0.0",
-  "context": "双物种同源搜索与共线性 block 计算",
-  "context_en": "Pairwise homology search and synteny block computation",
+  "context": "适合先建立两个基因组之间的同源与共线性基础关系，再衔接后续图形化与候选位点分析。",
+  "context_en": "Best used to establish the baseline homologous and syntenic relationships between two genomes before downstream visualization and candidate-locus analysis.",
   "env": "Python",
   "outputType": "dir",
   "params": [
@@ -15,8 +15,8 @@
       "key": "input_dir",
       "valueType": "dir_selector",
       "example_value": "input",
-      "description": "自动发现同名物种文件对的输入目录。",
-      "description_en": "Directory where same-stem species file pairs are auto-discovered."
+      "description": "输入两个待比较物种的文件目录。每个物种需按同名前缀成对提供注释与序列文件，用于构建双物种同源搜索与共线性区块识别的原始输入。",
+      "description_en": "Directory containing the two species to compare. Each species should provide matched same-stem annotation and sequence files, which serve as the raw input for pairwise homology search and synteny block detection."
     },
     {
       "label": "输出目录",

@@ -1,4 +1,4 @@
-"""Build validated JCVI engine manifest payloads"""
+"""构建经过校验的 JCVI 引擎 manifest 负载（payload）"""
 
 from __future__ import annotations
 
@@ -43,7 +43,7 @@ def _artifact_bundle_manifest(bundle: ArtifactBundle) -> dict[str, object]:
 
 
 class JcviManifestBuilder:
-    """Convert platform execution requests into engine manifest v3 payloads"""
+    """将平台执行请求转换为引擎 manifest v3 负载"""
 
     def build_pairwise_manifest(
         self,

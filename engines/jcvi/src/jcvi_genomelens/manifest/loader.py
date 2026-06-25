@@ -1,4 +1,4 @@
-"""Load and validate engine manifest JSON"""
+"""加载并校验 engine manifest JSON"""
 
 from __future__ import annotations
 
@@ -30,7 +30,7 @@ from jcvi_genomelens.workflows.reuse.bundles import (
 
 
 class ManifestError(ValueError):
-    """Raised when a manifest violates the public engine contract"""
+    """manifest 违反公共 engine 契约时抛出"""
 
 
 def _path(value: object, *, required: bool = False) -> Path | None:
@@ -237,7 +237,7 @@ def _load_artifact_bundles(data: object) -> list[ArtifactBundleSpec]:
 
 
 def load_manifest(path: str | Path) -> EngineRunManifest:
-    """Load and validate a manifest from disk"""
+    """从磁盘加载并校验 manifest"""
 
     source = Path(path).expanduser().resolve(strict=False)
     data = json.loads(source.read_text(encoding="utf-8-sig"))

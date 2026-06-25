@@ -1,4 +1,4 @@
-"""Validated JCVI engine manifest dataclasses"""
+"""已校验的 JCVI engine manifest 数据类 (dataclasses)"""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from pathlib import Path
 
 @dataclass(frozen=True)
 class GenomeSpec:
-    """Prepared BED/CDS inputs for a species"""
+    """为某个物种准备好的 BED/CDS 输入"""
 
     name: str
     bed: Path
@@ -17,7 +17,7 @@ class GenomeSpec:
 
 @dataclass(frozen=True)
 class ToolchainSpec:
-    """Resolved executable paths for the engine runtime"""
+    """engine 运行时可执行文件路径解析结果"""
 
     blastn: Path | None = None
     makeblastdb: Path | None = None
@@ -27,7 +27,7 @@ class ToolchainSpec:
 
 @dataclass(frozen=True)
 class PairwiseArtifacts:
-    """Reusable pairwise-core artifacts"""
+    """可复用的 pairwise-core 产物"""
 
     blast_table: Path | None = None
     anchors: Path | None = None
@@ -39,7 +39,7 @@ class PairwiseArtifacts:
 
 @dataclass(frozen=True)
 class ArtifactBundleSpec:
-    """Generic reusable artifact bundle loaded from manifest inputs"""
+    """从 manifest inputs 加载的通用可复用产物包"""
 
     bundle_type: str
     artifacts: dict[str, Path] = field(default_factory=dict)
@@ -50,7 +50,7 @@ class ArtifactBundleSpec:
 
 @dataclass(frozen=True)
 class WorkflowOptions:
-    """Resolved workflow options passed from the platform manifest"""
+    """从平台 manifest 解析得到的工作流选项"""
 
     threads: int = 4
     min_block_size: int = 5
@@ -96,7 +96,7 @@ class WorkflowOptions:
 
 @dataclass(frozen=True)
 class EngineTrack:
-    """One species track in a multi-species graphic workflow"""
+    """多物种图形工作流中的单个物种 track"""
 
     name: str
     bed: Path
@@ -104,7 +104,7 @@ class EngineTrack:
 
 @dataclass(frozen=True)
 class EngineEdge:
-    """Track-to-track connection consumed by global karyotype workflows"""
+    """global karyotype 工作流使用的 track 间连接关系"""
 
     i: int
     j: int
@@ -113,7 +113,7 @@ class EngineEdge:
 
 @dataclass(frozen=True)
 class EngineRunManifest:
-    """Validated engine manifest"""
+    """已校验的 engine manifest"""
 
     workflow: str
     toolchain: ToolchainSpec

@@ -1,1 +1,19 @@
-Hashes are not yet fixed because the source was provided as an unpacked local reference tree.
+Upstream project URL: https://github.com/tanghaibao/jcvi
+Declared upstream version: 1.6.6
+Patchset: windows-genomelens
+
+Local reference tree: references/upstream/jcvi
+Vendored runtime tree: engines/jcvi/src/jcvi
+
+Repository checkpoints:
+- initial vendored import: 60915aa1
+- upgrade to upstream 1.6.6: 126ab6c5
+
+Current status:
+- the local reference tree is present as an unpacked source snapshot
+- no upstream Git commit SHA is currently pinned in this repository metadata
+- no release tarball SHA256 is currently pinned in this repository metadata
+
+Recommended next provenance upgrade:
+- record the upstream tag or commit SHA for the 1.6.6 snapshot
+- record the release tarball hash if a tarball is used for future vendor refreshes

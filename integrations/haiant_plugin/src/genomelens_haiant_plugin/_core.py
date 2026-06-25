@@ -1,4 +1,4 @@
-"""Shared helpers for HAIant plugin entries"""
+"""HAIant 插件入口的共享辅助函数"""
 
 # region import
 from __future__ import annotations
@@ -21,11 +21,11 @@ GENOMELENS_EXE_ENV = "GENOMELENS_EXE"
 
 
 class PluginError(Exception):
-    """Raised when a HAIant entry cannot build a valid GenomeLens request"""
+    """当 HAIant 入口无法构建有效的 GenomeLens 请求时抛出"""
 
 
 def resource_path(*parts: str | Path) -> Path:
-    """Return a path inside the plugin root for source and frozen layouts"""
+    """返回插件根目录下的路径，同时兼容源码与冻结(frozen)布局"""
 
     if getattr(sys, "frozen", False):
         frozen_root = getattr(sys, "_MEIPASS", "")
@@ -38,7 +38,7 @@ def resource_path(*parts: str | Path) -> Path:
 
 
 def load_params(path: str | Path) -> tuple[dict[str, object], Path]:
-    """Load a params.json file and return its payload with the base directory"""
+    """加载 params.json 文件并返回其内容与所在目录"""
 
     source = Path(path).expanduser().resolve(strict=False)
     if not source.is_file():
@@ -59,7 +59,7 @@ def resolve_param_path(
     required: bool = False,
     must_exist: bool = False,
 ) -> str:
-    """Resolve a path-like parameter relative to the params.json directory"""
+    """基于 params.json 所在目录解析路径类参数"""
 
     if value is None or str(value).strip() == "":
         if required:
@@ -74,7 +74,7 @@ def resolve_param_path(
 
 
 def parse_bool(value: object) -> bool:
-    """Parse user-facing boolean forms from HAIant params"""
+    """从 HAIant 参数中解析用户填写的布尔形式"""
 
     if isinstance(value, bool):
         return value
@@ -147,7 +147,7 @@ def _target_gene_ids(params: Mapping[str, object]) -> list[str]:
 def _discover_species_from_input_dir(
     base: Path, input_dir: object
 ) -> list[dict[str, object]]:
-    """Mirror the platform auto-directory species discovery"""
+    """镜像 platform 的自动目录物种发现(species discovery)逻辑"""
 
     from genomelens.analysis.requests.normalization.input_resolver import (
         discover_species_from_directory,
@@ -161,7 +161,7 @@ def _discover_species_from_input_dir(
 def setup_adapter_logging(
     output_dir: str | Path, *, logger_name: str = LOGGER_NAME
 ) -> logging.Logger:
-    """Set up adapter logging under output_dir/run.log"""
+    """在 output_dir/run.log 下设置 adapter 日志"""
 
     destination = Path(output_dir).expanduser().resolve(strict=False)
     destination.mkdir(parents=True, exist_ok=True)
@@ -182,7 +182,7 @@ def setup_adapter_logging(
 
 
 def close_logging(*, logger_name: str = LOGGER_NAME) -> None:
-    """Flush and close adapter log handlers"""
+    """刷新并关闭 adapter 日志处理器"""
 
     logger = logging.getLogger(logger_name)
     for handler in list(logger.handlers):
@@ -194,13 +194,13 @@ def close_logging(*, logger_name: str = LOGGER_NAME) -> None:
 
 
 def close_adapter_logging(logger_name: str = LOGGER_NAME) -> None:
-    """Flush and close adapter log handlers"""
+    """刷新并关闭 adapter 日志处理器"""
 
     close_logging(logger_name=logger_name)
 
 
 def resolve_genomelens_exe(params: Mapping[str, object], base: Path) -> Path:
-    """Locate the external GenomeLens executable from params or environment"""
+    """从 params 或环境变量中定位外部 GenomeLens 可执行文件"""
 
     raw = str(
         params.get("GenomeLens_Path")
@@ -223,12 +223,10 @@ def resolve_genomelens_exe(params: Mapping[str, object], base: Path) -> Path:
 
 
 def _parse_formats(value: object) -> list[str]:
-    """Return the selected output format as a single-item list (default svg)
+    """返回选中的输出格式列表（默认 svg）
 
-    The UI exposes ``formats`` as a single-select (``customer_selector``), so
-    only the first selected value is honored.  Lists are accepted defensively
-    for backward compatibility, but multi-format output is intentionally not
-    supported by the auto plugin.
+    UI 把 ``formats`` 作为单选（``customer_selector``），因此只取第一个选中的值。
+    为向后兼容，列表形式也做防御性接受，但 auto 插件不打算支持多格式输出
     """
 
     if isinstance(value, list):
@@ -243,11 +241,11 @@ def coerce_submodule_params(
     base: Path,
     declared: Sequence[tuple[str, str]],
 ) -> dict[str, object]:
-    """Coerce declared submodule parameters into a JSON-ready ``parameters`` payload
+    """将声明的子模块参数强制转换为 JSON 可用的 ``parameters`` 载荷
 
-    ``declared`` is a list of ``(param_id, ptype)`` pairs where ``ptype`` is one of
-    ``int`` / ``float`` / ``bool`` / ``str`` / ``path`` / ``int_array``.  Keys that
-    are missing or blank are dropped so the submodule falls back to its own defaults.
+    ``declared`` 是 ``(param_id, ptype)`` 列表，其中 ``ptype`` 为
+    ``int`` / ``float`` / ``bool`` / ``str`` / ``path`` / ``int_array`` 之一。
+    缺失或留空的键会被丢弃，让子模块回退到自身默认值
     """
 
     out: dict[str, object] = {}
@@ -278,7 +276,7 @@ def write_request_json(
     *,
     filename: str = "request.json",
 ) -> Path:
-    """Write a request JSON object under ``output_dir`` and return its path"""
+    """将 request JSON 写入 ``output_dir`` 并返回其路径"""
 
     destination = Path(output_dir).expanduser().resolve(strict=False)
     destination.mkdir(parents=True, exist_ok=True)
@@ -294,7 +292,7 @@ def build_run_command(
     genomelens_exe: str | Path,
     request_path: str | Path,
 ) -> list[str]:
-    """Build the ``<GenomeLens.exe> analyze run <request.json>`` argv"""
+    """构建 ``<GenomeLens.exe> analyze run <request.json>`` 命令行参数"""
 
     exe = Path(genomelens_exe)
     args = ["analyze", "run", str(request_path)]
@@ -308,11 +306,10 @@ def build_workflow_request(
     base: Path,
     output_dir: str | Path,
 ) -> dict[str, object]:
-    """Build a V3 ``WorkflowRequest`` JSON for the synteny one-stop workflow
+    """为 synteny 一站式工作流构建 V3 ``WorkflowRequest`` JSON
 
-    The request encodes species auto-discovery, reference selection, target genes,
-    and all algorithm/plot options directly.  No external ``jcvi.config.json`` is
-    generated; the platform uses these values as the authoritative source.
+    请求直接编码物种自动发现、参考种选择、目标基因以及全部算法/绘图选项。
+    不生成外部 ``jcvi.config.json``；平台把这些值作为权威来源使用
     """
 
     input_dir = resolve_param_path(
@@ -402,7 +399,7 @@ def build_workflow_runtime_command(
     base: Path,
     output_dir: str | Path,
 ) -> list[str]:
-    """Write the one-stop ``WorkflowRequest`` and return the ``analyze run`` argv"""
+    """写入一站式 ``WorkflowRequest`` 并返回 ``analyze run`` 命令行参数"""
 
     request = build_workflow_request(params, base, output_dir)
     request_path = write_request_json(
@@ -421,7 +418,7 @@ def build_submodule_request(
     threads: int | None = None,
     force: bool = True,
 ) -> dict[str, object]:
-    """Build a V3 ``SubmoduleRequest`` JSON for a single orchestratable submodule"""
+    """为单个可编排子模块构建 V3 ``SubmoduleRequest`` JSON"""
 
     runtime: dict[str, object] = {
         "project_config": "",
@@ -464,7 +461,7 @@ def build_submodule_runtime_command(
     threads: int | None = None,
     force: bool = True,
 ) -> list[str]:
-    """Write the ``SubmoduleRequest`` and return the ``analyze run`` argv"""
+    """写入 ``SubmoduleRequest`` 并返回 ``analyze run`` 命令行参数"""
 
     request = build_submodule_request(
         module_id,
@@ -488,11 +485,10 @@ def compress_output_intermediates(
     marker_name: str = "intermediates.zip.deletable",
     preserve: set[str] | None = None,
 ) -> Path | None:
-    """Package everything except ``results`` into a zip and mark it as deletable
+    """将除 ``results`` 外的全部内容打包为 zip 并标记为可删除
 
-    The ``results`` directory is left untouched.  After archiving, the original
-    intermediate files and directories are removed so the output root only keeps
-    ``results``, the archive, and a ``.deletable`` marker.
+    ``results`` 目录保持原样不动。归档后，原始中间文件与目录会被删除，
+    使输出根目录仅保留 ``results``、压缩包与一个 ``.deletable`` 标记
     """
 
     root = Path(output_dir).expanduser().resolve(strict=False)
@@ -536,7 +532,7 @@ def compress_output_intermediates(
 
 
 def _rm_tree(path: Path) -> None:
-    """Recursively remove a directory tree"""
+    """递归删除目录树"""
 
     for child in path.iterdir():
         if child.is_dir():
@@ -547,7 +543,7 @@ def _rm_tree(path: Path) -> None:
 
 
 def run_process(argv: Sequence[str]) -> int:
-    """Run a prepared command and return its exit code"""
+    """运行已准备好的命令并返回退出码"""
 
     completed = subprocess.run(list(argv), shell=False, check=False)
     return int(completed.returncode)

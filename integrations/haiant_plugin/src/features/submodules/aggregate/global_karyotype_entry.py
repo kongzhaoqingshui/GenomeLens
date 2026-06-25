@@ -1,4 +1,4 @@
-"""Aggregate HAIant feature entry for ``jcvi.graphics_karyotype_global``"""
+"""HAIant 聚合功能入口：``jcvi.graphics_karyotype_global``"""
 
 from __future__ import annotations
 
@@ -47,7 +47,7 @@ def _parse_json_list(value: object, label: str) -> list[object]:
 
 
 def build_runtime_command(params_path: str | Path) -> list[str]:
-    """Build the GenomeLens ``analyze run submodule_request.json`` command"""
+    """构建 GenomeLens ``analyze run submodule_request.json`` 命令"""
 
     params, base = load_params(params_path)
     output_dir = Path(resolve_param_path(base, params.get("output_dir") or "output"))
@@ -80,7 +80,7 @@ def build_runtime_command(params_path: str | Path) -> list[str]:
 
 
 def run_runtime(argv: list[str]) -> int:
-    """Run a prepared command and return its exit code"""
+    """运行已准备好的命令并返回退出码"""
 
     import subprocess
 
@@ -89,7 +89,7 @@ def run_runtime(argv: list[str]) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
-    """Run the global karyotype feature entry"""
+    """运行全局核型(global karyotype)功能入口"""
 
     args = sys.argv[1:] if argv is None else argv
     try:

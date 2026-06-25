@@ -1,11 +1,11 @@
 {
   "title": "GenomeLens 共线性图 (Synteny Figure)",
   "title_en": "GenomeLens Synteny Figure",
-  "description": "对应 ``jcvi.graphics_synteny`` 子模块：基于上游 MCscan pairwise 产出的 .blocks 渲染共线性图。",
-  "description_en": "Matches the ``jcvi.graphics_synteny`` submodule: render a synteny figure from an upstream MCscan pairwise .blocks file.",
+  "description": "用于绘制基因级或区段级双物种共线性图，突出展示成对保守基因、顺序变化和局部结构差异。它比点图更强调具体基因与片段之间的对应关系，适合论文正文或补充图展示。",
+  "description_en": "Draws gene-level or region-level synteny figures for two species, highlighting conserved gene pairs, order changes, and local structural differences. Compared with a dotplot, it emphasizes explicit gene and segment correspondence and is well suited for main-text or supplementary figures.",
   "version": "v1.0.0",
-  "context": "双物种 JCVI 共线性图（synteny_figure 子模块）",
-  "context_en": "Pairwise JCVI synteny figure",
+  "context": "双物种基因级共线性关系与局部结构展示。",
+  "context_en": "Gene-level syntenic relationships and local structural display for two species.",
   "env": "Python",
   "outputType": "dir",
   "params": [
@@ -15,8 +15,8 @@
       "key": "input_dir",
       "valueType": "dir_selector",
       "example_value": "input",
-      "description": "包含两物种 BED/序列的目录（species_pair 端口）。",
-      "description_en": "Directory holding the two-species BED/sequence files (species_pair port)."
+      "description": "包含两物种注释与序列文件的目录，用于构建基因轨道、顺序与物种背景。",
+      "description_en": "Directory containing the annotation and sequence files for both species, used to build gene tracks, ordering, and species context."
     },
     {
       "label": "Blocks 文件",
@@ -24,8 +24,8 @@
       "key": "blocks",
       "valueType": "file_selector",
       "example_value": "pair.blocks",
-      "description": "上游 MCscan pairwise 产出的 .blocks 文件（blocks 端口，必填）。",
-      "description_en": "Upstream MCscan pairwise .blocks file (blocks port, required)."
+      "description": "双物种共线性区块文件，决定图中哪些片段与基因需要建立对应关系并参与连线。",
+      "description_en": "Pairwise synteny blocks file defining which segments and genes should be connected in the figure."
     },
     {
       "label": "Layout 文件",
@@ -33,8 +33,8 @@
       "key": "layout",
       "valueType": "file_selector",
       "example_value": "",
-      "description": "可选的 .layout 文件（layout 端口）；留空使用默认布局。",
-      "description_en": "Optional .layout file (layout port); leave empty for the default layout."
+      "description": "可选布局文件，用于手动指定轨道顺序、方向或版式；不提供时使用默认布局。",
+      "description_en": "Optional layout file for manually specifying track order, orientation, or panel arrangement; the default layout is used when omitted."
     },
     {
       "label": "输出目录",

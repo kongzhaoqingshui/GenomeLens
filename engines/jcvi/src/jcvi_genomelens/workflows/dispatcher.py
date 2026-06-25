@@ -1,4 +1,4 @@
-"""Dispatch an engine manifest to a supported workflow"""
+"""把 engine manifest 分发给支持的工作流"""
 
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ from jcvi_genomelens.workflows.contract import (
 
 
 def dispatch(manifest: EngineRunManifest, outdir: str | Path) -> tuple[list[CommandAudit], dict[str, object]]:
-    """Dispatch by the normalized v3 workflow field"""
+    """按规范化后的 v3 workflow 字段进行分发"""
 
     workflow = normalize_workflow(manifest.workflow)
     runner_ref = _WORKFLOW_REGISTRY.get(workflow)

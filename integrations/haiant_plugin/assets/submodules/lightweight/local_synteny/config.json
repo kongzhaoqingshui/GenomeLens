@@ -1,11 +1,11 @@
 {
   "title": "GenomeLens 局部共线性",
   "title_en": "GenomeLens Local Synteny",
-  "description": "对应 ``jcvi.local_synteny`` 子模块：基于上游 MCscan pairwise 产出的 .blocks，围绕目标基因绘制局部共线性图。",
-  "description_en": "Matches the ``jcvi.local_synteny`` submodule: render local synteny around target genes from an upstream MCscan pairwise .blocks file.",
+  "description": "用于围绕候选基因或目标位点绘制局部共线性图，观察上下游邻域在另一个物种中是否仍保持顺序、方向和对应关系。它非常适合做候选基因验证、功能转移参考和微观结构保守性分析。",
+  "description_en": "Renders local synteny around candidate genes or target loci, allowing users to inspect whether the upstream and downstream neighborhoods preserve order, orientation, and correspondence in the other species. It is especially useful for candidate-gene validation, cross-species functional transfer, and fine-scale structural conservation analysis.",
   "version": "v1.0.0",
-  "context": "目标基因局部共线性出图",
-  "context_en": "Target-gene-centered local synteny visualization",
+  "context": "目标位点上下游微共线性保守关系展示。",
+  "context_en": "Visualization of micro-synteny conservation around target loci.",
   "env": "Python",
   "outputType": "dir",
   "params": [
@@ -15,8 +15,8 @@
       "key": "input_dir",
       "valueType": "dir_selector",
       "example_value": "input",
-      "description": "包含两物种 BED/序列的目录（species_pair 端口）。",
-      "description_en": "Directory holding the two-species BED/sequence files (species_pair port)."
+      "description": "包含双物种注释与序列文件的目录，用于恢复目标区域的基因顺序、坐标和物种背景信息。",
+      "description_en": "Directory containing the annotation and sequence files for the species pair, used to recover gene order, coordinates, and species context around the target region."
     },
     {
       "label": "Blocks 文件",
@@ -24,8 +24,8 @@
       "key": "blocks",
       "valueType": "file_selector",
       "example_value": "pair.blocks",
-      "description": "上游 MCscan pairwise 产出的 .blocks 文件（blocks 端口，必填）。",
-      "description_en": "Upstream MCscan pairwise .blocks file (blocks port, required)."
+      "description": "双物种共线性区块文件，用于从全基因组结果中筛出与目标基因相关的局部保守连接。",
+      "description_en": "Pairwise synteny blocks file used to extract the local conserved links associated with the target gene from the whole-genome result."
     },
     {
       "label": "目标基因 ID",
@@ -33,8 +33,8 @@
       "key": "target_genes",
       "valueType": "str",
       "example_value": "Thhalv10024702m.v1.0",
-      "description": "目标基因 ID（target_genes 端口，必填），多个用逗号分隔。",
-      "description_en": "Target gene IDs (target_genes port, required), comma-separated."
+      "description": "要重点观察的目标基因 ID。插件会围绕这些基因截取上下游窗口，并组织成局部共线性图；多个基因用逗号分隔。",
+      "description_en": "Target gene IDs to inspect. The plugin extracts upstream and downstream windows around these genes and organizes them into local synteny figures; separate multiple IDs with commas."
     },
     {
       "label": "输出目录",
@@ -87,8 +87,8 @@
       "key": "use_native_local_synteny_renderer",
       "valueType": "bool",
       "example_value": false,
-      "description": "使用 GenomeLens 自实现渲染器绘制局部共线性图，支持跨染色体展示。",
-      "description_en": "Use the GenomeLens native renderer for local synteny figures with cross-chromosome support."
+      "description": "启用 GenomeLens 增强渲染器，以更稳定地展示跨染色体命中、截断轨道与复杂多段局部区域。",
+      "description_en": "Enable the enhanced GenomeLens renderer for more robust display of cross-chromosome hits, truncated tracks, and complex multi-segment local regions."
     },
     {
       "label": "输出格式",

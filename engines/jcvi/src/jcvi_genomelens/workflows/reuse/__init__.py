@@ -1,4 +1,4 @@
-"""Shared artifact reuse helpers for JCVI workflows"""
+"""JCVI workflow 共享产物复用辅助函数"""
 
 from jcvi_genomelens.workflows.reuse.bundles import (
     PAIRWISE_CORE_ARTIFACT_IDS,

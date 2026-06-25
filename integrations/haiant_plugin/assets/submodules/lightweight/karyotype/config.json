@@ -1,11 +1,11 @@
 {
   "title": "GenomeLens 核型图",
   "title_en": "GenomeLens Karyotype",
-  "description": "对应 ``jcvi.graphics_karyotype`` 子模块：基于上游 MCscan pairwise 产出的 .blocks 渲染核型图。",
-  "description_en": "Matches the ``jcvi.graphics_karyotype`` submodule: render a karyotype figure from an upstream MCscan pairwise .blocks file.",
+  "description": "用于在染色体尺度展示两个物种之间的共线性对应关系。它适合观察整条染色体或大片段之间的保守、断裂、重排与融合情况，是宏观结构比较的核心图型之一。",
+  "description_en": "Displays chromosome-scale syntenic correspondences between two species. It is well suited for examining chromosome-wide or large-segment conservation, breaks, rearrangements, and fusion patterns, making it a core figure for macro-structural comparison.",
   "version": "v1.0.0",
-  "context": "双物种 JCVI 核型图",
-  "context_en": "Pairwise JCVI karyotype figure",
+  "context": "双物种染色体尺度共线性与结构变动展示。",
+  "context_en": "Chromosome-scale synteny and structural variation display for two species.",
   "env": "Python",
   "outputType": "dir",
   "params": [
@@ -15,8 +15,8 @@
       "key": "input_dir",
       "valueType": "dir_selector",
       "example_value": "input",
-      "description": "包含两物种 BED/序列的目录（species_pair 端口）。",
-      "description_en": "Directory holding the two-species BED/sequence files (species_pair port)."
+      "description": "包含两物种注释与序列文件的目录，用于解析染色体轨道与长度信息。",
+      "description_en": "Directory containing the annotation and sequence files for both species, used to resolve chromosome tracks and length information."
     },
     {
       "label": "Blocks 文件",
@@ -24,8 +24,8 @@
       "key": "blocks",
       "valueType": "file_selector",
       "example_value": "pair.blocks",
-      "description": "上游 MCscan pairwise 产出的 .blocks 文件（blocks 端口，必填）。",
-      "description_en": "Upstream MCscan pairwise .blocks file (blocks port, required)."
+      "description": "双物种共线性区块文件，决定哪些染色体片段之间需要建立连接，是核型图结构关系的核心依据。",
+      "description_en": "Pairwise synteny blocks file defining which chromosome segments should be connected. It is the core structural input for the karyotype figure."
     },
     {
       "label": "输出目录",

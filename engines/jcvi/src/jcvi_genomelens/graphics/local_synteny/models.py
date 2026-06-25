@@ -1,4 +1,4 @@
-"""Data models for the chromosome-aware local synteny renderer"""
+"""局部共线性渲染器的数据模型(data models)"""
 
 from __future__ import annotations
 

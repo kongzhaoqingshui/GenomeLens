@@ -74,8 +74,8 @@ def run(manifest: EngineRunManifest, outdir: str | Path) -> tuple[list[CommandAu
             options=manifest.options,
         )
     else:
-        # Native renderer does not need a JCVI layout for drawing, but the
-        # figsize optimization helper still expects one to count tracks
+        # 原生渲染器绘图不需要 JCVI layout，但 figsize 优化辅助函数仍需要
+        # layout 来统计轨道数量
         layout = _write_multi_local_layout(root / "local_multi.layout", manifest)
         plot_inputs = prepare_synteny_plot_inputs(
             blocks=manifest.blocks,

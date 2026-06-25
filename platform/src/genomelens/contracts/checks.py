@@ -1,4 +1,4 @@
-"""Environment check contract models"""
+"""Environment check contract models(环境检查契约模型)"""
 
 from __future__ import annotations
 

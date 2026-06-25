@@ -1,4 +1,4 @@
-"""Backward-compatible re-export of shared runtime resources"""
+"""Backward-compatible re-export of shared runtime resources(共享运行时资源的向后兼容重导出)"""
 
 from genomelens.analysis.execution.resources.shared_runtime import (
     PAIRWISE_CACHE_FIELDS,

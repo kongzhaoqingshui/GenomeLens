@@ -1,4 +1,4 @@
-"""Real JCVI graphics.karyotype global multi-species workflow"""
+"""JCVI graphics.karyotype 多物种全局核型图 workflow"""
 
 from __future__ import annotations
 
@@ -40,7 +40,7 @@ def _display_tracks_and_edges(
     *,
     allow_rewrite: bool,
 ) -> tuple[list[EngineTrack], list[EngineEdge], int, list[str]]:
-    """Conservatively reorder tracks and remap edges for display only"""
+    """保守地重排轨道并重新映射边，仅用于展示"""
 
     tracks = list(manifest.tracks)
     edges = list(manifest.edges)
@@ -104,7 +104,7 @@ def _write_global_layout(
 
 
 def run(manifest: EngineRunManifest, outdir: str | Path) -> tuple[list[CommandAudit], dict[str, object]]:
-    """Render the aggregated multi-species karyotype figure"""
+    """渲染聚合多物种核型图"""
 
     root = Path(outdir).expanduser().resolve(strict=False)
     root.mkdir(parents=True, exist_ok=True)

@@ -1,4 +1,4 @@
-"""Typed artifact bundle contracts shared by platform planning and execution"""
+"""Typed artifact bundle(产物包) contracts shared by platform planning and execution"""
 
 from __future__ import annotations
 
@@ -15,13 +15,13 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True)
 class ArtifactBundle:
-    """Reusable artifact bundle passed between platform steps and engine workflows"""
+    """Reusable artifact bundle(可复用产物包) passed between platform steps and engine workflows"""
 
     bundle_type: str
     artifacts: dict[str, Path] = field(default_factory=dict)
 
     def to_manifest_json(self) -> dict[str, object]:
-        """Serialize the bundle to a manifest-compatible JSON object"""
+        """Serialize the bundle to a manifest-compatible JSON object(序列化为 manifest 兼容的 JSON 对象)"""
 
         return {
             "bundle_type": self.bundle_type,
@@ -29,19 +29,21 @@ class ArtifactBundle:
         }
 
     def artifact_path(self, artifact_id: str) -> Path | None:
-        """Return a typed path from the bundle if present"""
+        """Return a typed path from the bundle if present(若存在则返回带类型的路径)"""
 
         return self.artifacts.get(artifact_id)
 
 
 def pairwise_core_bundle_from_paths(paths: dict[str, Path]) -> ArtifactBundle:
-    """Construct the standard pairwise-core bundle from reusable artifact paths"""
+    """Construct the standard pairwise-core bundle from reusable artifact paths
+    (从可复用产物路径构建标准 pairwise-core 产物包)
+    """
 
     return ArtifactBundle(bundle_type=PAIRWISE_CORE_BUNDLE_TYPE, artifacts=dict(paths))
 
 
 def pairwise_core_bundle_from_mapping(paths: Mapping[str, str | Path]) -> ArtifactBundle:
-    """Construct a pairwise-core bundle from string/path mappings"""
+    """Construct a pairwise-core bundle from string/path mappings(从字符串/路径映射构建 pairwise-core 产物包)"""
 
     artifacts = {
         key: Path(value).expanduser().resolve(strict=False)

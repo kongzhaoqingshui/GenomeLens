@@ -1,11 +1,11 @@
 {
   "title": "GenomeLens 热图",
   "title_en": "GenomeLens Heatmap",
-  "description": "对应 ``jcvi.graphics_heatmap`` 子模块：将矩阵 CSV 渲染为热图。",
-  "description_en": "Matches the ``jcvi.graphics_heatmap`` submodule: render a matrix CSV as a heatmap.",
+  "description": "用于把矩阵型结果渲染为热图，适合展示物种间相似度、基因集富集、距离矩阵或其他二维定量关系，帮助快速识别聚类格局、异常样本与强弱关联区域。",
+  "description_en": "Renders matrix-style results as a heatmap. It is suitable for visualizing inter-species similarity, gene-set enrichment, distance matrices, or other two-dimensional quantitative relationships, helping users quickly identify clustering patterns, outliers, and regions of strong or weak association.",
   "version": "v1.0.0",
-  "context": "矩阵热图",
-  "context_en": "Matrix heatmap",
+  "context": "二维定量关系与聚类结构展示。",
+  "context_en": "Display of two-dimensional quantitative relationships and clustering structure.",
   "env": "Python",
   "outputType": "dir",
   "params": [
@@ -15,8 +15,8 @@
       "key": "input_file",
       "valueType": "file_selector",
       "example_value": "matrix.csv",
-      "description": "待渲染的矩阵 CSV 文件路径。",
-      "description_en": "Path to the matrix CSV file to render."
+      "description": "待绘制的矩阵 CSV 文件。行列通常代表物种、样本、基因集或其他比较单元，数值大小将决定热图中的颜色强弱。",
+      "description_en": "Matrix CSV file to plot. Rows and columns typically represent species, samples, gene sets, or other comparison units, and the numeric values determine the color intensity in the heatmap."
     },
     {
       "label": "输出目录",

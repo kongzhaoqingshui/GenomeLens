@@ -1,7 +1,8 @@
 """Engine workflow 名称与别名契约"""
 
-# region import
 from __future__ import annotations
+
+# region import
 
 # endregion
 
@@ -39,7 +40,7 @@ WORKFLOW_ALIASES = {
 
 
 def normalize_workflow(name: str) -> str:
-    """Normalize compatible workflow aliases to their public names"""
+    """把兼容的工作流别名收敛到公共名称"""
 
     # shell、配置和 engine 都通过这里收敛别名，避免各处维护一份映射
     return WORKFLOW_ALIASES.get(name, name)

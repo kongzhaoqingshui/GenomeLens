@@ -18,7 +18,7 @@ def _assert_ok(command: CommandAudit) -> None:
 
 
 def close_matplotlib_figures() -> None:
-    """Best-effort close of all matplotlib figures to avoid cross-workflow state leakage"""
+    """尽最大努力关闭所有 matplotlib 图件，避免跨工作流状态泄漏"""
 
     try:
         import matplotlib.pyplot as plt

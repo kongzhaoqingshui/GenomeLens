@@ -1,11 +1,11 @@
 {
   "title": "GenomeLens 多物种局部共线性",
   "title_en": "GenomeLens Multi-Species Local Synteny",
-  "description": "对应 ``jcvi.local_synteny_multi`` 子模块：在多个物种间以目标基因为中心绘制局部共线性总图。",
-  "description_en": "Matches the aggregate ``jcvi.local_synteny_multi`` submodule: draw a multi-species local synteny figure from pre-aggregated tracks, blocks, BED, and target genes.",
+  "description": "多物种局部共线性聚合子模块。它围绕目标基因把多个物种中的对应局部区域汇总到同一张图里，用于比较候选位点在不同基因组中的邻域保守性、片段拆分与跨物种对应模式。",
+  "description_en": "An aggregate multi-species local synteny submodule. It gathers the corresponding local regions from multiple species around target genes into one figure, enabling comparison of neighborhood conservation, segment splitting, and cross-species correspondence around candidate loci.",
   "version": "v1.0.0",
-  "context": "多物种局部共线性总图",
-  "context_en": "Multi-species local synteny figure",
+  "context": "多物种候选位点局部保守性总览。",
+  "context_en": "Overview of local conservation around candidate loci across multiple species.",
   "env": "Python",
   "outputType": "dir",
   "params": [
@@ -24,8 +24,8 @@
       "key": "tracks",
       "valueType": "str",
       "example_value": "[{\"name\": \"speciesA\", \"bed\": \"A.bed\"}]",
-      "description": "多物种轨道列表 JSON 字符串。",
-      "description_en": "Multi-species track list as a JSON string."
+      "description": "多物种轨道定义列表，用于告诉插件每个物种的显示名称与 BED 来源，从而组织局部共线性图中的多条基因轨道。",
+      "description_en": "List of multi-species track definitions that tells the plugin each display name and BED source, allowing it to organize the multiple gene tracks in the local synteny figure."
     },
     {
       "label": "Blocks 文件",
@@ -33,8 +33,8 @@
       "key": "blocks",
       "valueType": "file_selector",
       "example_value": "all.blocks",
-      "description": "共线性 block 文件路径。",
-      "description_en": "Path to the synteny blocks file."
+      "description": "多物种局部共线性所依赖的共线性区块文件，用于从全局结果中抽取与目标位点相关的连接关系。",
+      "description_en": "Synteny blocks file used by the multi-species local view to extract the links relevant to the target loci from the broader result set."
     },
     {
       "label": "合并 BED 文件",
@@ -42,8 +42,8 @@
       "key": "bed",
       "valueType": "file_selector",
       "example_value": "all.bed",
-      "description": "合并后的 BED 文件路径。",
-      "description_en": "Path to the merged BED file."
+      "description": "合并后的 BED 文件，提供所有参与物种的统一基因顺序与坐标背景，是多物种局部窗口定位的关键输入。",
+      "description_en": "Merged BED file providing unified gene order and coordinate context for all participating species. It is a key input for locating the local windows across species."
     },
     {
       "label": "目标基因 ID",
@@ -51,8 +51,8 @@
       "key": "target_genes",
       "valueType": "str",
       "example_value": "gene1,gene2",
-      "description": "目标基因 ID，多个用逗号分隔。",
-      "description_en": "Target gene IDs, comma-separated."
+      "description": "需要作为比较中心的目标基因 ID。插件会围绕这些位点收集多物种局部区域并汇总出图；多个基因用逗号分隔。",
+      "description_en": "Target gene IDs to serve as the comparison centers. The plugin gathers the corresponding local regions across species around these loci and summarizes them in the final figure; separate multiple IDs with commas."
     },
     {
       "label": "上游窗口基因数",

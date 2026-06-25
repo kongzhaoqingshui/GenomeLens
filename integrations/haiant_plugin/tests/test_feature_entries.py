@@ -60,7 +60,7 @@ def _write_params_from_sample(
 
 
 def _load_request(argv: list[str]) -> dict[str, Any]:
-    """Load the request JSON referenced by an ``analyze run`` argv"""
+    """加载 ``analyze run`` 命令行参数所引用的请求 JSON"""
 
     run_index = argv.index("run")
     request_path = Path(argv[run_index + 1])
@@ -206,7 +206,7 @@ def test_submodule_entry_builds_submodule_request(
     assert request["schema_version"] == 3
     assert request["kind"] == "submodule_request"
     assert request["module_id"] == module_id
-    assert request["inputs"]  # every submodule wires at least one input port
+    assert request["inputs"]  # 每个子模块至少连接一个输入端口
     assert request["output"]["directory"] == str(tmp_path / "output")
     assert request["output"]["force"] is True
     assert logging.getLogger(logger_name).handlers == []

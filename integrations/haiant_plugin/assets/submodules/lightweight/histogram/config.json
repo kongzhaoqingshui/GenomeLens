@@ -1,11 +1,11 @@
 {
   "title": "GenomeLens 直方图",
   "title_en": "GenomeLens Histogram",
-  "description": "对应 ``jcvi.graphics_histogram`` 子模块：将数值文件渲染为直方图。",
-  "description_en": "Matches the ``jcvi.graphics_histogram`` submodule: render numeric files as histograms.",
+  "description": "用于把一个或多个数值结果绘制成分布直方图，适合展示 Ks、距离、打分或其他统计量的整体分布形态，帮助判断峰值结构、离散程度与数据分层现象。",
+  "description_en": "Renders one or more numeric result files as histograms. It is well suited for showing the overall distribution of Ks values, distances, scores, or other statistics, helping users inspect peak structure, dispersion, and stratification patterns.",
   "version": "v1.0.0",
-  "context": "数值分布直方图",
-  "context_en": "Numeric distribution histogram",
+  "context": "统计量分布形态展示。",
+  "context_en": "Visualization of statistical distribution shape.",
   "env": "Python",
   "outputType": "dir",
   "params": [
@@ -15,8 +15,8 @@
       "key": "input_files",
       "valueType": "str",
       "example_value": "data1.txt,data2.txt",
-      "description": "待绘制的数值文件路径，多个文件用逗号分隔。",
-      "description_en": "Numeric file paths to plot, comma-separated."
+      "description": "待展示分布的数值文件路径。可同时输入多个文件，用于比较不同样本、不同算法或不同参数条件下的分布差异。",
+      "description_en": "Paths to numeric files whose distributions should be shown. Multiple files can be provided together to compare distribution differences across samples, methods, or parameter settings."
     },
     {
       "label": "输出目录",

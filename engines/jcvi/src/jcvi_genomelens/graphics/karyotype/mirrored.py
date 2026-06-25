@@ -26,7 +26,7 @@ from jcvi.graphics.glyph import TextCircle
 
 
 def _synteny_graphics():
-    """Load JCVI synteny graphics only when shade rendering is needed"""
+    """按需加载 JCVI synteny 图形模块，仅在需要渲染阴影时调用"""
 
     from jcvi.graphics.synteny import Shade, ymid_offset
 
@@ -76,12 +76,12 @@ class Layout(AbstractLayout):
         fp = open(filename)
         self.edges = []
         for row in fp:
-            # Strip newline/whitespace and skip empty lines
+            # 去除换行与空白，跳过空行
             line = row.strip()
             if not line:
                 continue
 
-            # Allow comments even with leading whitespace
+            # 允许带前导空白的注释行
             if line.startswith("#"):
                 continue
 
@@ -99,7 +99,7 @@ class Layout(AbstractLayout):
                 self.edges.append((i, j, blocks, samearc))
             else:
                 ll = LayoutLine(line, delimiter=delimiter, generank=generank)
-                # only keep non-empty layout lines
+                # 仅保留非空布局行
                 if not ll.empty:
                     self.append(ll)
 
@@ -116,19 +116,17 @@ MaxSeqids = 16  # above which no labels are written
 
 
 def make_circle_name(sid, rev):
-    """Extract a succinct label based on sid
+    """基于 sid 提取简洁标签
 
-    If there are numbers to be extracted, returns the first group of number.
-    Otherwise, the first letter is returned.
-
-    If sid is in rev, then '-' gets appended to the label.
+    若 sid 中包含数字，则返回第一组数字；否则返回首字母。
+    若 sid 在 rev 中，则在标签末尾追加 "-"。
 
     Args:
         sid (str): seqid
-        rev (set[str]): Set of seqids that are reversed
+        rev (set[str]): 被反转的 seqid 集合
 
     Returns:
-        str: Single letter label for the sid
+        str: sid 的单字母或数字标签
     """
     import re
 
@@ -162,7 +160,7 @@ class Track:
         if t.empty:
             return
 
-        # Copy the data from LayoutLine
+        # 从 LayoutLine 复制数据
         self.y = t.y
         self.sizes = sizes = t.sizes
         self.label = t.label
@@ -181,7 +179,7 @@ class Track:
         self.xstart = xstart = t.xstart
         self.xend = t.xend
 
-        # Rotation transform
+        # 旋转变换
         self.x = x = (self.xstart + self.xend) / 2
         y = self.y
         self.tr = Affine2D().rotate_deg_around(x, y, self.rotation) + ax.transAxes
@@ -314,7 +312,7 @@ class ShadeManager:
     def __init__(self, ax, tracks, layout, heightpad=0, style="curve"):
         self.style = style
         for i, j, blocks, samearc in layout.edges:
-            # if same track (duplication shades), shall we draw above or below?
+            # 同源轨道内的重复阴影(shade)画在上方还是下方？
             self.draw_blocks(ax, blocks, tracks[i], tracks[j], samearc=samearc, heightpad=heightpad)
 
     def draw_blocks(self, ax, blocks, atrack, btrack, samearc: str | None, heightpad=0):
@@ -378,17 +376,15 @@ class Karyotype:
 
         fp = open(seqidsfile)
 
-        # Strip the reverse orientation tag for e.g. chr3-
+        # 去掉反向方向标记，例如 chr3- 中的 "-"
         def di(seqid: str) -> str:
             return seqid[:-1] if seqid[-1] == "-" else seqid
 
-        # Comments can cause layout and seqids to be out of sync
-        # https://github.com/tanghaibao/jcvi/issues/676
+        # 注释会导致 layout 与 seqids 不同步；参考 https://github.com/tanghaibao/jcvi/issues/676
         for i, row in enumerate(_ for _ in fp if not _.startswith("#") and _.strip()):
             logger.info("Processing `%s` (track %d)", row.strip(), i)
             t = layout[i]
-            # There can be comments in seqids file:
-            # https://github.com/tanghaibao/jcvi/issues/335
+            # seqids 文件中也可能包含注释；参考 https://github.com/tanghaibao/jcvi/issues/335
             seqids = row.split("#", 1)[0].rstrip().split(",")
             t.rev = set(x[:-1] for x in seqids if x[-1] == "-")
             seqids = [di(x) for x in seqids]
@@ -403,7 +399,7 @@ class Karyotype:
                 sz = sizes or dict((x, max(z.end for z in list(bed.sub_bed(x)))) for x in seqids)
                 assert sz is not None, "sizes not available and cannot be inferred"
             t.seqids = seqids
-            # validate if all seqids are non-empty
+            # 校验所有 seqid 的长度均不为零
             for k, v in sz.items():
                 if v == 0:
                     logger.error("Size of `%s` is empty. Please check", k)

@@ -90,7 +90,7 @@ def fixture_dir(tmp_path: Path) -> Path:
 def test_strip_highlight_prefix() -> None:
     assert _strip_highlight_prefix("r*geneA") == (True, "geneA")
     assert _strip_highlight_prefix("geneA") == (False, "geneA")
-    # Whitespace is trimmed only from the body; the prefix must be exactly "r"
+    # 空白仅从 body 处修剪；前缀必须恰好为 "r"
     assert _strip_highlight_prefix("r*  geneA  ") == (True, "geneA")
     assert _strip_highlight_prefix(" x*geneA") == (False, "geneA")
 
@@ -139,7 +139,7 @@ def test_render_keeps_cross_chromosome_segments(fixture_dir: Path) -> None:
         track_names=["Ref", "Sub"],
     )
     content = output.read_text(encoding="utf-8")
-    # SVG should contain chromosome labels for chr1, chr2 and chr3
+    # SVG 应包含 chr1、chr2、chr3 的染色体标签
     assert "chr1" in content
     assert "chr2" in content
     assert "chr3" in content
@@ -155,7 +155,7 @@ def test_render_highlights_target_genes(fixture_dir: Path) -> None:
         target_gene_ids=["g2", "g5"],
     )
     content = output.read_text(encoding="utf-8")
-    # Target genes are shown in the bottom colour legend, not as star markers
+    # 目标基因展示在底部颜色图例中，而非星形标记
     assert "g2" in content
     assert "g5" in content
     assert "#000000" not in content
@@ -170,7 +170,7 @@ def test_render_includes_chromosome_legend(fixture_dir: Path) -> None:
         track_names=["Ref", "Sub"],
     )
     content = output.read_text(encoding="utf-8")
-    # Legend entries for all chromosomes should be present
+    # 所有染色体的图例项都应出现
     assert "chr1" in content
     assert "chrA" in content
 
@@ -249,7 +249,7 @@ def test_build_track_window_maps_genes_proportionally() -> None:
     window = _build_track_window(name="Ref", index=0, color="#2f6f73", genes=genes, scale=0.01)
     assert len(window.segments) == 1
     assert window.segments[0].chromosome == "chr1"
-    # g1 and g2 are separated by a 100 bp gap; at scale 0.01 that gap is 1.0 visual unit
+    # g1 与 g2 之间有 100 bp 的间隙；在 scale=0.01 下该间隙对应 1.0 视觉单位
     assert window.all_genes[0].x < window.all_genes[1].x
 
 
@@ -259,9 +259,9 @@ def test_build_track_window_compresses_large_gap() -> None:
         GeneRecord("g2", "chr1", 1_000_200, 1_000_300, "+"),
     ]
     window = _build_track_window(name="Ref", index=0, color="#2f6f73", genes=genes, scale=1e-5)
-    # The 1 Mb gap should be compressed
+    # 1 Mb 的间隙应被压缩
     assert window.segments[0].has_compressed_gaps is True
-    # Visual distance should be much smaller than the raw 1 Mb * scale = 10 units
+    # 视觉距离应远小于原始 1 Mb * scale = 10 单位
     assert window.all_genes[1].x - window.all_genes[0].x < 1.0
 
 
@@ -287,7 +287,7 @@ def test_render_range_labels_appear_in_svg(fixture_dir: Path) -> None:
         track_names=["Ref", "Sub"],
     )
     content = output.read_text(encoding="utf-8")
-    # Range labels like "chr1 0.10-0.60kb" should be present
+    # 类似 "chr1 0.10-0.60kb" 的范围标签应出现
     assert "chr1" in content
     assert "chr2" in content
 
@@ -307,7 +307,7 @@ def test_render_track_labels_on_both_sides_appear(fixture_dir: Path) -> None:
 
 def test_custom_figsize_is_respected(fixture_dir: Path) -> None:
     output = fixture_dir / "out.svg"
-    # Just ensure no exception and file is produced
+    # 仅确保不抛出异常且文件已生成
     render_local_synteny(
         blocks_path=fixture_dir / "blocks.txt",
         bed_path=fixture_dir / "all.bed",

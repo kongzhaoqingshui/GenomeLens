@@ -1,4 +1,4 @@
-"""Platform execution plan and internal request models"""
+"""Platform execution plan(执行计划) and internal request models(内部请求模型)"""
 
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ StepKind = Literal[
 
 @dataclass(frozen=True)
 class StepInputRef:
-    """Reference to an upstream step artifact"""
+    """Reference to an upstream step artifact(引用上游步骤产物)"""
 
     step_id: str
     artifact_id: str
@@ -32,7 +32,7 @@ class StepInputRef:
 
 @dataclass(frozen=True)
 class StepOutputRef:
-    """Declaration of an expected step artifact"""
+    """Declaration of an expected step artifact(声明预期步骤产物)"""
 
     artifact_id: str
     artifact_type: str
@@ -48,7 +48,7 @@ class StepOutputRef:
 
 @dataclass(frozen=True)
 class PairwiseArtifactInputs:
-    """Reusable pairwise-core artifacts"""
+    """Reusable pairwise-core artifacts(可复用 pairwise-core 产物)"""
 
     blast_table: Path | None = None
     anchors: Path | None = None
@@ -84,7 +84,7 @@ class PairwiseArtifactInputs:
 
 @dataclass(frozen=True)
 class SyntenyExecutionRequest:
-    """Internal request for synteny and MCscan-style workflows"""
+    """Internal request for synteny and MCscan-style workflows(共线性及 MCscan 风格工作流的内部请求)"""
 
     reference: GenomeInputSpec
     target: GenomeInputSpec
@@ -172,7 +172,7 @@ class SyntenyExecutionRequest:
 
 @dataclass(frozen=True)
 class HeatmapExecutionRequest:
-    """Internal request for heatmap rendering"""
+    """Internal request for heatmap rendering(热图渲染的内部请求)"""
 
     matrix: Path
     outdir: Path
@@ -206,7 +206,7 @@ class HeatmapExecutionRequest:
 
 @dataclass(frozen=True)
 class HistogramExecutionRequest:
-    """Internal request for histogram rendering"""
+    """Internal request for histogram rendering(直方图渲染的内部请求)"""
 
     inputs: list[Path]
     outdir: Path
@@ -249,7 +249,7 @@ class HistogramExecutionRequest:
 
 @dataclass(frozen=True)
 class ExecutionStep:
-    """A typed node inside an execution DAG"""
+    """A typed node inside an execution DAG(执行 DAG 中的带类型节点)"""
 
     step_id: str
     kind: StepKind
@@ -261,7 +261,7 @@ class ExecutionStep:
 
 @dataclass(frozen=True)
 class ExecutionPlan:
-    """Expanded execution DAG derived from a workflow request"""
+    """Expanded execution DAG(展开的执行 DAG) derived from a workflow request"""
 
     plan_id: str
     workflow_id: str

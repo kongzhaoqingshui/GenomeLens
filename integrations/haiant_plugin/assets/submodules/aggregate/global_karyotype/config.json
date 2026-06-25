@@ -1,11 +1,11 @@
 {
   "title": "GenomeLens 全局核型图",
   "title_en": "GenomeLens Global Karyotype",
-  "description": "对应 ``jcvi.graphics_karyotype_global`` 子模块：基于 tracks 与 edges 聚合全局核型总图。",
-  "description_en": "Matches the aggregate ``jcvi.graphics_karyotype_global`` submodule: draw a global karyotype figure from pre-aggregated tracks and edges.",
+  "description": "多物种聚合核型图子模块。它把已经整理好的多物种轨道与跨物种共线性边汇总成一张全局总图，用于整体观察多个基因组之间的染色体对应、保守框架和主要结构差异。",
+  "description_en": "An aggregate multi-species karyotype submodule. It combines pre-organized tracks and cross-species synteny edges into a single global overview figure for inspecting chromosome correspondences, conserved frameworks, and major structural differences across multiple genomes.",
   "version": "v1.0.0",
-  "context": "全局核型总图",
-  "context_en": "Global karyotype figure",
+  "context": "多物种染色体尺度总览与全局比较。",
+  "context_en": "Chromosome-scale overview and global comparison across multiple species.",
   "env": "Python",
   "outputType": "dir",
   "params": [
@@ -24,8 +24,8 @@
       "key": "tracks",
       "valueType": "str",
       "example_value": "[{\"name\": \"speciesA\", \"bed\": \"A.bed\"}]",
-      "description": "轨道列表 JSON 字符串（每个 track 包含 name 与 bed 路径）。",
-      "description_en": "Track list as a JSON string (each track has name and bed path)."
+      "description": "多物种轨道定义列表。每个 track 需要提供物种或轨道名称以及对应 BED 路径，用于构建全局核型图中的染色体骨架。",
+      "description_en": "List of multi-species track definitions. Each track should provide a species or track name together with its BED path, forming the chromosome backbone of the global karyotype figure."
     },
     {
       "label": "Edges",
@@ -33,8 +33,8 @@
       "key": "edges",
       "valueType": "str",
       "example_value": "[{\"i\": 0, \"j\": 1, \"simple\": \"A__B.simple\"}]",
-      "description": "共线性边列表 JSON 字符串（每个 edge 包含 i/j/simple 路径）。",
-      "description_en": "Synteny edge list as a JSON string (each edge has i/j/simple path)."
+      "description": "跨物种共线性边定义列表。每条 edge 说明哪两条轨道之间存在连接以及对应的 simple 文件，是全局总图中跨轨道连线的直接来源。",
+      "description_en": "List of cross-species synteny edge definitions. Each edge specifies which two tracks are connected and which simple file to use, serving as the direct source for cross-track links in the global overview."
     },
     {
       "label": "输出格式",

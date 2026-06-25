@@ -1,11 +1,11 @@
 {
   "title": "GenomeLens 一站式共线性分析",
   "title_en": "GenomeLens Synteny One-Stop Workflow",
-  "description": "GenomeLens 单一集成共线性分析插件：自动发现输入目录中的同名物种文件对，根据物种数与目标基因自动路由到 pairwise / 多物种 / reference-vs-targets 执行路径，并直接调用外部 GenomeLens 执行 ``analyze workflow synteny <in> <out> --jcvi-config <jcvi.config.json>``。",
-  "description_en": "GenomeLens integrated synteny analysis plugin: auto-discovers same-stem species file pairs in the input directory and routes to pairwise, multi-species, or reference-vs-targets execution based on species count and target genes, directly invoking the external GenomeLens executable with ``analyze workflow synteny <in> <out> --jcvi-config <jcvi.config.json>``.",
+  "description": "面向比较基因组学的一站式共线性分析插件。它可在 2~n 个物种之间自动完成同源搜索、共线性区块识别与图形输出，用于观察染色体保守关系、片段重排、复制事件以及目标基因周边微共线性环境；最终可直接得到 block 结果、全局共线性图和局部共线性图。",
+  "description_en": "A one-stop comparative genomics plugin for synteny analysis across 2 to n species. It automates homology search, synteny block discovery, and figure generation to reveal chromosome conservation, rearrangements, duplication signals, and target-gene local neighborhoods, producing block results together with global and local synteny figures.",
   "version": "v1.0.0",
-  "context": "一站式共线性分析工作流插件，不生成 genomelens_request.json，而是动态写出 jcvi.config.json 后直接调用 analyze workflow synteny。",
-  "context_en": "One-stop synteny workflow plugin that does not produce genomelens_request.json; it writes jcvi.config.json on the fly and calls ``analyze workflow synteny``.",
+  "context": "适用于双物种或多物种比较、候选基因上下游保守性判读、染色体结构变动观察，以及论文级共线性结果整理的一站式工作流。",
+  "context_en": "Designed for pairwise or multi-species comparison, candidate-gene neighborhood interpretation, chromosome-scale structural comparison, and publication-ready synteny result generation in one workflow.",
   "env": "GenomeLens",
   "outputType": "dir",
   "params": [
@@ -15,8 +15,8 @@
       "key": "input_dir",
       "valueType": "dir_selector",
       "example_value": "input",
-      "description": "放入 2~n 个需要分析的物种的 gff与fa 或 bed与cds 文件\n不同物种可用不同的输入模式，但同一物种内必须成对出现，例如：\n- 物种A: A.gff + A.fa\n- 物种B: B.bed + B.cds\n- 物种C: C.gff + C.fa",
-      "description_en": "Place GFF and FA or BED and CDS files for 2 to n species to be analyzed.\nDifferent species may use different input modes, but files for the same species must appear in pairs, for example:\n- Species A: A.gff + A.fa\n- Species B: B.bed + B.cds\n- Species C: C.gff + C.fa"
+      "description": "放入至少 2 个物种的输入文件目录。每个物种必须按同名前缀成对提供，支持两类组合：\n- BED + CDS/PEP\n- GFF/GTF + 基因组 FASTA\n不同物种之间可以混用不同输入模式，但同一物种内部必须完整配对，例如：\n- Athaliana.bed + Athaliana.cds\n- Brapa.bed + Brapa.pep\n- Crubella.gff3 + Crubella.fa\n若同一物种同时存在 BED+CDS/PEP 与 GFF/GTF+FASTA，则优先采用 BED 方案。该目录将决定后续能否正确构建物种配对、共线性区块和出图结果。",
+      "description_en": "Directory containing input files for at least two species. Each species must be provided as a matched same-stem pair, using one of two supported combinations:\n- BED + CDS/PEP\n- GFF/GTF + genome FASTA\nDifferent species may use different modes, but files within one species must be complete and paired, for example:\n- Athaliana.bed + Athaliana.cds\n- Brapa.bed + Brapa.pep\n- Crubella.gff3 + Crubella.fa\nIf both BED+CDS/PEP and GFF/GTF+FASTA exist for the same species, the BED route is preferred. This directory determines whether GenomeLens can correctly build species pairs, identify synteny blocks, and generate the expected figures."
     },
     {
       "label": "输出目录",
@@ -42,8 +42,8 @@
       "key": "target_gene_ids",
       "valueType": "str",
       "example_value": "Thhalv10024702m.v1.0",
-      "description": "提供目标基因 ID 时自动切换到局部共线性模式，多个用逗号分隔。",
-      "description_en": "When provided, switches to local synteny mode; comma-separated target gene IDs."
+      "description": "填写后自动切换为目标基因驱动的局部共线性分析，用于观察候选基因上下游保守邻域与跨物种对应关系；多个基因用逗号分隔。",
+      "description_en": "When provided, the workflow switches to target-driven local synteny analysis to inspect conserved neighborhoods and cross-species counterparts around candidate genes; use commas to separate multiple IDs."
     },
     {
       "label": "上游窗口基因数",
@@ -69,8 +69,8 @@
       "key": "split_targets",
       "valueType": "bool",
       "example_value": false,
-      "description": "多个目标基因时各自单独出图。",
-      "description_en": "Generate separate figures when multiple target genes are given."
+      "description": "多个目标基因时分别生成独立图件，便于逐个比较每个候选位点的局部保守性。",
+      "description_en": "Generate one figure per target when multiple genes are provided, making it easier to compare the local conservation pattern of each candidate locus."
     },
     {
       "label": "标注目标基因",
@@ -78,8 +78,8 @@
       "key": "label_targets",
       "valueType": "bool",
       "example_value": false,
-      "description": "在图中标注目标基因名称。",
-      "description_en": "Label target gene names on the figure."
+      "description": "在局部共线性图中直接标出目标基因名称，方便论文作图与位点核对。",
+      "description_en": "Label target gene names directly on local synteny figures for easier manuscript preparation and locus verification."
     },
     {
       "label": "线程数",
@@ -210,8 +210,8 @@
       "key": "optimize_auto",
       "valueType": "bool",
       "example_value": false,
-      "description": "采用 GenomeLens 添加的自动优化算法优化最终图件效果，包含：\n- 自动推导 synteny 图件尺寸\n- 将跨轨道 layout 连线改写为邻接轨道链\n- 自动优化全局核型图轨道标签位置",
-      "description_en": "Enable GenomeLens auto-optimization for the final figure, including: auto-inferred synteny figure size, rewriting cross-track layout links as adjacent track chains, and auto-optimized global karyotype track label placement."
+      "description": "启用 GenomeLens 的出图优化策略，以获得更适合展示与发表的版式，包含：\n- 自动推导共线性图尺寸\n- 将跨轨道连接整理为更可读的邻接轨道链\n- 自动优化全局核型图的轨道标签位置",
+      "description_en": "Enable GenomeLens figure optimizations for cleaner presentation and publication-oriented layouts, including:\n- automatic inference of figure size\n- rewriting cross-track links into more readable adjacent-track chains\n- automatic label placement optimization for global karyotype tracks"
     },
     {
       "label": "使用原生局部共线性渲染器 (GenomeLens)",
@@ -219,17 +219,8 @@
       "key": "use_native_local_synteny_renderer",
       "valueType": "bool",
       "example_value": false,
-      "description": "使用 GenomeLens 自实现渲染器绘制局部共线性图，支持跨染色体展示。",
-      "description_en": "Use the GenomeLens native renderer for local synteny figures with cross-chromosome support."
-    },
-    {
-      "label": "允许简化降级",
-      "label_en": "Allow Simplified Fallback",
-      "key": "allow_simplified_fallback",
-      "valueType": "bool",
-      "example_value": false,
-      "description": "保留的诊断开关；正式流程通常关闭。",
-      "description_en": "Diagnostic switch; normally disabled in production."
+      "description": "使用 GenomeLens 增强型局部共线性渲染器，更好地处理跨染色体命中、局部窗口截断与多物种局部对照。",
+      "description_en": "Use the enhanced GenomeLens local synteny renderer for better handling of cross-chromosome hits, truncated local windows, and multi-species local comparisons."
     }
   ]
 }

@@ -1,11 +1,11 @@
 {
   "title": "GenomeLens 点图",
   "title_en": "GenomeLens Dotplot",
-  "description": "对应 ``jcvi.graphics_dotplot`` 子模块：基于上游 MCscan pairwise 产出的 .anchors 渲染点图。",
-  "description_en": "Matches the ``jcvi.graphics_dotplot`` submodule: render a dotplot from an upstream MCscan pairwise .anchors file.",
+  "description": "用于把双物种锚点关系直观绘制成点图，帮助快速判断大片段保守、倒位、易位、串联重复或噪声分布，是检查共线性整体轮廓和数据质量的经典入口图。",
+  "description_en": "Visualizes pairwise anchor relationships as a dotplot, helping users quickly inspect large conserved segments, inversions, translocations, tandem duplication patterns, and noise structure. It is the classic first-look figure for overall synteny structure and data quality.",
   "version": "v1.0.0",
-  "context": "双物种 JCVI 点图",
-  "context_en": "Pairwise JCVI dotplot",
+  "context": "双物种宏观共线性结构与重排模式快速判读。",
+  "context_en": "Rapid inspection of pairwise macro-synteny structure and rearrangement patterns.",
   "env": "Python",
   "outputType": "dir",
   "params": [
@@ -15,8 +15,8 @@
       "key": "input_dir",
       "valueType": "dir_selector",
       "example_value": "input",
-      "description": "包含两物种 BED/序列的目录（species_pair 端口）。",
-      "description_en": "Directory holding the two-species BED/sequence files (species_pair port)."
+      "description": "包含这对比较物种注释与序列文件的目录，用于为点图建立坐标轴与物种背景信息。",
+      "description_en": "Directory containing the annotation and sequence files for the species pair, used to establish the coordinate axes and species context for the dotplot."
     },
     {
       "label": "Anchors 文件",
@@ -24,8 +24,8 @@
       "key": "anchors",
       "valueType": "file_selector",
       "example_value": "pair.anchors",
-      "description": "上游 MCscan pairwise 产出的 .anchors 文件（anchors 端口，必填）。",
-      "description_en": "Upstream MCscan pairwise .anchors file (anchors port, required)."
+      "description": "双物种锚点文件，决定点图中每个同源落点的位置与分布格局，是判断共线性连续性和异常散点的核心输入。",
+      "description_en": "Pairwise anchors file that determines the position and distribution of homologous points on the dotplot. It is the key input for judging synteny continuity and abnormal scatter patterns."
     },
     {
       "label": "输出目录",

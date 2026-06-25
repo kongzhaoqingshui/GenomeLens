@@ -1,4 +1,4 @@
-"""Pairwise artifact reuse helpers"""
+"""两物种 pairwise 产物复用辅助函数"""
 
 from __future__ import annotations
 
@@ -23,7 +23,7 @@ def ensure_pairwise_artifacts(
     ensure_merged_bed: bool = False,
     fallback_runner: PairwiseFallbackRunner | None = None,
 ) -> tuple[list[CommandAudit], dict[str, object]]:
-    """Prefer precomputed artifacts and fall back to a full pairwise run when needed"""
+    """优先使用预计算产物，不足时回退到完整 pairwise 运行"""
 
     root = Path(outdir).expanduser().resolve(strict=False)
     root.mkdir(parents=True, exist_ok=True)

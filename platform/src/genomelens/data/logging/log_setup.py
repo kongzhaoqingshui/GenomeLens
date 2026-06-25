@@ -18,7 +18,7 @@ RUN_LOGGER_PREFIX = f"{LOGGER_NAME}.run"
 
 
 class ConciseConsoleFilter(logging.Filter):
-    """Keep the console concise by default"""
+    """默认保持控制台输出简洁"""
 
     _allowed_info_prefix: str = "Starting GenomeLens"
 
@@ -32,7 +32,7 @@ class ConciseConsoleFilter(logging.Filter):
 
 
 def normalize_log_level(level: str) -> str:
-    """Normalize user log levels to supported logging names"""
+    """将用户日志级别归一化为支持的 logging 名称"""
 
     normalized = str(level or "INFO").upper()
     if normalized not in {"DEBUG", "INFO", "WARNING", "ERROR"}:
@@ -41,7 +41,7 @@ def normalize_log_level(level: str) -> str:
 
 
 def logger_name_for_path(path: str | Path) -> str:
-    """Build a stable logger name for a run.log path"""
+    """为 run.log 路径构建稳定的 logger 名称"""
 
     resolved = str(Path(path).expanduser().resolve(strict=False))
     digest = hashlib.sha1(resolved.encode("utf-8")).hexdigest()[:12]
@@ -58,7 +58,7 @@ def _close_handlers(logger: logging.Logger) -> None:
 
 
 def close_logging(logger_name: str = LOGGER_NAME) -> None:
-    """Flush and close GenomeLens logging handlers"""
+    """刷新并关闭 GenomeLens 日志处理器（handlers）"""
 
     _close_handlers(logging.getLogger(logger_name))
 
@@ -71,7 +71,7 @@ def setup_logging(
     console: bool = True,
     concise: bool = True,
 ) -> logging.Logger:
-    """Configure run logging and optionally attach console/file handlers"""
+    """配置运行日志，并可选附加控制台/文件处理器"""
 
     logger = logging.getLogger(logger_name)
     logger.setLevel(getattr(logging, normalize_log_level(level), logging.INFO))
@@ -105,7 +105,7 @@ def run_with_logging(
     console: bool = True,
     concise: bool = True,
 ) -> Generator[logging.Logger, None, None]:
-    """Setup logging for a run and guarantee cleanup via a context manager"""
+    """通过上下文管理器为单次运行设置日志并保证清理"""
 
     logger_name = logger_name_for_path(log_file)
     logger = setup_logging(

@@ -126,7 +126,7 @@ def _boxed(lines: list[str], *, enabled: bool, min_width: int = 0) -> list[str]:
 
 # region 进度渲染
 def _duration_text(seconds: float) -> str:
-    """Render elapsed seconds as h:mm:ss"""
+    """将秒数渲染为 h:mm:ss 格式"""
 
     total = max(0, int(seconds))
     minutes, seconds = divmod(total, 60)
@@ -135,7 +135,7 @@ def _duration_text(seconds: float) -> str:
 
 
 def _progress_bar(progress: float, *, enabled: bool, width: int = 24) -> str:
-    """Render a compact single-line progress bar"""
+    """渲染紧凑的单行进度条"""
 
     clamped = max(0.0, min(progress, 1.0))
     filled = min(width, max(0, int(round(clamped * width))))
@@ -201,7 +201,7 @@ class ConsoleWriter:
 # region 工作台与提示相关函数
 @dataclass(frozen=True)
 class ProgressTheme:
-    """Visual theme for compact CLI progress lines"""
+    """紧凑 CLI 进度行的视觉主题 (Visual theme for compact CLI progress lines)"""
 
     # fmt: off
     label_color: str = PALETTE.blue       # 标签颜色
@@ -217,7 +217,7 @@ class ProgressTheme:
 
 @dataclass(frozen=True)
 class ProgressFrame:
-    """Generic progress snapshot rendered by the CLI"""
+    """CLI 渲染的通用进度快照 (Generic progress snapshot rendered by the CLI)"""
 
     # fmt: off
     label: str         # 当前状态标签
@@ -228,7 +228,9 @@ class ProgressFrame:
 
 
 class ProgressAdapter(Protocol):
-    """Adapter that translates SignalBus events into reusable progress frames"""
+    """将 SignalBus 事件转换为可复用进度帧的适配器
+    (Adapter that translates SignalBus events into reusable progress frames)
+    """
 
     label_width: int
 
@@ -242,13 +244,15 @@ class ProgressAdapter(Protocol):
 
 
 def _pad_visible(text: str, width: int) -> str:
-    """Pad text by its visible width so progress columns stay aligned"""
+    """按可见宽度填充文本，使进度列保持对齐
+    (Pad text by its visible width so progress columns stay aligned)
+    """
 
     return text + " " * max(0, width - _visible_width(text))
 
 
 def _progress_duration_text(seconds: float) -> str:
-    """Render elapsed seconds as h:mm:ss"""
+    """将秒数渲染为 h:mm:ss 格式 (Render elapsed seconds as h:mm:ss)"""
 
     total = max(0, int(seconds))
     minutes, seconds = divmod(total, 60)
@@ -257,7 +261,9 @@ def _progress_duration_text(seconds: float) -> str:
 
 
 def _render_progress_bar(progress: float, *, theme: ProgressTheme, enabled: bool) -> str:
-    """Render a two-tone progress bar using the existing GenomeLens palette"""
+    """使用现有 GenomeLens 配色渲染双色进度条
+    (Render a two-tone progress bar using the existing GenomeLens palette)
+    """
 
     clamped = max(0.0, min(progress, 1.0))
     filled = min(theme.bar_width, max(0, int(round(clamped * theme.bar_width))))
@@ -278,7 +284,9 @@ def _render_progress_bar(progress: float, *, theme: ProgressTheme, enabled: bool
 
 
 class SignalBusProgressReporter:
-    """Reusable SignalBus-backed progress renderer for CLI workflows"""
+    """基于 SignalBus 的可复用 CLI 工作流进度渲染器
+    (Reusable SignalBus-backed progress renderer for CLI workflows)
+    """
 
     def __init__(
         self,
@@ -306,19 +314,25 @@ class SignalBusProgressReporter:
         self._ticker_thread: threading.Thread | None = None
 
     def attach(self, signal_bus: SignalBus) -> None:
-        """Subscribe to progress-related events on the shared SignalBus"""
+        """订阅共享 SignalBus 上的进度相关事件
+        (Subscribe to progress-related events on the shared SignalBus)
+        """
 
         signal_bus.subscribe(self.handle)
 
     def handle(self, event: Event) -> None:
-        """Render the next frame when the adapter yields one"""
+        """当适配器产生下一帧时渲染它
+        (Render the next frame when the adapter yields one)
+        """
 
         frame = self._adapter.apply(event)
         if frame is not None:
             self._render(frame)
 
     def finish(self) -> None:
-        """Close the live progress line cleanly on interactive terminals"""
+        """在交互式终端上干净地关闭实时进度行
+        (Close the live progress line cleanly on interactive terminals)
+        """
 
         self._stop_ticker()
         with self._render_lock:
@@ -418,7 +432,9 @@ PROGRESS_STATE_LABELS = {
 
 
 class McscanProgressAdapter:
-    """Translate current MCscan workflow events into reusable progress frames"""
+    """将当前 MCscan 工作流事件转换为可复用进度帧
+    (Translate current MCscan workflow events into reusable progress frames)
+    """
 
     def __init__(self, request: WorkflowRequest) -> None:
         self._request = request
@@ -497,7 +513,9 @@ class McscanProgressAdapter:
 
 
 class CliProgressReporter(SignalBusProgressReporter):
-    """Backward-compatible MCscan progress reporter built on the reusable renderer"""
+    """基于可复用渲染器的向后兼容 MCscan 进度报告器
+    (Backward-compatible MCscan progress reporter built on the reusable renderer)
+    """
 
     def __init__(
         self,

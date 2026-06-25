@@ -1,4 +1,4 @@
-"""Style constants for the local synteny renderer"""
+"""局部共线性渲染器的样式常量"""
 
 # region 常量与配色
 DEFAULT_TRACK_COLORS = ("#5f8f91", "#9a775f", "#718f6f", "#837a9d", "#9a9068", "#697d9b")
