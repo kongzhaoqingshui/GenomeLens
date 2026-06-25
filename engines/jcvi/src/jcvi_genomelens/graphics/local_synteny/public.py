@@ -74,7 +74,6 @@ from jcvi_genomelens.graphics.local_synteny.style import (
     MIN_RIBBON_GENE_WIDTH,
     MIN_SEGMENT_WIDTH,
     RANGE_LABEL_HEIGHT,
-    RIBBON_WIDTH_SCALE,
     SHORT_SEGMENT_CONTEXT_ANCHORS,
     SHORT_SEGMENT_CONTEXT_BP,
     SKIP_LINK_ALPHA,
@@ -1843,9 +1842,16 @@ def _draw_track(
 
 
 def _gene_interval_points(positioned: PositionedGene) -> tuple[tuple[float, float], tuple[float, float]]:
-    """返回单个映射基因的可见左右端点"""
+    """返回单个映射基因的可见左右端点
 
-    width = max(MIN_RIBBON_GENE_WIDTH, positioned.mapped.width * RIBBON_WIDTH_SCALE)
+    与 JCVI ``graphics.synteny.Region.get_coordinates`` 一致：ribbon 端点直接取基因
+    的真实映射跨度（基因长度×比例尺），不再人为收窄，使连线宽度严格等于基因足迹。
+    ``mapped.x`` 为基因中心、``mapped.width`` 为完整映射宽度，故以中心对称展开恰好
+    还原 ``[cv(gstart), cv(gend)]`` 两端。``MIN_RIBBON_GENE_WIDTH`` 仅作可见性下限，
+    对应 JCVI ``Shade`` 的 ``min_size`` 兜底。
+    """
+
+    width = max(MIN_RIBBON_GENE_WIDTH, positioned.mapped.width)
     x1 = positioned.mapped.x - width / 2.0
     x2 = positioned.mapped.x + width / 2.0
     return (x1, positioned.y), (x2, positioned.y)
