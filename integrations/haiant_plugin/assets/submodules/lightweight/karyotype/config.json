@@ -15,8 +15,8 @@
       "key": "input_dir",
       "valueType": "dir_selector",
       "example_value": "input",
-      "description": "包含两物种注释与序列文件的目录，用于解析染色体轨道与长度信息。",
-      "description_en": "Directory containing the annotation and sequence files for both species, used to resolve chromosome tracks and length information."
+      "description": "包含两个待比较物种输入文件的目录。每个物种需按同名前缀成对提供 `BED + CDS/PEP` 或 `GFF/GTF + genome FASTA`，插件会据此解析染色体轨道、长度信息和核型图所需的物种背景。",
+      "description_en": "Directory containing the input files for the two species being compared. Each species should be provided as a matched same-stem pair using either `BED + CDS/PEP` or `GFF/GTF + genome FASTA`. The plugin uses them to resolve chromosome tracks, length information, and the species background required for the karyotype figure."
     },
     {
       "label": "Blocks 文件",

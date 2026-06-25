@@ -15,8 +15,8 @@
       "key": "input_dir",
       "valueType": "dir_selector",
       "example_value": "input",
-      "description": "输入两个物种的原始文件目录。插件会自动识别同名前缀文件对，并据此建立直系同源目录所需的双物种输入。",
-      "description_en": "Directory containing the raw files for two species. The plugin auto-discovers same-stem pairs and uses them to build the pairwise input required for ortholog catalog generation."
+      "description": "输入两个物种原始文件的目录。每个物种都应按同名前缀成对提供，支持 `BED + CDS/PEP` 或 `GFF/GTF + genome FASTA` 两类组合；不同物种之间可混用不同组合，但单个物种内部必须完整配对。插件会据此自动建立直系同源目录所需的双物种输入背景。",
+      "description_en": "Directory containing the raw files for two species. Each species should be provided as a matched same-stem pair using either `BED + CDS/PEP` or `GFF/GTF + genome FASTA`. Different species may use different modes, but files within one species must remain complete and paired. The plugin uses them to build the pairwise input required for ortholog catalog generation."
     },
     {
       "label": "输出目录",

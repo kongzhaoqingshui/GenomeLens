@@ -24,8 +24,8 @@
       "key": "tracks",
       "valueType": "str",
       "example_value": "[{\"name\": \"speciesA\", \"bed\": \"A.bed\"}]",
-      "description": "多物种轨道定义列表，用于告诉插件每个物种的显示名称与 BED 来源，从而组织局部共线性图中的多条基因轨道。",
-      "description_en": "List of multi-species track definitions that tells the plugin each display name and BED source, allowing it to organize the multiple gene tracks in the local synteny figure."
+      "description": "多物种轨道定义列表，用于告诉插件每个物种的显示名称与 BED 来源，从而恢复多条局部基因轨道的名称、顺序和可视化背景。",
+      "description_en": "List of multi-species track definitions that provides each display name and BED source, allowing the plugin to reconstruct the names, order, and background of the multiple local gene tracks."
     },
     {
       "label": "Blocks 文件",
@@ -33,8 +33,8 @@
       "key": "blocks",
       "valueType": "file_selector",
       "example_value": "all.blocks",
-      "description": "多物种局部共线性所依赖的共线性区块文件，用于从全局结果中抽取与目标位点相关的连接关系。",
-      "description_en": "Synteny blocks file used by the multi-species local view to extract the links relevant to the target loci from the broader result set."
+      "description": "多物种局部共线性所依赖的共线性区块文件。插件会从这些 blocks 中抽取围绕目标位点的跨物种对应关系，用来重建候选区域的局部保守连接。",
+      "description_en": "Synteny blocks file used by the multi-species local view to extract the cross-species links relevant to the target loci from the broader result set."
     },
     {
       "label": "合并 BED 文件",
@@ -42,8 +42,8 @@
       "key": "bed",
       "valueType": "file_selector",
       "example_value": "all.bed",
-      "description": "合并后的 BED 文件，提供所有参与物种的统一基因顺序与坐标背景，是多物种局部窗口定位的关键输入。",
-      "description_en": "Merged BED file providing unified gene order and coordinate context for all participating species. It is a key input for locating the local windows across species."
+      "description": "合并后的 BED 文件，提供所有参与物种统一的基因顺序与坐标背景，是定位目标窗口、恢复真实邻域结构和正确放置局部轨道的关键输入。",
+      "description_en": "Merged BED file providing unified gene order and coordinate context for all participating species. It is a key input for locating local windows, restoring true neighborhood structure, and placing the local tracks correctly across species."
     },
     {
       "label": "目标基因 ID",

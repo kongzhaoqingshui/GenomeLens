@@ -47,7 +47,7 @@ def build_runtime_command(params_path: str | Path) -> list[str]:
         anchors = params.get("anchors")
         if not anchors:
             raise PluginError(
-                "anchors is required (a .anchors file from MCscan pairwise)"
+                "anchors is required (a .anchors file from pairwise synteny foundation output)"
             )
         anchors_path = resolve_param_path(base, anchors, required=True, must_exist=True)
         formats_value = params.get("formats")

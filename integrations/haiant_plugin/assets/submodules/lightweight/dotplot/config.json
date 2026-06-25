@@ -15,8 +15,8 @@
       "key": "input_dir",
       "valueType": "dir_selector",
       "example_value": "input",
-      "description": "包含这对比较物种注释与序列文件的目录，用于为点图建立坐标轴与物种背景信息。",
-      "description_en": "Directory containing the annotation and sequence files for the species pair, used to establish the coordinate axes and species context for the dotplot."
+      "description": "包含这对比较物种输入文件的目录。每个物种需按同名前缀成对提供 `BED + CDS/PEP` 或 `GFF/GTF + genome FASTA`；插件会自动识别可用组合，并据此恢复点图所需的染色体坐标轴与物种背景。",
+      "description_en": "Directory containing the input files for the species pair. Each species should be provided as a matched same-stem pair using either `BED + CDS/PEP` or `GFF/GTF + genome FASTA`. The plugin auto-detects the available combination and uses it to establish the coordinate axes and species context for the dotplot."
     },
     {
       "label": "Anchors 文件",

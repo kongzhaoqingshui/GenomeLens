@@ -77,6 +77,11 @@ from jcvi_genomelens.graphics.local_synteny.style import (
     RIBBON_WIDTH_SCALE,
     SHORT_SEGMENT_CONTEXT_ANCHORS,
     SHORT_SEGMENT_CONTEXT_BP,
+    SKIP_LINK_ALPHA,
+    SKIP_LINK_COLOR,
+    SKIP_LINK_DEPTH_FACTOR,
+    SKIP_LINK_LINEWIDTH,
+    SKIP_LINK_ZORDER,
     SPECIAL_TRUNCATED_COLOR,
     SPECIES_LABEL_GAP,
     TRACK_BAR_COLORS,
@@ -192,7 +197,7 @@ class MatplotlibLocalSyntenyRenderer:
             )
             for track in layout.tracks
         ]
-        self._draw_links(ax, layout, track_positions)
+        min_skip_y = self._draw_links(ax, layout, track_positions)
         ys = [_segment_y(track, segment) for track in layout.tracks for segment in track.segments]
         legend_y = min(ys) - 0.105 if ys else LEGEND_Y
         _draw_target_legend(ax, layout.target_legend_entries, y_base=legend_y)
@@ -204,6 +209,8 @@ class MatplotlibLocalSyntenyRenderer:
         ax.set_xlim(*_centered_x_limits(layout, species_label_x))
         if ys:
             bottom = min(legend_y - 0.04 if layout.target_legend_entries else min(ys) - 0.14, min(ys) - 0.14)
+            if min_skip_y is not None:
+                bottom = min(bottom, min_skip_y - 0.02)
             ax.set_ylim(max(0.0, bottom), min(1.0, max(ys) + 0.10))
         else:
             ax.set_ylim(0.0, 1.0)
@@ -230,10 +237,16 @@ class MatplotlibLocalSyntenyRenderer:
         ax: Axes,
         layout: LocalSyntenyLayout,
         track_positions: list[dict[str, PositionedGene]],
-    ) -> None:
-        """绘制相邻轨道间的共线性连线"""
+    ) -> float | None:
+        """绘制相邻轨道间的共线性连线与跨空位跳轨补偿线
+
+        先在最底层画出浅虚线跳轨补偿弧线，再在其上绘制普通/高亮 ribbon 连线，
+        保证跳轨线即便与正常连线区域重合，也不会因叠加而让颜色加深。
+        返回所有跳轨弧线中最低的 y 坐标，供外层调整坐标轴下界。
+        """
 
         drawable_links: list[tuple[AnchorLink, PositionedGene, PositionedGene]] = []
+        drawable_skips: list[tuple[PositionedGene, PositionedGene]] = []
         for link in layout.links:
             if link.left_track >= len(track_positions) or link.right_track >= len(track_positions):
                 continue
@@ -241,7 +254,28 @@ class MatplotlibLocalSyntenyRenderer:
             right = track_positions[link.right_track].get(link.right_gene)
             if left is None or right is None:
                 continue
-            drawable_links.append((link, left, right))
+            if link.is_skip:
+                drawable_skips.append((left, right))
+            else:
+                drawable_links.append((link, left, right))
+
+        min_skip_y: float | None = None
+        if drawable_skips:
+            track_ys = sorted(track.y for track in layout.tracks)
+            gaps = [abs(track_ys[i] - track_ys[i + 1]) for i in range(len(track_ys) - 1)]
+            avg_gap = sum(gaps) / len(gaps) if gaps else TRACK_GAP * 0.5
+            deep_y = min(track_ys) - SKIP_LINK_DEPTH_FACTOR * avg_gap
+            min_skip_y = deep_y
+            for left, right in drawable_skips:
+                _draw_skip_link(
+                    ax,
+                    left,
+                    right,
+                    deep_y=deep_y,
+                    color=SKIP_LINK_COLOR,
+                    alpha=SKIP_LINK_ALPHA,
+                    zorder=SKIP_LINK_ZORDER,
+                )
 
         target_colors = _target_color_by_gene(layout)
         for link, left, right in drawable_links:
@@ -264,6 +298,8 @@ class MatplotlibLocalSyntenyRenderer:
                 alpha=alpha,
                 zorder=zorder,
             )
+
+        return min_skip_y
 
 
 # endregion
@@ -1069,18 +1105,33 @@ def _collect_track_gene_rows(
 
 
 def _build_links(block_rows: list[RenderBlock], track_count: int) -> list[AnchorLink]:
-    """从 block 行构建相邻轨道连线"""
+    """从 block 行构建轨道连线
+
+    普通行先按严格相邻方式连接存在基因的轨道；当 ``.`` 空位把存在基因的轨道分割成
+    多个不相连的“连通块”时，在块与块之间补一条 ``is_skip=True`` 的浅虚线补偿弧线，
+    避免 0-2 真实同源关系因 0-1 缺失而完全消失。这些跳轨线绘制在正常灰色连线之下，
+    只作为背景补充，不抢夺视觉主体。
+
+    高亮(目标)行保留原有跨空位桥接逻辑，仍用彩色实线按存在轨道顺序两两相连，保证
+    目标基因驱动的局部共线性不被稀释。
+    """
 
     links: list[AnchorLink] = []
     for row_index, row in enumerate(block_rows):
-        genes_by_track: list[str | None] = [row.query_gene, *row.subject_genes]
+        genes_by_track: list[str | None] = [row.query_gene, *row.subject_genes][:track_count]
         if len(genes_by_track) < track_count:
             genes_by_track.extend([None] * (track_count - len(genes_by_track)))
-        for left_track in range(track_count - 1):
-            left = genes_by_track[left_track]
-            right = genes_by_track[left_track + 1]
-            if left and right:
-                links.append(AnchorLink(row_index, left_track, left_track + 1, left, right))
+        if row.highlighted:
+            # 高亮行：跨空位连接存在基因的轨道，确保彩色连线不因 `.` 断档
+            present = [(track, gene) for track, gene in enumerate(genes_by_track) if gene]
+            for (left_track, left_gene), (right_track, right_gene) in zip(present, present[1:], strict=False):
+                links.append(AnchorLink(row_index, left_track, right_track, left_gene, right_gene, is_skip=False))
+        else:
+            # 普通行：相邻轨道画普通连线；跨空位的连通块边界画跳轨补偿线
+            present = [(track, gene) for track, gene in enumerate(genes_by_track) if gene]
+            for (left_track, left_gene), (right_track, right_gene) in zip(present, present[1:], strict=False):
+                is_skip = right_track > left_track + 1
+                links.append(AnchorLink(row_index, left_track, right_track, left_gene, right_gene, is_skip=is_skip))
     return links
 
 
@@ -1845,6 +1896,46 @@ def _draw_ribbon_link(
             facecolor=color,
             edgecolor=color,
             lw=0,
+            alpha=alpha,
+            zorder=zorder,
+            clip_on=False,
+        )
+    )
+
+
+def _draw_skip_link(
+    ax: Axes,
+    left: PositionedGene,
+    right: PositionedGene,
+    *,
+    deep_y: float,
+    color: str,
+    alpha: float,
+    zorder: int,
+) -> None:
+    """绘制跨空位跳轨补偿虚线弧线
+
+    以基因中心为端点，控制点下沉到 ``deep_y``，形成比普通 ribbon 更深的 U 形曲线，
+    从缺失轨道下方绕过后再连到目标轨道。使用 ``fill=False`` 的虚线轮廓，作为最底层
+    背景补充，避免与正常灰色连线叠加后颜色加深。
+    """
+
+    left_point = (left.mapped.x, left.y)
+    right_point = (right.mapped.x, right.y)
+    verts = [
+        left_point,
+        (left_point[0], deep_y),
+        (right_point[0], deep_y),
+        right_point,
+    ]
+    codes = [MplPath.MOVETO, MplPath.CURVE4, MplPath.CURVE4, MplPath.CURVE4]
+    ax.add_patch(
+        PathPatch(
+            MplPath(verts, [int(code) for code in codes]),
+            fill=False,
+            edgecolor=color,
+            linewidth=SKIP_LINK_LINEWIDTH,
+            linestyle="--",
             alpha=alpha,
             zorder=zorder,
             clip_on=False,

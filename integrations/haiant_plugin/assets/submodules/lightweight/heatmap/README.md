@@ -5,6 +5,7 @@
 `gljcvi-heatmap` 是 GenomeLens 在 HAIant（智然体）平台上的**矩阵热图**可编排子模块插件。它适合把相似度矩阵、共线性计数矩阵、表达矩阵或其他二维数值关系直接整理成热图，用于观察聚类格局、异常样本与强弱关联区域。
 
 该子模块很适合作为“已有矩阵结果，想快速转成可读图件”的轻量可视化入口。
+运行完成后，通常会得到一张便于观察分组结构、强弱梯度和异常样本的矩阵热图。
 
 本目录是 `gljcvi-heatmap` 插件包内容：
 
@@ -41,7 +42,7 @@ module_id = jcvi.graphics_heatmap
 | `dpi` | int | 否 | `300` | 分辨率 |
 | `formats` | enum | 否 | `svg` | 输出格式：`svg` / `png` / `pdf` / `eps` / `jpg` |
 
-子模块可调参数通过 `--params` 转发给 `analyze submodule`。`GenomeLens_Path` 未设置时读取 `GENOMELENS_EXE` 环境变量。
+插件会把矩阵输入、热图参数与输出格式统一写入 `output/submodule_request.json`，再通过平台 `analyze run` 执行。`GenomeLens_Path` 未设置时读取 `GENOMELENS_EXE` 环境变量。
 
 完整字段映射参见 [`../../PARAMETER_MAPPING.md`](../../PARAMETER_MAPPING.md)。
 
@@ -62,10 +63,10 @@ module_id = jcvi.graphics_heatmap
 main.exe params.json
 ```
 
-等价 CLI：
+等价平台入口：
 
 ```powershell
-GenomeLens.exe analyze submodule jcvi.graphics_heatmap --input-ports "{\"matrix_csv\": \"matrix.csv\"}" --output-dir output --params "{...}" --formats svg --force
+GenomeLens.exe analyze run output\submodule_request.json
 ```
 
 ## 注意事项

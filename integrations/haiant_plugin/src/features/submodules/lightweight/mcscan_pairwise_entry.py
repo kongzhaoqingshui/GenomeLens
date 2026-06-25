@@ -22,7 +22,7 @@ from genomelens_haiant_plugin._core import (
 )
 
 LOGGER_NAME = "gljcvi_mcscan_pairwise"
-ERROR_PREFIX = "GenomeLens MCscan pairwise feature plugin error"
+ERROR_PREFIX = "GenomeLens pairwise synteny foundation plugin error"
 SUB_MODULE_ID = "jcvi.mcscan_pairwise"
 
 # 子模块可调参数（param_id, 类型），作为 ``parameters`` 写入 ``SubmoduleRequest``
@@ -77,7 +77,7 @@ def run_runtime(argv: list[str]) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
-    """运行 MCscan pairwise 功能入口"""
+    """运行双物种共线性基础分析入口"""
 
     args = sys.argv[1:] if argv is None else argv
     try:

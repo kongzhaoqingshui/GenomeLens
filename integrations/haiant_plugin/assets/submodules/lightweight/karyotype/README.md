@@ -4,7 +4,8 @@
 
 `gljcvi-karyotype` 是 GenomeLens 在 HAIant（智然体）平台上的**双物种核型共线性图**可编排子模块插件。它适合把两个物种的染色体尺度共线性关系整理成一张直观的结构图，用于观察整条染色体或大片段之间的保守、断裂、重排与融合情况。
 
-核型图（karyotype figure）以染色体为轨道，把两个物种的整条染色体并排展示，并用连线/阴影带描绘同源区块。本子模块依赖上游 MCscan pairwise 产出的 `.blocks` 文件，因此更偏向“在已经识别出共线性区块之后，做宏观结构解释和展示”的场景。
+核型图（karyotype figure）以染色体为轨道，把两个物种的整条染色体并排展示，并用连线/阴影带描绘同源区块。本子模块依赖上游双物种共线性基础分析产出的 `.blocks` 文件，因此更偏向“在已经识别出共线性区块之后，做宏观结构解释和展示”的场景。
+运行完成后，通常会得到一张适合汇报或论文整理的双物种染色体尺度共线性结构图。
 
 本目录是 `gljcvi-karyotype` 插件包内容：
 
@@ -24,22 +25,22 @@ module_id = jcvi.graphics_karyotype
 
 | 端口 | 类型 | 必填 | 说明 |
 |------|------|------|------|
-| `species_pair` | dir | 是 | 包含两物种 BED/序列的输入目录（由 `input_dir` 映射） |
-| `blocks` | file | 是 | 上游 MCscan pairwise 产出的 `.blocks` 文件，决定核型图中哪些染色体片段彼此连接 |
+| `species_pair` | dir | 是 | 包含两个物种输入文件的目录（由 `input_dir` 映射）；每个物种应按同名前缀成对提供 `BED + CDS/PEP` 或 `GFF/GTF + genome FASTA` |
+| `blocks` | file | 是 | 上游双物种共线性基础分析产出的 `.blocks` 文件，决定核型图中哪些染色体片段彼此连接 |
 
 ## 主要参数说明
 
 | 参数 | 类型 | 必填 | 默认值 | 说明 |
 |------|------|------|--------|------|
 | `GenomeLens_Path` | file | 是* | — | 外部 GenomeLens 可执行文件路径 |
-| `input_dir` | dir | 是 | — | 双物种输入目录，用于解析染色体轨道与长度背景 |
+| `input_dir` | dir | 是 | — | 双物种输入目录；每个物种应按同名前缀成对提供 `BED + CDS/PEP` 或 `GFF/GTF + genome FASTA`，用于解析染色体轨道与长度背景 |
 | `blocks` | file | 是 | — | `.blocks` 文件路径（blocks 端口），是核型图结构关系的核心输入 |
 | `output_dir` | dir | 否 | `output` | 结果输出目录 |
 | `figsize` | str | 否 | `""` | 画布尺寸，例如 `8x6` |
 | `dpi` | int | 否 | `300` | 图片分辨率 |
 | `formats` | enum | 否 | `svg` | 输出格式：`svg` / `png` / `pdf` / `eps` / `jpg` |
 
-子模块可调参数（`figsize`、`dpi`）通过 `--params` 转发给 `analyze submodule`。`GenomeLens_Path` 未设置时读取 `GENOMELENS_EXE` 环境变量。
+插件会把输入端口、图件参数与输出格式统一写入 `output/submodule_request.json`，再通过平台 `analyze run` 执行。`GenomeLens_Path` 未设置时读取 `GENOMELENS_EXE` 环境变量。
 
 完整字段映射参见 [`../../PARAMETER_MAPPING.md`](../../PARAMETER_MAPPING.md)。
 
@@ -61,10 +62,10 @@ module_id = jcvi.graphics_karyotype
 main.exe params.json
 ```
 
-等价 CLI：
+等价平台入口：
 
 ```powershell
-GenomeLens.exe analyze submodule jcvi.graphics_karyotype --input-ports "{\"species_pair\": \"input\", \"blocks\": \"pair.blocks\"}" --output-dir output --params "{...}" --formats svg --force
+GenomeLens.exe analyze run output\submodule_request.json
 ```
 
 ## 注意事项

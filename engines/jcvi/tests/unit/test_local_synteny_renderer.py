@@ -225,14 +225,53 @@ def test_compute_layout_links_only_adjacent_tracks(fixture_dir: Path) -> None:
     _write_multi_track_blocks(multi_blocks)
 
     layout = _compute_layout(multi_blocks, fixture_dir / "all.bed", ["Ref", "SubA", "SubB"], [])
-    links = {(link.left_track, link.right_track, link.left_gene, link.right_gene) for link in layout.links}
+    links = {
+        (link.left_track, link.right_track, link.left_gene, link.right_gene): link.is_skip for link in layout.links
+    }
 
     assert links == {
-        (0, 1, "g1", "s1"),
-        (1, 2, "s1", "s3"),
-        (0, 1, "g2", "s2"),
+        (0, 1, "g1", "s1"): False,
+        (1, 2, "s1", "s3"): False,
+        (0, 1, "g2", "s2"): False,
+        # 普通行出现跨空位时，生成 is_skip=True 的补偿弧线，避免 0-2 关系丢失
+        (0, 2, "g3", "s4"): True,
     }
     assert (0, 2, "g1", "s3") not in links
+
+
+def test_compute_layout_highlighted_row_bridges_empty_intermediate_track(tmp_path: Path) -> None:
+    """高亮(目标)行在中间轨道缺失同源基因时，连线跨过 ``.`` 直连目标轨道
+
+    普通行遇到 ``.`` 会生成 is_skip=True 的浅虚线补偿弧线，把被空位隔开的
+    连通块桥接起来，避免真实同源关系丢失；高亮行仍使用彩色实线桥接。
+    """
+
+    bed = tmp_path / "all.bed"
+    bed.write_text(
+        "\n".join(
+            [
+                "qchr\t0\t10\tquery__q1\t0\t+",
+                "qchr\t10\t20\tquery__q2\t0\t+",
+                "schr\t0\t10\tsubject__s1\t0\t+",
+                "tchr\t0\t10\tthird__t1\t0\t+",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    blocks = tmp_path / "blocks.txt"
+    # 第一行为高亮目标行且中间轨道为 `.`；第二行为普通行且中间轨道为 `.`
+    blocks.write_text("r*query__q1\t.\tthird__t1\nquery__q2\t.\tthird__t1\n", encoding="utf-8")
+
+    layout = _compute_layout(blocks, bed, ["query", "subject", "third"], ["query__q1"])
+    links = {
+        (link.left_track, link.right_track, link.left_gene, link.right_gene): link.is_skip for link in layout.links
+    }
+
+    # 高亮行跨过空的 subject 轨道，从 query 直连 third（普通连线，非 skip）
+    assert links.get((0, 2, "query__q1", "third__t1")) is False
+    # 普通行同样跨空位桥接，但标记为 is_skip，绘制为底层虚线弧线
+    assert links.get((0, 2, "query__q2", "third__t1")) is True
 
 
 def test_format_bp_range() -> None:
@@ -602,8 +641,11 @@ def test_compute_layout_handles_scoped_ids_and_missing_values(tmp_path: Path) ->
     assert "query__q1" in layout.target_gene_ids
     assert [segment.chromosome for segment in layout.tracks[1].segments] == ["schr"]
     assert [segment.chromosome for segment in layout.tracks[2].segments] == ["tchr"]
-    assert {(link.left_gene, link.right_gene) for link in layout.links} == {
-        ("query__q1", "subject__s1"),
+    # 高亮行产生普通相邻连线；普通行跨空位产生 is_skip 补偿弧线
+    links = {(link.left_gene, link.right_gene): link.is_skip for link in layout.links}
+    assert links == {
+        ("query__q1", "subject__s1"): False,
+        ("query__q2", "third__t1"): True,
     }
 
 
@@ -629,17 +671,20 @@ def test_multi_segment_labels_stay_above_track(tmp_path: Path) -> None:
     """多片段轨道中任何染色体标签都不应落到条形高度，应统一置于轨道上方
 
     复现紧凑小片段（如 Iin_Iin3）被夹在邻居之间时，上方候选全部碰撞后
-    回退到条形高度的缺陷
+    回退到条形高度的缺陷。
     """
+
     bed = tmp_path / "all.bed"
     bed_lines = [f"qchr\t{i * 10}\t{i * 10 + 5}\tq{i}\t0\t+" for i in range(24)]
     bed_lines.extend(f"schr{i}\t0\t10\ts{i}\t0\t+" for i in range(24))
     bed.write_text("\n".join(bed_lines) + "\n", encoding="utf-8")
     blocks = tmp_path / "blocks.txt"
     blocks.write_text("\n".join(f"q{i}\ts{i}" for i in range(24)) + "\n", encoding="utf-8")
+
     layout = _compute_layout(blocks, bed, ["Ref", "Sub"], [])
     subject = layout.tracks[1]
     assert len(subject.segments) >= 5
+
     positions = _label_positions_for_segments(subject, set())
     for original_index, (_label_x, label_y) in positions.items():
         segment_y = _segment_y(subject, subject.segments[original_index])

@@ -1,4 +1,4 @@
-"""HAIant 轻量功能入口：集成 ``analyze workflow synteny`` 流程
+"""HAIant 一站式共线性功能入口
 
 该入口从 HAIant ``params.json`` 构建 V3 ``WorkflowRequest`` JSON，
 并调用外部 GenomeLens 可执行文件：
@@ -61,7 +61,7 @@ def run_runtime(argv: list[str]) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
-    """运行 ``analyze workflow synteny`` 功能入口"""
+    """运行一站式 ``synteny`` 工作流插件入口"""
 
     args = sys.argv[1:] if argv is None else argv
     try:

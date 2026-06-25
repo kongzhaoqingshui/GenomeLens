@@ -361,7 +361,7 @@ def test_synteny_entry_main_skips_compression_on_failure(tmp_path: Path) -> None
     ("module", "label"),
     [
         (cast(FeatureEntryModule, synteny_entry), "synteny workflow"),
-        (cast(FeatureEntryModule, mcscan_pairwise_entry), "MCscan pairwise"),
+        (cast(FeatureEntryModule, mcscan_pairwise_entry), "pairwise synteny foundation"),
         (cast(FeatureEntryModule, catalog_ortholog_entry), "catalog_ortholog"),
         (cast(FeatureEntryModule, dotplot_entry), "dotplot"),
         (cast(FeatureEntryModule, synteny_figure_entry), "synteny figure"),

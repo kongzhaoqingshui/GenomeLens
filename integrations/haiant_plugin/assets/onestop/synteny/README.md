@@ -1,8 +1,8 @@
-# gljcvi-synteny — MCscan JCVI 一键自动流插件
+# gljcvi-synteny — 多物种共线性一站式分析插件
 
 ## 概述
 
-`gljcvi-synteny` 是 GenomeLens 在 HAIant（智然体）平台上的 **MCscan JCVI 一键自动流** 插件。它面向 2~n 个物种的比较基因组学场景，把同源搜索、共线性区块识别、全局绘图和目标基因局部共线性出图整合成一条稳定的端到端流程。
+`gljcvi-synteny` 是 GenomeLens 在 HAIant（智然体）平台上的 **多物种共线性一站式分析** 插件。它面向 2~n 个物种的比较基因组学场景，把同源搜索、共线性区块识别、全局绘图和目标基因局部共线性出图整合成一条稳定的端到端流程。
 
 在实际使用中，它最适合回答这几类问题：
 
@@ -11,13 +11,13 @@
 - 某个候选基因在其他物种中是否保留了相似的上下游邻域；
 - 是否可以直接得到适合汇报或论文整理的共线性图件与中间结果。
 
-插件执行时会根据 `params.json` 动态生成 `output/jcvi.config.json`，并直接调用外部 `GenomeLens.exe`：
+插件执行时会根据 `params.json` 动态生成 `output/workflow_request.json`，并调用外部 `GenomeLens.exe`：
 
 ```text
-<GenomeLens_Path> analyze workflow synteny <input_dir> <output_dir> --jcvi-config output/jcvi.config.json
+<GenomeLens_Path> analyze run output/workflow_request.json
 ```
 
-与其他单一功能插件不同，`gljcvi-synteny` **不生成 `genomelens_request.json`**，也不走 `analyze run` 流程。它直接封装 GenomeLens 原生的 `analyze workflow synteny` 自动目录分析命令，自动完成物种发现、配对、比对、共线性识别以及全局或局部图件输出。
+与其他子模块插件不同，`gljcvi-synteny` 面向完整工作流而不是单一步骤。它会把用户提供的物种目录和分析参数组织成标准 `WorkflowRequest`，再交给 GenomeLens 平台自动完成物种发现、配对、比对、共线性识别、聚合与图件输出。
 
 本目录是 `gljcvi-synteny` 插件包内容：
 
@@ -36,7 +36,7 @@
 `gljcvi-synteny` 的价值在于：
 
 - **降低使用门槛**：无需分别学习多个子命令的调用方式。
-- **标准化分析流程**：自动复用 GenomeLens `analyze workflow synteny` 的目录发现、物种解析、比对、过滤、出图逻辑。
+- **标准化分析流程**：自动复用 GenomeLens 平台的一站式 `synteny` 工作流，请求结构稳定，分析路径统一。
 - **兼顾全局与局部**：未指定目标基因时输出全局共线性图；指定目标基因后自动切换到局部共线性图。
 - **一致的环境复用**：与所有 HAIant 插件共享同一份外部 GenomeLens 安装。
 
@@ -45,8 +45,15 @@
 ## 工作流自动切换逻辑
 
 ```text
-未填写 target_gene_ids  →  workflow = graphics_synteny（全局共线性图）
-填写 target_gene_ids    →  workflow = local_synteny（目标基因局部共线性图）
+未填写 target_gene_ids
+  → 更偏向全局共线性比较
+  → 双物种时输出 pairwise 结果与全局图件
+  → 多物种时自动聚合全局核型总图
+
+填写 target_gene_ids
+  → 切换为目标基因驱动的局部共线性分析
+  → 双物种时输出目标位点局部图
+  → 多物种时自动聚合多物种局部共线性总图
 ```
 
 ---
@@ -147,8 +154,7 @@ my_project/
 | `figsize` | str | 否 | `""` | 画布尺寸 |
 | `dpi` | int | 否 | `300` | 分辨率 |
 | `optimize_auto` | bool | 否 | `false` | 一键开启图件尺寸、layout 连线、核型标签三项自动优化 |
-| `allow_simplified_fallback` | bool | 否 | `false` | 诊断开关；正式流程保持关闭 |
-| `use_native_local_synteny_renderer` | bool | 否 | `false` | 局部共线性模式下使用原生 matplotlib 渲染器 |
+| `use_native_local_synteny_renderer` | bool | 否 | `false` | 局部共线性模式下启用 GenomeLens 增强渲染器，更适合跨染色体或复杂局部区域 |
 
 ---
 
@@ -172,20 +178,19 @@ my_project/
 
 ```text
 output/
-├── jcvi.config.json             # 自动生成的 MCscan JCVI 配置
+├── workflow_request.json        # 自动生成的平台工作流请求
 ├── run.log                      # 运行日志
 ├── intermediates.zip            # 中间文件归档（可安全删除）
 ├── intermediates.zip.deletable  # 可删除标记
 └── results/
-    └── figures/
-        ├── query.subject.synteny.svg    # 全局共线性图（未填 target_gene_ids）
-        └── local_synteny.<target>.svg   # 局部共线性图（填写 target_gene_ids）
+    ├── ...                      # 平台归档的结果目录
+    └── figures/                 # 最终图件（名称按具体分析路径而定）
 ```
 
-- **`jcvi.config.json`**：由插件根据 `params.json` 动态生成的 MCscan JCVI 配置文件，schema_version = 2。可直接用于 `GenomeLens.exe analyze workflow synteny --jcvi-config` CLI。
+- **`workflow_request.json`**：由插件根据 `params.json` 动态生成的平台标准工作流请求，可用于回看本次分析的真实输入语义。
 - **`run.log`**：插件与外部 GenomeLens 的运行日志。
-- **`results/figures/`**：最终图片文件。全局模式下为共线性图；局部模式下为局部共线性图。
-- **`intermediates.zip`**：分析完成后，插件把除 `results` 外的中间文件（比对数据库、anchors、blocks、临时图等）打包到此压缩包。
+- **`results/`**：GenomeLens 平台写出的最终分析结果目录，包含图件、汇总文件以及可供后续追踪的产物。
+- **`intermediates.zip`**：分析完成后，插件把除 `results` 外的中间文件（如 anchors、blocks、临时输入等）打包到此压缩包。
 - **`intermediates.zip.deletable`**：标记文件，提示用户可以安全删除 `intermediates.zip` 以释放空间。
 
 ---
@@ -235,10 +240,10 @@ output/
 main.exe params.json
 ```
 
-等价 CLI：
+等价平台入口：
 
 ```powershell
-GenomeLens.exe analyze workflow synteny input output --jcvi-config output\jcvi.config.json --force
+GenomeLens.exe analyze run output\workflow_request.json
 ```
 
 ---
@@ -253,8 +258,8 @@ GenomeLens.exe analyze workflow synteny input output --jcvi-config output\jcvi.c
 
 ## 注意事项
 
-1. `gljcvi-synteny` 直接调用 CLI，不生成 `genomelens_request.json`，因此不能通过 `analyze run` 重放。
+1. `gljcvi-synteny` 的真实调用凭证是 `output/workflow_request.json`；如需复查或重放，应以该文件为准。
 2. `optimize_auto` 会同时开启 `optimize_figsize`、`rewrite_layout_links`、`optimize_karyotype_labels`，适合快速出图；如需精细控制，请改用单功能插件。
 3. 在局部共线性模式下，`split_targets` 默认关闭，多个目标会绘制在一张图中；如需单图，可显式开启。
-4. `allow_simplified_fallback` 仅用于诊断，正式分析请保持 `false`。
+4. `use_native_local_synteny_renderer` 适合需要增强型局部共线性展示时启用，尤其是跨染色体或复杂局部区域。
 5. 中间文件归档后原始文件会被删除。

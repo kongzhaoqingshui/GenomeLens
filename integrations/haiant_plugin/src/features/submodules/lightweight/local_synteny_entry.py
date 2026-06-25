@@ -51,7 +51,7 @@ def build_runtime_command(params_path: str | Path) -> list[str]:
         blocks = params.get("blocks")
         if not blocks:
             raise PluginError(
-                "blocks is required (a .blocks file from MCscan pairwise)"
+                "blocks is required (a .blocks file from pairwise synteny foundation output)"
             )
         blocks_path = resolve_param_path(base, blocks, required=True, must_exist=True)
 

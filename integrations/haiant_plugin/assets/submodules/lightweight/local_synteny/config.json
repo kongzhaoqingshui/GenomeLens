@@ -15,8 +15,8 @@
       "key": "input_dir",
       "valueType": "dir_selector",
       "example_value": "input",
-      "description": "包含双物种注释与序列文件的目录，用于恢复目标区域的基因顺序、坐标和物种背景信息。",
-      "description_en": "Directory containing the annotation and sequence files for the species pair, used to recover gene order, coordinates, and species context around the target region."
+      "description": "包含双物种输入文件的目录。每个物种需按同名前缀成对提供 `BED + CDS/PEP` 或 `GFF/GTF + genome FASTA`；插件会利用这些文件恢复目标区域的基因顺序、坐标和局部共线性所需的物种背景。",
+      "description_en": "Directory containing the input files for the species pair. Each species should be provided as a matched same-stem pair using either `BED + CDS/PEP` or `GFF/GTF + genome FASTA`. The plugin uses them to recover gene order, coordinates, and the species context around the target region."
     },
     {
       "label": "Blocks 文件",

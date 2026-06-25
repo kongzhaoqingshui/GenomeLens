@@ -2,11 +2,12 @@
 
 ## 概述
 
-`gljcvi-multi-local-synteny` 是 GenomeLens 在 HAIant（智然体）平台上的**多物种局部共线性总图**原子子模块插件。它适合把某个候选基因窗口在多个物种中的对应局部区域汇总到一张图里，直接比较邻域保守性、片段拆分和结构差异。
+`gljcvi-multi-local-synteny` 是 GenomeLens 在 HAIant（智然体）平台上的**多物种局部共线性总图**聚合子模块插件。它适合把某个候选基因窗口在多个物种中的对应局部区域汇总到一张图里，直接比较邻域保守性、片段拆分和结构差异。
 
 > `module_kind = aggregate`。调用方必须先准备好多物种聚合后的 `tracks`、聚合 `blocks`、merged BED 与目标基因列表；该插件不负责 reference-vs-targets 的前置拼装。
 
 该子模块把 reference-vs-targets pairwise 局部共线性结果聚合成一张多物种总图，适合回答“同一个目标位点在多个基因组里还保留了多少共同结构”这类问题。
+运行完成后，通常会得到一张围绕目标位点的多物种局部共线性总图，用于直接比较不同基因组中的邻域保守模式。
 
 本目录是 `gljcvi-multi-local-synteny` 插件包内容：
 
@@ -65,10 +66,10 @@ module_id = jcvi.local_synteny_multi
 main.exe params.json
 ```
 
-等价 CLI：
+等价平台入口：
 
 ```powershell
-GenomeLens.exe analyze submodule jcvi.local_synteny_multi --input-ports "{\"tracks\": [...], \"blocks\": \"...\", \"bed\": \"...\", \"target_genes\": [...]}" --output-dir output --force
+GenomeLens.exe analyze run output\submodule_request.json
 ```
 
 ## 注意事项

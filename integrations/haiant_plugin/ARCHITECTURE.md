@@ -1,20 +1,20 @@
 # HAIant 插件架构：独立插件与 lightweight / aggregate 子模块分层
 
-> 本文件描述 GenomeLens 在智然体（HAIant）平台的新插件发布模型。
+> 本文件描述 GenomeLens 在智然体（HAIant）平台上的插件组织方式，以及这些插件如何把比较基因组学分析能力交付给最终用户。
 > GenomeLens 平台与工具链被视为外部软件；每个 HAIant 插件只携带自己的入口与配置，运行时通过 `GenomeLens_Path`（或 `GENOMELENS_EXE` 环境变量）调用外部 GenomeLens 可执行文件。
 > 当前所有插件都构造标准请求 JSON（`WorkflowRequest` 或 `SubmoduleRequest`），然后通过 `analyze run` 调用平台，不再直接拼 `analyze workflow` / `analyze submodule` 命令行。
 
 ---
 
-## 1. 为什么独立
+## 1. 为什么采用独立插件
 
-智然体平台对每个插件包的大小、依赖和职责没有强制约束，但项目实际演进中遇到以下问题：
+从使用者视角看，HAIant 里的插件应该足够轻、升级简单、功能边界清晰；从维护者视角看，插件不应该把整套平台和工具链反复打包进去。项目演进中，旧模型逐渐暴露出这些问题：
 
 - **单包过大**：一次更新任何小功能都需要重新上传整个 platform + 工具链。
 - **插件互相耦合**：重型中心一旦变更，所有子插件都需要同步调整。
 - **runtime 路径不统一**：旧模型要求子插件搜索重型中心或依赖环境变量，部署复杂。
 
-独立后：
+改为独立插件后，用户和维护者都会得到更直接的收益：
 
 - 每个插件只携带自己的入口和配置，体积最小。
 - GenomeLens 本体与工具链只需在用户环境中安装一次，所有插件共享同一份外部可执行文件。
@@ -27,7 +27,9 @@
 
 ### 2.1 外部 GenomeLens 平台
 
-GenomeLens 平台（包含 `GenomeLens.exe` 或 `genomelens.cmd` / `genomelens.exe` 等入口）是外部软件，不由 HAIant 插件携带。用户需要在 `params.json` 中提供：
+GenomeLens 平台（包含 `GenomeLens.exe` 或 `genomelens.cmd` / `genomelens.exe` 等入口）被视为外部运行时，不由 HAIant 插件重复携带。这样做的直接意义是：用户只需要安装一次 GenomeLens，本地所有插件即可共享同一套分析能力与工具链。
+
+用户可以在 `params.json` 中显式提供可执行文件路径：
 
 ```json
 {
@@ -47,17 +49,17 @@ $env:GENOMELENS_EXE = "C:\GenomeLens\GenomeLens.exe"
 
 ### 2.2 一站式工作流插件
 
-`gljcvi-synteny` 构造 `WorkflowRequest(workflow_id="synteny")`，写入 `output/workflow_request.json`，然后调用外部 GenomeLens：
+`gljcvi-synteny` 面向“我只想把一组物种扔进去，然后直接拿到可解释的共线性结果”这一类使用方式。它构造 `WorkflowRequest(workflow_id="synteny")`，写入 `output/workflow_request.json`，然后调用外部 GenomeLens：
 
 ```powershell
 <GenomeLens_Path> analyze run output/workflow_request.json
 ```
 
-未填写 `target_gene_ids` 时走全局共线性路径；填写 `target_gene_ids` 时走目标基因局部共线性路径，并同步生成 global karyotype 总图；3 个及以上物种时平台自动拆分为 all-vs-all pairwise 并聚合全局核型总图与多物种局部总图。该插件不再生成 `jcvi.config.json`，也不提供 workflow 选择器。
+未填写 `target_gene_ids` 时，它更偏向全局共线性比较；填写 `target_gene_ids` 时，它会转入目标基因驱动的局部共线性分析；当物种数达到 3 个及以上时，平台会自动拆分 pairwise 结果并聚合全局核型总图与多物种局部总图。对最终用户来说，这意味着无需手工拼接多步流程，也能直接得到更完整的比较结果。
 
 ### 2.3 可编排子模块插件
 
-对应平台 `SubModuleRegistry` 中的 10 个独立子模块，继续分为 8 个 lightweight 与 2 个 aggregate：
+可编排子模块适合已经知道自己想做哪一步的人，例如“我已经有 pairwise 结果了，现在只想出 dotplot”或“我已经聚合好了多物种 tracks/edges，只想出总图”。它们对应平台 `SubModuleRegistry` 中的 10 个独立子模块，继续分为 8 个 lightweight 与 2 个 aggregate：
 
 | 插件 | 固定 module_id | 类型 |
 |---|---|---|
@@ -78,7 +80,7 @@ $env:GENOMELENS_EXE = "C:\GenomeLens\GenomeLens.exe"
 <GenomeLens_Path> analyze run output/submodule_request.json
 ```
 
-子模块可调参数写入 `parameters`，端口绑定写入 `inputs`，输出格式写入 `output.formats`。具体字段映射见 `PARAMETER_MAPPING.md`。
+对子模块插件来说，核心思想是“显式输入、显式输出、显式控制分析语义”：可调参数写入 `parameters`，端口绑定写入 `inputs`，输出格式写入 `output.formats`。具体字段映射见 `PARAMETER_MAPPING.md`。
 
 每个包只包含：
 
@@ -95,10 +97,10 @@ gljcvi-<feature>/
 
 ### 2.4 输入约定
 
-- `gljcvi-synteny` 使用 `input_dir` 自动发现同名物种文件对（与 `analyze workflow synteny` 的目录发现行为一致）。如果需要显式指定每个物种的文件，仍可填写 `species` 列表和 `input_mode`。
-- 可编排子模块插件通过 `params.json` 中的显式端口字段接收输入，例如 `species_pair`、`anchors`、`blocks`、`target_genes`、`numeric_files`、`matrix_csv`、`tracks`/`edges`、`bed` 等。
-- aggregate 子模块要求调用方已经准备好跨 pair / 跨物种聚合输入，不承担前置 pairwise 产物拼装职责。
-- 下游 4 个可视化子模块（`dotplot`、`synteny_figure`、`karyotype`、`local_synteny`）需要用户显式提供上游产物（`.anchors` / `.blocks` / `target_genes`）。一键“从物种目录直接出图”的端到端路径由 `gljcvi-synteny` 一站式工作流承担。
+- `gljcvi-synteny` 使用 `input_dir` 自动发现同名物种文件对，适合直接从原始物种目录起步。
+- 可编排子模块插件通过 `params.json` 中的显式端口字段接收输入，例如 `species_pair`、`anchors`、`blocks`、`target_genes`、`numeric_files`、`matrix_csv`、`tracks`/`edges`、`bed` 等，适合已经拥有中间结果的场景。
+- aggregate 子模块要求调用方已经准备好跨 pair / 跨物种聚合输入，不承担前置 pairwise 产物拼装职责；它们更像“把前面已经算好的结果汇总成一张总图”。
+- 下游 4 个可视化子模块（`dotplot`、`synteny_figure`、`karyotype`、`local_synteny`）需要用户显式提供上游产物（`.anchors` / `.blocks` / `target_genes`）。如果希望“一次性从物种目录直接跑到图”，更推荐使用 `gljcvi-synteny` 一站式工作流。
 
 ---
 
@@ -112,13 +114,14 @@ gljcvi-<feature>/
    - 从 `params.json` 的 `GenomeLens_Path` 或 `GENOMELENS_EXE` 环境变量解析外部 GenomeLens 可执行文件路径。
    - 对 `gljcvi-synteny`：构造 `WorkflowRequest`，写入 `output/workflow_request.json`，并调用 `<GenomeLens_Path> analyze run output/workflow_request.json`。
    - 对可编排子模块插件：构造 `SubmoduleRequest`，写入 `output/submodule_request.json`，并调用 `<GenomeLens_Path> analyze run output/submodule_request.json`。
-5. 返回外部 GenomeLens 的退出码。
+5. 外部 GenomeLens 负责真正执行同源搜索、共线性识别、聚合绘图与结果归档。
+6. 返回外部 GenomeLens 的退出码。
 
 ---
 
 ## 4. 请求映射
 
-所有插件都生成标准请求 JSON，不再直接拼 `analyze workflow` / `analyze submodule` 命令行。映射规则参见 `PARAMETER_MAPPING.md`。
+所有插件都生成标准请求 JSON，不再直接拼底层分析命令。这样做的好处是：HAIant 插件只负责表单到平台协议的翻译，真正的分析语义统一由 GenomeLens 平台解释。映射规则参见 `PARAMETER_MAPPING.md`。
 
 | 产物路径 | 类型 | 请求文件 | 说明 |
 |---|---|---|---|
@@ -191,5 +194,7 @@ scripts/build_gljcvi_feature_plugin.ps1 -Feature multi_local_synteny
 7. 中英文 UI 字段都需要提供：`label` 为中文，`label_en` 为英文。
 
 ---
+
+从维护角度看，这份架构的目标并不是把所有能力塞进 HAIant，而是让 HAIant 插件成为一层轻薄、稳定、可替换的分析入口。
 
 *本文件随插件体系演进可修订。*

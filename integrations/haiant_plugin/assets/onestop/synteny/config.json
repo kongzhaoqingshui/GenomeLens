@@ -1,6 +1,6 @@
 {
-  "title": "GenomeLens 一站式共线性分析",
-  "title_en": "GenomeLens Synteny One-Stop Workflow",
+  "title": "GenomeLens 多物种共线性一站式分析",
+  "title_en": "GenomeLens Multi-Species Synteny One-Stop Workflow",
   "description": "面向比较基因组学的一站式共线性分析插件。它可在 2~n 个物种之间自动完成同源搜索、共线性区块识别与图形输出，用于观察染色体保守关系、片段重排、复制事件以及目标基因周边微共线性环境；最终可直接得到 block 结果、全局共线性图和局部共线性图。",
   "description_en": "A one-stop comparative genomics plugin for synteny analysis across 2 to n species. It automates homology search, synteny block discovery, and figure generation to reveal chromosome conservation, rearrangements, duplication signals, and target-gene local neighborhoods, producing block results together with global and local synteny figures.",
   "version": "v1.0.0",

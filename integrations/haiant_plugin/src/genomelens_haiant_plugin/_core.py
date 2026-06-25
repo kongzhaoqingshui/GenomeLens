@@ -309,7 +309,8 @@ def build_workflow_request(
     """为 synteny 一站式工作流构建 V3 ``WorkflowRequest`` JSON
 
     请求直接编码物种自动发现、参考种选择、目标基因以及全部算法/绘图选项。
-    不生成外部 ``jcvi.config.json``；平台把这些值作为权威来源使用
+    插件不再额外生成独立 engine 配置文件；这里写入的参数就是平台执行时的
+    权威语义来源。
     """
 
     input_dir = resolve_param_path(

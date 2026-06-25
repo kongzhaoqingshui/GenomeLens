@@ -1,6 +1,6 @@
 {
-  "title": "GenomeLens 共线性图 (Synteny Figure)",
-  "title_en": "GenomeLens Synteny Figure",
+  "title": "GenomeLens 双物种共线性图",
+  "title_en": "GenomeLens Pairwise Synteny Figure",
   "description": "用于绘制基因级或区段级双物种共线性图，突出展示成对保守基因、顺序变化和局部结构差异。它比点图更强调具体基因与片段之间的对应关系，适合论文正文或补充图展示。",
   "description_en": "Draws gene-level or region-level synteny figures for two species, highlighting conserved gene pairs, order changes, and local structural differences. Compared with a dotplot, it emphasizes explicit gene and segment correspondence and is well suited for main-text or supplementary figures.",
   "version": "v1.0.0",
@@ -15,8 +15,8 @@
       "key": "input_dir",
       "valueType": "dir_selector",
       "example_value": "input",
-      "description": "包含两物种注释与序列文件的目录，用于构建基因轨道、顺序与物种背景。",
-      "description_en": "Directory containing the annotation and sequence files for both species, used to build gene tracks, ordering, and species context."
+      "description": "包含两个比较物种输入文件的目录。每个物种需按同名前缀成对提供 `BED + CDS/PEP` 或 `GFF/GTF + genome FASTA`；插件会据此构建共线性图所需的基因轨道、顺序和物种背景。",
+      "description_en": "Directory containing the input files for the two compared species. Each species should be provided as a matched same-stem pair using either `BED + CDS/PEP` or `GFF/GTF + genome FASTA`. The plugin uses them to build gene tracks, ordering, and species context for the synteny figure."
     },
     {
       "label": "Blocks 文件",

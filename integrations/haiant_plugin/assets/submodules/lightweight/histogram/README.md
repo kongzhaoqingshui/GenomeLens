@@ -5,6 +5,7 @@
 `gljcvi-histogram` 是 GenomeLens 在 HAIant（智然体）平台上的**数值分布直方图**可编排子模块插件。它适合把 Ks、距离、打分或其他连续统计量整理成分布图，用于快速判断峰值结构、离散程度和可能的数据分层。
 
 该子模块尤其适合放在“分析结果已经出来，现在想快速看某类数值整体长什么样”的环节。
+运行完成后，通常会得到一张或多张可直接判断分布形态、峰值位置和离散程度的统计直方图。
 
 本目录是 `gljcvi-histogram` 插件包内容：
 
@@ -44,7 +45,7 @@ module_id = jcvi.graphics_histogram
 | `histogram_facet` | bool | 否 | `false` | 是否分面绘制 |
 | `formats` | enum | 否 | `svg` | 输出格式：`svg` / `png` / `pdf` / `eps` / `jpg` |
 
-子模块可调参数通过 `--params` 转发给 `analyze submodule`。`GenomeLens_Path` 未设置时读取 `GENOMELENS_EXE` 环境变量。
+插件会把数值输入、绘图参数与输出格式统一写入 `output/submodule_request.json`，再通过平台 `analyze run` 执行。`GenomeLens_Path` 未设置时读取 `GENOMELENS_EXE` 环境变量。
 
 完整字段映射参见 [`../../PARAMETER_MAPPING.md`](../../PARAMETER_MAPPING.md)。
 
@@ -66,10 +67,10 @@ module_id = jcvi.graphics_histogram
 main.exe params.json
 ```
 
-等价 CLI：
+等价平台入口：
 
 ```powershell
-GenomeLens.exe analyze submodule jcvi.graphics_histogram --input-ports "{\"numeric_files\": [\"numbers.txt\"]}" --output-dir output --params "{...}" --formats svg --force
+GenomeLens.exe analyze run output\submodule_request.json
 ```
 
 ## 注意事项

@@ -93,13 +93,14 @@ class RenderBlock:
 
 @dataclass(frozen=True)
 class AnchorLink:
-    """AnchorLink(锚点连线)：相邻轨道间可绘制的连接"""
+    """AnchorLink(锚点连线)：相邻或跨空位轨道间可绘制的连接"""
 
     row_index: int
     left_track: int
     right_track: int
     left_gene: str
     right_gene: str
+    is_skip: bool = False
 
 
 @dataclass(frozen=True)
