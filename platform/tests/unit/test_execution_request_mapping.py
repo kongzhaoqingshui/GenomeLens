@@ -123,8 +123,15 @@ def test_workflow_planner_target_genes_reference_vs_targets() -> None:
 
     plan = WorkflowPlanner().build(request)
 
-    assert [step.kind for step in plan.steps] == ["pairwise_synteny", "pairwise_synteny", "multi_local_synteny"]
+    assert [step.kind for step in plan.steps] == [
+        "pairwise_synteny",
+        "pairwise_synteny",
+        "global_karyotype",
+        "multi_local_synteny",
+    ]
     assert {step.step_id for step in plan.steps[:2]} == {"A__B", "A__C"}
+    assert plan.steps[2].depends_on == ["A__B", "A__C"]
+    assert plan.steps[2].inputs[0].artifact_id == "simple"
     assert plan.steps[-1].depends_on == ["A__B", "A__C"]
 
 
