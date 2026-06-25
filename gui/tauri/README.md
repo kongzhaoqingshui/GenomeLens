@@ -18,7 +18,7 @@ This installs dependencies, runs frontend lint/typecheck/tests/web build, and ch
 
 The runnable app entry is `app/JCVI-meow-gui/JCVI-meow.exe`. Use `-DebugBundle` only for a debug-profile GUI build.
 
-当前版本：`0.9.20-preview.1`（见 `package.json`、`src-tauri/Cargo.toml`、`src-tauri/tauri.conf.json`）。
+当前版本：`1.0.0-preview-1`（见 `package.json`、`src-tauri/Cargo.toml`、`src-tauri/tauri.conf.json`）。
 
 ## 环境要求
 
@@ -66,12 +66,12 @@ pnpm tauri build
 
 - Tauri v2 + Vite + React 18 + TypeScript + Tailwind CSS 骨架。
 - 最小权限 capability：core、fs、shell、dialog、notification、os。
-- 分析向导首屏：支持选择输入目录、输出目录、参考物种与目标基因；当前源码仍有旧请求草案模型，下一阶段应迁移为 `WorkflowRequest v2`。
+- 分析向导首屏：支持选择输入目录、输出目录、参考物种与目标基因；当前源码仍有旧请求草案模型，下一阶段应迁移为 `WorkflowRequest v3`。
 - 运行会话模型：展示任务运行状态与进度。
 - Tauri command：已具备版本探测、模板/schema 读取、环境检查、运行、取消、summary/log/artifact 读取等基础能力。
 
 ## 已知限制
 
-- 0.9.20 为先行预览版，主要完成桌面壳、向导首屏与请求草案模型；真实分析执行链路仍调用 `platform/` CLI。
-- 平台当前协议已经升级为 `WorkflowRequest v2` 与 `RunSummary v3`，GUI 源码迁移计划见 `docs/开发手册/GUI先行开发/开发计划.md`。
+- 1.0.0-preview-1 为先行预览版，主要完成桌面壳、向导首屏与请求草案模型；真实分析执行链路仍调用 `platform/` CLI。
+- 平台当前协议已经是 `WorkflowRequest v3` 与 `RunSummary v3`，GUI 源码迁移计划见 `docs/开发手册/GUI先行开发/开发计划.md`。
 - 安装包构建依赖 Windows + Rust，建议在具备完整工具链的机器或 CI 中执行 `pnpm tauri build`。

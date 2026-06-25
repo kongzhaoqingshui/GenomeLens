@@ -11,15 +11,19 @@ engine(引擎) 写出 `engine_run_summary.json`，不读取 shell configuration 
 
 ## 当前 workflow(工作流)
 
-- `mcscan_pairwise`
+- `pairwise`
 - `graphics_synteny`
 - `graphics_dotplot`
 - `graphics_karyotype`
-- `catalog_ortholog`
 - `local_synteny`
+- `local_synteny_multi`
 - `graphics_karyotype_global`（由 shell(外壳) 在多物种汇总阶段调度）
+- `graphics_histogram`
+- `graphics_heatmap`
 
-这些 workflow 当前是 pairwise worker(两两比较工作单元)，manifest(清单) 内部仍使用 query/subject(查询/目标) 字段来适配 JCVI 的成对调用模型。多物种 `species[]` 入口、all-vs-all pairwise(全组合两两比较) 调度和顶层汇总由 `python/` shell(外壳) 负责。
+`catalog_ortholog` 能力已合并进 `pairwise`，通过 `emit_ortholog=true` 参数控制输出。
+
+这些 workflow 当前是 pairwise worker(两两比较工作单元)，manifest(清单) 内部仍使用 query/subject(查询/目标) 字段来适配 JCVI 的成对调用模型。多物种 `species[]` 入口、all-vs-all pairwise(全组合两两比较) 调度和顶层汇总由 platform shell(外壳) 负责。
 
 engine 当前不负责跨全部物种的一张最终美化版总图，也不负责全局 layout/seqids 自动优化。
 

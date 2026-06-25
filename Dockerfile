@@ -1,4 +1,4 @@
-# GenomeLens 开发环境镜像（0.9.20）
+# GenomeLens 开发环境镜像（1.0.0-preview-1）
 #
 # 该镜像提供完整的 GenomeLens 开发依赖：
 #   - conda Python 3.12（genomelens 环境）

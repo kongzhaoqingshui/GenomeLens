@@ -5,8 +5,8 @@ import type { ArtifactSummary, ListArtifactsInput } from "../models/artifact";
 import type { CheckReport } from "../models/check-report";
 import type { CreateProjectInput, ListProjectsInput, ProjectSummary } from "../models/project";
 import type {
-  AnalysisEvent,
-  AnalysisEventName,
+  WorkflowEvent,
+  WorkflowEventName,
   CancelRunInput,
   CancelRunResult,
   OpenPathInput,
@@ -65,23 +65,23 @@ export function openPath(input: OpenPathInput): Promise<void> {
   return invoke<void>("open_path", input);
 }
 
-export async function listenToAnalysisEvent<Name extends AnalysisEventName>(
+export async function listenToWorkflowEvent<Name extends WorkflowEventName>(
   name: Name,
-  handler: (event: Extract<AnalysisEvent, { name: Name }>) => void,
+  handler: (event: Extract<WorkflowEvent, { name: Name }>) => void,
 ): Promise<UnlistenFn> {
-  return listen<Extract<AnalysisEvent, { name: Name }>["payload"]>(name, (event) => {
-    handler({ name, payload: event.payload } as Extract<AnalysisEvent, { name: Name }>);
+  return listen<Extract<WorkflowEvent, { name: Name }>["payload"]>(name, (event) => {
+    handler({ name, payload: event.payload } as Extract<WorkflowEvent, { name: Name }>);
   });
 }
 
-export async function listenToAnalysisEvents(
-  handler: (event: AnalysisEvent) => void,
+export async function listenToWorkflowEvents(
+  handler: (event: WorkflowEvent) => void,
 ): Promise<UnlistenFn> {
   const unlisten = await Promise.all([
-    listenToAnalysisEvent("analysis:stdout", handler),
-    listenToAnalysisEvent("analysis:state", handler),
-    listenToAnalysisEvent("analysis:finished", handler),
-    listenToAnalysisEvent("analysis:error", handler),
+    listenToWorkflowEvent("analysis:stdout", handler),
+    listenToWorkflowEvent("analysis:state", handler),
+    listenToWorkflowEvent("analysis:finished", handler),
+    listenToWorkflowEvent("analysis:error", handler),
   ]);
 
   return () => {

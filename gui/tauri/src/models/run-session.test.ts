@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { applyAnalysisEvent, createAnalysisRunState, type RunHandle } from "./run-session";
+import { applyWorkflowEvent, createWorkflowRunState, type RunHandle } from "./run-session";
 
 function makeHandle(): RunHandle {
   return {
@@ -17,8 +17,8 @@ function makeHandle(): RunHandle {
 
 describe("run-session helpers", () => {
   it("collects and truncates log lines from analysis:stdout", () => {
-    const initial = createAnalysisRunState(makeHandle());
-    const first = applyAnalysisEvent(initial, {
+    const initial = createWorkflowRunState(makeHandle());
+    const first = applyWorkflowEvent(initial, {
       name: "analysis:stdout",
       payload: {
         runId: "run-1",
@@ -28,7 +28,7 @@ describe("run-session helpers", () => {
         line: "line-1",
       },
     });
-    const second = applyAnalysisEvent(first, {
+    const second = applyWorkflowEvent(first, {
       name: "analysis:stdout",
       payload: {
         runId: "run-1",
@@ -45,8 +45,8 @@ describe("run-session helpers", () => {
   });
 
   it("updates status and progress from analysis:state", () => {
-    const initial = createAnalysisRunState(makeHandle());
-    const next = applyAnalysisEvent(initial, {
+    const initial = createWorkflowRunState(makeHandle());
+    const next = applyWorkflowEvent(initial, {
       name: "analysis:state",
       payload: {
         runId: "run-1",
@@ -63,8 +63,8 @@ describe("run-session helpers", () => {
   });
 
   it("materializes summary view on analysis:finished", () => {
-    const initial = createAnalysisRunState(makeHandle());
-    const next = applyAnalysisEvent(initial, {
+    const initial = createWorkflowRunState(makeHandle());
+    const next = applyWorkflowEvent(initial, {
       name: "analysis:finished",
       payload: {
         runId: "run-1",
@@ -78,9 +78,9 @@ describe("run-session helpers", () => {
         status: "SUCCEEDED",
         summary: {
           status: "SUCCEEDED",
-          schema_version: 2,
-          workflow: "mcscan",
-          method: "mcscan",
+          schema_version: 3,
+          workflow: "synteny",
+          method: "synteny",
           task: {},
           species: [],
           final_figures: ["/tmp/result.png"],
@@ -89,7 +89,7 @@ describe("run-session helpers", () => {
               artifact_id: "figure_1",
               artifact_type: "figure",
               path: "/tmp/result.png",
-              produced_by: "mcscan",
+              produced_by: "synteny",
               format: "png",
               preview: true,
               input_refs: [],
@@ -124,8 +124,8 @@ describe("run-session helpers", () => {
   });
 
   it("captures terminal metadata from analysis:error", () => {
-    const initial = createAnalysisRunState(makeHandle());
-    const next = applyAnalysisEvent(initial, {
+    const initial = createWorkflowRunState(makeHandle());
+    const next = applyWorkflowEvent(initial, {
       name: "analysis:error",
       payload: {
         runId: "run-1",

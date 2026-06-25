@@ -80,7 +80,7 @@ export interface OpenPathInput extends Record<string, unknown> {
   path: string;
 }
 
-export interface AnalysisStdoutEventPayload {
+export interface WorkflowStdoutEventPayload {
   runId: string;
   outdir: string;
   requestPath: string;
@@ -88,7 +88,7 @@ export interface AnalysisStdoutEventPayload {
   line: string;
 }
 
-export interface AnalysisStateEventPayload {
+export interface WorkflowStateEventPayload {
   runId: string;
   outdir: string;
   requestPath: string;
@@ -97,7 +97,7 @@ export interface AnalysisStateEventPayload {
   progress: number;
 }
 
-export interface AnalysisFinishedEventPayload {
+export interface WorkflowFinishedEventPayload {
   runId: string;
   outdir: string;
   requestPath: string;
@@ -110,7 +110,7 @@ export interface AnalysisFinishedEventPayload {
   summary?: RunSummary;
 }
 
-export interface AnalysisErrorEventPayload {
+export interface WorkflowErrorEventPayload {
   runId: string;
   outdir: string;
   requestPath: string;
@@ -124,22 +124,22 @@ export interface AnalysisErrorEventPayload {
   details?: Record<string, unknown>;
 }
 
-export type AnalysisEvent =
-  | { name: "analysis:stdout"; payload: AnalysisStdoutEventPayload }
-  | { name: "analysis:state"; payload: AnalysisStateEventPayload }
-  | { name: "analysis:finished"; payload: AnalysisFinishedEventPayload }
-  | { name: "analysis:error"; payload: AnalysisErrorEventPayload };
+export type WorkflowEvent =
+  | { name: "analysis:stdout"; payload: WorkflowStdoutEventPayload }
+  | { name: "analysis:state"; payload: WorkflowStateEventPayload }
+  | { name: "analysis:finished"; payload: WorkflowFinishedEventPayload }
+  | { name: "analysis:error"; payload: WorkflowErrorEventPayload };
 
-export type AnalysisEventName = AnalysisEvent["name"];
+export type WorkflowEventName = WorkflowEvent["name"];
 
-export const ANALYSIS_EVENT_NAMES: AnalysisEventName[] = [
+export const WORKFLOW_EVENT_NAMES: WorkflowEventName[] = [
   "analysis:stdout",
   "analysis:state",
   "analysis:finished",
   "analysis:error",
 ];
 
-export interface AnalysisRunState {
+export interface WorkflowRunState {
   runId: string;
   outdir: string;
   requestPath: string;
@@ -152,14 +152,14 @@ export interface AnalysisRunState {
   finishedAt?: string;
   exitCode?: number | null;
   finished: boolean;
-  error?: AnalysisErrorEventPayload;
+  error?: WorkflowErrorEventPayload;
   summary?: RunSummary;
   summaryView?: RunSummaryViewModel;
   logLines: string[];
   lastLogLine?: string;
 }
 
-export function createAnalysisRunState(handle: RunHandle): AnalysisRunState {
+export function createWorkflowRunState(handle: RunHandle): WorkflowRunState {
   return {
     runId: handle.runId,
     outdir: handle.outdir,
@@ -176,10 +176,10 @@ export function createAnalysisRunState(handle: RunHandle): AnalysisRunState {
 }
 
 export function appendRunLogLines(
-  state: AnalysisRunState,
+  state: WorkflowRunState,
   incomingLines: string[],
   maxLines = 200,
-): AnalysisRunState {
+): WorkflowRunState {
   const normalized = incomingLines.filter((line) => line.trim().length > 0);
   if (normalized.length === 0) {
     return state;
@@ -195,7 +195,7 @@ export function appendRunLogLines(
   };
 }
 
-export function applyAnalysisEvent(state: AnalysisRunState, event: AnalysisEvent): AnalysisRunState {
+export function applyWorkflowEvent(state: WorkflowRunState, event: WorkflowEvent): WorkflowRunState {
   switch (event.name) {
     case "analysis:stdout":
       return appendRunLogLines(state, [event.payload.line]);

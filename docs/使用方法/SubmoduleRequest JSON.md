@@ -140,10 +140,10 @@ GenomeLens.exe analyze schema --kind union
     "numeric_files": ["numbers.txt"]
   },
   "parameters": {
-    "columns": [0],
-    "bins": 40,
-    "xlabel": "value",
-    "title": "Ks histogram"
+    "histogram_columns": [0],
+    "histogram_bins": 40,
+    "histogram_xlabel": "value",
+    "histogram_title": "Ks histogram"
   },
   "output": {
     "directory": "output",

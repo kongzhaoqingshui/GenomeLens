@@ -2,9 +2,9 @@ import { useCallback, useEffect, useState } from "react";
 
 import { CommandPreview } from "../components/CommandPreview";
 import { useLanguage } from "../i18n/useLanguage";
-import { getCheckToolItems, type CheckReport } from "../models/check-report";
+import { getCheckToolItems, getEngineProbeInfo, type CheckReport } from "../models/check-report";
 import type { AppRoute } from "../routes/routes";
-import { getAnalysisSchema } from "../services/analysis";
+import { getWorkflowSchema } from "../services/analysis";
 import { checkEnvironment } from "../services/workbench";
 
 interface SettingsPageProps {
@@ -41,7 +41,7 @@ export default function SettingsPage({ route, onNavigate }: SettingsPageProps) {
   const [report, setReport] = useState<CheckReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const loadSchema = useCallback(() => getAnalysisSchema(), []);
+  const loadSchema = useCallback(() => getWorkflowSchema(), []);
 
   useEffect(() => {
     let active = true;
@@ -200,6 +200,101 @@ export default function SettingsPage({ route, onNavigate }: SettingsPageProps) {
 
         <section>
           <div className="px-6 py-4">
+            <h3 className="text-sm font-semibold text-text-primary">{isZh ? "引擎探测信息" : "Engine probe"}</h3>
+            <p className="mt-1 text-sm text-text-secondary">
+              {isZh
+                ? "`check_environment()` 在 JCVI 引擎项中附带的 probe 元数据。"
+                : "Probe metadata attached to the JCVI engine item from `check_environment()`."}
+            </p>
+          </div>
+
+          {report ? (
+            (() => {
+              const probe = getEngineProbeInfo(report);
+              if (!probe) {
+                return (
+                  <div className="border-y border-border/90 px-6 py-8 text-sm text-text-secondary">
+                    {isZh ? "当前检查报告未包含引擎 probe 信息。" : "The current check report does not include engine probe information."}
+                  </div>
+                );
+              }
+
+              return (
+                <div className="divide-y divide-border/90 border-y border-border/90">
+                  <div className="grid grid-cols-[12rem_minmax(0,1fr)] gap-4 px-6 py-4 text-sm">
+                    <span className="text-text-tertiary">{isZh ? "引擎名称" : "Engine name"}</span>
+                    <span className="font-medium text-text-primary">{probe.engineName}</span>
+                  </div>
+                  <div className="grid grid-cols-[12rem_minmax(0,1fr)] gap-4 px-6 py-4 text-sm">
+                    <span className="text-text-tertiary">{isZh ? "引擎版本" : "Engine version"}</span>
+                    <span className="font-medium text-text-primary">{probe.engineVersion || (isZh ? "未返回" : "Not returned")}</span>
+                  </div>
+                  <div className="grid grid-cols-[12rem_minmax(0,1fr)] gap-4 px-6 py-4 text-sm">
+                    <span className="text-text-tertiary">{isZh ? "JCVI 上游版本" : "JCVI upstream"}</span>
+                    <span className="font-medium text-text-primary">{probe.jcviUpstreamVersion || (isZh ? "未返回" : "Not returned")}</span>
+                  </div>
+                  <div className="grid grid-cols-[12rem_minmax(0,1fr)] gap-4 px-6 py-4 text-sm">
+                    <span className="text-text-tertiary">{isZh ? "Patchset" : "Patchset"}</span>
+                    <span className="font-medium text-text-primary">{probe.patchset || (isZh ? "未返回" : "Not returned")}</span>
+                  </div>
+                  <div className="grid grid-cols-[12rem_minmax(0,1fr)] gap-4 px-6 py-4 text-sm">
+                    <span className="text-text-tertiary">{isZh ? "Python" : "Python"}</span>
+                    <span className="font-medium text-text-primary">{probe.python || (isZh ? "未返回" : "Not returned")}</span>
+                  </div>
+                  <div className="grid grid-cols-[12rem_minmax(0,1fr)] gap-4 px-6 py-4 text-sm">
+                    <span className="text-text-tertiary">{isZh ? "平台" : "Platform"}</span>
+                    <span className="font-medium text-text-primary">{probe.platform || (isZh ? "未返回" : "Not returned")}</span>
+                  </div>
+                  <div className="px-6 py-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-text-tertiary">
+                      {isZh ? "支持的能力" : "Capabilities"}
+                    </p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {probe.capabilities.length > 0 ? (
+                        probe.capabilities.map((capability) => (
+                          <span
+                            key={capability}
+                            className="rounded-full bg-surface px-2.5 py-1 text-[11px] font-semibold uppercase text-text-secondary"
+                          >
+                            {capability}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="text-sm text-text-secondary">{isZh ? "无" : "None"}</span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="px-6 py-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-text-tertiary">
+                      {isZh ? "捆绑的 JCVI 模块" : "Bundled JCVI modules"}
+                    </p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {probe.bundledJcviModules.length > 0 ? (
+                        probe.bundledJcviModules.map((moduleName) => (
+                          <span
+                            key={moduleName}
+                            className="rounded-full bg-surface px-2.5 py-1 text-[11px] font-semibold uppercase text-text-secondary"
+                          >
+                            {moduleName}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="text-sm text-text-secondary">{isZh ? "无" : "None"}</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()
+          ) : (
+            <div className="border-y border-border/90 px-6 py-8 text-sm text-text-secondary">
+              {loading ? (isZh ? "正在加载检查报告..." : "Loading check report...") : isZh ? "暂无检查报告。" : "No check report available."}
+            </div>
+          )}
+        </section>
+
+        <section>
+          <div className="px-6 py-4">
             <h3 className="text-sm font-semibold text-text-primary">{isZh ? "契约参考" : "Contract reference"}</h3>
             <p className="mt-1 text-sm text-text-secondary">
               {isZh ? "保留原始平台 schema，便于调试与契约核对。" : "Keep the raw platform schema visible for debugging and contract checks."}
@@ -207,8 +302,8 @@ export default function SettingsPage({ route, onNavigate }: SettingsPageProps) {
           </div>
 
           <CommandPreview
-            title="AnalysisRequest schema"
-            command="get_analysis_schema()"
+            title="WorkflowRequest schema"
+            command="get_workflow_schema()"
             description={isZh ? "当前基线返回的平台原生 schema。" : "Platform-native schema returned from the current baseline."}
             load={loadSchema}
           />

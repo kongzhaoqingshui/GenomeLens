@@ -1,4 +1,4 @@
-import type { ArtifactRecord, FigureAsset, PairwiseJobSummary, RunSummary, RunStatus } from "./run-summary";
+import type { ArtifactRecord, ChildRunRecord, FigureAsset, RunSummary, RunStatus } from "./run-summary";
 
 const KNOWN_RUN_SUMMARY_KEYS = new Set<string>([
   "status",
@@ -12,16 +12,9 @@ const KNOWN_RUN_SUMMARY_KEYS = new Set<string>([
   "logs",
   "ui",
   "scoring",
+  "extensions",
+  "child_runs",
   "analysis_request_path",
-  "species_count",
-  "pairing_strategy",
-  "pairwise_jobs",
-  "pairwise_job_count",
-  "global_figures",
-  "reference_name",
-  "native_multi_species",
-  "native_edges",
-  "native_layout",
 ]);
 
 export interface RunSummaryViewModel {
@@ -35,13 +28,11 @@ export interface RunSummaryViewModel {
   runLogPath: string;
   primaryFigurePaths: string[];
   finalFigures: string[];
-  globalFigures: string[];
   figureAssets: FigureAsset[];
   artifactIndex: ArtifactRecord[];
-  pairwiseJobs: PairwiseJobSummary[];
-  pairwiseJobCount: number;
-  pairingStrategy: string;
-  referenceName: string;
+  childRuns: ChildRunRecord[];
+  childRunCount: number;
+  extensions: Record<string, unknown>;
   methodData: Record<string, unknown>;
 }
 
@@ -88,6 +79,10 @@ export function getRunSummaryMethodData(summary: RunSummary): Record<string, unk
   return methodData;
 }
 
+export function getRunSummaryExtensions(summary: RunSummary): Record<string, unknown> {
+  return summary.extensions ?? {};
+}
+
 export function collectFigureAssets(summary: RunSummary): FigureAsset[] {
   const assets = new Map<string, FigureAsset>();
 
@@ -95,8 +90,10 @@ export function collectFigureAssets(summary: RunSummary): FigureAsset[] {
     addFigureAsset(assets, path, "final_figures", true);
   }
 
-  for (const path of summary.global_figures ?? []) {
-    addFigureAsset(assets, path, "global_figures", true);
+  for (const child of summary.child_runs ?? []) {
+    for (const path of child.final_figures ?? []) {
+      addFigureAsset(assets, path, "child_runs", true);
+    }
   }
 
   for (const artifact of summary.artifact_index) {
@@ -124,13 +121,11 @@ export function runSummaryToViewModel(summary: RunSummary): RunSummaryViewModel 
     runLogPath: summary.ui.log_path,
     primaryFigurePaths: [...summary.ui.primary_figures],
     finalFigures: [...summary.final_figures],
-    globalFigures: [...(summary.global_figures ?? [])],
     figureAssets: collectFigureAssets(summary),
     artifactIndex: [...summary.artifact_index],
-    pairwiseJobs: [...(summary.pairwise_jobs ?? [])],
-    pairwiseJobCount: summary.pairwise_job_count ?? summary.pairwise_jobs?.length ?? 0,
-    pairingStrategy: summary.pairing_strategy ?? "",
-    referenceName: summary.reference_name ?? "",
+    childRuns: [...(summary.child_runs ?? [])],
+    childRunCount: summary.child_runs?.length ?? 0,
+    extensions: getRunSummaryExtensions(summary),
     methodData: getRunSummaryMethodData(summary),
   };
 }

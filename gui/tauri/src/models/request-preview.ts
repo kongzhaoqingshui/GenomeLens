@@ -1,4 +1,4 @@
-import type { AnalysisRequest } from "./analysis-request";
+import type { WorkflowRequest } from "./workflow-request";
 
 export interface ReadRequestPreviewInput extends Record<string, unknown> {
   requestPath: string;
@@ -6,7 +6,7 @@ export interface ReadRequestPreviewInput extends Record<string, unknown> {
 
 export interface RequestPreview {
   requestPath: string;
-  json: AnalysisRequest | Record<string, unknown>;
-  method?: string;
-  workflow?: string;
+  json: WorkflowRequest | Record<string, unknown>;
+  workflowId?: string;
+  kind?: string;
 }

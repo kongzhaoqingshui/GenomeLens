@@ -5,35 +5,133 @@ const { invokeMock, dialogOpenMock, mkdirMock, writeTextFileMock } = vi.hoisted(
   invokeMock: vi.fn<(command: string, payload?: Record<string, unknown>) => Promise<unknown>>((command: string, payload) => {
     if (command === "get_template") {
       return Promise.resolve({
-        schema_version: 1,
-        kind: "analysis_request",
-        method: "mcscan",
-        input: { mode: "auto_directory", directory: "" },
-        output: { directory: "", force: false, formats: ["png"] },
-        options: { preset: "auto", threads: null, min_block_size: null, log_level: "INFO" },
-        method_config: { workflow: "graphics_synteny", align_soft: "blast", dbtype: "nucl" },
+        schema_version: 3,
+        kind: "workflow_request",
+        workflow_id: "synteny",
+        species: [
+          {
+            name: "species_a",
+            input_mode: "bed_cds",
+            bed: "workspace/species_a.bed",
+            cds: "workspace/species_a.cds",
+          },
+          {
+            name: "species_b",
+            input_mode: "bed_cds",
+            bed: "workspace/species_b.bed",
+            cds: "workspace/species_b.cds",
+          },
+        ],
+        reference_index: 0,
+        inputs: {},
+        parameters: {
+          synteny: { align_soft: "blast", dbtype: "nucl", cscore: 0.7, dist: 20, iter: 1, min_block_size: 5 },
+          local_synteny: { target_gene_ids: [], up: 20, down: 20, split_targets: false, label_targets: false },
+          plot: { glyphstyle: "", glyphcolor: "", shadestyle: "", figsize: "", dpi: 300 },
+          histogram: { inputs: [], columns: [0], skip: 0, bins: 20, vmin: 0, vmax: null, xlabel: "value", title: "", base: 0, facet: false, fill: "white" },
+          heatmap: { matrix: "", rowgroups: "", cmap: "", groups: false, horizontalbar: false },
+          extras: {},
+        },
+        output: { directory: "workspace/output", force: false, formats: ["svg"] },
+        runtime: { project_config: "", engine_config: "", jcvi_engine: "", blastn: "", makeblastdb: "", threads: null, log_level: "INFO", verbose: false, console_log: false },
       });
     }
-    if (command === "get_analysis_schema") {
+    if (command === "get_workflow_schema") {
       return Promise.resolve({
-        title: "GenomeLens AnalysisRequest",
-        properties: { kind: { const: "analysis_request" } },
+        title: "GenomeLens WorkflowRequest",
+        properties: { kind: { const: "workflow_request" } },
+      });
+    }
+    if (command === "list_workflows") {
+      return Promise.resolve({
+        one_stop_workflows: [
+          {
+            workflow_id: "synteny",
+            name: "synteny",
+            description: "End-to-end synteny one-stop workflow.",
+          },
+        ],
+        submodules: [
+          {
+            module_id: "jcvi.pairwise",
+            module_kind: "lightweight",
+            name: "Pairwise",
+            description: "Pairwise alignment and block computation.",
+          },
+          {
+            module_id: "jcvi.graphics_dotplot",
+            module_kind: "lightweight",
+            name: "Dotplot",
+            description: "Render a synteny dotplot.",
+          },
+          {
+            module_id: "jcvi.graphics_karyotype_global",
+            module_kind: "aggregate",
+            name: "Global karyotype",
+            description: "Aggregate global karyotype figure.",
+          },
+        ],
+      });
+    }
+    if (command === "describe_workflow") {
+      return Promise.resolve({
+        id: "jcvi.graphics_histogram",
+        kind: "sub_module",
+        module_kind: "lightweight",
+        name: "Histogram",
+        description: "Render a histogram.",
+        inputs: [
+          {
+            port_id: "numeric_files",
+            port_kind: "artifact",
+            required: true,
+            description: "Numeric input files.",
+          },
+        ],
+        parameters: [
+          {
+            param_id: "histogram_bins",
+            param_type: "integer",
+            required: true,
+            default: 20,
+            description: "Number of histogram bins.",
+          },
+        ],
+        outputs: [],
+        labels: [],
+      });
+    }
+    if (command === "get_submodule_template") {
+      return Promise.resolve({
+        schema_version: 3,
+        kind: "submodule_request",
+        module_id: "jcvi.graphics_histogram",
+        inputs: {},
+        parameters: { histogram_bins: 20 },
+        output: { directory: "", formats: ["svg"] },
+        runtime: { log_level: "INFO" },
       });
     }
     if (command === "read_request_preview") {
       return Promise.resolve({
         requestPath: "/imports/request.json",
         json: {
-          schema_version: 1,
-          kind: "analysis_request",
-          method: "mcscan",
-          input: { mode: "auto_directory", directory: "/inputs/demo" },
-          output: { directory: "/runs/from-request", force: false, formats: ["png"] },
-          options: { preset: "auto", log_level: "INFO" },
-          method_config: { workflow: "mcscan_pairwise", align_soft: "blast", dbtype: "nucl" },
+          schema_version: 3,
+          kind: "workflow_request",
+          workflow_id: "synteny",
+          species: [],
+          reference_index: 0,
+          inputs: {},
+          parameters: {
+            synteny: { align_soft: "blast", dbtype: "nucl", cscore: 0.7, dist: 20, iter: 1, min_block_size: 5 },
+            local_synteny: { target_gene_ids: [], up: 20, down: 20 },
+            plot: { dpi: 300 },
+          },
+          output: { directory: "/runs/from-request", force: false, formats: ["svg"] },
+          runtime: { log_level: "INFO" },
         },
-        method: "mcscan",
-        workflow: "mcscan_pairwise",
+        method: "synteny",
+        workflow: "workflow_request",
       });
     }
     if (command === "run_analysis") {
@@ -53,9 +151,9 @@ const { invokeMock, dialogOpenMock, mkdirMock, writeTextFileMock } = vi.hoisted(
     if (command === "read_summary") {
       return Promise.resolve({
         status: "SUCCEEDED",
-        schema_version: 1,
-        workflow: "graphics_synteny",
-        method: "mcscan",
+        schema_version: 3,
+        workflow: "synteny",
+        method: "synteny",
         task: {},
         species: [],
         final_figures: [],
@@ -166,6 +264,8 @@ vi.mock("@tauri-apps/plugin-fs", () => ({
   writeTextFile: writeTextFileMock,
 }));
 
+import { clearCapabilityCache } from "./services/capability";
+
 import App from "./App";
 
 afterEach(() => {
@@ -179,6 +279,7 @@ afterEach(() => {
   dialogOpenMock.mockResolvedValue(null);
   mkdirMock.mockClear();
   writeTextFileMock.mockClear();
+  clearCapabilityCache();
 });
 
 describe("App", () => {
@@ -187,7 +288,7 @@ describe("App", () => {
 
     expect(screen.getAllByText("JCVI meow").length).toBeGreaterThan(0);
     expect(screen.getByRole("heading", { name: "JCVI meow" })).toBeInTheDocument();
-    expect(await screen.findByRole("button", { name: "双物种共线性" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "一站式 synteny 共线性" })).toBeInTheDocument();
   });
 
   it("switches theme modes", async () => {
@@ -222,7 +323,7 @@ describe("App", () => {
     expect(screen.getByText("输入与输出")).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: "运行" }).length).toBeGreaterThan(0);
     expect(screen.getByText("运行事件会显示在这里。")).toBeInTheDocument();
-    expect(screen.getByText("分析 schema")).toBeInTheDocument();
+    expect(screen.getByText("Workflow schema")).toBeInTheDocument();
     const leftResizeHandle = screen.getByTestId("workbench-left-resize-handle");
     expect(leftResizeHandle).toHaveAttribute("role", "separator");
     expect(screen.getByTestId("workbench-right-resize-handle")).toHaveAttribute("role", "separator");
@@ -297,7 +398,6 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: "导入 request JSON" }));
 
     expect((await screen.findAllByText("/imports/request.json")).length).toBeGreaterThan(0);
-    expect(screen.getAllByText("mcscan_pairwise").length).toBeGreaterThan(0);
     expect(screen.getAllByRole("button", { name: "运行" }).length).toBeGreaterThan(0);
 
     const runButtons = screen.getAllByRole("button", { name: "运行" });

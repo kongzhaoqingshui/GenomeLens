@@ -5,7 +5,7 @@
 GenomeLens 平台当前把 JCVI 能力分为两类公开入口：
 
 - **一站式工作流**：仅 `synteny`，覆盖从输入发现到 pairwise / 局部共线性 / 多物种聚合出图的全链路。
-- **可编排子模块**：10 个原子能力，通过 `SubmoduleRequest` 调用，显式绑定输入端口。
+- **可编排子模块**：9 个原子能力，通过 `SubmoduleRequest` 调用，显式绑定输入端口。
 
 `local_synteny`、`graphics_histogram`、`graphics_heatmap` 不再作为 workflow_id 暴露。局部共线性由 `synteny + target_gene_ids` 自动路由；直方图与热图作为子模块运行。
 
@@ -63,14 +63,14 @@ GenomeLens.exe analyze submodule jcvi.graphics_heatmap `
 GenomeLens.exe analyze submodule jcvi.graphics_histogram `
   --input-ports '{"numeric_files":["numbers.txt"]}' --output-dir output `
   --formats png,svg `
-  --params '{"columns":[0],"bins":40,"title":"Ks histogram"}' `
+  --params '{"histogram_columns":[0],"histogram_bins":40,"histogram_title":"Ks histogram"}' `
   --force
 ```
 
 补充说明：
 
-- 可通过 `--params '{"columns":[0,1]}'` 从同一个文件中读取多列并叠加/分面展示。
-- `--params '{"facet":true}'` 会把多序列拆成多个子图；默认是叠加在同一张图上。
+- 可通过 `--params '{"histogram_columns":[0,1]}'` 从同一个文件中读取多列并叠加/分面展示。
+- `--params '{"histogram_facet":true}'` 会把多序列拆成多个子图；默认是叠加在同一张图上。
 - 当前实现使用 Python/matplotlib 后端，避免依赖未随环境分发的 `Rscript`。
 
 ## 一站式流程：多物种局部共线性分析
@@ -107,7 +107,7 @@ GenomeLens.exe analyze workflow synteny <input_dir> <output_dir> `
 
 2. **参数归一化与参考物种选择**
 
-   平台会合并 CLI、配置文件和请求参数，确定参考物种、目标物种列表、线程数、比对后端、共线性参数和绘图参数。多物种局部共线性采用 `reference_vs_targets` 策略：固定一个参考物种，分别与每个目标物种运行局部共线性子任务。
+   平台会合并 CLI、配置文件和请求参数，确定参考物种、目标物种列表、线程数、比对后端、共线性参数和绘图参数。多物种局部共线性采用 reference-vs-targets 策略：固定一个参考物种，分别与每个目标物种运行局部共线性子任务（由一站式 `synteny` 工作流根据 `--target-genes` 自动路由）。
 
 3. **输入校验与工作区创建**
 

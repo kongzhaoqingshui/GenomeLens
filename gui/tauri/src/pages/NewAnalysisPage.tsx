@@ -10,45 +10,48 @@ import {
 } from "react";
 
 import { GameIcon, type GameIconName } from "../components/GameIcon";
+import { SubmoduleForm } from "../components/SubmoduleForm";
 import { useLanguage } from "../i18n/useLanguage";
-import type {
-  AlignSoft,
-  AnalysisInputMode,
-  DbType,
-  LogLevel,
-  McscanWorkflow,
-  OutputFormat,
-} from "../models/analysis-request";
-import type { AnalysisRequestDraft, SpeciesInputDraft } from "../models/analysis-request-draft";
+import type { CapabilityEntry } from "../models/capability";
+import { getCapabilitySubtitle, resolveLegacyCapabilityId } from "../models/capability";
+import type { OutputFormat } from "../models/workflow-request";
+import type { WorkflowRequestInputMode } from "../models/workflow-request-draft";
+import type { SpeciesInputDraft, WorkflowRequestDraft } from "../models/workflow-request-draft";
 import {
   createDraftForCapability,
   getJcviCapabilityById,
   listJcviCapabilities,
   type JcviCapabilityId,
 } from "../models";
-import { draftToAnalysisRequest } from "../models/analysis-request-draft";
+import { draftToWorkflowRequest, createDefaultWorkflowRequestDraft } from "../models/workflow-request-draft";
+import {
+  draftToSubmoduleRequest,
+  type SubmoduleRequestDraft,
+} from "../models/submodule-request-draft";
 import {
   appendRunLogLines,
-  applyAnalysisEvent,
-  createAnalysisRunState,
-  type AnalysisEvent,
-  type AnalysisRunState,
+  applyWorkflowEvent,
+  createWorkflowRunState,
+  type WorkflowEvent,
+  type WorkflowRunState,
   type WorkflowState,
 } from "../models/run-session";
 import { runSummaryToViewModel } from "../models/run-summary-view";
-import { validateAnalysisRequestDraft, type ValidationIssue } from "../models/validation";
+import { validateSubmoduleRequestDraft, validateWorkflowRequestDraft, type ValidationIssue } from "../models/validation";
 import type { AppRoute } from "../routes/routes";
 import {
-  getAnalysisSchema,
-  getCachedAnalysisSchema,
+  getWorkflowSchema,
+  getCachedWorkflowSchema,
   getCachedTemplateDraft,
   getTemplateDraft,
   readRequestPreview,
   type JsonObject,
 } from "../services/analysis";
+import { describeCapability } from "../services/capability";
+import { getSubmoduleTemplateDraft } from "../services/submodule";
 import {
   cancelRun,
-  listenToAnalysisEvents,
+  listenToWorkflowEvents,
   openPath,
   readRunLog,
   readRunSnapshot,
@@ -65,7 +68,10 @@ interface NewAnalysisPageProps {
 type RunPanelStatus = "idle" | "confirming" | "starting" | "running" | "cancelling" | "cancelled" | "finished" | "error";
 type WorkbenchView = "setup" | "run" | "results";
 type ResizeSide = "left" | "right";
-type McscanNumberField = "cscore" | "dist" | "iter" | "up" | "down" | "dpi";
+type InputMode = WorkflowRequestInputMode;
+type SyntenyNumberField = "cscore" | "dist" | "iter";
+type PlotNumberField = "dpi";
+type LocalNumberField = "up" | "down";
 
 interface ResizeDragState {
   side: ResizeSide;
@@ -79,15 +85,21 @@ interface WorkbenchWidths {
   right: number;
 }
 
+type RequestKind = "workflow" | "submodule";
+
 interface WorkbenchTask {
   id: string;
   title: string;
-  capabilityId: JcviCapabilityId | null;
+  capabilityId: string | null;
+  preset?: string;
+  requestKind: RequestKind;
   icon: GameIconName;
-  draft: AnalysisRequestDraft;
+  draft: WorkflowRequestDraft;
+  submoduleDraft?: SubmoduleRequestDraft;
+  capability?: CapabilityEntry;
   view: WorkbenchView;
   runStatus: RunPanelStatus;
-  runState: AnalysisRunState | null;
+  runState: WorkflowRunState | null;
   runError: string | null;
   pendingRequestJson: string;
   importedRequest: ImportedRequestState | null;
@@ -98,16 +110,16 @@ interface WorkbenchTask {
 interface ImportedRequestState {
   path: string;
   json: string;
-  method: string;
-  workflow: string;
+  workflowId: string;
+  kind: string;
   inputMode: string;
   requestOutputDirectory: string;
 }
 
 interface RecentRequestHint {
   path: string;
-  method?: string;
-  workflow?: string;
+  workflowId?: string;
+  kind?: string;
 }
 
 const FIELD_CLASS =
@@ -133,18 +145,10 @@ const WORKBENCH_MAX_RIGHT_WIDTH = 520;
 const WORKBENCH_MIN_CENTER_WIDTH = 300;
 const WORKBENCH_RESIZER_WIDTH = 6;
 
-const WORKFLOW_OPTIONS: McscanWorkflow[] = [
-  "mcscan_pairwise",
-  "graphics_synteny",
-  "graphics_dotplot",
-  "graphics_karyotype",
-  "catalog_ortholog",
-  "local_synteny",
-];
-const LOG_LEVELS: LogLevel[] = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"];
+const LOG_LEVELS = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"];
 const FORMAT_OPTIONS: OutputFormat[] = ["png", "pdf", "svg"];
-const MCSCAN_NUMBER_FIELDS: Array<{
-  key: McscanNumberField;
+const SYNTENY_NUMBER_FIELDS: Array<{
+  key: SyntenyNumberField;
   label: string;
   min: number;
   max?: number;
@@ -153,9 +157,21 @@ const MCSCAN_NUMBER_FIELDS: Array<{
   { key: "cscore", label: "cscore", min: 0, max: 1, step: 0.05 },
   { key: "dist", label: "dist", min: 1, step: 1 },
   { key: "iter", label: "iter", min: 1, step: 1 },
+];
+const PLOT_NUMBER_FIELDS: Array<{
+  key: PlotNumberField;
+  label: string;
+  min: number;
+  step: number;
+}> = [{ key: "dpi", label: "dpi", min: 1, step: 1 }];
+const LOCAL_NUMBER_FIELDS: Array<{
+  key: LocalNumberField;
+  label: string;
+  min: number;
+  step: number;
+}> = [
   { key: "up", label: "upstream", min: 0, step: 1 },
   { key: "down", label: "downstream", min: 0, step: 1 },
-  { key: "dpi", label: "dpi", min: 1, step: 1 },
 ];
 
 const CAPABILITY_ICON: Record<JcviCapabilityId, GameIconName> = {
@@ -208,7 +224,7 @@ function updateNumber(value: string): number | null {
   return Number.isFinite(next) ? next : null;
 }
 
-function emptySpecies(inputMode: AnalysisInputMode): SpeciesInputDraft {
+function emptySpecies(inputMode: InputMode): SpeciesInputDraft {
   const speciesMode = inputMode === "gff_genome" ? "gff_genome" : "bed_cds";
   return {
     name: "",
@@ -241,24 +257,23 @@ function asObject(value: unknown): Record<string, unknown> | null {
 function parseImportedRequest(preview: {
   requestPath: string;
   json: Record<string, unknown> | unknown;
-  method?: string;
-  workflow?: string;
+  workflowId?: string;
+  kind?: string;
 }): ImportedRequestState {
   const root = asObject(preview.json);
   if (!root) {
     throw new Error("Imported request must be a JSON object.");
   }
 
-  const input = asObject(root.input);
   const output = asObject(root.output);
-  const methodConfig = asObject(root.method_config);
+  const species = Array.isArray(root.species) ? root.species : [];
 
   return {
     path: preview.requestPath,
     json: stringifyJson(preview.json),
-    method: preview.method ?? (typeof root.method === "string" ? root.method : "unknown"),
-    workflow: preview.workflow ?? (typeof methodConfig?.workflow === "string" ? methodConfig.workflow : "unknown"),
-    inputMode: typeof input?.mode === "string" ? input.mode : "unknown",
+    workflowId: preview.workflowId ?? (typeof root.workflow_id === "string" ? root.workflow_id : "unknown"),
+    kind: preview.kind ?? (typeof root.kind === "string" ? root.kind : "unknown"),
+    inputMode: species.length > 0 ? "bed_cds" : "unknown",
     requestOutputDirectory: typeof output?.directory === "string" ? output.directory : "",
   };
 }
@@ -391,50 +406,103 @@ function rememberRecentRequest(items: RecentRequestHint[], nextValue: RecentRequ
   return [{ ...nextValue, path }, ...items.filter((item) => item.path !== path)].slice(0, RECENT_HINT_LIMIT);
 }
 
-function readCapabilityFromHash(locationHash: string): JcviCapabilityId | null {
+function readCapabilityFromHash(locationHash: string): { id: string; preset?: string } | null {
   const queryIndex = locationHash.indexOf("?");
   if (queryIndex < 0) {
     return null;
   }
 
   const params = new URLSearchParams(locationHash.slice(queryIndex + 1));
-  const capability = params.get("capability");
-  if (
-    capability === "pairwise-synteny" ||
-    capability === "multi-species-synteny" ||
-    capability === "local-synteny" ||
-    capability === "dotplot" ||
-    capability === "karyotype" ||
-    capability === "ortholog-catalog" ||
-    capability === "environment-check"
-  ) {
-    return capability;
+  const raw = params.get("capability");
+  if (!raw) {
+    return null;
   }
-  return null;
+
+  return resolveLegacyCapabilityId(raw);
 }
 
-function createTaskFromTemplate(
-  templateDraft: AnalysisRequestDraft,
-  capabilityId: JcviCapabilityId | null,
+function legacyCapabilityIdForSyntenyPreset(preset?: string): JcviCapabilityId {
+  switch (preset) {
+    case "multi":
+      return "multi-species-synteny";
+    case "local":
+      return "local-synteny";
+    case "pairwise":
+    default:
+      return "pairwise-synteny";
+  }
+}
+
+function createWorkflowTaskFromTemplate(
+  templateDraft: WorkflowRequestDraft,
+  capabilityId: string | null,
+  preset: string | undefined,
   index: number,
 ): WorkbenchTask {
-  const capability = capabilityId ? getJcviCapabilityById(capabilityId) : undefined;
-  const draft = capabilityId ? createDraftForCapability(templateDraft, capabilityId) : templateDraft;
-  const title = capability ? `${capability.subtitle} #${index}` : `MCSCAN Task #${index}`;
+  const legacyCapabilityId =
+    capabilityId === "synteny"
+      ? legacyCapabilityIdForSyntenyPreset(preset)
+      : capabilityId && capabilityId in { "pairwise-synteny": true, "multi-species-synteny": true, "local-synteny": true, dotplot: true, karyotype: true, "ortholog-catalog": true, "environment-check": true }
+        ? (capabilityId as JcviCapabilityId)
+        : null;
+  const capability = legacyCapabilityId ? getJcviCapabilityById(legacyCapabilityId) : undefined;
+  const draft = legacyCapabilityId ? createDraftForCapability(templateDraft, legacyCapabilityId) : templateDraft;
+  const title = capability ? `${capability.subtitle} #${index}` : `Synteny Task #${index}`;
   const createdAt = nowIso();
 
   return {
     id: `task-${createdAt}-${index}`,
     title,
-    capabilityId,
-    icon: capabilityId ? CAPABILITY_ICON[capabilityId] : "pairwise",
+    capabilityId: capabilityId ?? legacyCapabilityId ?? null,
+    preset,
+    requestKind: "workflow",
+    icon: capability ? CAPABILITY_ICON[legacyCapabilityId as JcviCapabilityId] : "pairwise",
     draft: {
       ...draft,
       species: draft.species.map((species) => ({ ...species })),
       formats: [...draft.formats],
-      options: { ...draft.options },
-      mcscan: { ...draft.mcscan, targetGeneIds: [...draft.mcscan.targetGeneIds] },
+      runtime: { ...draft.runtime },
+      parameters: {
+        synteny: { ...draft.parameters.synteny },
+        localSynteny: { ...draft.parameters.localSynteny, targetGeneIds: [...draft.parameters.localSynteny.targetGeneIds] },
+        plot: { ...draft.parameters.plot },
+        histogram: { ...draft.parameters.histogram, inputs: [...draft.parameters.histogram.inputs], columns: [...draft.parameters.histogram.columns] },
+        heatmap: { ...draft.parameters.heatmap },
+        extras: { ...draft.parameters.extras },
+      },
     },
+    view: "setup",
+    runStatus: "idle",
+    runState: null,
+    runError: null,
+    pendingRequestJson: "",
+    importedRequest: null,
+    createdAt,
+    updatedAt: createdAt,
+  };
+}
+
+function createSubmoduleTask(
+  capability: CapabilityEntry,
+  submoduleDraft: SubmoduleRequestDraft,
+  index: number,
+): WorkbenchTask {
+  const createdAt = nowIso();
+  return {
+    id: `task-${createdAt}-${index}`,
+    title: `${capability.subtitle} #${index}`,
+    capabilityId: capability.id,
+    requestKind: "submodule",
+    icon: "dotplot",
+    draft: createDefaultWorkflowRequestDraft(),
+    submoduleDraft: {
+      ...submoduleDraft,
+      inputs: { ...submoduleDraft.inputs },
+      parameters: { ...submoduleDraft.parameters },
+      formats: [...submoduleDraft.formats],
+      runtime: { ...submoduleDraft.runtime },
+    },
+    capability,
     view: "setup",
     runStatus: "idle",
     runState: null,
@@ -465,7 +533,7 @@ function statusTone(status: RunPanelStatus): string {
   }
 }
 
-function applyEventStatus(currentStatus: RunPanelStatus, event: AnalysisEvent): RunPanelStatus {
+function applyEventStatus(currentStatus: RunPanelStatus, event: WorkflowEvent): RunPanelStatus {
   if (event.name === "analysis:stdout" || event.name === "analysis:state") {
     if (event.name === "analysis:state" && event.payload.state === "CANCELLED") {
       return "cancelled";
@@ -557,14 +625,26 @@ function localizeRunPrompt(
   }
 }
 
-function createCachedWorkbenchState(capabilityId: JcviCapabilityId | null) {
-  const cachedTemplateDraft = getCachedTemplateDraft("mcscan");
-  const cachedSchema = getCachedAnalysisSchema();
+function createCachedWorkbenchState(capabilityQuery: { id: string; preset?: string } | null) {
+  if (capabilityQuery && capabilityQuery.id !== "synteny" && !capabilityQuery.id.startsWith("jcvi.")) {
+    // Legacy non-synteny ids are not cached here; they are loaded async.
+  }
+  if (capabilityQuery?.id.startsWith("jcvi.")) {
+    return null;
+  }
+
+  const cachedTemplateDraft = getCachedTemplateDraft("workflow", "synteny");
+  const cachedSchema = getCachedWorkflowSchema();
   if (!cachedTemplateDraft || !cachedSchema) {
     return null;
   }
 
-  const firstTask = createTaskFromTemplate(cachedTemplateDraft, capabilityId, 1);
+  const firstTask = createWorkflowTaskFromTemplate(
+    cachedTemplateDraft,
+    capabilityQuery?.id ?? null,
+    capabilityQuery?.preset,
+    1,
+  );
   return {
     activeTaskId: firstTask.id,
     schema: cachedSchema,
@@ -577,9 +657,9 @@ function createCachedWorkbenchState(capabilityId: JcviCapabilityId | null) {
 export default function NewAnalysisPage({ route, onNavigate, locationHash }: NewAnalysisPageProps) {
   const { language } = useLanguage();
   const isZh = language === "zh-CN";
-  const capabilityId = useMemo(() => readCapabilityFromHash(locationHash), [locationHash]);
-  const initialWorkbench = useMemo(() => createCachedWorkbenchState(capabilityId), [capabilityId]);
-  const [templateDraft, setTemplateDraft] = useState<AnalysisRequestDraft | null>(
+  const capabilityQuery = useMemo(() => readCapabilityFromHash(locationHash), [locationHash]);
+  const initialWorkbench = useMemo(() => createCachedWorkbenchState(capabilityQuery), [capabilityQuery]);
+  const [templateDraft, setTemplateDraft] = useState<WorkflowRequestDraft | null>(
     () => initialWorkbench?.templateDraft ?? null,
   );
   const [schema, setSchema] = useState<JsonObject | null>(() => initialWorkbench?.schema ?? null);
@@ -731,7 +811,7 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
 
   useEffect(() => {
     let cancelled = false;
-    const cachedWorkbench = createCachedWorkbenchState(capabilityId);
+    const cachedWorkbench = createCachedWorkbenchState(capabilityQuery);
 
     if (cachedWorkbench) {
       setTemplateDraft(cachedWorkbench.templateDraft);
@@ -748,39 +828,67 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
 
     setLoading(true);
     setLoadError(null);
-    void Promise.all([getTemplateDraft("mcscan"), getAnalysisSchema()])
-      .then(([nextTemplateDraft, analysisSchema]) => {
+
+    async function loadInitialWorkbench() {
+      try {
+        const [nextTemplateDraft, analysisSchema] = await Promise.all([
+          getTemplateDraft("workflow", "synteny"),
+          getWorkflowSchema(),
+        ]);
         if (cancelled) {
           return;
         }
-        const firstTask = createTaskFromTemplate(nextTemplateDraft, capabilityId, 1);
+
+        let firstTask: WorkbenchTask;
+        if (capabilityQuery?.id.startsWith("jcvi.")) {
+          const [capability, submoduleDraft] = await Promise.all([
+            describeCapability(capabilityQuery.id),
+            getSubmoduleTemplateDraft(capabilityQuery.id),
+          ]);
+          if (cancelled) {
+            return;
+          }
+          firstTask = createSubmoduleTask(capability, submoduleDraft, 1);
+        } else {
+          firstTask = createWorkflowTaskFromTemplate(
+            nextTemplateDraft,
+            capabilityQuery?.id ?? null,
+            capabilityQuery?.preset,
+            1,
+          );
+        }
+
+        if (cancelled) {
+          return;
+        }
         setTemplateDraft(nextTemplateDraft);
         setSchema(analysisSchema);
         setTasks([firstTask]);
         setActiveTaskId(firstTask.id);
         setTaskCounter(2);
-      })
-      .catch((error: unknown) => {
+      } catch (error: unknown) {
         if (!cancelled) {
           setLoadError(error instanceof Error ? error.message : String(error));
         }
-      })
-      .finally(() => {
+      } finally {
         if (!cancelled) {
           setLoading(false);
         }
-      });
+      }
+    }
+
+    void loadInitialWorkbench();
 
     return () => {
       cancelled = true;
     };
-  }, [capabilityId]);
+  }, [capabilityQuery]);
 
   useEffect(() => {
     let active = true;
     let stopListening: (() => void) | null = null;
 
-    void listenToAnalysisEvents((event) => {
+    void listenToWorkflowEvents((event) => {
       if (!active) {
         return;
       }
@@ -800,7 +908,7 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
                   ? null
                   : event.payload.message
                 : task.runError,
-            runState: applyAnalysisEvent(task.runState, event),
+            runState: applyWorkflowEvent(task.runState, event),
             updatedAt: nowIso(),
           };
         }),
@@ -821,10 +929,30 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
 
   const activeTask = tasks.find((task) => task.id === activeTaskId) ?? tasks[0] ?? null;
   const draft = activeTask?.draft ?? null;
-  const validation = useMemo(() => (draft ? validateAnalysisRequestDraft(draft) : null), [draft]);
-  const requestJson = useMemo(() => (draft ? stringifyJson(draftToAnalysisRequest(draft)) : ""), [draft]);
+  const submoduleDraft = activeTask?.submoduleDraft ?? null;
+  const validation = useMemo(() => {
+    if (!activeTask) {
+      return null;
+    }
+    if (activeTask.requestKind === "submodule") {
+      if (!submoduleDraft || !activeTask.capability) {
+        return null;
+      }
+      return validateSubmoduleRequestDraft(submoduleDraft, activeTask.capability);
+    }
+    return draft ? validateWorkflowRequestDraft(draft) : null;
+  }, [activeTask, draft, submoduleDraft]);
+  const requestJson = useMemo(() => {
+    if (!activeTask) {
+      return "";
+    }
+    if (activeTask.requestKind === "submodule") {
+      return submoduleDraft ? stringifyJson(draftToSubmoduleRequest(submoduleDraft)) : "";
+    }
+    return draft ? stringifyJson(draftToWorkflowRequest(draft)) : "";
+  }, [activeTask, draft, submoduleDraft]);
   const schemaJson = useMemo(() => (schema ? stringifyJson(schema) : ""), [schema]);
-  const targetGeneText = draft?.mcscan.targetGeneIds.join("\n") ?? "";
+  const targetGeneText = draft?.parameters.localSynteny.targetGeneIds.join("\n") ?? "";
   const importedRequest = activeTask?.importedRequest ?? null;
   const requestPreviewJson = importedRequest?.json ?? requestJson;
 
@@ -870,12 +998,12 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
       return tasks;
     }
     return tasks.filter((task) => {
-      const capability = task.capabilityId ? getJcviCapabilityById(task.capabilityId) : null;
-      return [task.title, task.draft.mcscan.workflow, capability?.title, capability?.subtitle]
+      const capabilityLabel = task.capability ? getCapabilitySubtitle(task.capability, isZh) : "";
+      return [task.title, task.capabilityId, capabilityLabel]
         .filter(Boolean)
         .some((value) => String(value).toLowerCase().includes(query));
     });
-  }, [taskFilter, tasks]);
+  }, [isZh, taskFilter, tasks]);
 
   const capabilities = useMemo(() => listJcviCapabilities(), []);
 
@@ -892,21 +1020,44 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
     updateTask(activeTask.id, updater);
   }
 
-  function patchDraft(patch: Partial<AnalysisRequestDraft>) {
+  function patchDraft(patch: Partial<WorkflowRequestDraft>) {
     updateActiveTask((task) => ({ ...task, draft: { ...task.draft, ...patch } }));
   }
 
-  function patchOptions(patch: Partial<AnalysisRequestDraft["options"]>) {
+  function patchRuntime(patch: Partial<WorkflowRequestDraft["runtime"]>) {
     updateActiveTask((task) => ({
       ...task,
-      draft: { ...task.draft, options: { ...task.draft.options, ...patch } },
+      draft: { ...task.draft, runtime: { ...task.draft.runtime, ...patch } },
     }));
   }
 
-  function patchMcscan(patch: Partial<AnalysisRequestDraft["mcscan"]>) {
+  function patchSynteny(patch: Partial<WorkflowRequestDraft["parameters"]["synteny"]>) {
     updateActiveTask((task) => ({
       ...task,
-      draft: { ...task.draft, mcscan: { ...task.draft.mcscan, ...patch } },
+      draft: {
+        ...task.draft,
+        parameters: { ...task.draft.parameters, synteny: { ...task.draft.parameters.synteny, ...patch } },
+      },
+    }));
+  }
+
+  function patchPlot(patch: Partial<WorkflowRequestDraft["parameters"]["plot"]>) {
+    updateActiveTask((task) => ({
+      ...task,
+      draft: {
+        ...task.draft,
+        parameters: { ...task.draft.parameters, plot: { ...task.draft.parameters.plot, ...patch } },
+      },
+    }));
+  }
+
+  function patchLocalSynteny(patch: Partial<WorkflowRequestDraft["parameters"]["localSynteny"]>) {
+    updateActiveTask((task) => ({
+      ...task,
+      draft: {
+        ...task.draft,
+        parameters: { ...task.draft.parameters, localSynteny: { ...task.draft.parameters.localSynteny, ...patch } },
+      },
     }));
   }
 
@@ -946,11 +1097,32 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
     updateActiveTask((task) => ({ ...task, view }));
   }
 
-  function createTask(capability: JcviCapabilityId | null = null) {
+  async function createTask(capabilityId: string | null = null, preset?: string) {
+    if (capabilityId?.startsWith("jcvi.")) {
+      try {
+        const [capability, submoduleDraft] = await Promise.all([
+          describeCapability(capabilityId),
+          getSubmoduleTemplateDraft(capabilityId),
+        ]);
+        const nextTask = createSubmoduleTask(capability, submoduleDraft, taskCounter);
+        setTaskCounter((current) => current + 1);
+        setTasks((currentTasks) => [nextTask, ...currentTasks]);
+        setActiveTaskId(nextTask.id);
+      } catch (error: unknown) {
+        updateActiveTask((task) => ({
+          ...task,
+          runStatus: "error",
+          runError: error instanceof Error ? error.message : String(error),
+          view: "setup",
+        }));
+      }
+      return;
+    }
+
     if (!templateDraft) {
       return;
     }
-    const nextTask = createTaskFromTemplate(templateDraft, capability, taskCounter);
+    const nextTask = createWorkflowTaskFromTemplate(templateDraft, capabilityId, preset, taskCounter);
     setTaskCounter((current) => current + 1);
     setTasks((currentTasks) => [nextTask, ...currentTasks]);
     setActiveTaskId(nextTask.id);
@@ -993,8 +1165,8 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
     setRecentRequests((current) =>
       rememberRecentRequest(current, {
         path: nextImportedRequest.path,
-        method: nextImportedRequest.method,
-        workflow: nextImportedRequest.workflow,
+        workflowId: nextImportedRequest.workflowId,
+        kind: nextImportedRequest.kind,
       }),
     );
     updateActiveTask((task) => ({
@@ -1104,7 +1276,10 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
     }
 
     const taskId = activeTask.id;
-    const outdir = activeTask.draft.outputDirectory.trim();
+    const outdir =
+      activeTask.requestKind === "submodule"
+        ? activeTask.submoduleDraft?.outputDirectory.trim() ?? ""
+        : activeTask.draft.outputDirectory.trim();
     const imported = activeTask.importedRequest;
 
     if (!outdir) {
@@ -1119,9 +1294,21 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
       return;
     }
 
-    const request = imported ? null : draftToAnalysisRequest(activeTask.draft);
-    const json = imported?.json ?? (request ? stringifyJson(request) : "");
-    const requestPath = imported ? imported.path : joinPath(outdir, `genomelens-request-${timestampForFilename()}.json`);
+    let json = "";
+    let requestPath = "";
+
+    if (imported) {
+      json = imported.json;
+      requestPath = imported.path;
+    } else if (activeTask.requestKind === "submodule") {
+      const request = draftToSubmoduleRequest(activeTask.submoduleDraft!);
+      json = stringifyJson(request);
+      requestPath = joinPath(outdir, `genomelens-submodule-request-${timestampForFilename()}.json`);
+    } else {
+      const request = draftToWorkflowRequest(activeTask.draft);
+      json = stringifyJson(request);
+      requestPath = joinPath(outdir, `genomelens-request-${timestampForFilename()}.json`);
+    }
 
     updateTask(taskId, (task) => ({ ...task, runStatus: "starting", runError: null, runState: null, view: "run" }));
 
@@ -1131,8 +1318,8 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
         setRecentRequests((current) =>
           rememberRecentRequest(current, {
             path: imported.path,
-            method: imported.method,
-            workflow: imported.workflow,
+            workflowId: imported.workflowId,
+            kind: imported.kind,
           }),
         );
       }
@@ -1143,7 +1330,7 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
       const handle = await runAnalysis({ requestPath, outdir });
       updateTask(taskId, (task) => ({
         ...task,
-        runState: createAnalysisRunState(handle),
+        runState: createWorkflowRunState(handle),
         runStatus: "running",
         pendingRequestJson: "",
         view: "run",
@@ -1183,7 +1370,11 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
     }
 
     const taskId = activeTask.id;
-    const outdir = (activeTask.runState?.outdir ?? activeTask.draft.outputDirectory).trim();
+    const activeOutdir =
+      activeTask.requestKind === "submodule"
+        ? activeTask.submoduleDraft?.outputDirectory
+        : activeTask.draft.outputDirectory;
+    const outdir = (activeTask.runState?.outdir ?? activeOutdir ?? "").trim();
     if (!outdir) {
       updateTask(taskId, (task) => ({ ...task, runError: localizeRunPrompt("draftOutdir", language), view: "setup" }));
       return;
@@ -1211,7 +1402,7 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
                 : "idle";
 
       updateTask(taskId, (task) => {
-        const baseState: AnalysisRunState =
+        const baseState: WorkflowRunState =
           task.runState ??
           {
             runId: `snapshot:${outdir}`,
@@ -1265,7 +1456,11 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
     if (!activeTask) {
       return;
     }
-    const outdir = activeTask.runState?.outdir ?? activeTask.draft.outputDirectory;
+    const outdir =
+      activeTask.runState?.outdir ??
+      (activeTask.requestKind === "submodule"
+        ? activeTask.submoduleDraft?.outputDirectory
+        : activeTask.draft.outputDirectory);
     if (!outdir) {
       return;
     }
@@ -1294,7 +1489,11 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
     if (!activeTask) {
       return;
     }
-    const outdir = activeTask.runState?.outdir ?? activeTask.draft.outputDirectory;
+    const outdir =
+      activeTask.runState?.outdir ??
+      (activeTask.requestKind === "submodule"
+        ? activeTask.submoduleDraft?.outputDirectory
+        : activeTask.draft.outputDirectory);
     if (!outdir) {
       return;
     }
@@ -1323,7 +1522,12 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
   }
 
   async function handleOpenOutput() {
-    const outdir = activeTask?.runState?.outdir ?? activeTask?.draft.outputDirectory ?? "";
+    const outdir =
+      activeTask?.runState?.outdir ??
+      (activeTask?.requestKind === "submodule"
+        ? activeTask?.submoduleDraft?.outputDirectory
+        : activeTask?.draft.outputDirectory) ??
+      "";
     if (outdir) {
       await openPath({ path: outdir });
     }
@@ -1363,16 +1567,16 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
         </p>
         <h1 className="text-[1.8rem] font-semibold text-text-primary">{isZh ? "工作台初始化失败" : "Workbench failed to initialize"}</h1>
         <p className="max-w-2xl rounded-[1.35rem] border border-rose-200 bg-rose-50 p-4 text-left text-sm text-rose-700">
-          {loadError ?? (isZh ? "无法初始化 AnalysisRequestDraft。" : "Unable to initialize AnalysisRequestDraft.")}
+          {loadError ?? (isZh ? "无法初始化任务草稿。" : "Unable to initialize task draft.")}
         </p>
       </section>
     );
   }
 
-  const directoryIssue = issueFor(validation.issues, "input.directory");
-  const outputIssue = issueFor(validation.issues, "output.directory");
-  const threadsIssue = issueFor(validation.issues, "options.threads");
-  const minBlockIssue = issueFor(validation.issues, "options.min_block_size");
+  const directoryIssue = issueFor(validation.issues, "directory");
+  const outputIssue = issueFor(validation.issues, "outputDirectory");
+  const threadsIssue = issueFor(validation.issues, "runtime.threads");
+  const minBlockIssue = issueFor(validation.issues, "parameters.synteny.minBlockSize");
   const workflowState = activeTask.runState?.status ?? "PENDING";
   const workflowStateLabel = localizeWorkflowState(workflowState, language);
   const progress = toProgressPercent(activeTask.runState?.progress ?? 0);
@@ -1382,7 +1586,11 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
   const resolvedSummaryPath = activeTask.runState?.summaryPath ?? summaryView?.runSummaryPath ?? "";
   const recentEvents = logLines.slice(-6).reverse();
   const usesImportedRequest = importedRequest !== null;
-  const requestWorkflow = usesImportedRequest ? importedRequest?.workflow ?? draft.mcscan.workflow : draft.mcscan.workflow;
+  const requestWorkflow = usesImportedRequest
+    ? importedRequest?.kind ?? (activeTask.requestKind === "submodule" ? activeTask.capabilityId ?? "-" : draft.workflowId)
+    : activeTask.requestKind === "submodule"
+      ? activeTask.capabilityId ?? "-"
+      : draft.workflowId;
   const requestMode = usesImportedRequest ? importedRequest?.inputMode ?? draft.inputMode : draft.inputMode;
   const requestSourceLabel = usesImportedRequest
     ? isZh
@@ -1518,7 +1726,9 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
               </span>
               <span className="min-w-0">
                 <span className="block truncate text-[13px] font-medium leading-5">{task.title}</span>
-                <span className="mt-0.5 block truncate text-[11px] leading-4 text-text-tertiary">{task.draft.mcscan.workflow}</span>
+                <span className="mt-0.5 block truncate text-[11px] leading-4 text-text-tertiary">
+                  {task.requestKind === "submodule" ? task.capabilityId ?? task.draft.workflowId : task.draft.workflowId}
+                </span>
               </span>
               {tasks.length > 1 && canCloseTask(task) ? (
                 <span
@@ -1659,7 +1869,19 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
 
         <div className="min-h-0 flex-1 overflow-auto px-14 pb-32 pt-8">
           {activeTask.view === "setup" ? (
-            <div className="mx-auto grid w-full max-w-4xl gap-6">
+            activeTask.requestKind === "submodule" && activeTask.capability && activeTask.submoduleDraft ? (
+              <SubmoduleForm
+                draft={activeTask.submoduleDraft}
+                spec={activeTask.capability}
+                isZh={isZh}
+                onChange={(nextDraft) =>
+                  updateActiveTask((task) => ({ ...task, submoduleDraft: nextDraft }))
+                }
+                onPickFile={pickFile}
+                onPickDirectory={pickDirectory}
+              />
+            ) : (
+              <div className="mx-auto grid w-full max-w-4xl gap-6">
               <section className={PANEL_BODY_CLASS}>
                 <SectionTitle
                   title={isZh ? "输入与输出" : "Inputs and output"}
@@ -1675,7 +1897,7 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
                     <select
                       className={FIELD_CLASS}
                       value={draft.inputMode}
-                      onChange={(event) => patchDraft({ inputMode: event.target.value as AnalysisInputMode })}
+                      onChange={(event) => patchDraft({ inputMode: event.target.value as InputMode })}
                     >
                       <option value="auto_directory">auto_directory</option>
                       <option value="bed_cds">bed_cds</option>
@@ -1684,17 +1906,12 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
                   </label>
                   <label>
                     <span className={LABEL_CLASS}>workflow</span>
-                    <select
+                    <input
                       className={FIELD_CLASS}
-                      value={draft.mcscan.workflow}
-                      onChange={(event) => patchMcscan({ workflow: event.target.value as McscanWorkflow })}
-                    >
-                      {WORKFLOW_OPTIONS.map((workflow) => (
-                        <option key={workflow} value={workflow}>
-                          {workflow}
-                        </option>
-                      ))}
-                    </select>
+                      value={draft.workflowId}
+                      readOnly
+                      disabled
+                    />
                   </label>
                 </div>
 
@@ -1758,8 +1975,8 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
                       <p className="text-sm font-semibold text-text-primary">{isZh ? "导入 request JSON" : "Import request JSON"}</p>
                       <p className="mt-1 text-sm leading-6 text-text-secondary">
                         {isZh
-                          ? "附加一个现有的 AnalysisRequest 文件，直接运行，而不必重新填写向导。"
-                          : "Attach an existing AnalysisRequest file and run it directly without rebuilding the request from the wizard."}
+                          ? "附加一个现有的 request JSON 文件，直接运行，而不必重新填写向导。"
+                          : "Attach an existing request JSON file and run it directly without rebuilding the request from the wizard."}
                       </p>
                     </div>
                     <div className="flex flex-wrap gap-2">
@@ -1778,8 +1995,8 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
                     <div className="mt-4 grid gap-2 rounded-xl border border-border bg-surface-raised px-4 py-3 text-sm text-text-secondary">
                       <InfoRow label={isZh ? "来源" : "source"} value={isZh ? "导入的 request JSON" : "Imported request JSON"} />
                       <InfoRow label="request" value={importedRequest?.path ?? "-"} />
-                      <InfoRow label={isZh ? "方法" : "method"} value={importedRequest?.method ?? "-"} />
-                      <InfoRow label="workflow" value={importedRequest?.workflow ?? "-"} />
+                      <InfoRow label={isZh ? "工作流" : "workflow"} value={importedRequest?.workflowId ?? "-"} />
+                      <InfoRow label={isZh ? "类型" : "kind"} value={importedRequest?.kind ?? "-"} />
                       <InfoRow label={isZh ? "模式" : "mode"} value={importedRequest?.inputMode ?? "-"} />
                       <InfoRow
                         label={isZh ? "请求内 outdir" : "request outdir"}
@@ -1811,7 +2028,7 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
                         >
                           <span className="block max-w-56 truncate">{item.path}</span>
                           <span className="mt-0.5 block text-[10px] uppercase tracking-[0.14em] text-text-tertiary">
-                            {item.workflow ?? item.method ?? "request"}
+                            {item.kind ?? item.workflowId ?? "request"}
                           </span>
                         </button>
                       ))}
@@ -1875,8 +2092,8 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
 
               <section className={PANEL_BODY_CLASS}>
                 <SectionTitle
-                  title={isZh ? "分析选项" : "Analysis options"}
-                  subtitle={isZh ? "保持 transport 字段与 GenomeLens request 契约一致。" : "Keep transport fields aligned with the GenomeLens request contract."}
+                  title={isZh ? "工作流选项" : "Workflow options"}
+                  subtitle={isZh ? "保持 transport 字段与 GenomeLens WorkflowRequest 契约一致。" : "Keep transport fields aligned with the GenomeLens WorkflowRequest contract."}
                 />
                 <div className="mt-4 grid gap-4 lg:grid-cols-3">
                   <label>
@@ -1885,28 +2102,17 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
                       className={FIELD_CLASS}
                       type="number"
                       min={1}
-                      value={draft.options.threads ?? ""}
-                      onChange={(event) => patchOptions({ threads: updateNumber(event.target.value) })}
+                      value={draft.runtime.threads ?? ""}
+                      onChange={(event) => patchRuntime({ threads: updateNumber(event.target.value) })}
                     />
                     <IssueText issue={threadsIssue} />
-                  </label>
-                  <label>
-                    <span className={LABEL_CLASS}>min block size</span>
-                    <input
-                      className={FIELD_CLASS}
-                      type="number"
-                      min={1}
-                      value={draft.options.minBlockSize ?? ""}
-                      onChange={(event) => patchOptions({ minBlockSize: updateNumber(event.target.value) })}
-                    />
-                    <IssueText issue={minBlockIssue} />
                   </label>
                   <label>
                     <span className={LABEL_CLASS}>log level</span>
                     <select
                       className={FIELD_CLASS}
-                      value={draft.options.logLevel}
-                      onChange={(event) => patchOptions({ logLevel: event.target.value as LogLevel })}
+                      value={draft.runtime.logLevel}
+                      onChange={(event) => patchRuntime({ logLevel: event.target.value as WorkflowRequestDraft["runtime"]["logLevel"] })}
                     >
                       {LOG_LEVELS.map((level) => (
                         <option key={level} value={level}>
@@ -1914,6 +2120,16 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
                         </option>
                       ))}
                     </select>
+                  </label>
+                  <label>
+                    <span className={LABEL_CLASS}>reference index</span>
+                    <input
+                      className={FIELD_CLASS}
+                      type="number"
+                      min={0}
+                      value={draft.referenceIndex}
+                      onChange={(event) => patchDraft({ referenceIndex: Number(event.target.value) })}
+                    />
                   </label>
                 </div>
 
@@ -1942,16 +2158,16 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
                           key === "forceOutput"
                             ? draft.forceOutput
                             : key === "verbose"
-                              ? draft.options.verbose
-                              : draft.options.consoleLog
+                              ? draft.runtime.verbose
+                              : draft.runtime.consoleLog
                         }
                         onChange={(event) => {
                           if (key === "forceOutput") {
                             patchDraft({ forceOutput: event.target.checked });
                           } else if (key === "verbose") {
-                            patchOptions({ verbose: event.target.checked });
+                            patchRuntime({ verbose: event.target.checked });
                           } else {
-                            patchOptions({ consoleLog: event.target.checked });
+                            patchRuntime({ consoleLog: event.target.checked });
                           }
                         }}
                       />
@@ -1963,16 +2179,16 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
 
               <section className={PANEL_BODY_CLASS}>
                 <SectionTitle
-                  title={isZh ? "MCSCAN 参数" : "MCSCAN parameters"}
-                  subtitle={isZh ? "高级选项保留为任务本地设置，不同任务可以独立调整。" : "Advanced options remain task-local and can diverge per task."}
+                  title={isZh ? "Synteny 参数" : "Synteny parameters"}
+                  subtitle={isZh ? "Synteny 算法与图件参数，保留为任务本地设置。" : "Synteny algorithm and figure parameters remain task-local."}
                 />
                 <div className="mt-4 grid gap-4 lg:grid-cols-3">
                   <label>
                     <span className={LABEL_CLASS}>align_soft</span>
                     <select
                       className={FIELD_CLASS}
-                      value={draft.mcscan.alignSoft}
-                      onChange={(event) => patchMcscan({ alignSoft: event.target.value as AlignSoft })}
+                      value={draft.parameters.synteny.alignSoft}
+                      onChange={(event) => patchSynteny({ alignSoft: event.target.value as WorkflowRequestDraft["parameters"]["synteny"]["alignSoft"] })}
                     >
                       <option value="blast">blast</option>
                       <option value="last">last</option>
@@ -1983,8 +2199,8 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
                     <span className={LABEL_CLASS}>dbtype</span>
                     <select
                       className={FIELD_CLASS}
-                      value={draft.mcscan.dbtype}
-                      onChange={(event) => patchMcscan({ dbtype: event.target.value as DbType })}
+                      value={draft.parameters.synteny.dbtype}
+                      onChange={(event) => patchSynteny({ dbtype: event.target.value as WorkflowRequestDraft["parameters"]["synteny"]["dbtype"] })}
                     >
                       <option value="nucl">nucl</option>
                       <option value="prot">prot</option>
@@ -1992,9 +2208,13 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
                   </label>
                   <label>
                     <span className={LABEL_CLASS}>figsize</span>
-                    <input className={FIELD_CLASS} value={draft.mcscan.figsize} onChange={(event) => patchMcscan({ figsize: event.target.value })} />
+                    <input
+                      className={FIELD_CLASS}
+                      value={draft.parameters.plot.figsize}
+                      onChange={(event) => patchPlot({ figsize: event.target.value })}
+                    />
                   </label>
-                  {MCSCAN_NUMBER_FIELDS.map(({ key, label, min, max, step }) => (
+                  {SYNTENY_NUMBER_FIELDS.map(({ key, label, min, max, step }) => (
                     <label key={key}>
                       <span className={LABEL_CLASS}>{label}</span>
                       <input
@@ -2003,8 +2223,115 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
                         min={min}
                         max={max}
                         step={step}
-                        value={draft.mcscan[key]}
-                        onChange={(event) => patchMcscan({ [key]: Number(event.target.value) })}
+                        value={draft.parameters.synteny[key]}
+                        onChange={(event) => patchSynteny({ [key]: Number(event.target.value) })}
+                      />
+                    </label>
+                  ))}
+                  <label>
+                    <span className={LABEL_CLASS}>min block size</span>
+                    <input
+                      className={FIELD_CLASS}
+                      type="number"
+                      min={1}
+                      value={draft.parameters.synteny.minBlockSize}
+                      onChange={(event) => patchSynteny({ minBlockSize: updateNumber(event.target.value) ?? undefined })}
+                    />
+                    <IssueText issue={minBlockIssue} />
+                  </label>
+                </div>
+
+                <div className="mt-5 grid gap-3 lg:grid-cols-2">
+                  {[
+                    ["allowSimplifiedFallback", "allow_simplified_fallback"],
+                  ].map(([key, label]) => (
+                    <label key={key} className="inline-flex items-center gap-2 text-sm font-medium text-text-secondary">
+                      <input
+                        className={CHECKBOX_CLASS}
+                        type="checkbox"
+                        checked={draft.parameters.synteny[key as keyof typeof draft.parameters.synteny] as boolean}
+                        onChange={(event) => patchSynteny({ [key]: event.target.checked })}
+                      />
+                      {label}
+                    </label>
+                  ))}
+                </div>
+              </section>
+
+              <section className={PANEL_BODY_CLASS}>
+                <SectionTitle
+                  title={isZh ? "图件参数" : "Plot parameters"}
+                  subtitle={isZh ? "图件样式与 DPI 设置。" : "Figure styling and DPI settings."}
+                />
+                <div className="mt-4 grid gap-4 lg:grid-cols-3">
+                  <label>
+                    <span className={LABEL_CLASS}>glyphstyle</span>
+                    <select
+                      className={FIELD_CLASS}
+                      value={draft.parameters.plot.glyphstyle}
+                      onChange={(event) => patchPlot({ glyphstyle: event.target.value })}
+                    >
+                      <option value=""></option>
+                      <option value="box">box</option>
+                      <option value="arrow">arrow</option>
+                    </select>
+                  </label>
+                  <label>
+                    <span className={LABEL_CLASS}>glyphcolor</span>
+                    <select
+                      className={FIELD_CLASS}
+                      value={draft.parameters.plot.glyphcolor}
+                      onChange={(event) => patchPlot({ glyphcolor: event.target.value })}
+                    >
+                      <option value=""></option>
+                      <option value="orientation">orientation</option>
+                      <option value="orthogroup">orthogroup</option>
+                    </select>
+                  </label>
+                  <label>
+                    <span className={LABEL_CLASS}>shadestyle</span>
+                    <select
+                      className={FIELD_CLASS}
+                      value={draft.parameters.plot.shadestyle}
+                      onChange={(event) => patchPlot({ shadestyle: event.target.value })}
+                    >
+                      <option value=""></option>
+                      <option value="curve">curve</option>
+                      <option value="line">line</option>
+                    </select>
+                  </label>
+                  {PLOT_NUMBER_FIELDS.map(({ key, label, min, step }) => (
+                    <label key={key}>
+                      <span className={LABEL_CLASS}>{label}</span>
+                      <input
+                        className={FIELD_CLASS}
+                        type="number"
+                        min={min}
+                        step={step}
+                        value={draft.parameters.plot[key]}
+                        onChange={(event) => patchPlot({ [key]: Number(event.target.value) })}
+                      />
+                    </label>
+                  ))}
+                </div>
+              </section>
+
+              <section className={PANEL_BODY_CLASS}>
+                <SectionTitle
+                  title={isZh ? "局部共线性参数" : "Local synteny parameters"}
+                  subtitle={isZh ? "目标基因与上下游窗口设置。" : "Target gene and flanking window settings."}
+                />
+                <div className="mt-4 grid gap-4 lg:grid-cols-3">
+                  {LOCAL_NUMBER_FIELDS.map(({ key, label, min, step }) => (
+                    <label key={key}>
+                      <span className={LABEL_CLASS}>{label}</span>
+                      <input
+                        className={FIELD_CLASS}
+                        type="number"
+                        min={min}
+                        step={step}
+                        value={draft.parameters.localSynteny[key]}
+                        onChange={(event) => patchLocalSynteny({ [key]: Number(event.target.value) })}
                       />
                     </label>
                   ))}
@@ -2015,27 +2342,24 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
                   <textarea
                     className={`${FIELD_CLASS} min-h-24`}
                     value={targetGeneText}
-                    onChange={(event) => patchMcscan({ targetGeneIds: splitTargets(event.target.value) })}
+                    onChange={(event) => patchLocalSynteny({ targetGeneIds: splitTargets(event.target.value) })}
                     placeholder="One gene id per line, or comma-separated"
                   />
-                  <IssueText issue={issueFor(validation.issues, "method_config.target_gene_ids")} />
+                  <IssueText issue={issueFor(validation?.issues ?? [], "parameters.localSynteny.targetGeneIds")} />
                 </label>
 
                 <div className="mt-5 grid gap-3 lg:grid-cols-2">
                   {[
-                    ["allowSimplifiedFallback", "allow_simplified_fallback"],
                     ["splitTargets", "split_targets"],
                     ["labelTargets", "label_targets"],
-                    ["optimizeFigsize", "optimize_figsize"],
-                    ["rewriteLayoutLinks", "rewrite_layout_links"],
-                    ["trimCrossChromosomeBlocks", "trim_cross_chromosome_blocks"],
+                    ["useNativeRenderer", "use_native_renderer"],
                   ].map(([key, label]) => (
                     <label key={key} className="inline-flex items-center gap-2 text-sm font-medium text-text-secondary">
                       <input
                         className={CHECKBOX_CLASS}
                         type="checkbox"
-                        checked={draft.mcscan[key as keyof AnalysisRequestDraft["mcscan"]] as boolean}
-                        onChange={(event) => patchMcscan({ [key]: event.target.checked } as Partial<AnalysisRequestDraft["mcscan"]>)}
+                        checked={draft.parameters.localSynteny[key as keyof typeof draft.parameters.localSynteny] as boolean}
+                        onChange={(event) => patchLocalSynteny({ [key]: event.target.checked })}
                       />
                       {label}
                     </label>
@@ -2043,6 +2367,7 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
                 </div>
               </section>
             </div>
+          )
           ) : null}
 
           {activeTask.view === "run" ? (
@@ -2191,7 +2516,7 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
 
               {activeTask.runStatus === "confirming" ? (
                 <section className="ui-surface-enter rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-900/40 dark:bg-amber-950/20">
-                  <h3 className="text-sm font-semibold text-text-primary">{isZh ? "确认 AnalysisRequest JSON" : "Confirm AnalysisRequest JSON"}</h3>
+                  <h3 className="text-sm font-semibold text-text-primary">{isZh ? "确认 request JSON" : "Confirm request JSON"}</h3>
                   <div className="mt-3 grid gap-2 rounded-lg border border-amber-200/80 bg-surface-raised/85 px-3 py-3 text-sm text-text-secondary dark:border-amber-900/40">
                     <InfoRow
                       label={isZh ? "来源" : "source"}
@@ -2209,12 +2534,19 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
                       <>
                         <InfoRow label="request" value={importedRequest?.path ?? "-"} />
                         <InfoRow label={isZh ? "模式" : "mode"} value={importedRequest?.inputMode ?? "-"} />
-                        <InfoRow label="workflow" value={importedRequest?.workflow ?? "-"} />
+                        <InfoRow label={isZh ? "类型" : "kind"} value={importedRequest?.kind ?? "-"} />
                       </>
                     ) : (
-                      <InfoRow label="workflow" value={draft.mcscan.workflow} />
+                      <InfoRow label="workflow" value={requestWorkflow} />
                     )}
-                    <InfoRow label="outdir" value={draft.outputDirectory || "-"} />
+                    <InfoRow
+                      label="outdir"
+                      value={
+                        activeTask.requestKind === "submodule"
+                          ? activeTask.submoduleDraft?.outputDirectory || "-"
+                          : draft.outputDirectory || "-"
+                      }
+                    />
                   </div>
                   <pre className="mt-3 max-h-72 overflow-auto rounded-lg border border-border bg-bg p-3 font-mono text-xs leading-6 text-text-secondary">
                     {activeTask.pendingRequestJson}
@@ -2319,10 +2651,10 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
                     <>
                       <InfoRow label="request" value={importedRequest?.path ?? "-"} />
                       <InfoRow label={isZh ? "模式" : "mode"} value={importedRequest?.inputMode ?? "-"} />
-                      <InfoRow label="workflow" value={importedRequest?.workflow ?? "-"} />
+                      <InfoRow label={isZh ? "类型" : "kind"} value={importedRequest?.kind ?? "-"} />
                     </>
                   ) : (
-                    <InfoRow label="workflow" value={draft.mcscan.workflow} />
+                    <InfoRow label="workflow" value={requestWorkflow} />
                   )}
                 </div>
                 <pre className="mt-4 max-h-[28rem] overflow-auto rounded-lg border border-border bg-bg p-4 font-mono text-xs leading-6 text-text-secondary">
@@ -2438,9 +2770,30 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
               </button>
             </div>
             <div className="mt-4 grid gap-2 text-sm text-text-secondary">
-              <InfoRow label="workflow" value={draft.mcscan.workflow} />
-              <InfoRow label="input" value={draft.directory || "-"} />
-              <InfoRow label="output" value={draft.outputDirectory || "-"} />
+              <InfoRow
+                label="workflow"
+                value={
+                  activeTask.requestKind === "submodule"
+                    ? activeTask.capabilityId ?? "-"
+                    : draft.workflowId
+                }
+              />
+              <InfoRow
+                label="input"
+                value={
+                  activeTask.requestKind === "submodule"
+                    ? "-"
+                    : draft.directory || "-"
+                }
+              />
+              <InfoRow
+                label="output"
+                value={
+                  activeTask.requestKind === "submodule"
+                    ? activeTask.submoduleDraft?.outputDirectory || "-"
+                    : draft.outputDirectory || "-"
+                }
+              />
               <InfoRow label="request" value={usesImportedRequest ? "imported" : "draft"} />
               <InfoRow label={isZh ? "问题" : "issues"} value={String(validation.issues.length)} />
             </div>
@@ -2483,7 +2836,7 @@ export default function NewAnalysisPage({ route, onNavigate, locationHash }: New
           </section>
 
           <section className="mt-5 border-t border-border/90 pt-5">
-            <SectionTitle title={isZh ? "分析 schema" : "Schema"} subtitle="get_analysis_schema()" />
+            <SectionTitle title={isZh ? "Workflow schema" : "Schema"} subtitle="get_workflow_schema()" />
             <pre className="mt-3 max-h-52 overflow-auto rounded-lg bg-surface p-3 font-mono text-[11px] leading-5 text-text-secondary">
               {schemaJson || (isZh ? "尚未加载 schema。" : "Schema not loaded.")}
             </pre>

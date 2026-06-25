@@ -8,7 +8,7 @@
 
 - 产品名：JCVI meow
 - 定位：面向 JCVI 工作流的桌面分析工作台，优先服务 MCSCAN / pairwise synteny / multi-species / local synteny 等已由 GenomeLens 接入的能力。
-- 后端关系：用户感知层称为 JCVI meow；运行层继续复用 GenomeLens CLI、`WorkflowRequest v2`、`RunSummary v3` 和 `run.log` 契约。
+- 后端关系：用户感知层称为 JCVI meow；运行层继续复用 GenomeLens CLI、`WorkflowRequest v3`、`RunSummary v3` 和 `run.log` 契约。
 - 设计关键词：冰蓝、轻快、桌面工作台、启动不卡顿、有生命感但不幼稚。
 
 ---

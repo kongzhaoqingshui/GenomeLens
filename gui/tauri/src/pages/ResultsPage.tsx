@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 
 import { useLanguage } from "../i18n/useLanguage";
-import type { ArtifactRecord, ArtifactSummary, FigureAsset, RunSummaryViewModel } from "../models";
+import type { ArtifactRecord, ArtifactSummary, ChildRunRecord, FigureAsset, RunSummaryViewModel } from "../models";
 import type { AppRoute } from "../routes/routes";
 import { listArtifacts, openPath, readSummaryView } from "../services/workbench";
 
@@ -129,6 +129,71 @@ function ArtifactSummaryRow({
           {isZh ? "打开" : "Open"}
         </button>
       </div>
+    </article>
+  );
+}
+
+function basename(path: string): string {
+  const parts = path.split(/[\\/]/);
+  return parts.length > 0 ? parts[parts.length - 1] : path;
+}
+
+function inferFormat(path: string, fallback = "unknown"): string {
+  const name = basename(path);
+  const dotIndex = name.lastIndexOf(".");
+  if (dotIndex < 0 || dotIndex === name.length - 1) {
+    return fallback;
+  }
+  return name.slice(dotIndex + 1).toLowerCase();
+}
+
+function ChildRunRow({
+  child,
+  isZh,
+  onOpen,
+}: {
+  child: ChildRunRecord;
+  isZh: boolean;
+  onOpen: (path: string) => void;
+}) {
+  const figures = child.final_figures ?? [];
+  return (
+    <article className="ui-row-item px-6 py-4">
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-text-primary">{child.pair_id || child.child_id}</p>
+          <p className="mt-1 text-xs text-text-tertiary">
+            {child.species_a_name} / {child.species_b_name}
+          </p>
+          {child.outdir ? (
+            <p className="mt-1 break-all text-xs text-text-tertiary">{child.outdir}</p>
+          ) : null}
+        </div>
+        <span className={`rounded-full px-3 py-1 text-[11px] font-semibold uppercase ${statusClass(child.status)}`}>
+          {child.status}
+        </span>
+      </div>
+
+      {figures.length > 0 ? (
+        <div className="mt-4 divide-y divide-border/90 border-y border-border/90">
+          {figures.map((path) => (
+            <ResultAssetRow
+              key={path}
+              label="figure"
+              asset={{
+                path,
+                name: basename(path),
+                format: inferFormat(path),
+                source: "child_runs",
+                preview: true,
+              }}
+              onOpen={onOpen}
+            />
+          ))}
+        </div>
+      ) : (
+        <p className="mt-3 text-sm text-text-secondary">{isZh ? "该子运行没有返回图件。" : "This child run produced no figures."}</p>
+      )}
     </article>
   );
 }
@@ -307,10 +372,6 @@ export default function ResultsPage({ route, onNavigate }: ResultsPageProps) {
                   <span className="font-medium text-text-primary">{summary.workflow}</span>
                 </div>
                 <div className="grid grid-cols-[12rem_minmax(0,1fr)] gap-4 px-6 py-4 text-sm">
-                  <span className="text-text-tertiary">{isZh ? "方法" : "Method"}</span>
-                  <span className="font-medium text-text-primary">{summary.method || (isZh ? "不可用" : "Unavailable")}</span>
-                </div>
-                <div className="grid grid-cols-[12rem_minmax(0,1fr)] gap-4 px-6 py-4 text-sm">
                   <span className="text-text-tertiary">{isZh ? "进度" : "Progress"}</span>
                   <span className="font-medium text-text-primary">{summary.progress}%</span>
                 </div>
@@ -333,6 +394,14 @@ export default function ResultsPage({ route, onNavigate }: ResultsPageProps) {
                   >
                     {summary.runLogPath || (isZh ? "不可用" : "Unavailable")}
                   </button>
+                </div>
+                <div className="grid grid-cols-[12rem_minmax(0,1fr)] gap-4 px-6 py-4 text-sm">
+                  <span className="text-text-tertiary">{isZh ? "子运行" : "Child runs"}</span>
+                  <span className="font-medium text-text-primary">{summary.childRunCount}</span>
+                </div>
+                <div className="grid grid-cols-[12rem_minmax(0,1fr)] gap-4 px-6 py-4 text-sm">
+                  <span className="text-text-tertiary">{isZh ? "扩展字段" : "Extensions"}</span>
+                  <span className="font-medium text-text-primary">{Object.keys(summary.extensions).length}</span>
                 </div>
               </div>
             </section>
@@ -357,6 +426,47 @@ export default function ResultsPage({ route, onNavigate }: ResultsPageProps) {
                 </div>
               )}
             </section>
+
+            {summary.childRuns.length > 0 ? (
+              <section>
+                <div className="px-6 py-4">
+                  <h3 className="text-sm font-semibold text-text-primary">{isZh ? "子运行图件" : "Child run figures"}</h3>
+                  <p className="mt-1 text-sm text-text-secondary">
+                    {isZh
+                      ? "每个子运行对应一对物种，下方列出其生成的图件。"
+                      : "Each child run corresponds to a species pair; its generated figures are listed below."}
+                  </p>
+                </div>
+                <div className="divide-y divide-border/90 border-y border-border/90">
+                  {summary.childRuns.map((child) => (
+                    <ChildRunRow key={child.child_id} child={child} isZh={isZh} onOpen={handleOpenPath} />
+                  ))}
+                </div>
+              </section>
+            ) : null}
+
+            {Object.keys(summary.extensions).length > 0 ? (
+              <section>
+                <div className="px-6 py-4">
+                  <h3 className="text-sm font-semibold text-text-primary">{isZh ? "扩展信息" : "Extensions"}</h3>
+                  <p className="mt-1 text-sm text-text-secondary">
+                    {isZh
+                      ? "后端在摘要中附加的扩展字段，可展开查看原始内容。"
+                      : "Extension fields attached by the backend summary; expand to inspect raw values."}
+                  </p>
+                </div>
+                <div className="border-y border-border/90 px-6 py-4">
+                  <details className="group">
+                    <summary className="cursor-pointer text-sm font-medium text-text-secondary transition hover:text-text-primary">
+                      {isZh ? "查看原始扩展字段" : "View raw extension fields"}
+                    </summary>
+                    <pre className="mt-3 max-h-96 overflow-auto rounded-lg border border-border bg-surface p-4 text-xs text-text-secondary">
+                      {JSON.stringify(summary.extensions, null, 2)}
+                    </pre>
+                  </details>
+                </div>
+              </section>
+            ) : null}
 
             <section>
               <div className="px-6 py-4">

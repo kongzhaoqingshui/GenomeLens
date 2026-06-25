@@ -74,7 +74,7 @@ def submodule_template_request(module_id: str = "jcvi.graphics_histogram") -> Su
     parameters: dict[str, object]
     if module_id == "jcvi.graphics_histogram":
         inputs = {"numeric_files": ["workspace/values.txt"]}
-        parameters = {"columns": [0], "bins": 20}
+        parameters = {"histogram_columns": [0], "histogram_bins": 20}
     elif module_id == "jcvi.graphics_heatmap":
         inputs = {"matrix_csv": "workspace/matrix.csv"}
         parameters = {"cmap": "viridis"}

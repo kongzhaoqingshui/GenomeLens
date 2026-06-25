@@ -1,6 +1,8 @@
-import type { AnalysisRequest, McscanWorkflow } from "./analysis-request";
-import type { AnalysisRequestDraft } from "./analysis-request-draft";
+import type { CapabilityPreset } from "./capability";
+import type { WorkflowRequestDraft } from "./workflow-request-draft";
 import type { VersionInfo } from "./version";
+
+export type { CapabilityPreset } from "./capability";
 
 export type StartupResourceKey = "version" | "template" | "schema";
 export type StartupResourceStatus = "loading" | "ready" | "error";
@@ -22,7 +24,7 @@ export interface StartupResourceState<TData> {
 
 export interface WorkbenchStartupResources {
   version: StartupResourceState<VersionInfo>;
-  template: StartupResourceState<AnalysisRequest>;
+  template: StartupResourceState<Record<string, unknown>>;
   schema: StartupResourceState<Record<string, unknown>>;
 }
 
@@ -45,77 +47,108 @@ export interface JcviCapabilityEntry {
   route: "/analysis/new" | "/settings";
   status: JcviCapabilityStatus;
   statusLabel: "Connected" | "Reserved";
-  workflowPreset?: McscanWorkflow;
+  preset?: CapabilityPreset;
 }
 
 const STARTUP_HINTS: Record<StartupResourceKey, string> = {
   version: "Checking GenomeLens and JCVI engine availability...",
-  template: "Loading the MCSCAN template...",
+  template: "Loading the synteny workflow template...",
   schema: "Preparing the workbench schema...",
 };
 
 const EMPTY_RESOURCE = { status: "loading" } as const;
+
+function bedCdsSpecies(name: string): WorkflowRequestDraft["species"][number] {
+  return {
+    name,
+    inputMode: "bed_cds",
+    bed: "",
+    cds: "",
+    gff: "",
+    genome: "",
+  };
+}
+
+function withSpeciesCount(count: number): CapabilityPreset {
+  return (draft) => {
+    const species = Array.from({ length: count }, (_, index) =>
+      bedCdsSpecies(draft.species[index]?.name ?? `species_${String.fromCharCode(97 + index)}`),
+    );
+    return { ...draft, species };
+  };
+}
+
+function withLocalSyntenyHint(): CapabilityPreset {
+  return (draft) => ({
+    ...draft,
+    species: draft.species.length < 2 ? [bedCdsSpecies("species_a"), bedCdsSpecies("species_b")] : draft.species,
+    parameters: {
+      ...draft.parameters,
+      localSynteny: {
+        ...draft.parameters.localSynteny,
+        targetGeneIds: draft.parameters.localSynteny.targetGeneIds.length > 0 ? draft.parameters.localSynteny.targetGeneIds : ["example_gene_id"],
+      },
+    },
+  });
+}
 
 const JCVI_CAPABILITIES: JcviCapabilityEntry[] = [
   {
     id: "pairwise-synteny",
     title: "Pairwise",
     subtitle: "Pairwise Synteny",
-    description: "Open the current MCSCAN workbench with a pairwise workflow preset.",
+    description: "Open the synteny workbench with a two-species pairwise preset.",
     route: "/analysis/new",
     status: "connected",
     statusLabel: "Connected",
-    workflowPreset: "mcscan_pairwise",
+    preset: withSpeciesCount(2),
   },
   {
     id: "multi-species-synteny",
     title: "Multi-species",
     subtitle: "Multi-species Synteny",
-    description: "Open the current MCSCAN workbench with a multi-species workflow preset.",
+    description: "Open the synteny workbench with a three-species preset.",
     route: "/analysis/new",
     status: "connected",
     statusLabel: "Connected",
-    workflowPreset: "graphics_synteny",
+    preset: withSpeciesCount(3),
   },
   {
     id: "local-synteny",
     title: "Local",
     subtitle: "Local Synteny",
-    description: "Open the current MCSCAN workbench with a local synteny workflow preset.",
+    description: "Open the synteny workbench with a local synteny preset (target genes enabled).",
     route: "/analysis/new",
     status: "connected",
     statusLabel: "Connected",
-    workflowPreset: "local_synteny",
+    preset: withLocalSyntenyHint(),
   },
   {
     id: "dotplot",
     title: "Dotplot",
     subtitle: "Dotplot",
-    description: "Reserved for a dedicated dotplot surface. The workflow preset is already wired.",
+    description: "Reserved for a dedicated dotplot surface.",
     route: "/analysis/new",
     status: "reserved",
     statusLabel: "Reserved",
-    workflowPreset: "graphics_dotplot",
   },
   {
     id: "karyotype",
     title: "Karyotype",
     subtitle: "Karyotype",
-    description: "Reserved for a dedicated karyotype surface. The workflow preset is already wired.",
+    description: "Reserved for a dedicated karyotype surface.",
     route: "/analysis/new",
     status: "reserved",
     statusLabel: "Reserved",
-    workflowPreset: "graphics_karyotype",
   },
   {
     id: "ortholog-catalog",
     title: "Ortholog Catalog",
     subtitle: "Ortholog Catalog",
-    description: "Reserved for a dedicated ortholog catalog surface. The workflow preset is already wired.",
+    description: "Reserved for a dedicated ortholog catalog surface.",
     route: "/analysis/new",
     status: "reserved",
     statusLabel: "Reserved",
-    workflowPreset: "catalog_ortholog",
   },
   {
     id: "environment-check",
@@ -164,30 +197,19 @@ export function getJcviCapabilityById(id: JcviCapabilityId): JcviCapabilityEntry
   return JCVI_CAPABILITIES.find((entry) => entry.id === id);
 }
 
-export function applyWorkflowPresetToDraft(
-  draft: AnalysisRequestDraft,
-  workflow: McscanWorkflow,
-): AnalysisRequestDraft {
-  return {
-    ...draft,
-    mcscan: {
-      ...draft.mcscan,
-      workflow,
-    },
-  };
-}
-
 export function applyCapabilityPresetToDraft(
-  draft: AnalysisRequestDraft,
-  capability: Pick<JcviCapabilityEntry, "workflowPreset">,
-): AnalysisRequestDraft {
-  return capability.workflowPreset ? applyWorkflowPresetToDraft(draft, capability.workflowPreset) : draft;
+  draft: WorkflowRequestDraft,
+  capability: Pick<JcviCapabilityEntry, "preset">,
+): WorkflowRequestDraft {
+  return capability.preset ? capability.preset(draft) : draft;
 }
 
 export function createDraftForCapability(
-  templateDraft: AnalysisRequestDraft,
+  templateDraft: WorkflowRequestDraft,
   capabilityId: JcviCapabilityId,
-): AnalysisRequestDraft {
+): WorkflowRequestDraft {
   const capability = getJcviCapabilityById(capabilityId);
   return capability ? applyCapabilityPresetToDraft(templateDraft, capability) : templateDraft;
 }
+
+// 移除已废弃的 workflowPreset 相关函数；如外部仍有引用，请改用 createDraftForCapability。

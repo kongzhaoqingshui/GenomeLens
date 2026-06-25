@@ -29,7 +29,7 @@ GenomeLens.exe analyze workflow synteny input output `
 
 ```powershell
 # 只跑 MCscan 同源搜索与 block 计算
-GenomeLens.exe analyze submodule jcvi.mcscan_pairwise `
+GenomeLens.exe analyze submodule jcvi.pairwise `
   --input-ports '{"species_pair":"input"}' --output-dir output --force
 
 # 只绘制点图（需前置 anchors 产物）

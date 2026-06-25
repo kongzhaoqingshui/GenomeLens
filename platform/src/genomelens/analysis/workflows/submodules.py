@@ -16,6 +16,8 @@ from genomelens.analysis.workflows.input_bindings import PortDeclaration, PortSy
 
 
 SubModuleKind = Literal["lightweight", "aggregate"]
+SubModuleCategory = Literal["计算", "渲染", "混合", "其他"]
+SubModuleDomain = Literal["共线性", "通用"]
 
 
 @dataclass(frozen=True)
@@ -47,16 +49,18 @@ class SubModuleSpec:
     """子模块规范：单个可编排子模块的完整元数据"""
 
     # fmt: off
-    module_id: str        # 子模块唯一标识（如 jcvi.graphics_dotplot）
-    name: str             # 面向用户展示的子模块名称
-    description: str      # 子模块功能描述
-    category: str         # 子模块分类（visualization/homology_search/synteny_analysis）
-    module_kind: SubModuleKind  # 子模块编排类型（lightweight/aggregate）
-    engine_workflow: str  # 映射到底层引擎的 workflow 名称
-    standalone: bool      # 是否可独立运行
+    module_id: str                      # 子模块唯一标识（如 jcvi.graphics_dotplot）
+    name: str                           # 面向用户展示的子模块名称
+    description: str                    # 子模块功能描述
+    category: SubModuleCategory         # 职责分类（计算/渲染/混合/其他）
+    domain: SubModuleDomain             # 领域分类（共线性/通用）
+    module_kind: SubModuleKind          # 子模块编排类型（lightweight/aggregate）
+    engine_workflow: str                # 映射到底层引擎的 workflow 名称
+    standalone: bool                    # 是否可独立运行
     inputs: list[PortDeclaration] = field(default_factory=list)           # 输入端口声明
     outputs: list[PortDeclaration] = field(default_factory=list)          # 输出端口声明
     parameters: list[ParameterDeclaration] = field(default_factory=list)  # 可调参数声明
+    labels: list[str] = field(default_factory=list)                       # 可挂载的标签列表
     # fmt: on
 
     def to_json(self) -> dict[str, object]:
@@ -65,9 +69,11 @@ class SubModuleSpec:
             "name": self.name,
             "description": self.description,
             "category": self.category,
+            "domain": self.domain,
             "module_kind": self.module_kind,
             "engine_workflow": self.engine_workflow,
             "standalone": self.standalone,
+            "labels": list(self.labels),
             "inputs": PortSystem.describe_ports(self.inputs),
             "outputs": PortSystem.describe_ports(self.outputs),
             "parameters": [p.to_json() for p in self.parameters],
@@ -96,10 +102,20 @@ class SubModuleRegistry:
 
         return list(self._modules.values())
 
-    def list_by_category(self, category: str) -> list[SubModuleSpec]:
-        """按分类返回子模块规范"""
+    def list_by_category(self, category: SubModuleCategory) -> list[SubModuleSpec]:
+        """按职责分类返回子模块规范"""
 
         return [spec for spec in self._modules.values() if spec.category == category]
+
+    def list_by_domain(self, domain: SubModuleDomain) -> list[SubModuleSpec]:
+        """按领域分类返回子模块规范"""
+
+        return [spec for spec in self._modules.values() if spec.domain == domain]
+
+    def list_by_label(self, label: str) -> list[SubModuleSpec]:
+        """按标签返回子模块规范"""
+
+        return [spec for spec in self._modules.values() if label in spec.labels]
 
     def list_by_kind(self, module_kind: SubModuleKind) -> list[SubModuleSpec]:
         """按编排类型返回子模块规范"""
@@ -147,7 +163,9 @@ class SubModuleRegistry:
                 "对两个物种执行 BLAST/LAST/Diamond 比对、锚点扫描与 block 计算；"
                 "emit_ortholog=true 时附带产出双向 ortholog 目录"
             ),
-            category="homology_search",
+            category="计算",
+            domain="共线性",
+            labels=["homology_search", "pairwise", "compute", "mcscan"],
             module_kind="lightweight",
             engine_workflow="pairwise",
             standalone=True,
@@ -219,7 +237,9 @@ class SubModuleRegistry:
             module_id="jcvi.graphics_dotplot",
             name="Dotplot",
             description="基于锚点绘制两个物种的共线性点图",
-            category="visualization",
+            category="渲染",
+            domain="共线性",
+            labels=["visualization", "dotplot", "synteny_render"],
             module_kind="lightweight",
             engine_workflow="graphics_dotplot",
             standalone=True,
@@ -247,7 +267,9 @@ class SubModuleRegistry:
             module_id="jcvi.graphics_synteny",
             name="Synteny Figure",
             description="基于 blocks 与 layout 绘制多物种共线性对齐图",
-            category="visualization",
+            category="渲染",
+            domain="共线性",
+            labels=["visualization", "synteny_figure", "synteny_render"],
             module_kind="lightweight",
             engine_workflow="graphics_synteny",
             standalone=True,
@@ -286,7 +308,9 @@ class SubModuleRegistry:
             module_id="jcvi.graphics_karyotype",
             name="Karyotype",
             description="绘制物种内或两物种核型共线性图",
-            category="visualization",
+            category="渲染",
+            domain="共线性",
+            labels=["visualization", "karyotype", "synteny_render"],
             module_kind="lightweight",
             engine_workflow="graphics_karyotype",
             standalone=True,
@@ -356,7 +380,9 @@ class SubModuleRegistry:
             module_id="jcvi.local_synteny",
             name="Local Synteny",
             description="以目标基因为中心绘制局部共线性图",
-            category="synteny_analysis",
+            category="渲染",
+            domain="共线性",
+            labels=["visualization", "local_synteny", "synteny_render"],
             module_kind="lightweight",
             engine_workflow="local_synteny",
             standalone=True,
@@ -394,7 +420,9 @@ class SubModuleRegistry:
             module_id="jcvi.graphics_histogram",
             name="Histogram",
             description="绘制数值分布直方图",
-            category="visualization",
+            category="渲染",
+            domain="通用",
+            labels=["visualization", "histogram", "generic_plot"],
             module_kind="lightweight",
             engine_workflow="graphics_histogram",
             standalone=True,
@@ -427,7 +455,9 @@ class SubModuleRegistry:
             module_id="jcvi.graphics_heatmap",
             name="Heatmap",
             description="将矩阵 CSV 渲染为热图",
-            category="visualization",
+            category="渲染",
+            domain="通用",
+            labels=["visualization", "heatmap", "generic_plot"],
             module_kind="lightweight",
             engine_workflow="graphics_heatmap",
             standalone=True,
@@ -458,7 +488,9 @@ class SubModuleRegistry:
             module_id="jcvi.graphics_karyotype_global",
             name="Global Karyotype",
             description="基于 tracks 与 edges 聚合全局核型总图",
-            category="visualization",
+            category="混合",
+            domain="共线性",
+            labels=["visualization", "karyotype", "aggregate", "global", "multi_species"],
             module_kind="aggregate",
             engine_workflow="graphics_karyotype_global",
             standalone=True,
@@ -489,7 +521,9 @@ class SubModuleRegistry:
             module_id="jcvi.local_synteny_multi",
             name="Multi-Species Local Synteny",
             description="在多个物种间以目标基因为中心绘制局部共线性总图",
-            category="synteny_analysis",
+            category="混合",
+            domain="共线性",
+            labels=["synteny_analysis", "local_synteny", "aggregate", "multi_species"],
             module_kind="aggregate",
             engine_workflow="local_synteny_multi",
             standalone=True,

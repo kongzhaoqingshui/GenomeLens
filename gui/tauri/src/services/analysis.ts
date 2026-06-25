@@ -1,93 +1,104 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { AnalysisRequest } from "../models/analysis-request";
-import { analysisRequestToDraft, type AnalysisRequestDraft } from "../models/analysis-request-draft";
+import type { WorkflowRequest } from "../models/workflow-request";
+import { workflowRequestToDraft, type WorkflowRequestDraft } from "../models/workflow-request-draft";
 import type { ReadRequestPreviewInput, RequestPreview } from "../models/request-preview";
 
 export type JsonObject = Record<string, unknown>;
 
-const templateCache = new Map<string, AnalysisRequest>();
-const templatePromiseCache = new Map<string, Promise<AnalysisRequest>>();
-const templateDraftCache = new Map<string, AnalysisRequestDraft>();
-let analysisSchemaCache: JsonObject | null = null;
-let analysisSchemaPromiseCache: Promise<JsonObject> | null = null;
+const templateCache = new Map<string, WorkflowRequest>();
+const templatePromiseCache = new Map<string, Promise<WorkflowRequest>>();
+const templateDraftCache = new Map<string, WorkflowRequestDraft>();
+let workflowSchemaCache: JsonObject | null = null;
+let workflowSchemaPromiseCache: Promise<JsonObject> | null = null;
 
-export function getTemplate(method = "mcscan"): Promise<AnalysisRequest> {
-  const cached = templateCache.get(method);
+export function getTemplate(kind = "workflow", id = "synteny"): Promise<WorkflowRequest> {
+  const cacheKey = `${kind}:${id}`;
+  const cached = templateCache.get(cacheKey);
   if (cached) {
     return Promise.resolve(cached);
   }
 
-  const pending = templatePromiseCache.get(method);
+  const pending = templatePromiseCache.get(cacheKey);
   if (pending) {
     return pending;
   }
 
-  const nextPromise = invoke<AnalysisRequest>("get_template", { method })
+  const nextPromise = invoke<WorkflowRequest>("get_template", { kind, id })
     .then((template) => {
-      templateCache.set(method, template);
-      templatePromiseCache.delete(method);
+      templateCache.set(cacheKey, template);
+      templatePromiseCache.delete(cacheKey);
       return template;
     })
     .catch((error: unknown) => {
-      templatePromiseCache.delete(method);
+      templatePromiseCache.delete(cacheKey);
       throw error;
     });
-  templatePromiseCache.set(method, nextPromise);
+  templatePromiseCache.set(cacheKey, nextPromise);
   return nextPromise;
 }
 
-export async function getTemplateDraft(method = "mcscan"): Promise<AnalysisRequestDraft> {
-  const cached = templateDraftCache.get(method);
+export async function getTemplateDraft(kind = "workflow", id = "synteny"): Promise<WorkflowRequestDraft> {
+  const cacheKey = `${kind}:${id}`;
+  const cached = templateDraftCache.get(cacheKey);
   if (cached) {
     return cached;
   }
 
-  const nextDraft = analysisRequestToDraft(await getTemplate(method));
-  templateDraftCache.set(method, nextDraft);
+  const nextDraft = workflowRequestToDraft(await getTemplate(kind, id));
+  templateDraftCache.set(cacheKey, nextDraft);
   return nextDraft;
 }
 
-export function getAnalysisSchema(): Promise<JsonObject> {
-  if (analysisSchemaCache) {
-    return Promise.resolve(analysisSchemaCache);
+export function getWorkflowSchema(): Promise<JsonObject> {
+  if (workflowSchemaCache) {
+    return Promise.resolve(workflowSchemaCache);
   }
-  if (analysisSchemaPromiseCache) {
-    return analysisSchemaPromiseCache;
+  if (workflowSchemaPromiseCache) {
+    return workflowSchemaPromiseCache;
   }
 
-  analysisSchemaPromiseCache = invoke<JsonObject>("get_analysis_schema")
+  workflowSchemaPromiseCache = invoke<JsonObject>("get_workflow_schema")
     .then((schema) => {
-      analysisSchemaCache = schema;
-      analysisSchemaPromiseCache = null;
+      workflowSchemaCache = schema;
+      workflowSchemaPromiseCache = null;
       return schema;
     })
     .catch((error: unknown) => {
-      analysisSchemaPromiseCache = null;
+      workflowSchemaPromiseCache = null;
       throw error;
     });
-  return analysisSchemaPromiseCache;
+  return workflowSchemaPromiseCache;
+}
+
+export function getSubmoduleSchema(): Promise<JsonObject> {
+  return invoke<JsonObject>("get_workflow_schema", { kind: "submodule" });
+}
+
+export function getUnionSchema(): Promise<JsonObject> {
+  return invoke<JsonObject>("get_workflow_schema", { kind: "union" });
 }
 
 export function readRequestPreview(input: ReadRequestPreviewInput): Promise<RequestPreview> {
   return invoke<RequestPreview>("read_request_preview", input);
 }
 
-export function getCachedTemplateDraft(method = "mcscan"): AnalysisRequestDraft | null {
-  const cachedDraft = templateDraftCache.get(method);
+export function getCachedTemplateDraft(kind = "workflow", id = "synteny"): WorkflowRequestDraft | null {
+  const cacheKey = `${kind}:${id}`;
+  const cachedDraft = templateDraftCache.get(cacheKey);
   if (cachedDraft) {
     return cachedDraft;
   }
 
-  const cachedTemplate = templateCache.get(method);
+  const cachedTemplate = templateCache.get(cacheKey);
   if (!cachedTemplate) {
     return null;
   }
 
-  const nextDraft = analysisRequestToDraft(cachedTemplate);
-  templateDraftCache.set(method, nextDraft);
+  const nextDraft = workflowRequestToDraft(cachedTemplate);
+  templateDraftCache.set(cacheKey, nextDraft);
   return nextDraft;
 }
 
-export function getCachedAnalysisSchema(): JsonObject | null {
-  return analysisSchemaCache;
+export function getCachedWorkflowSchema(): JsonObject | null {
+  return workflowSchemaCache;
 }

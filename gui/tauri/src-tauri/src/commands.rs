@@ -78,8 +78,8 @@ pub struct ReadRequestPreviewInput {
 pub struct RequestPreview {
     request_path: String,
     json: Value,
-    method: Option<String>,
-    workflow: Option<String>,
+    workflow_id: Option<String>,
+    kind: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -276,9 +276,9 @@ struct RunArtifactSummaryDoc {
     #[serde(default)]
     final_figures: Vec<String>,
     #[serde(default)]
-    global_figures: Vec<String>,
-    #[serde(default)]
     artifact_index: Vec<ArtifactIndexEntry>,
+    #[serde(default)]
+    child_runs: Vec<ChildRunArtifactEntry>,
 }
 
 #[derive(Debug, Deserialize, Default)]
@@ -288,11 +288,17 @@ struct ArtifactIndexEntry {
     preview: Option<bool>,
 }
 
+#[derive(Debug, Deserialize, Default)]
+struct ChildRunArtifactEntry {
+    #[serde(default)]
+    final_figures: Vec<String>,
+}
+
 const MAX_REQUEST_PREVIEW_BYTES: u64 = 8 * 1024 * 1024;
 const LOG_TAIL_CHUNK_BYTES: usize = 16 * 1024;
 const MAX_LOG_TAIL_BYTES: usize = 512 * 1024;
 
-static ANALYSIS_SCHEMA_CACHE: OnceLock<Mutex<Option<Value>>> = OnceLock::new();
+static WORKFLOW_SCHEMA_CACHE: OnceLock<Mutex<Option<Value>>> = OnceLock::new();
 static TEMPLATE_CACHE: OnceLock<Mutex<BTreeMap<String, Value>>> = OnceLock::new();
 static RUN_REGISTRY: OnceLock<Mutex<HashMap<String, RegisteredRun>>> = OnceLock::new();
 
@@ -305,48 +311,201 @@ pub fn get_version() -> VersionInfo {
 }
 
 #[tauri::command]
-pub fn get_template(method: String) -> Result<Value, String> {
+pub fn get_template(kind: String, id: Option<String>) -> Result<Value, String> {
+    let id = id.unwrap_or_else(|| "synteny".to_string());
+    let cache_key = format!("{}:{}", kind, id);
     let cache = TEMPLATE_CACHE.get_or_init(|| Mutex::new(BTreeMap::new()));
     {
         let cached = cache
             .lock()
             .map_err(|_| "template cache lock poisoned".to_string())?;
-        if let Some(template) = cached.get(&method) {
+        if let Some(template) = cached.get(&cache_key) {
             return Ok(template.clone());
         }
     }
 
-    let template = run_json_command(CliTool::Platform, &["analyze", "template", &method])?;
+    let template = run_json_command(CliTool::Platform, &["analyze", "template", &kind, &id])?;
     let mut cached = cache
         .lock()
         .map_err(|_| "template cache lock poisoned".to_string())?;
-    cached.insert(method, template.clone());
+    cached.insert(cache_key, template.clone());
     Ok(template)
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GetWorkflowSchemaInput {
+    kind: Option<String>,
+}
+
 #[tauri::command]
-pub fn get_analysis_schema() -> Result<Value, String> {
-    let cache = ANALYSIS_SCHEMA_CACHE.get_or_init(|| Mutex::new(None));
-    {
-        let cached = cache
-            .lock()
-            .map_err(|_| "analysis schema cache lock poisoned".to_string())?;
-        if let Some(schema) = cached.as_ref() {
-            return Ok(schema.clone());
+pub fn get_workflow_schema(input: Option<GetWorkflowSchemaInput>) -> Result<Value, String> {
+    let kind = input
+        .as_ref()
+        .and_then(|value| value.kind.as_deref())
+        .unwrap_or("union");
+    let use_cache = kind == "union";
+
+    if use_cache {
+        let cache = WORKFLOW_SCHEMA_CACHE.get_or_init(|| Mutex::new(None));
+        {
+            let cached = cache
+                .lock()
+                .map_err(|_| "workflow schema cache lock poisoned".to_string())?;
+            if cached.is_some() {
+                return Ok(cached.as_ref().unwrap().clone());
+            }
         }
     }
 
-    let schema = run_json_command(CliTool::Platform, &["analyze", "schema"])?;
-    let mut cached = cache
-        .lock()
-        .map_err(|_| "analysis schema cache lock poisoned".to_string())?;
-    *cached = Some(schema.clone());
+    let schema = run_json_command(CliTool::Platform, &["analyze", "schema", "--kind", kind])?;
+
+    if use_cache {
+        let cache = WORKFLOW_SCHEMA_CACHE.get_or_init(|| Mutex::new(None));
+        let mut cached = cache
+            .lock()
+            .map_err(|_| "workflow schema cache lock poisoned".to_string())?;
+        *cached = Some(schema.clone());
+    }
+
     Ok(schema)
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ListWorkflowsInput {
+    kind: Option<String>,
+    module_kind: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DescribeWorkflowInput {
+    id: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ValidateWorkflowRequestInput {
+    request_path: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ValidateSubmodulePortsInput {
+    module_id: String,
+    ports: Value,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GetSubmoduleTemplateInput {
+    module_id: String,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ValidationResult {
+    valid: bool,
+    errors: Vec<String>,
 }
 
 #[tauri::command]
 pub fn check_environment() -> Result<Value, String> {
     run_json_command(CliTool::Platform, &["check", "-j"])
+}
+
+#[tauri::command]
+pub fn list_workflows(input: ListWorkflowsInput) -> Result<Value, String> {
+    let kind = input.kind.unwrap_or_else(|| "all".to_string());
+    let module_kind = input.module_kind.unwrap_or_else(|| "all".to_string());
+    run_json_command(
+        CliTool::Platform,
+        &[
+            "workflow",
+            "list",
+            "--json",
+            "--kind",
+            &kind,
+            "--module-kind",
+            &module_kind,
+        ],
+    )
+}
+
+#[tauri::command]
+pub fn describe_workflow(input: DescribeWorkflowInput) -> Result<Value, String> {
+    run_json_command(CliTool::Platform, &["workflow", "describe", &input.id, "--json"])
+}
+
+#[tauri::command]
+pub fn validate_workflow_request(input: ValidateWorkflowRequestInput) -> Result<ValidationResult, String> {
+    let value = run_json_command(
+        CliTool::Platform,
+        &[
+            "workflow",
+            "validate",
+            "--request",
+            &input.request_path,
+            "--json",
+        ],
+    )?;
+    let valid = value
+        .get("valid")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
+    let errors = value
+        .get("errors")
+        .and_then(Value::as_array)
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(|item| item.as_str().map(ToOwned::to_owned))
+                .collect()
+        })
+        .unwrap_or_default();
+    Ok(ValidationResult { valid, errors })
+}
+
+#[tauri::command]
+pub fn validate_submodule_ports(input: ValidateSubmodulePortsInput) -> Result<ValidationResult, String> {
+    let ports_json = serde_json::to_string(&input.ports)
+        .map_err(|error| format!("failed to serialize ports: {error}"))?;
+    let value = run_json_command(
+        CliTool::Platform,
+        &[
+            "workflow",
+            "validate",
+            "--submodule",
+            &input.module_id,
+            "--ports",
+            &ports_json,
+            "--json",
+        ],
+    )?;
+    let valid = value
+        .get("valid")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
+    let errors = value
+        .get("errors")
+        .and_then(Value::as_array)
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(|item| item.as_str().map(ToOwned::to_owned))
+                .collect()
+        })
+        .unwrap_or_default();
+    Ok(ValidationResult { valid, errors })
+}
+
+#[tauri::command]
+pub fn get_submodule_template(input: GetSubmoduleTemplateInput) -> Result<Value, String> {
+    run_json_command(
+        CliTool::Platform,
+        &["analyze", "template", "submodule", &input.module_id],
+    )
 }
 
 #[tauri::command]
@@ -370,22 +529,20 @@ pub fn read_request_preview(input: ReadRequestPreviewInput) -> Result<RequestPre
             request_file_path.display()
         )
     })?;
-    let method = json
-        .get("method")
+    let workflow_id = json
+        .get("workflow_id")
         .and_then(Value::as_str)
         .map(ToOwned::to_owned);
-    let workflow = json_object
-        .get("method_config")
-        .and_then(Value::as_object)
-        .and_then(|method_config| method_config.get("workflow"))
+    let kind = json_object
+        .get("kind")
         .and_then(Value::as_str)
         .map(ToOwned::to_owned);
 
     Ok(RequestPreview {
         request_path,
         json,
-        method,
-        workflow,
+        workflow_id,
+        kind,
     })
 }
 
@@ -1097,8 +1254,10 @@ fn parse_artifacts_from_summary_json(summary_json: &Value) -> Result<Vec<Artifac
         merge_artifact_summary(&mut artifacts, path, None, "final_figures", true);
     }
 
-    for path in summary.global_figures {
-        merge_artifact_summary(&mut artifacts, path, None, "global_figures", true);
+    for child in summary.child_runs {
+        for path in child.final_figures {
+            merge_artifact_summary(&mut artifacts, path, None, "child_runs", true);
+        }
     }
 
     for artifact in summary.artifact_index {
@@ -1884,12 +2043,28 @@ mod tests {
         std::fs::create_dir_all(&temp_dir).expect("create request preview temp dir");
         let request_path = temp_dir.join("request.json");
         let request = json!({
-            "method": "mcscan",
-            "options": {
-                "threads": 4
-            },
-            "method_config": {
-                "workflow": "pairwise"
+            "schema_version": 3,
+            "kind": "workflow_request",
+            "workflow_id": "synteny",
+            "species": [
+                {
+                    "name": "query",
+                    "input_mode": "bed_cds",
+                    "bed": "query.bed",
+                    "cds": "query.cds"
+                },
+                {
+                    "name": "subject",
+                    "input_mode": "bed_cds",
+                    "bed": "subject.bed",
+                    "cds": "subject.cds"
+                }
+            ],
+            "reference_index": 0,
+            "parameters": {
+                "synteny": {
+                    "min_block_size": 5
+                }
             }
         });
 
@@ -1905,8 +2080,8 @@ mod tests {
         .expect("read request preview");
 
         assert_eq!(preview.request_path, request_path.to_string_lossy());
-        assert_eq!(preview.method.as_deref(), Some("mcscan"));
-        assert_eq!(preview.workflow.as_deref(), Some("pairwise"));
+        assert_eq!(preview.workflow_id.as_deref(), Some("synteny"));
+        assert_eq!(preview.kind.as_deref(), Some("workflow_request"));
         assert_eq!(preview.json, request);
 
         std::fs::remove_dir_all(&temp_dir).expect("cleanup request preview temp dir");
@@ -1934,8 +2109,8 @@ mod tests {
         })
         .expect("read request preview");
 
-        assert_eq!(preview.method, None);
-        assert_eq!(preview.workflow, None);
+        assert_eq!(preview.workflow_id, None);
+        assert_eq!(preview.kind, None);
         assert_eq!(preview.json, request);
 
         std::fs::remove_dir_all(&temp_dir).expect("cleanup request preview temp dir");
@@ -2048,7 +2223,11 @@ mod tests {
 
         let summary = json!({
             "status": "SUCCEEDED",
-            "workflow": "mcscan_pairwise",
+            "schema_version": 3,
+            "workflow": "synteny",
+            "method": "mcscan",
+            "task": {},
+            "species": [],
             "final_figures": [
                 outdir.join("report").join("dotplot.png").to_string_lossy().to_string()
             ],
@@ -2060,7 +2239,27 @@ mod tests {
                     "format": "png",
                     "preview": true
                 }
-            ]
+            ],
+            "logs": {},
+            "ui": {
+                "state": "SUCCEEDED",
+                "progress": 1.0,
+                "primary_figures": [
+                    outdir.join("report").join("dotplot.png").to_string_lossy().to_string()
+                ],
+                "summary_path": outdir.join("report").join("run_summary.json").to_string_lossy().to_string(),
+                "log_path": outdir.join("logs").join("run.log").to_string_lossy().to_string()
+            },
+            "scoring": {
+                "status": "not_run",
+                "scores": [],
+                "ranking": [],
+                "message": "",
+                "artifact_path": "",
+                "model_version": ""
+            },
+            "extensions": {},
+            "child_runs": []
         });
         std::fs::write(
             report_dir.join("run_summary.json"),
@@ -2100,11 +2299,26 @@ mod tests {
         let summary_path = report_dir.join("run_summary.json");
 
         let summary = json!({
+            "status": "SUCCEEDED",
+            "schema_version": 3,
+            "workflow": "synteny",
+            "task": {},
+            "species": [],
             "final_figures": [
                 outdir.join("report").join("dotplot.png").to_string_lossy().to_string()
             ],
-            "global_figures": [
-                outdir.join("report").join("karyotype.svg").to_string_lossy().to_string()
+            "child_runs": [
+                {
+                    "child_id": "query__subject",
+                    "pair_id": "query__subject",
+                    "species_a_name": "query",
+                    "species_b_name": "subject",
+                    "status": "SUCCEEDED",
+                    "outdir": outdir.to_string_lossy().to_string(),
+                    "final_figures": [
+                        outdir.join("report").join("karyotype.svg").to_string_lossy().to_string()
+                    ]
+                }
             ],
             "artifact_index": [
                 {
@@ -2121,7 +2335,24 @@ mod tests {
                     "format": "tsv",
                     "preview": false
                 }
-            ]
+            ],
+            "logs": {},
+            "ui": {
+                "state": "SUCCEEDED",
+                "progress": 1.0,
+                "primary_figures": [],
+                "summary_path": summary_path.to_string_lossy().to_string(),
+                "log_path": outdir.join("logs").join("run.log").to_string_lossy().to_string()
+            },
+            "scoring": {
+                "status": "not_run",
+                "scores": [],
+                "ranking": [],
+                "message": "",
+                "artifact_path": "",
+                "model_version": ""
+            },
+            "extensions": {}
         });
 
         std::fs::write(
@@ -2133,7 +2364,7 @@ mod tests {
         let artifacts = list_artifacts_from_outdir(&outdir).expect("list artifacts");
         assert_eq!(artifacts.len(), 3);
         assert_eq!(artifacts[0].source, "final_figures");
-        assert_eq!(artifacts[1].source, "global_figures");
+        assert_eq!(artifacts[1].source, "child_runs");
         assert_eq!(artifacts[2].source, "artifact_index");
         assert_eq!(artifacts[2].format, "tsv");
 

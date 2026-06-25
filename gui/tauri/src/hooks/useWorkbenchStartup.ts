@@ -7,7 +7,7 @@ import {
   type StartupResourceState,
   type WorkbenchStartupResources,
 } from "../models/jcvi-meow";
-import { getAnalysisSchema, getTemplate } from "../services/analysis";
+import { getWorkflowSchema, getTemplate } from "../services/analysis";
 import { getVersion } from "../services/version";
 
 function toErrorMessage(error: unknown): string {
@@ -25,7 +25,7 @@ function patchResource<TData>(
   };
 }
 
-export function useWorkbenchStartup(method = "mcscan") {
+export function useWorkbenchStartup(workflowId = "synteny") {
   const [reloadToken, setReloadToken] = useState(0);
   const [resources, setResources] = useState<WorkbenchStartupResources>(createLoadingWorkbenchStartupResources);
 
@@ -48,7 +48,7 @@ export function useWorkbenchStartup(method = "mcscan") {
         }
       });
 
-    void getTemplate(method)
+    void getTemplate("workflow", workflowId)
       .then((data) => {
         if (!cancelled) {
           setResources((current) => patchResource(current, "template", { status: "ready", data }));
@@ -62,7 +62,7 @@ export function useWorkbenchStartup(method = "mcscan") {
         }
       });
 
-    void getAnalysisSchema()
+    void getWorkflowSchema()
       .then((data) => {
         if (!cancelled) {
           setResources((current) => patchResource(current, "schema", { status: "ready", data }));
@@ -79,7 +79,7 @@ export function useWorkbenchStartup(method = "mcscan") {
     return () => {
       cancelled = true;
     };
-  }, [method, reloadToken]);
+  }, [workflowId, reloadToken]);
 
   const state = useMemo(() => deriveWorkbenchStartupState(resources), [resources]);
   const reload = useCallback(() => setReloadToken((current) => current + 1), []);

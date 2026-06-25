@@ -155,7 +155,7 @@ function startupHint(key: "version" | "template" | "schema", language: "zh-CN" |
       return "Checking GenomeLens and JCVI engine availability...";
     }
     if (key === "template") {
-      return "Loading the MCSCAN template...";
+      return "Loading the synteny workflow template...";
     }
     return "Preparing the workbench schema...";
   }
@@ -164,7 +164,7 @@ function startupHint(key: "version" | "template" | "schema", language: "zh-CN" |
     return "正在检查 GenomeLens 与 JCVI 引擎...";
   }
   if (key === "template") {
-    return "正在读取 MCSCAN 模板...";
+    return "正在读取 synteny 工作流模板...";
   }
   return "正在准备工作台 schema...";
 }

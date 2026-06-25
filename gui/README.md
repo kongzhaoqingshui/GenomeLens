@@ -2,9 +2,9 @@
 
 本目录包含 GenomeLens 桌面 GUI 实现，定位为 **Windows / macOS 用户交互外壳**，而不是新的业务核心。
 
-## 当前状态（0.9.20）
+## 当前状态（1.0.0-preview-1）
 
-- `gui/tauri/`：第一个先行 GUI 版本 **JCVI meow**，基于 Tauri v2 + React 18 构建，版本号 `0.9.20-preview.1`。
+- `gui/tauri/`：第一个先行 GUI 版本 **JCVI meow**，基于 Tauri v2 + React 18 构建，版本号 `1.0.0-preview-1`。
 - `gui/docs/`：GUI 本地开发文档索引（开发计划、风格指南、Git 工作流、构建说明）。
 - `gui/demo-data/`：GUI 开发期示例数据。
 
@@ -18,7 +18,7 @@ GUI 层**不负责**：
 - 持有平台核心业务规则。
 - 单独维护一套与 CLI 不一致的任务协议。
 
-GUI 通过本地 API / 命令桥接 / sidecar 与平台核心（`platform/`）通信，目标是复用同一套 `WorkflowRequest v2` 任务协议，不得把核心逻辑迁入前端。当前 GUI 源码仍有 `AnalysisRequest v1` 遗留，后续开发应优先按 `docs/开发手册/GUI先行开发/开发计划.md` 完成协议迁移。
+GUI 通过本地 API / 命令桥接 / sidecar 与平台核心（`platform/`）通信，目标是复用同一套 `WorkflowRequest v3` 任务协议，不得把核心逻辑迁入前端。当前 GUI 源码仍有旧请求草案模型遗留，后续开发应优先按 `docs/开发手册/GUI先行开发/开发计划.md` 完成协议迁移。
 
 ## 开发入口
 

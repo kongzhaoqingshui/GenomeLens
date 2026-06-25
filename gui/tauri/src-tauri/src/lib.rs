@@ -11,17 +11,22 @@ pub fn run() {
             commands::cancel_run,
             commands::check_environment,
             commands::create_project,
-            commands::get_analysis_schema,
+            commands::describe_workflow,
+            commands::get_submodule_template,
+            commands::get_workflow_schema,
             commands::get_template,
             commands::get_version,
             commands::list_artifacts,
             commands::list_projects,
+            commands::list_workflows,
             commands::open_path,
             commands::read_request_preview,
             commands::read_run_log,
             commands::read_run_snapshot,
             commands::read_summary,
-            commands::run_analysis
+            commands::run_analysis,
+            commands::validate_submodule_ports,
+            commands::validate_workflow_request
         ])
         .run(tauri::generate_context!())
         .expect("error while running JCVI meow");

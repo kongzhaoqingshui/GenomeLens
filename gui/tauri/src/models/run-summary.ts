@@ -28,7 +28,8 @@ export interface ScoringBlock {
   model_version?: string;
 }
 
-export interface PairwiseJobSummary {
+export interface ChildRunRecord {
+  child_id: string;
   pair_id: string;
   species_a_name: string;
   species_b_name: string;
@@ -61,24 +62,16 @@ export interface RunSummary {
   logs: Record<string, string>;
   ui: UiBlock;
   scoring: ScoringBlock;
+  extensions?: Record<string, unknown>;
+  child_runs?: ChildRunRecord[];
   analysis_request_path?: string;
-  species_count?: number;
-  pairing_strategy?: "all_vs_all_pairwise" | "reference_vs_targets" | string;
-  pairwise_jobs?: PairwiseJobSummary[];
-  pairwise_job_count?: number;
-  global_figures?: string[];
-  reference_name?: string;
-  native_multi_species?: boolean;
-  native_edges?: Array<Record<string, unknown>>;
-  native_layout?: Record<string, unknown>;
-  [methodDataKey: string]: unknown;
+  [extensionKey: string]: unknown;
 }
 
 export interface FigureAsset {
   path: string;
   name: string;
   format: string;
-  source: "final_figures" | "global_figures" | "artifact_index";
+  source: "final_figures" | "child_runs" | "artifact_index";
   preview: boolean;
 }
-

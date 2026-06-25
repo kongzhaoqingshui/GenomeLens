@@ -29,61 +29,56 @@
 - `load_params(path) -> (dict, Path)`
 - `resolve_param_path(base, value, *, required, must_exist) -> str`
 - `parse_bool(value) -> bool`
-- `build_species_from_params(params, base, mode) -> list[dict]`
-- `build_workflow_request(params, base, *, workflow) -> dict`
-- `build_histogram_workflow_request(params, base, *, input_files) -> dict`
-- `build_heatmap_workflow_request(params, base, *, matrix_path) -> dict`
-- `build_auto_jcvi_config(params, base, output_dir) -> Path`
-- `write_workflow_request(params, base, *, workflow) -> Path`
-- `write_request_payload(params, base, request) -> Path`
+- `coerce_submodule_params(raw, base, declared) -> dict`
+- `write_request_json(output_dir, request, *, filename) -> Path`
+- `build_run_command(genomelens_exe, request_path) -> list[str]`
+- `build_workflow_request(params, base, output_dir) -> dict`
+- `build_workflow_runtime_command(genomelens_exe, params, base, output_dir) -> list[str]`
+- `build_submodule_request(module_id, inputs, parameters, output_dir, *, formats, threads, force) -> dict`
+- `build_submodule_runtime_command(genomelens_exe, *, module_id, inputs, parameters, output_dir, ...) -> list[str]`
 - `setup_adapter_logging(output_dir, *, logger_name) -> Logger`
 - `close_adapter_logging(logger_name) -> None`
 - `resolve_genomelens_exe(params, base) -> Path`
-- `build_analyze_run_command(genomelens_exe, request_path) -> list[str]`
-- `build_analyze_submodule_command(genomelens_exe, *, module_id, input_ports, output_dir, ...) -> list[str]`
-- `build_mcscan_jcvi_command(genomelens_exe, input_dir, output_dir, jcvi_config_path, *, workflow_id) -> list[str]`
-- `run_process(argv) -> int`
-- `compress_output_intermediates(output_dir, *, ...) -> Path | None`
 
-禁止重新引入重型中心或旧单包插件相关 helper（`discover_mcscan_home`、`genomelens_shell_path`、`runtime_executable`、`GLJCVIMCSCAN_HOME`、`GENOMELENS_PLUGIN_RUNTIME` 等）。
+禁止重新引入重型中心或旧单包插件相关 helper（`discover_mcscan_home`、`genomelens_shell_path`、`runtime_executable`、`GLJCVIMCSCAN_HOME`、`GENOMELENS_PLUGIN_RUNTIME`、`build_mcscan_jcvi_command` 等）。
 
 ### 2. 独立轻量插件入口
 
-每个入口位于 `integrations/haiant_plugin/src/features/<feature>_entry.py`：
+每个入口位于 `integrations/haiant_plugin/src/features/<area>/<feature>_entry.py`：
 
 - 接收 `params.json` 路径。
-- 调用 `_core.py` 或 `features._shared` 生成命令。
+- 调用 `_core.py` 生成 `analyze run` 命令。
 - 返回外部 GenomeLens 的退出码。
 
 当前已提供的入口：
 
 **一站式工作流**
 
-- `synteny_entry.py`（`analyze workflow synteny`）
+- `onestop/synteny_entry.py`（`analyze workflow synteny`）
 
-**独立工作流插件（`analyze run` + `WorkflowRequest v2`）**
+**可编排子模块插件（`analyze run` + `SubmoduleRequest`）**
 
-- `dotplot_entry.py`（`graphics_dotplot`）
-- `synteny_figure_entry.py`（`graphics_synteny`）
-- `karyotype_entry.py`（`graphics_karyotype`）
-- `catalog_ortholog_entry.py`（`catalog_ortholog`）
-- `local_synteny_entry.py`（`local_synteny`）
-- `histogram_entry.py`（`graphics_histogram`）
-- `heatmap_entry.py`（`graphics_heatmap`）
+- `submodules/lightweight/pairwise_entry.py`（`jcvi.pairwise`）
+- `submodules/lightweight/dotplot_entry.py`（`jcvi.graphics_dotplot`）
+- `submodules/lightweight/synteny_figure_entry.py`（`jcvi.graphics_synteny`）
+- `submodules/lightweight/karyotype_entry.py`（`jcvi.graphics_karyotype`）
+- `submodules/lightweight/local_synteny_entry.py`（`jcvi.local_synteny`）
+- `submodules/lightweight/histogram_entry.py`（`jcvi.graphics_histogram`）
+- `submodules/lightweight/heatmap_entry.py`（`jcvi.graphics_heatmap`）
+- `submodules/aggregate/global_karyotype_entry.py`（`jcvi.graphics_karyotype_global`）
+- `submodules/aggregate/multi_local_synteny_entry.py`（`jcvi.local_synteny_multi`）
 
-**原子子模块插件（`analyze submodule`）**
-
-- `mcscan_pairwise_entry.py`（`jcvi.mcscan_pairwise`）
-- `global_karyotype_entry.py`（`jcvi.graphics_karyotype_global`）
-- `multi_local_synteny_entry.py`（`jcvi.local_synteny_multi`）
+> 注意：`jcvi.mcscan_pairwise` 与 `jcvi.catalog_ortholog` 已合并为 `jcvi.pairwise`；`emit_ortholog=true` 控制是否输出双向 ortholog 目录。
 
 ### 3. 插件资源配置
 
-每个插件的资源位于 `integrations/haiant_plugin/assets/features/<feature>/`：
+每个插件的资源位于 `integrations/haiant_plugin/assets/<area>/<kind>/<feature>/`：
 
 - `config.json`：HAIant 表单 metadata
 - `params.json`：可运行示例参数
 - `README.md`：打包说明
+
+其中 area 为 `onestop` 或 `submodules`，kind 为 `lightweight` 或 `aggregate`。
 
 要求：
 
@@ -102,17 +97,16 @@
 # 一站式工作流
 scripts/build_gljcvi_feature_plugin.ps1 -Feature synteny
 
-# 独立工作流插件
+# lightweight 子模块插件
+scripts/build_gljcvi_feature_plugin.ps1 -Feature pairwise
 scripts/build_gljcvi_feature_plugin.ps1 -Feature dotplot
 scripts/build_gljcvi_feature_plugin.ps1 -Feature synteny_figure
 scripts/build_gljcvi_feature_plugin.ps1 -Feature karyotype
-scripts/build_gljcvi_feature_plugin.ps1 -Feature catalog_ortholog
 scripts/build_gljcvi_feature_plugin.ps1 -Feature local_synteny
 scripts/build_gljcvi_feature_plugin.ps1 -Feature histogram
 scripts/build_gljcvi_feature_plugin.ps1 -Feature heatmap
 
-# 原子子模块插件
-scripts/build_gljcvi_feature_plugin.ps1 -Feature mcscan_pairwise
+# aggregate 子模块插件
 scripts/build_gljcvi_feature_plugin.ps1 -Feature global_karyotype
 scripts/build_gljcvi_feature_plugin.ps1 -Feature multi_local_synteny
 ```
@@ -120,15 +114,17 @@ scripts/build_gljcvi_feature_plugin.ps1 -Feature multi_local_synteny
 产物目录：
 
 - `app/onestop/gljcvi-synteny.zip`
-- `app/workflow-plugins/gljcvi-<feature>.zip`
-- `app/submodules/gljcvi-<feature>.zip`
+- `app/submodules/lightweight/gljcvi-<feature>.zip`（7 个）
+- `app/submodules/aggregate/gljcvi-<feature>.zip`（2 个）
+
+旧产物目录 `app/workflow-plugins/` 与 `app/gljcvi-auto/` 已废弃，应删除。旧入口 `mcscan_pairwise`、`catalog_ortholog` 与 `workflow_request v2` 独立可视化插件也不再构建。
 
 ### 5. 测试
 
 `integrations/haiant_plugin/tests/`：
 
-- `test_core.py`：测试 `_core.py` 的 `load_params`、`resolve_param_path`、`parse_bool`、`build_workflow_request`、`build_analyze_run_command`、`setup_adapter_logging`、`compress_output_intermediates`。
-- `test_feature_entries.py`：验证每个 feature 入口生成正确的 workflow/module_id 与命令。
+- `test_core.py`：测试 `_core.py` 的 `load_params`、`resolve_param_path`、`parse_bool`、`build_workflow_request`、`build_run_command`、`build_submodule_request`、`setup_adapter_logging`。
+- `test_feature_entries.py`：验证每个 feature 入口生成正确的 `module_id` / `workflow_id` 与 `analyze run` 命令。
 
 运行测试：
 
