@@ -79,7 +79,6 @@ from jcvi_genomelens.graphics.local_synteny.style import (
     SHORT_SEGMENT_CONTEXT_BP,
     SKIP_LINK_ALPHA,
     SKIP_LINK_COLOR,
-    SKIP_LINK_DEPTH_FACTOR,
     SKIP_LINK_LINEWIDTH,
     SKIP_LINK_ZORDER,
     SPECIAL_TRUNCATED_COLOR,
@@ -197,7 +196,7 @@ class MatplotlibLocalSyntenyRenderer:
             )
             for track in layout.tracks
         ]
-        min_skip_y = self._draw_links(ax, layout, track_positions)
+        self._draw_links(ax, layout, track_positions)
         ys = [_segment_y(track, segment) for track in layout.tracks for segment in track.segments]
         legend_y = min(ys) - 0.105 if ys else LEGEND_Y
         _draw_target_legend(ax, layout.target_legend_entries, y_base=legend_y)
@@ -209,8 +208,6 @@ class MatplotlibLocalSyntenyRenderer:
         ax.set_xlim(*_centered_x_limits(layout, species_label_x))
         if ys:
             bottom = min(legend_y - 0.04 if layout.target_legend_entries else min(ys) - 0.14, min(ys) - 0.14)
-            if min_skip_y is not None:
-                bottom = min(bottom, min_skip_y - 0.02)
             ax.set_ylim(max(0.0, bottom), min(1.0, max(ys) + 0.10))
         else:
             ax.set_ylim(0.0, 1.0)
@@ -237,12 +234,12 @@ class MatplotlibLocalSyntenyRenderer:
         ax: Axes,
         layout: LocalSyntenyLayout,
         track_positions: list[dict[str, PositionedGene]],
-    ) -> float | None:
+    ) -> None:
         """绘制相邻轨道间的共线性连线与跨空位跳轨补偿线
 
-        先在最底层画出浅虚线跳轨补偿弧线，再在其上绘制普通/高亮 ribbon 连线，
-        保证跳轨线即便与正常连线区域重合，也不会因叠加而让颜色加深。
-        返回所有跳轨弧线中最低的 y 坐标，供外层调整坐标轴下界。
+        先在最底层画出浅灰虚线跳轨补偿线，再在其上绘制普通/高亮 ribbon 连线，
+        保证跳轨线即便与正常连线区域重合，也不会因叠加而让颜色加深。跳轨线沿用
+        正常连线几何直接穿过缺失轨道，不再向下绕行，因此停留在轨道区间内。
         """
 
         drawable_links: list[tuple[AnchorLink, PositionedGene, PositionedGene]] = []
@@ -259,23 +256,15 @@ class MatplotlibLocalSyntenyRenderer:
             else:
                 drawable_links.append((link, left, right))
 
-        min_skip_y: float | None = None
-        if drawable_skips:
-            track_ys = sorted(track.y for track in layout.tracks)
-            gaps = [abs(track_ys[i] - track_ys[i + 1]) for i in range(len(track_ys) - 1)]
-            avg_gap = sum(gaps) / len(gaps) if gaps else TRACK_GAP * 0.5
-            deep_y = min(track_ys) - SKIP_LINK_DEPTH_FACTOR * avg_gap
-            min_skip_y = deep_y
-            for left, right in drawable_skips:
-                _draw_skip_link(
-                    ax,
-                    left,
-                    right,
-                    deep_y=deep_y,
-                    color=SKIP_LINK_COLOR,
-                    alpha=SKIP_LINK_ALPHA,
-                    zorder=SKIP_LINK_ZORDER,
-                )
+        for left, right in drawable_skips:
+            _draw_skip_link(
+                ax,
+                left,
+                right,
+                color=SKIP_LINK_COLOR,
+                alpha=SKIP_LINK_ALPHA,
+                zorder=SKIP_LINK_ZORDER,
+            )
 
         target_colors = _target_color_by_gene(layout)
         for link, left, right in drawable_links:
@@ -298,8 +287,6 @@ class MatplotlibLocalSyntenyRenderer:
                 alpha=alpha,
                 zorder=zorder,
             )
-
-        return min_skip_y
 
 
 # endregion
@@ -1908,24 +1895,25 @@ def _draw_skip_link(
     left: PositionedGene,
     right: PositionedGene,
     *,
-    deep_y: float,
     color: str,
     alpha: float,
     zorder: int,
 ) -> None:
-    """绘制跨空位跳轨补偿虚线弧线
+    """绘制跨空位跳轨补偿虚线
 
-    以基因中心为端点，控制点下沉到 ``deep_y``，形成比普通 ribbon 更深的 U 形曲线，
-    从缺失轨道下方绕过后再连到目标轨道。使用 ``fill=False`` 的虚线轮廓，作为最底层
-    背景补充，避免与正常灰色连线叠加后颜色加深。
+    沿用普通 ribbon 的连接几何：以左右基因中心为端点，控制点取两端 y 的中点，
+    画出与正常连线同形的平滑贝塞尔曲线，直接穿过中间缺失轨道连到目标基因，
+    不再向下绕行。使用 ``fill=False`` 的浅灰虚线作为最底层背景补充，避免与正常
+    灰色连线叠加后颜色加深，同时保证 0-2 真实同源关系不因 0-1 缺失而丢失。
     """
 
     left_point = (left.mapped.x, left.y)
     right_point = (right.mapped.x, right.y)
+    mid_y = (left.y + right.y) / 2.0
     verts = [
         left_point,
-        (left_point[0], deep_y),
-        (right_point[0], deep_y),
+        (left_point[0], mid_y),
+        (right_point[0], mid_y),
         right_point,
     ]
     codes = [MplPath.MOVETO, MplPath.CURVE4, MplPath.CURVE4, MplPath.CURVE4]

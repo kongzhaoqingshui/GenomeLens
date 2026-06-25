@@ -27,12 +27,11 @@ GENE_REVERSE_COLOR = "#4f7fbd"
 LABEL_BG_COLOR = "#fff8dc"
 LABEL_TEXT_COLOR = "#30363d"
 BACKGROUND_LINK_COLOR = "#c9c9c9"
-# 跳轨补偿线：比背景连线更浅，低透明度，作为最底层虚线弧线
+# 跳轨补偿线：比背景连线更浅，低透明度，沿正常连线几何穿过缺失轨道的最底层虚线
 SKIP_LINK_COLOR = "#dfdfdf"
 SKIP_LINK_ALPHA = 0.42
 SKIP_LINK_LINEWIDTH = 0.7
 SKIP_LINK_ZORDER = -1
-SKIP_LINK_DEPTH_FACTOR = 3.0
 # 截断片段警示色：刻意避开 HIGHLIGHT_LINK_COLORS(目标基因类别色)，
 # 否则会与第 1 个目标的红 #c94a4f 撞色，让“被压缩失真”的中性提示看起来像“目标命中”
 SPECIAL_TRUNCATED_COLOR = "#8c5e3c"
