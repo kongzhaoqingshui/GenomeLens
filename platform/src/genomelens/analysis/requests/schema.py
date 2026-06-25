@@ -17,11 +17,11 @@ WORKFLOW_REQUEST_JSON_SCHEMA: dict[str, object] = {
     "required": ["schema_version", "kind", "workflow_id", "output"],
     "additionalProperties": False,
     "properties": {
-        "schema_version": {"type": "integer", "const": 2},
+        "schema_version": {"type": "integer", "const": 3},
         "kind": {"type": "string", "const": "workflow_request"},
         "workflow_id": {
             "type": "string",
-            "enum": ["synteny", "local_synteny", "graphics_histogram", "graphics_heatmap"],
+            "enum": ["synteny"],
         },
         "species": {"type": "array", "items": {"$ref": "#/$defs/species_input"}, "default": []},
         "reference_index": {"type": "integer", "minimum": 0, "default": 0},
@@ -95,6 +95,7 @@ WORKFLOW_REQUEST_JSON_SCHEMA: dict[str, object] = {
                 "dist": {"type": "integer", "minimum": 1, "default": 20},
                 "iter": {"type": "integer", "minimum": 1, "default": 1},
                 "allow_simplified_fallback": {"type": "boolean", "default": False},
+                "min_block_size": {"type": "integer", "minimum": 1, "default": 5},
             },
         },
         "local_synteny_parameters": {

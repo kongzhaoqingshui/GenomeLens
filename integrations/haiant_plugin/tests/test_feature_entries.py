@@ -59,15 +59,12 @@ def _write_params_from_sample(
     return params_path
 
 
-def _submodule_argv(argv: list[str]) -> tuple[str, dict[str, object], str]:
-    module_index = argv.index("submodule") + 1
-    ports_index = argv.index("--input-ports") + 1
-    output_index = argv.index("--output-dir") + 1
-    return (
-        argv[module_index],
-        cast(dict[str, object], json.loads(argv[ports_index])),
-        argv[output_index],
-    )
+def _load_request(argv: list[str]) -> dict[str, Any]:
+    """Load the request JSON referenced by an ``analyze run`` argv."""
+
+    run_index = argv.index("run")
+    request_path = Path(argv[run_index + 1])
+    return cast(dict[str, Any], json.loads(request_path.read_text(encoding="utf-8")))
 
 
 def _touch(path: Path) -> str:
@@ -190,7 +187,7 @@ SUBMODULE_CASES: list[
     SUBMODULE_CASES,
     ids=[case[1] for case in SUBMODULE_CASES],
 )
-def test_submodule_entry_builds_submodule_command(
+def test_submodule_entry_builds_submodule_request(
     tmp_path: Path,
     module: FeatureEntryModule,
     module_id: str,
@@ -204,12 +201,14 @@ def test_submodule_entry_builds_submodule_command(
     argv = module.build_runtime_command(params_path)
 
     assert argv[:4] == ["cmd.exe", "/c", str(tmp_path / "GenomeLens.cmd"), "analyze"]
-    assert argv[4] == "submodule"
-    found_id, ports, output_dir = _submodule_argv(argv)
-    assert found_id == module_id
-    assert ports  # every submodule wires at least one input port
-    assert output_dir == str(tmp_path / "output")
-    assert argv[-1] == "--force"
+    assert argv[4] == "run"
+    request = _load_request(argv)
+    assert request["schema_version"] == 3
+    assert request["kind"] == "submodule_request"
+    assert request["module_id"] == module_id
+    assert request["inputs"]  # every submodule wires at least one input port
+    assert request["output"]["directory"] == str(tmp_path / "output")
+    assert request["output"]["force"] is True
     assert logging.getLogger(logger_name).handlers == []
 
 
@@ -217,8 +216,8 @@ def test_dotplot_entry_requires_anchors(tmp_path: Path) -> None:
     argv = dotplot_entry.build_runtime_command(
         _write_params_from_sample(tmp_path, overrides=_dotplot_overrides(tmp_path))
     )
-    _module_id, ports, _output = _submodule_argv(argv)
-    assert "anchors" in ports
+    request = _load_request(argv)
+    assert "anchors" in request["inputs"]
 
     with pytest.raises(Exception, match="anchors"):
         dotplot_entry.build_runtime_command(
@@ -232,9 +231,9 @@ def test_local_synteny_entry_splits_target_genes(tmp_path: Path) -> None:
             tmp_path, overrides=_local_synteny_overrides(tmp_path)
         )
     )
-    _module_id, ports, _output = _submodule_argv(argv)
-    assert ports["target_genes"] == ["qgene1", "qgene2"]
-    assert "blocks" in ports
+    request = _load_request(argv)
+    assert request["inputs"]["target_genes"] == ["qgene1", "qgene2"]
+    assert "blocks" in request["inputs"]
 
 
 def test_histogram_entry_wires_numeric_files(tmp_path: Path) -> None:
@@ -242,8 +241,8 @@ def test_histogram_entry_wires_numeric_files(tmp_path: Path) -> None:
     argv = histogram_entry.build_runtime_command(
         _write_params_from_sample(tmp_path, overrides=overrides)
     )
-    _module_id, ports, _output = _submodule_argv(argv)
-    assert ports["numeric_files"] == [overrides["input_files"]]
+    request = _load_request(argv)
+    assert request["inputs"]["numeric_files"] == [overrides["input_files"]]
 
 
 def test_heatmap_entry_wires_matrix_csv(tmp_path: Path) -> None:
@@ -251,33 +250,27 @@ def test_heatmap_entry_wires_matrix_csv(tmp_path: Path) -> None:
     argv = heatmap_entry.build_runtime_command(
         _write_params_from_sample(tmp_path, overrides=overrides)
     )
-    _module_id, ports, _output = _submodule_argv(argv)
-    assert ports["matrix_csv"] == overrides["input_file"]
+    request = _load_request(argv)
+    assert request["inputs"]["matrix_csv"] == overrides["input_file"]
 
 
-def test_synteny_entry_builds_workflow_command(tmp_path: Path) -> None:
+def test_synteny_entry_builds_workflow_request(tmp_path: Path) -> None:
     params_path = _write_params_from_sample(tmp_path)
 
     argv = synteny_entry.build_runtime_command(params_path)
 
     assert argv[:4] == ["cmd.exe", "/c", str(tmp_path / "GenomeLens.cmd"), "analyze"]
-    assert argv[4] == "workflow"
-    assert argv[5] == "synteny"
-    assert Path(argv[6]).is_dir()
-    assert Path(argv[7]) == tmp_path / "output"
-    assert argv[8] == "--jcvi-config"
-    jcvi_config_path = Path(argv[9])
-    assert jcvi_config_path == tmp_path / "output" / "jcvi.config.json"
-    assert argv[10] == "--force"
-
-    config = json.loads(jcvi_config_path.read_text(encoding="utf-8"))
-    assert config["schema_version"] == 2
-    assert config["mcscan"]["workflow"] == "local_synteny"
-    assert config["local_synteny"]["target_gene_ids"] == ["qgene1"]
-    assert config["runtime"]["threads"] == 2
-    assert config["runtime"]["formats"] == ["png"]
-    assert config["mcscan"]["min_block_size"] == 1
-    assert config["mcscan"]["reference"] == "query"
+    assert argv[4] == "run"
+    request = _load_request(argv)
+    assert request["schema_version"] == 3
+    assert request["kind"] == "workflow_request"
+    assert request["workflow_id"] == "synteny"
+    assert len(request["species"]) == 2
+    assert request["reference_index"] == 0
+    assert request["parameters"]["local_synteny"]["target_gene_ids"] == ["qgene1"]
+    assert request["runtime"]["threads"] == 2
+    assert request["output"]["formats"] == ["png"]
+    assert request["parameters"]["synteny"]["min_block_size"] == 1
     assert logging.getLogger("gljcvi_synteny").handlers == []
 
 
@@ -286,11 +279,9 @@ def test_synteny_entry_routes_without_targets(tmp_path: Path) -> None:
 
     argv = synteny_entry.build_runtime_command(params_path)
 
-    assert argv[4] == "workflow"
-    assert argv[5] == "synteny"
-    config = json.loads(Path(argv[9]).read_text(encoding="utf-8"))
-    assert config["mcscan"]["workflow"] == "graphics_synteny"
-    assert config["local_synteny"]["target_gene_ids"] == []
+    request = _load_request(argv)
+    assert request["workflow_id"] == "synteny"
+    assert request["parameters"]["local_synteny"]["target_gene_ids"] == []
 
 
 def test_synteny_entry_optimize_auto_maps_all_flags(tmp_path: Path) -> None:
@@ -298,8 +289,8 @@ def test_synteny_entry_optimize_auto_maps_all_flags(tmp_path: Path) -> None:
 
     argv = synteny_entry.build_runtime_command(params_path)
 
-    config = json.loads(Path(argv[9]).read_text(encoding="utf-8"))
-    auto_opt = config["local_synteny"]["auto_optimization"]
+    request = _load_request(argv)
+    auto_opt = request["parameters"]["plot"]["auto_optimization"]
     assert auto_opt["optimize_figsize"] is True
     assert auto_opt["rewrite_layout_links"] is True
     assert auto_opt["optimize_karyotype_labels"] is True
@@ -320,13 +311,13 @@ def test_synteny_entry_uses_genomelens_path(tmp_path: Path) -> None:
     assert argv[0] == str(tmp_path / "GenomeLens.exe")
 
 
-def test_synteny_entry_split_targets_maps_to_config(tmp_path: Path) -> None:
+def test_synteny_entry_split_targets_maps_to_parameters(tmp_path: Path) -> None:
     params_path = _write_params_from_sample(tmp_path, overrides={"split_targets": True})
 
     argv = synteny_entry.build_runtime_command(params_path)
 
-    config = json.loads(Path(argv[9]).read_text(encoding="utf-8"))
-    assert config["local_synteny"]["split_targets"] is True
+    request = _load_request(argv)
+    assert request["parameters"]["local_synteny"]["split_targets"] is True
 
 
 def test_synteny_entry_main_compresses_intermediates(tmp_path: Path) -> None:
@@ -338,14 +329,14 @@ def test_synteny_entry_main_compresses_intermediates(tmp_path: Path) -> None:
     output_dir = tmp_path / "output"
     assert (output_dir / "intermediates.zip").is_file()
     assert (output_dir / "intermediates.zip.deletable").is_file()
-    assert not (output_dir / "jcvi.config.json").exists()
+    assert not (output_dir / "workflow_request.json").exists()
     assert not (output_dir / "run.log").exists()
 
     import zipfile
 
     with zipfile.ZipFile(output_dir / "intermediates.zip") as zf:
         names = zf.namelist()
-        assert "jcvi.config.json" in names
+        assert "workflow_request.json" in names
         assert "run.log" in names
 
 
@@ -362,7 +353,7 @@ def test_synteny_entry_main_skips_compression_on_failure(tmp_path: Path) -> None
     assert exit_code == 1
     output_dir = tmp_path / "output"
     assert not (output_dir / "intermediates.zip").exists()
-    assert (output_dir / "jcvi.config.json").is_file()
+    assert (output_dir / "workflow_request.json").is_file()
     assert (output_dir / "run.log").is_file()
 
 

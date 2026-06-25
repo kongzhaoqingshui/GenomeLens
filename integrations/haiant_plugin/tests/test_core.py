@@ -6,13 +6,18 @@ import pytest
 
 from genomelens_haiant_plugin import (
     PluginError,
-    build_analyze_submodule_command,
+    build_run_command,
+    build_submodule_request,
+    build_submodule_runtime_command,
+    build_workflow_request,
+    build_workflow_runtime_command,
     close_adapter_logging,
     coerce_submodule_params,
     load_params,
     parse_bool,
     resolve_param_path,
     setup_adapter_logging,
+    write_request_json,
 )
 
 
@@ -53,39 +58,119 @@ def test_setup_adapter_logging_closes_previous_file_handler(tmp_path: Path) -> N
     close_adapter_logging()
 
 
-def test_build_analyze_submodule_command_dispatches_cmd_files() -> None:
-    argv = build_analyze_submodule_command(
-        "C:/GenomeLens/genomelens.cmd",
-        module_id="jcvi.graphics_dotplot",
-        input_ports={"species_pair": "input", "anchors": "pair.anchors"},
-        output_dir="output",
-        force=True,
-    )
+def test_write_request_json_writes_pretty_json(tmp_path: Path) -> None:
+    path = write_request_json(tmp_path, {"schema_version": 3, "kind": "test"})
+
+    assert path == tmp_path / "request.json"
+    assert path.is_file()
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    assert payload == {"schema_version": 3, "kind": "test"}
+
+
+def test_build_run_command_dispatches_cmd_files() -> None:
+    argv = build_run_command("C:/GenomeLens/genomelens.cmd", "output/request.json")
 
     assert argv[:3] == ["cmd.exe", "/c", "C:\\GenomeLens\\genomelens.cmd"]
-    assert argv[3:6] == ["analyze", "submodule", "jcvi.graphics_dotplot"]
-    assert argv[6] == "--input-ports"
-    assert json.loads(argv[7]) == {"species_pair": "input", "anchors": "pair.anchors"}
-    assert argv[-1] == "--force"
+    assert argv[3:] == ["analyze", "run", "output/request.json"]
 
 
-def test_build_analyze_submodule_command_dispatches_executables() -> None:
-    argv = build_analyze_submodule_command(
-        "C:/GenomeLens/GenomeLens.exe",
-        module_id="jcvi.mcscan_pairwise",
-        input_ports={"species_pair": "input"},
-        output_dir="output",
-        params={"cscore": 0.7},
-        formats=["png", "svg"],
-        force=True,
-    )
+def test_build_run_command_dispatches_executables() -> None:
+    argv = build_run_command("C:/GenomeLens/GenomeLens.exe", "output/request.json")
 
     assert argv[0] == "C:\\GenomeLens\\GenomeLens.exe"
-    assert argv[1:3] == ["analyze", "submodule"]
-    params_index = argv.index("--params") + 1
-    assert json.loads(argv[params_index]) == {"cscore": 0.7}
-    formats_index = argv.index("--formats") + 1
-    assert argv[formats_index] == "png,svg"
+    assert argv[1:] == ["analyze", "run", "output/request.json"]
+
+
+def test_build_workflow_request_includes_species_and_parameters(tmp_path: Path) -> None:
+    species_dir = tmp_path / "species"
+    species_dir.mkdir(parents=True)
+    (species_dir / "query.bed").write_text("chr1\t1\t100\tg1\n", encoding="utf-8")
+    (species_dir / "query.cds").write_text(">g1\nATGC\n", encoding="utf-8")
+    (species_dir / "subject.bed").write_text("chr1\t1\t100\tg1\n", encoding="utf-8")
+    (species_dir / "subject.cds").write_text(">g1\nATGC\n", encoding="utf-8")
+
+    params = {
+        "input_dir": str(species_dir),
+        "reference": "query",
+        "target_gene_ids": "qgene1",
+        "align_soft": "blast",
+        "min_block_size": 3,
+        "threads": 4,
+        "formats": "png",
+        "optimize_auto": True,
+    }
+
+    request = build_workflow_request(params, tmp_path, tmp_path / "output")
+
+    assert request["schema_version"] == 3
+    assert request["kind"] == "workflow_request"
+    assert request["workflow_id"] == "synteny"
+    assert len(request["species"]) == 2
+    assert request["reference_index"] == 0
+    assert request["parameters"]["synteny"]["min_block_size"] == 3
+    assert request["parameters"]["local_synteny"]["target_gene_ids"] == ["qgene1"]
+    assert request["output"]["formats"] == ["png"]
+    assert request["runtime"]["threads"] == 4
+    assert request["parameters"]["plot"]["auto_optimization"]["optimize_figsize"] is True
+
+
+def test_build_submodule_request_assembles_ports_and_parameters() -> None:
+    request = build_submodule_request(
+        "jcvi.graphics_histogram",
+        {"numeric_files": ["values.txt"]},
+        {"bins": 10},
+        "output",
+        formats=["svg"],
+        threads=2,
+    )
+
+    assert request["schema_version"] == 3
+    assert request["kind"] == "submodule_request"
+    assert request["module_id"] == "jcvi.graphics_histogram"
+    assert request["inputs"]["numeric_files"] == ["values.txt"]
+    assert request["parameters"] == {"bins": 10}
+    assert request["output"]["formats"] == ["svg"]
+    assert request["runtime"]["threads"] == 2
+
+
+def test_build_submodule_runtime_command_writes_request_and_returns_argv(
+    tmp_path: Path,
+) -> None:
+    argv = build_submodule_runtime_command(
+        tmp_path / "GenomeLens.exe",
+        module_id="jcvi.graphics_histogram",
+        inputs={"numeric_files": ["values.txt"]},
+        parameters={"bins": 10},
+        output_dir=tmp_path / "output",
+    )
+
+    assert argv[0] == str(tmp_path / "GenomeLens.exe")
+    assert argv[1:3] == ["analyze", "run"]
+    request_path = Path(argv[3])
+    assert request_path.name == "submodule_request.json"
+    assert json.loads(request_path.read_text(encoding="utf-8"))["module_id"] == "jcvi.graphics_histogram"
+
+
+def test_build_workflow_runtime_command_writes_request_and_returns_argv(
+    tmp_path: Path,
+) -> None:
+    species_dir = tmp_path / "species"
+    species_dir.mkdir(parents=True)
+    (species_dir / "query.bed").write_text("chr1\t1\t100\tg1\n", encoding="utf-8")
+    (species_dir / "query.cds").write_text(">g1\nATGC\n", encoding="utf-8")
+    (species_dir / "subject.bed").write_text("chr1\t1\t100\tg1\n", encoding="utf-8")
+    (species_dir / "subject.cds").write_text(">g1\nATGC\n", encoding="utf-8")
+
+    params = {"input_dir": str(species_dir), "formats": "svg"}
+    argv = build_workflow_runtime_command(
+        tmp_path / "GenomeLens.exe", params, tmp_path, tmp_path / "output"
+    )
+
+    assert argv[0] == str(tmp_path / "GenomeLens.exe")
+    assert argv[1:3] == ["analyze", "run"]
+    request_path = Path(argv[3])
+    assert request_path.name == "workflow_request.json"
+    assert json.loads(request_path.read_text(encoding="utf-8"))["workflow_id"] == "synteny"
 
 
 def test_coerce_submodule_params_coerces_declared_types(tmp_path: Path) -> None:
@@ -133,7 +218,7 @@ def test_compress_output_intermediates_packs_and_cleans(tmp_path: Path) -> None:
     results_dir = tmp_path / "results"
     results_dir.mkdir()
     (results_dir / "figure.png").write_text("figure", encoding="utf-8")
-    (tmp_path / "jcvi.config.json").write_text("{}", encoding="utf-8")
+    (tmp_path / "workflow_request.json").write_text("{}", encoding="utf-8")
     (tmp_path / "run.log").write_text("log", encoding="utf-8")
     temp_dir = tmp_path / "temp"
     temp_dir.mkdir()
@@ -144,7 +229,7 @@ def test_compress_output_intermediates_packs_and_cleans(tmp_path: Path) -> None:
     assert archive is not None
     assert archive.name == "intermediates.zip"
     assert (tmp_path / "intermediates.zip.deletable").is_file()
-    assert not (tmp_path / "jcvi.config.json").exists()
+    assert not (tmp_path / "workflow_request.json").exists()
     assert not (tmp_path / "run.log").exists()
     assert not (tmp_path / "temp").exists()
     assert (results_dir / "figure.png").is_file()
@@ -153,6 +238,6 @@ def test_compress_output_intermediates_packs_and_cleans(tmp_path: Path) -> None:
 
     with zipfile.ZipFile(archive) as zf:
         names = zf.namelist()
-        assert "jcvi.config.json" in names
+        assert "workflow_request.json" in names
         assert "run.log" in names
         assert "temp/anchors.txt" in names

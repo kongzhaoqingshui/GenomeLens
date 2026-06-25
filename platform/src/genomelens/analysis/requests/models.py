@@ -210,6 +210,7 @@ class SyntenyParameters:
     cscore: float = 0.7        # 同源比对 cscore 阈值
     dist: int = 20             # 共线性锚点距离阈值
     iter: int = 1              # block 过滤迭代次数
+    min_block_size: int = 5    # 最小 block 大小
     allow_simplified_fallback: bool = False  # 是否允许简化回退
     # fmt: on
 
@@ -222,6 +223,7 @@ class SyntenyParameters:
             "cscore": self.cscore,
             "dist": self.dist,
             "iter": self.iter,
+            "min_block_size": self.min_block_size,
             "allow_simplified_fallback": self.allow_simplified_fallback,
         }
 
@@ -231,7 +233,7 @@ class SyntenyParameters:
 
         _reject_unknown_fields(
             data,
-            {"align_soft", "dbtype", "cscore", "dist", "iter", "allow_simplified_fallback"},
+            {"align_soft", "dbtype", "cscore", "dist", "iter", "min_block_size", "allow_simplified_fallback"},
             "parameters.synteny",
         )
         return cls(
@@ -240,6 +242,7 @@ class SyntenyParameters:
             cscore=_float(data.get("cscore"), default=0.7),
             dist=_int(data.get("dist"), default=20),
             iter=_int(data.get("iter"), default=1),
+            min_block_size=_int(data.get("min_block_size"), default=5),
             allow_simplified_fallback=_bool(data.get("allow_simplified_fallback"), default=False),
         )
 
@@ -480,14 +483,14 @@ class WorkflowRequest:
     """WorkflowRequest(工作流请求)：CLI、GUI、插件和 Agent 共用的新公开入口"""
 
     # fmt: off
-    workflow_id: str  # 工作流 ID（如 synteny、graphics_histogram、graphics_heatmap）
+    workflow_id: str  # 工作流 ID，V3 仅保留 synteny
     species: list[WorkflowSpeciesInput] = field(default_factory=list)  # 参与分析的物种列表
     reference_index: int = 0  # 参考物种在 species[] 中的索引
-    inputs: dict[str, object] = field(default_factory=dict)  # plot-only 或子模块输入
+    inputs: dict[str, object] = field(default_factory=dict)  # 子模块输入端口占位
     parameters: WorkflowParameters = field(default_factory=WorkflowParameters)  # 类型化参数集合
     output: WorkflowOutput = field(default_factory=lambda: WorkflowOutput(directory="workspace/output"))
     runtime: WorkflowRuntime = field(default_factory=WorkflowRuntime)
-    schema_version: int = 2
+    schema_version: int = 3
     kind: str = "workflow_request"
     # fmt: on
 
@@ -527,10 +530,15 @@ class WorkflowRequest:
             "WorkflowRequest",
         )
         species = [_nested(WorkflowSpeciesInput, item) for item in _list(data.get("species"))]
+        workflow_id = _str(data.get("workflow_id"))
+        if workflow_id != "synteny":
+            raise ValueError(
+                f"WorkflowRequest V3 workflow_id 只能是 'synteny'，收到：{workflow_id!r}"
+            )
         return cls(
-            schema_version=_int(data.get("schema_version"), default=2),
+            schema_version=_int(data.get("schema_version"), default=3),
             kind=_str(data.get("kind"), default="workflow_request"),
-            workflow_id=_str(data.get("workflow_id")),
+            workflow_id=workflow_id,
             species=species,
             reference_index=_int(data.get("reference_index"), default=0),
             inputs=_dict(data.get("inputs")),
@@ -549,13 +557,13 @@ class WorkflowRequest:
     def is_local_synteny(self) -> bool:
         """返回当前请求是否需要目标基因局部共线性路径"""
 
-        return self.workflow_id == "local_synteny" or bool(self.target_gene_ids)
+        return bool(self.parameters.local_synteny.target_gene_ids)
 
     @property
     def is_plot_only(self) -> bool:
-        """返回当前请求是否为纯图件工作流"""
+        """返回当前请求是否为纯图件工作流（V3 已取消，始终为 False）"""
 
-        return self.workflow_id in {"graphics_histogram", "graphics_heatmap"}
+        return False
 
 
 def workflow_template_request() -> WorkflowRequest:

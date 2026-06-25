@@ -1,4 +1,4 @@
-"""workflow request(工作流请求) 到内部执行请求的映射"""
+"""WorkflowRequest 到内部 synteny 执行请求的映射"""
 
 # region import
 from __future__ import annotations
@@ -6,8 +6,6 @@ from __future__ import annotations
 from pathlib import Path
 
 from genomelens.analysis.planning.models import (
-    HeatmapExecutionRequest,
-    HistogramExecutionRequest,
     PairwiseArtifactInputs,
     SyntenyExecutionRequest,
 )
@@ -139,7 +137,7 @@ def build_synteny_request(
         additional_species=list(additional_species or []),
         outdir=outdir,
         threads=int(runtime.threads if runtime.threads is not None else 4),
-        min_block_size=int(runtime.min_block_size if runtime.min_block_size is not None else 5),
+        min_block_size=int(request.parameters.synteny.min_block_size),
         formats=request.output.formats,
         force=force,
         engine_workflow=engine_workflow,
@@ -192,70 +190,20 @@ def to_mcscan_request(request: WorkflowRequest) -> SyntenyExecutionRequest:
     )
 
 
-def to_histogram_request(request: WorkflowRequest) -> HistogramExecutionRequest:
-    """把 WorkflowRequest 转为 plot-only histogram 请求"""
-
-    params = request.parameters.histogram
-    inputs = [_path(item) for item in params.inputs]
-    if not inputs:
-        raise InputValidationError("graphics_histogram requires at least one histogram input file")
-    return HistogramExecutionRequest(
-        inputs=inputs,
-        outdir=_path(request.output.directory),
-        columns=list(params.columns) or [0],
-        formats=request.output.formats,
-        engine_path=request.runtime.jcvi_engine,
-        force=bool(request.output.force),
-        histogram_skip=params.skip,
-        histogram_bins=params.bins,
-        histogram_vmin=params.vmin,
-        histogram_vmax=params.vmax,
-        histogram_xlabel=params.xlabel,
-        histogram_title=params.title,
-        histogram_base=params.base,
-        histogram_facet=params.facet,
-        histogram_fill=params.fill,
-        dpi=request.parameters.plot.dpi,
-        log_level=str(request.runtime.log_level or "INFO").upper(),
-        verbose=bool(request.runtime.verbose),
-        console_log=bool(request.runtime.console_log),
-    )
-
-
-def to_heatmap_request(request: WorkflowRequest) -> HeatmapExecutionRequest:
-    """把 WorkflowRequest 转为 heatmap 绘制请求"""
-
-    params = request.parameters.heatmap
-    matrix = _path(params.matrix or str(request.inputs.get("matrix") or ""))
-    if not matrix.is_file():
-        raise InputValidationError(f"热图矩阵文件不存在：{matrix}")
-
-    rowgroups = _path(params.rowgroups) if str(params.rowgroups).strip() else None
-    if rowgroups is not None and not rowgroups.is_file():
-        raise InputValidationError(f"行分组文件不存在：{rowgroups}")
-
-    return HeatmapExecutionRequest(
-        matrix=matrix,
-        outdir=_path(request.output.directory),
-        formats=request.output.formats,
-        engine_path=request.runtime.jcvi_engine,
-        figsize=request.parameters.plot.figsize,
-        dpi=request.parameters.plot.dpi,
-        cmap=params.cmap,
-        groups=params.groups,
-        rowgroups=rowgroups,
-        horizontalbar=params.horizontalbar,
-        force=bool(request.output.force),
-        log_level=str(request.runtime.log_level or "INFO").upper(),
-    )
-
-
 def validate_workflow_species(request: WorkflowRequest) -> list[GenomeInputSpec]:
     """校验并转换 species[]"""
 
     species = [species_to_genome_input(item) for item in request.species]
-    if len(species) < 2 and request.workflow_id in {"synteny", "local_synteny"}:
+    if len(species) < 2 and request.workflow_id == "synteny":
         raise InputValidationError(messages.REQUEST_TOO_FEW_SPECIES)
     if not (0 <= request.reference_index < len(species)) and species:
         raise InputValidationError(messages.REQUEST_REFERENCE_INDEX_OUT_OF_RANGE.format(index=request.reference_index))
     return species
+
+
+__all__ = [
+    "build_synteny_request",
+    "species_to_genome_input",
+    "to_mcscan_request",
+    "validate_workflow_species",
+]

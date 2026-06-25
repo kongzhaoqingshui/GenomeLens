@@ -6,13 +6,11 @@ from __future__ import annotations
 from itertools import combinations
 from pathlib import Path
 
-from genomelens.analysis.execution.request_mapping import (
+from genomelens.analysis.execution.summary_builder import pair_id
+from genomelens.analysis.execution.workflow_mapping import (
     build_synteny_request,
-    to_heatmap_request,
-    to_histogram_request,
     validate_workflow_species,
 )
-from genomelens.analysis.execution.summary_builder import pair_id
 from genomelens.analysis.optimization.optimizer import PlanOptimizer
 from genomelens.analysis.planning.models import (
     ExecutionPlan,
@@ -39,47 +37,9 @@ class WorkflowPlanner:
     def build_raw_plan(self, request: WorkflowRequest) -> ExecutionPlan:
         """构建未经优化的原始执行计划"""
 
-        if request.workflow_id == "graphics_histogram":
-            return self._histogram_plan(request)
-        if request.workflow_id == "graphics_heatmap":
-            return self._heatmap_plan(request)
-        if request.workflow_id in {"synteny", "local_synteny"}:
-            return self._synteny_plan(request)
-        raise InputValidationError(f"unsupported workflow_id: {request.workflow_id}")
-
-    def _histogram_plan(self, request: WorkflowRequest) -> ExecutionPlan:
-        """构建 histogram 执行计划"""
-
-        step = ExecutionStep(
-            step_id="graphics_histogram",
-            kind="graphics_histogram",
-            payload=to_histogram_request(request),
-            outputs=[StepOutputRef("figures", "figure", required=True)],
-        )
-        return ExecutionPlan(
-            plan_id="graphics_histogram",
-            workflow_id=request.workflow_id,
-            outdir=Path(request.output.directory).expanduser().resolve(strict=False),
-            force=request.output.force,
-            steps=[step],
-        )
-
-    def _heatmap_plan(self, request: WorkflowRequest) -> ExecutionPlan:
-        """构建 heatmap 执行计划"""
-
-        step = ExecutionStep(
-            step_id="graphics_heatmap",
-            kind="graphics_heatmap",
-            payload=to_heatmap_request(request),
-            outputs=[StepOutputRef("figures", "figure", required=True)],
-        )
-        return ExecutionPlan(
-            plan_id="graphics_heatmap",
-            workflow_id=request.workflow_id,
-            outdir=Path(request.output.directory).expanduser().resolve(strict=False),
-            force=request.output.force,
-            steps=[step],
-        )
+        if request.workflow_id != "synteny":
+            raise InputValidationError(f"unsupported workflow_id: {request.workflow_id}")
+        return self._synteny_plan(request)
 
     def _synteny_plan(self, request: WorkflowRequest) -> ExecutionPlan:
         """构建 synteny / local synteny 执行计划"""
@@ -101,20 +61,19 @@ class WorkflowPlanner:
     ) -> ExecutionPlan:
         """构建双物种单步计划"""
 
-        engine_workflow = self._pairwise_engine_workflow(request, default="graphics_synteny")
         payload = build_synteny_request(
             request,
             reference=reference,
             target=target,
             outdir=Path(request.output.directory).expanduser().resolve(strict=False),
-            engine_workflow=engine_workflow,
+            engine_workflow="graphics_synteny",
             force=request.output.force,
         )
         step = ExecutionStep(
             step_id=pair_id(reference.name, target.name),
             kind="pairwise_synteny",
             payload=payload,
-            outputs=self._pairwise_outputs(engine_workflow),
+            outputs=self._pairwise_outputs("graphics_synteny"),
         )
         return ExecutionPlan(
             plan_id=step.step_id,
@@ -123,17 +82,6 @@ class WorkflowPlanner:
             force=request.output.force,
             steps=[step],
         )
-
-    @staticmethod
-    def _pairwise_engine_workflow(request: WorkflowRequest, *, default: str) -> str:
-        """读取子模块入口保存在 extras 中的底层 JCVI workflow"""
-
-        value = request.parameters.extras.get("engine_workflow")
-        if isinstance(value, str) and value.strip():
-            return value.strip()
-        if request.workflow_id == "local_synteny":
-            return "local_synteny"
-        return default
 
     @staticmethod
     def _pairwise_outputs(engine_workflow: str) -> list[StepOutputRef]:

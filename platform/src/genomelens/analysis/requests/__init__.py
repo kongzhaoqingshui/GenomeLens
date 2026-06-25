@@ -16,6 +16,12 @@ from genomelens.analysis.requests.models import (
     workflow_template_request,
 )
 from genomelens.analysis.requests.schema import WORKFLOW_REQUEST_JSON_SCHEMA
+from genomelens.analysis.requests.submodule_models import (
+    SubmoduleRequest,
+    submodule_template_request,
+)
+from genomelens.analysis.requests.submodule_schema import SUBMODULE_REQUEST_JSON_SCHEMA
+from genomelens.analysis.requests.task_loader import load_task_request, write_task_request
 
 # endregion
 
@@ -25,6 +31,8 @@ __all__ = [
     "LocalSyntenyParameters",
     "PlotParameters",
     "SyntenyParameters",
+    "SUBMODULE_REQUEST_JSON_SCHEMA",
+    "SubmoduleRequest",
     "WORKFLOW_REQUEST_JSON_SCHEMA",
     "WorkflowOutput",
     "WorkflowParameters",
@@ -32,6 +40,9 @@ __all__ = [
     "WorkflowRuntime",
     "WorkflowSpeciesInput",
     "load_analysis_request",
+    "load_task_request",
+    "submodule_template_request",
     "workflow_template_request",
     "write_analysis_request",
+    "write_task_request",
 ]

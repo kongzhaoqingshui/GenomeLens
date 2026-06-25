@@ -8,7 +8,8 @@
 |---|---|
 | [项目介绍](项目介绍.md) | 了解 GenomeLens 的定位、能力边界和当前架构 |
 | [用户手册](用户手册.md) | 从安装、输入准备到运行分析和查看结果的完整说明 |
-| [WorkflowRequest JSON](使用方法/WorkflowRequest%20JSON.md) | 当前唯一公开请求格式：`schema_version=2` |
+| [WorkflowRequest JSON](使用方法/WorkflowRequest%20JSON.md) | 一站式 `synteny` 请求格式：`schema_version=3` |
+| [SubmoduleRequest JSON](使用方法/SubmoduleRequest%20JSON.md) | 可编排子模块请求格式：`schema_version=3` |
 | [JCVI 能力与配置](使用方法/JCVI能力与配置.md) | JCVI workflow、工具链、参数和多物种说明 |
 | [配置文件说明](使用方法/配置文件说明.md) | `genomelens.config.json` 与 `jcvi.config.json` |
 | [子模块手册](使用方法/子模块手册.md) | 可编排 submodule 的输入、输出、参数和 CLI 示例 |
@@ -22,7 +23,7 @@
 | [开发手册](开发手册/README.md) | 开发环境、分包结构、验证命令和文档入口 |
 | [开发规范](开发手册/开发规范.md) | 代码风格、注释、测试、发布和 PR 要求 |
 | [能力接入规则](开发手册/能力接入规则.md) | 新增 workflow/submodule/engine 能力的联动清单 |
-| [最终架构目标](开发手册/架构调整/最终架构目标.md) | 长期平台架构和当前 V2 协议边界 |
+| [最终架构目标](开发手册/架构调整/最终架构目标.md) | 长期平台架构和当前 V3 协议边界 |
 | [分包重构记录](开发手册/架构调整/platform-engine-package-refactor-v2.md) | 当前 platform + JCVI engine 分包结果 |
 
 ## 历史归档

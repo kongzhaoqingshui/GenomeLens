@@ -2,7 +2,7 @@
 
 > 本文件描述 GenomeLens 在智然体（HAIant）平台的新插件发布模型。
 > GenomeLens 平台与工具链被视为外部软件；每个 HAIant 插件只携带自己的入口与配置，运行时通过 `GenomeLens_Path`（或 `GENOMELENS_EXE` 环境变量）调用外部 GenomeLens 可执行文件。
-> 旧单包插件、重型中心模型以及 `analyze run` + `WorkflowRequest` 工作流插件已被移除，当前所有插件均为独立外部 GenomeLens 调用模型。
+> 当前所有插件都构造标准请求 JSON（`WorkflowRequest` 或 `SubmoduleRequest`），然后通过 `analyze run` 调用平台，不再直接拼 `analyze workflow` / `analyze submodule` 命令行。
 
 ---
 
@@ -19,7 +19,7 @@
 - 每个插件只携带自己的入口和配置，体积最小。
 - GenomeLens 本体与工具链只需在用户环境中安装一次，所有插件共享同一份外部可执行文件。
 - 插件之间互不干扰，可以独立迭代、独立打包、独立发布。
-- 一站式工作流插件使用 `<genomelens.exe> analyze workflow synteny ...`；可编排子模块插件使用 `<genomelens.exe> analyze submodule <module_id> ...`。
+- 一站式工作流插件构造 `WorkflowRequest` 并调用 `analyze run`；可编排子模块插件构造 `SubmoduleRequest` 并调用 `analyze run`。
 
 ---
 
@@ -47,20 +47,20 @@ $env:GENOMELENS_EXE = "C:\GenomeLens\GenomeLens.exe"
 
 ### 2.2 一站式工作流插件
 
-`gljcvi-synteny` 直接对应 `analyze workflow synteny` 一键分析流程。它根据 `params.json` 动态生成 `output/jcvi.config.json`，然后直接调用外部 GenomeLens：
+`gljcvi-synteny` 构造 `WorkflowRequest(workflow_id="synteny")`，写入 `output/workflow_request.json`，然后调用外部 GenomeLens：
 
 ```powershell
-<GenomeLens_Path> analyze workflow synteny <input_dir> <output_dir> --jcvi-config output/jcvi.config.json
+<GenomeLens_Path> analyze run output/workflow_request.json
 ```
 
-未填写 `target_gene_ids` 时生成 `workflow = graphics_synteny` 的全局共线性配置；填写 `target_gene_ids` 时自动切换到 `local_synteny`；3 个及以上物种时平台自动拆分为 all-vs-all pairwise 并聚合全局核型总图与多物种局部总图。该插件不再生成 `genomelens_request.json`，也不提供 workflow 选择器。
+未填写 `target_gene_ids` 时走全局共线性路径；填写 `target_gene_ids` 时走目标基因局部共线性路径；3 个及以上物种时平台自动拆分为 all-vs-all pairwise 并聚合全局核型总图与多物种局部总图。该插件不再生成 `jcvi.config.json`，也不提供 workflow 选择器。
 
 ### 2.3 可编排子模块插件
 
 对应平台 `SubModuleRegistry` 中的 10 个独立子模块，继续分为 8 个 lightweight 与 2 个 aggregate：
 
-| 插件 | 固定 module_id |
-|---|---|
+| 插件 | 固定 module_id | 类型 |
+|---|---|---|
 | `gljcvi-mcscan-pairwise` | `jcvi.mcscan_pairwise` | lightweight |
 | `gljcvi-catalog-ortholog` | `jcvi.catalog_ortholog` | lightweight |
 | `gljcvi-dotplot` | `jcvi.graphics_dotplot` | lightweight |
@@ -72,13 +72,13 @@ $env:GENOMELENS_EXE = "C:\GenomeLens\GenomeLens.exe"
 | `gljcvi-global-karyotype` | `jcvi.graphics_karyotype_global` | aggregate |
 | `gljcvi-multi-local-synteny` | `jcvi.local_synteny_multi` | aggregate |
 
-这些插件不写 `genomelens_request.json`，而是直接调用：
+这些插件构造 `SubmoduleRequest`，写入 `output/submodule_request.json`，然后调用：
 
 ```powershell
-<GenomeLens_Path> analyze submodule <module_id> --input-ports <json> --output-dir <output_dir> [--params <json>] [--formats fmt] --force
+<GenomeLens_Path> analyze run output/submodule_request.json
 ```
 
-子模块可调参数（如 `figsize`、`dpi`、`cscore` 等）通过 `--params` 转发；图形输出格式通过 `--formats` 转发。具体字段映射见 `PARAMETER_MAPPING.md`。
+子模块可调参数写入 `parameters`，端口绑定写入 `inputs`，输出格式写入 `output.formats`。具体字段映射见 `PARAMETER_MAPPING.md`。
 
 每个包只包含：
 
@@ -110,29 +110,29 @@ gljcvi-<feature>/
 4. `main.exe` 内的 Python 逻辑：
    - 解析 `params.json`。
    - 从 `params.json` 的 `GenomeLens_Path` 或 `GENOMELENS_EXE` 环境变量解析外部 GenomeLens 可执行文件路径。
-   - 对 `gljcvi-synteny`：动态生成 `output/jcvi.config.json`，并调用 `<GenomeLens_Path> analyze workflow synteny <input> <output> --jcvi-config output/jcvi.config.json`。
-   - 对可编排子模块插件：调用 `<GenomeLens_Path> analyze submodule <module_id> --input-ports <json> --output-dir <output> [--params ...] [--formats ...] --force`。
+   - 对 `gljcvi-synteny`：构造 `WorkflowRequest`，写入 `output/workflow_request.json`，并调用 `<GenomeLens_Path> analyze run output/workflow_request.json`。
+   - 对可编排子模块插件：构造 `SubmoduleRequest`，写入 `output/submodule_request.json`，并调用 `<GenomeLens_Path> analyze run output/submodule_request.json`。
 5. 返回外部 GenomeLens 的退出码。
 
 ---
 
 ## 4. 请求映射
 
-可编排子模块插件通过 `analyze submodule` 直接传参，不生成旧式 `WorkflowRequest`。`gljcvi-synteny` 一站式工作流插件生成 `jcvi.config.json`。映射规则参见 `PARAMETER_MAPPING.md`。
+所有插件都生成标准请求 JSON，不再直接拼 `analyze workflow` / `analyze submodule` 命令行。映射规则参见 `PARAMETER_MAPPING.md`。
 
-| 产物路径 | 类型 | workflow / module_id | 说明 |
+| 产物路径 | 类型 | 请求文件 | 说明 |
 |---|---|---|---|
-| `app/onestop/gljcvi-synteny.zip` | 一站式工作流 | `analyze workflow synteny` | 自动路由 |
-| `app/submodules/lightweight/gljcvi-mcscan-pairwise.zip` | 可编排子模块 | `jcvi.mcscan_pairwise` | pairwise block 计算 |
-| `app/submodules/lightweight/gljcvi-catalog-ortholog.zip` | 可编排子模块 | `jcvi.catalog_ortholog` | 双向 ortholog 目录 |
-| `app/submodules/lightweight/gljcvi-dotplot.zip` | 可编排子模块 | `jcvi.graphics_dotplot` | 双物种点图 |
-| `app/submodules/lightweight/gljcvi-synteny-figure.zip` | 可编排子模块 | `jcvi.graphics_synteny` | 双物种共线性图 |
-| `app/submodules/lightweight/gljcvi-karyotype.zip` | 可编排子模块 | `jcvi.graphics_karyotype` | 双物种核型图 |
-| `app/submodules/lightweight/gljcvi-local-synteny.zip` | 可编排子模块 | `jcvi.local_synteny` | 目标基因局部共线性 |
-| `app/submodules/lightweight/gljcvi-histogram.zip` | 可编排子模块 | `jcvi.graphics_histogram` | 数值直方图 |
-| `app/submodules/lightweight/gljcvi-heatmap.zip` | 可编排子模块 | `jcvi.graphics_heatmap` | 矩阵热图 |
-| `app/submodules/aggregate/gljcvi-global-karyotype.zip` | 可编排子模块 | `jcvi.graphics_karyotype_global` | 全局核型总图 |
-| `app/submodules/aggregate/gljcvi-multi-local-synteny.zip` | 可编排子模块 | `jcvi.local_synteny_multi` | 多物种局部总图 |
+| `app/onestop/gljcvi-synteny.zip` | 一站式工作流 | `output/workflow_request.json` | 自动路由 |
+| `app/submodules/lightweight/gljcvi-mcscan-pairwise.zip` | 可编排子模块 | `output/submodule_request.json` | pairwise block 计算 |
+| `app/submodules/lightweight/gljcvi-catalog-ortholog.zip` | 可编排子模块 | `output/submodule_request.json` | 双向 ortholog 目录 |
+| `app/submodules/lightweight/gljcvi-dotplot.zip` | 可编排子模块 | `output/submodule_request.json` | 双物种点图 |
+| `app/submodules/lightweight/gljcvi-synteny-figure.zip` | 可编排子模块 | `output/submodule_request.json` | 双物种共线性图 |
+| `app/submodules/lightweight/gljcvi-karyotype.zip` | 可编排子模块 | `output/submodule_request.json` | 双物种核型图 |
+| `app/submodules/lightweight/gljcvi-local-synteny.zip` | 可编排子模块 | `output/submodule_request.json` | 目标基因局部共线性 |
+| `app/submodules/lightweight/gljcvi-histogram.zip` | 可编排子模块 | `output/submodule_request.json` | 数值直方图 |
+| `app/submodules/lightweight/gljcvi-heatmap.zip` | 可编排子模块 | `output/submodule_request.json` | 矩阵热图 |
+| `app/submodules/aggregate/gljcvi-global-karyotype.zip` | 可编排子模块 | `output/submodule_request.json` | 全局核型总图 |
+| `app/submodules/aggregate/gljcvi-multi-local-synteny.zip` | 可编排子模块 | `output/submodule_request.json` | 多物种局部总图 |
 
 ---
 

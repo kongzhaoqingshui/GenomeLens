@@ -1,5 +1,6 @@
 """Shared helpers for HAIant plugin entries."""
 
+# region import
 from __future__ import annotations
 
 import json
@@ -15,6 +16,8 @@ from typing import Mapping, Sequence
 
 LOGGER_NAME = "genomelens_haiant_plugin"
 GENOMELENS_EXE_ENV = "GENOMELENS_EXE"
+
+# endregion
 
 
 class PluginError(Exception):
@@ -219,46 +222,20 @@ def resolve_genomelens_exe(params: Mapping[str, object], base: Path) -> Path:
     return path
 
 
-def build_analyze_submodule_command(
-    genomelens_exe: str | Path,
-    *,
-    module_id: str,
-    input_ports: Mapping[str, object],
-    output_dir: str | Path,
-    input_dir: str | Path = "",
-    params: Mapping[str, object] | None = None,
-    formats: Sequence[str] | None = None,
-    threads: int | None = None,
-    min_block_size: int | None = None,
-    force: bool = True,
-) -> list[str]:
-    """Build the ``<GenomeLens.exe> analyze submodule ...`` argv."""
+def _parse_formats(value: object) -> list[str]:
+    """Return the selected output format as a single-item list (default svg).
 
-    exe = Path(genomelens_exe)
-    args = [
-        "analyze",
-        "submodule",
-        module_id,
-        "--input-ports",
-        json.dumps(dict(input_ports), ensure_ascii=False),
-        "--output-dir",
-        str(output_dir),
-    ]
-    if str(input_dir).strip():
-        args.extend(["--input-dir", str(input_dir)])
-    if params:
-        args.extend(["--params", json.dumps(dict(params), ensure_ascii=False)])
-    if formats:
-        args.extend(["--formats", ",".join(str(item) for item in formats)])
-    if threads is not None:
-        args.extend(["--threads", str(threads)])
-    if min_block_size is not None:
-        args.extend(["--min-block-size", str(min_block_size)])
-    if force:
-        args.append("--force")
-    if exe.suffix.lower() in {".cmd", ".bat"}:
-        return ["cmd.exe", "/c", str(exe), *args]
-    return [str(exe), *args]
+    The UI exposes ``formats`` as a single-select (``customer_selector``), so
+    only the first selected value is honored.  Lists are accepted defensively
+    for backward compatibility, but multi-format output is intentionally not
+    supported by the auto plugin.
+    """
+
+    if isinstance(value, list):
+        text = str(value[0]).strip() if value else ""
+    else:
+        text = str(value or "").strip().split(",")[0].strip()
+    return [text] if text else ["svg"]
 
 
 def coerce_submodule_params(
@@ -266,7 +243,7 @@ def coerce_submodule_params(
     base: Path,
     declared: Sequence[tuple[str, str]],
 ) -> dict[str, object]:
-    """Coerce declared submodule parameters into a JSON-ready ``--params`` payload.
+    """Coerce declared submodule parameters into a JSON-ready ``parameters`` payload.
 
     ``declared`` is a list of ``(param_id, ptype)`` pairs where ``ptype`` is one of
     ``int`` / ``float`` / ``bool`` / ``str`` / ``path`` / ``int_array``.  Keys that
@@ -295,133 +272,213 @@ def coerce_submodule_params(
     return out
 
 
-def _parse_formats(value: object) -> list[str]:
-    """Return the selected output format as a single-item list (default svg).
+def write_request_json(
+    output_dir: str | Path,
+    request: Mapping[str, object],
+    *,
+    filename: str = "request.json",
+) -> Path:
+    """Write a request JSON object under ``output_dir`` and return its path."""
 
-    The UI exposes ``formats`` as a single-select (``customer_selector``), so
-    only the first selected value is honored.  Lists are accepted defensively
-    for backward compatibility, but multi-format output is intentionally not
-    supported by the auto plugin.
-    """
-
-    if isinstance(value, list):
-        text = str(value[0]).strip() if value else ""
-    else:
-        text = str(value or "").strip().split(",")[0].strip()
-    return [text] if text else ["svg"]
+    destination = Path(output_dir).expanduser().resolve(strict=False)
+    destination.mkdir(parents=True, exist_ok=True)
+    target = destination / filename
+    target.write_text(
+        json.dumps(dict(request), ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    return target
 
 
-def build_auto_jcvi_config(
+def build_run_command(
+    genomelens_exe: str | Path,
+    request_path: str | Path,
+) -> list[str]:
+    """Build the ``<GenomeLens.exe> analyze run <request.json>`` argv."""
+
+    exe = Path(genomelens_exe)
+    args = ["analyze", "run", str(request_path)]
+    if exe.suffix.lower() in {".cmd", ".bat"}:
+        return ["cmd.exe", "/c", str(exe), *args]
+    return [str(exe), *args]
+
+
+def build_workflow_request(
     params: Mapping[str, object],
     base: Path,
     output_dir: str | Path,
-) -> Path:
-    """Dynamically build ``jcvi.config.json`` for the ``analyze workflow synteny`` flow.
+) -> dict[str, object]:
+    """Build a V3 ``WorkflowRequest`` JSON for the synteny one-stop workflow.
 
-    The config is derived from the HAIant ``params.json`` and the species auto-discovered
-    from ``input_dir``.  No per-species request files are generated.
+    The request encodes species auto-discovery, reference selection, target genes,
+    and all algorithm/plot options directly.  No external ``jcvi.config.json`` is
+    generated; the platform uses these values as the authoritative source.
     """
-
-    resolved_output = Path(output_dir).expanduser().resolve(strict=False)
-    resolved_output.mkdir(parents=True, exist_ok=True)
 
     input_dir = resolve_param_path(
         base, params.get("input_dir"), required=True, must_exist=True
     )
     species = _discover_species_from_input_dir(base, input_dir)
     reference_index = _reference_index(params, species)
-    reference_name = str(species[reference_index].get("name") or "")
-
     target_gene_ids = _target_gene_ids(params)
-    workflow = "local_synteny" if target_gene_ids else "graphics_synteny"
-
     optimize_auto = parse_bool(params.get("optimize_auto", False))
+    formats = _parse_formats(params.get("formats"))
 
-    jcvi_config: dict[str, object] = {
-        "schema_version": 2,
-        "toolchain": {
-            "jcvi_engine_path": "",
-            "blastn_path": "",
-            "makeblastdb_path": "",
-            "lastal_path": "",
-            "lastdb_path": "",
-            "magick_path": "",
+    return {
+        "schema_version": 3,
+        "kind": "workflow_request",
+        "workflow_id": "synteny",
+        "species": species,
+        "reference_index": reference_index,
+        "inputs": {},
+        "parameters": {
+            "synteny": {
+                "align_soft": str(params.get("align_soft") or "blast"),
+                "dbtype": str(params.get("dbtype") or "nucl"),
+                "cscore": _float_value(
+                    params.get("cscore"), default=0.7, label="cscore"
+                ),
+                "dist": _int_value(params.get("dist"), default=20, label="dist"),
+                "iter": _int_value(params.get("iter"), default=1, label="iter"),
+                "min_block_size": _int_value(
+                    params.get("min_block_size"),
+                    default=1,
+                    label="min_block_size",
+                    minimum=1,
+                ),
+                "allow_simplified_fallback": False,
+            },
+            "local_synteny": {
+                "target_gene_ids": target_gene_ids,
+                "up": _int_value(params.get("up"), default=20, label="up"),
+                "down": _int_value(params.get("down"), default=20, label="down"),
+                "split_targets": parse_bool(params.get("split_targets", False)),
+                "label_targets": parse_bool(params.get("label_targets", False)),
+                "use_native_renderer": parse_bool(
+                    params.get("use_native_local_synteny_renderer", False)
+                ),
+            },
+            "plot": {
+                "glyphstyle": str(params.get("glyphstyle") or ""),
+                "glyphcolor": str(params.get("glyphcolor") or ""),
+                "shadestyle": str(params.get("shadestyle") or ""),
+                "figsize": str(params.get("figsize") or ""),
+                "dpi": _int_value(
+                    params.get("dpi"), default=300, label="dpi", minimum=1
+                ),
+                "auto_optimization": {
+                    "optimize_figsize": optimize_auto,
+                    "rewrite_layout_links": optimize_auto,
+                    "optimize_karyotype_labels": optimize_auto,
+                },
+            },
+        },
+        "output": {
+            "directory": str(output_dir),
+            "force": True,
+            "formats": formats,
         },
         "runtime": {
+            "project_config": "",
+            "engine_config": "",
+            "jcvi_engine": str(params.get("jcvi_engine") or ""),
+            "blastn": "",
+            "makeblastdb": "",
+            "lastal": "",
+            "lastdb": "",
             "threads": _int_value(
                 params.get("threads"), default=4, label="threads", minimum=1
             ),
-            "formats": _parse_formats(params.get("formats")),
-        },
-        "mcscan": {
-            "workflow": workflow,
-            "min_block_size": _int_value(
-                params.get("min_block_size"),
-                default=1,
-                label="min_block_size",
-                minimum=1,
-            ),
-            "align_soft": str(params.get("align_soft") or "blast"),
-            "dbtype": str(params.get("dbtype") or "nucl"),
-            "cscore": _float_value(params.get("cscore"), default=0.7, label="cscore"),
-            "dist": _int_value(params.get("dist"), default=20, label="dist", minimum=1),
-            "iter": _int_value(params.get("iter"), default=1, label="iter", minimum=1),
-            "reference": reference_name,
-        },
-        "local_synteny": {
-            "target_gene_ids": target_gene_ids,
-            "up": _int_value(params.get("up"), default=20, label="up", minimum=0),
-            "down": _int_value(params.get("down"), default=20, label="down", minimum=0),
-            "split_targets": parse_bool(params.get("split_targets", False)),
-            "label_targets": parse_bool(params.get("label_targets", False)),
-            "glyphstyle": str(params.get("glyphstyle") or ""),
-            "glyphcolor": str(params.get("glyphcolor") or ""),
-            "shadestyle": str(params.get("shadestyle") or ""),
-            "figsize": str(params.get("figsize") or ""),
-            "dpi": _int_value(params.get("dpi"), default=300, label="dpi", minimum=1),
-            "auto_optimization": {
-                "optimize_figsize": optimize_auto,
-                "rewrite_layout_links": optimize_auto,
-                "optimize_karyotype_labels": optimize_auto,
-            },
-            "use_native_local_synteny_renderer": parse_bool(
-                params.get("use_native_local_synteny_renderer", False)
-            ),
+            "log_level": "INFO",
+            "verbose": False,
+            "console_log": False,
         },
     }
 
-    target = resolved_output / "jcvi.config.json"
-    target.write_text(
-        json.dumps(jcvi_config, ensure_ascii=False, indent=2) + "\n",
-        encoding="utf-8",
-    )
-    return target
 
-
-def build_mcscan_jcvi_command(
+def build_workflow_runtime_command(
     genomelens_exe: str | Path,
-    input_dir: str | Path,
+    params: Mapping[str, object],
+    base: Path,
     output_dir: str | Path,
-    jcvi_config_path: str | Path,
-    *,
-    workflow_id: str = "synteny",
 ) -> list[str]:
-    """Build the ``<GenomeLens.exe> analyze workflow <workflow_id> <in> <out> --jcvi-config ...`` argv."""
+    """Write the one-stop ``WorkflowRequest`` and return the ``analyze run`` argv."""
 
-    exe = Path(genomelens_exe)
-    args = [
-        "analyze",
-        "workflow",
-        workflow_id,
-        str(input_dir),
-        str(output_dir),
-        "--jcvi-config",
-        str(jcvi_config_path),
-        "--force",
-    ]
-    if exe.suffix.lower() in {".cmd", ".bat"}:
-        return ["cmd.exe", "/c", str(exe), *args]
-    return [str(exe), *args]
+    request = build_workflow_request(params, base, output_dir)
+    request_path = write_request_json(
+        output_dir, request, filename="workflow_request.json"
+    )
+    return build_run_command(genomelens_exe, request_path)
+
+
+def build_submodule_request(
+    module_id: str,
+    inputs: Mapping[str, object],
+    parameters: Mapping[str, object],
+    output_dir: str | Path,
+    *,
+    formats: Sequence[str] | None = None,
+    threads: int | None = None,
+    force: bool = True,
+) -> dict[str, object]:
+    """Build a V3 ``SubmoduleRequest`` JSON for a single orchestratable submodule."""
+
+    runtime: dict[str, object] = {
+        "project_config": "",
+        "engine_config": "",
+        "jcvi_engine": "",
+        "blastn": "",
+        "makeblastdb": "",
+        "lastal": "",
+        "lastdb": "",
+        "log_level": "INFO",
+        "verbose": False,
+        "console_log": False,
+    }
+    if threads is not None:
+        runtime["threads"] = threads
+
+    return {
+        "schema_version": 3,
+        "kind": "submodule_request",
+        "module_id": module_id,
+        "inputs": dict(inputs),
+        "parameters": dict(parameters),
+        "output": {
+            "directory": str(output_dir),
+            "force": force,
+            "formats": list(formats) if formats else ["svg"],
+        },
+        "runtime": runtime,
+    }
+
+
+def build_submodule_runtime_command(
+    genomelens_exe: str | Path,
+    *,
+    module_id: str,
+    inputs: Mapping[str, object],
+    parameters: Mapping[str, object],
+    output_dir: str | Path,
+    formats: Sequence[str] | None = None,
+    threads: int | None = None,
+    force: bool = True,
+) -> list[str]:
+    """Write the ``SubmoduleRequest`` and return the ``analyze run`` argv."""
+
+    request = build_submodule_request(
+        module_id,
+        inputs,
+        parameters,
+        output_dir,
+        formats=formats,
+        threads=threads,
+        force=force,
+    )
+    request_path = write_request_json(
+        output_dir, request, filename="submodule_request.json"
+    )
+    return build_run_command(genomelens_exe, request_path)
 
 
 def compress_output_intermediates(

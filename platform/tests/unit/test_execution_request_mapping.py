@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from genomelens.analysis.execution.request_mapping import to_histogram_request, to_mcscan_request
+from genomelens.analysis.execution.workflow_mapping import to_mcscan_request
 from genomelens.analysis.planning.models import SyntenyExecutionRequest
 from genomelens.analysis.planning.planner import WorkflowPlanner
 from genomelens.analysis.requests.models import WorkflowRequest, WorkflowSpeciesInput
@@ -18,7 +18,7 @@ def _species(name: str) -> WorkflowSpeciesInput:
 
 def _request(species: list[WorkflowSpeciesInput], **overrides: object) -> WorkflowRequest:
     data: dict[str, object] = {
-        "schema_version": 2,
+        "schema_version": 3,
         "kind": "workflow_request",
         "workflow_id": "synteny",
         "species": [item.to_json() for item in species],
@@ -36,7 +36,7 @@ def test_workflow_request_rejects_legacy_fields() -> None:
     with pytest.raises(ValueError, match="legacy fields"):
         WorkflowRequest.from_json(
             {
-                "schema_version": 2,
+                "schema_version": 3,
                 "kind": "workflow_request",
                 "workflow_id": "synteny",
                 "species": [],
@@ -76,33 +76,6 @@ def test_workflow_planner_two_species_has_single_pairwise_step() -> None:
     assert plan.steps[0].step_id == "A__B"
 
 
-def test_workflow_planner_honors_pairwise_engine_workflow_extra() -> None:
-    request = _request(
-        [_species("A"), _species("B")],
-        parameters={"extras": {"engine_workflow": "graphics_dotplot"}},
-    )
-
-    plan = WorkflowPlanner().build(request)
-
-    payload = plan.steps[0].payload
-    assert isinstance(payload, SyntenyExecutionRequest)
-    assert payload.engine_workflow == "graphics_dotplot"
-
-
-def test_workflow_planner_catalog_ortholog_does_not_require_figures() -> None:
-    request = _request(
-        [_species("A"), _species("B")],
-        parameters={"extras": {"engine_workflow": "catalog_ortholog"}},
-    )
-
-    plan = WorkflowPlanner().build(request)
-
-    output_ids = {item.artifact_id for item in plan.steps[0].outputs}
-    required_ids = {item.artifact_id for item in plan.steps[0].outputs if item.required}
-    assert "figures" not in output_ids
-    assert "figures" not in required_ids
-
-
 def test_workflow_planner_multi_species_global_karyotype() -> None:
     plan = WorkflowPlanner().build(_request([_species("A"), _species("B"), _species("C")]))
 
@@ -138,7 +111,6 @@ def test_workflow_planner_submodule_ports_map_precomputed_artifacts() -> None:
                 "layout": "/tmp/A_B.layout",
             }
         },
-        parameters={"extras": {"engine_workflow": "graphics_synteny"}},
     )
 
     plan = WorkflowPlanner().build(request)
@@ -158,7 +130,6 @@ def test_workflow_planner_target_genes_can_come_from_ports() -> None:
     request = _request(
         [_species("A"), _species("B")],
         inputs={"ports": {"blocks": "/tmp/A_B.blocks", "target_genes": ["gene1", "gene2"]}},
-        parameters={"extras": {"engine_workflow": "local_synteny"}},
     )
 
     plan = WorkflowPlanner().build(request)
@@ -168,31 +139,6 @@ def test_workflow_planner_target_genes_can_come_from_ports() -> None:
     assert payload.target_gene_ids == ["gene1", "gene2"]
     assert payload.precomputed_artifacts is not None
     assert payload.precomputed_artifacts.blocks == Path("/tmp/A_B.blocks").resolve(strict=False)
-
-
-def test_histogram_request_uses_grouped_parameters(tmp_path: Path) -> None:
-    numbers = tmp_path / "numbers.txt"
-    numbers.write_text("1\n2\n3\n", encoding="utf-8")
-    request = WorkflowRequest.from_json(
-        {
-            "schema_version": 2,
-            "kind": "workflow_request",
-            "workflow_id": "graphics_histogram",
-            "species": [],
-            "reference_index": 0,
-            "inputs": {},
-            "parameters": {"histogram": {"inputs": [str(numbers)], "columns": [0, 1], "bins": 12}},
-            "output": {"directory": str(tmp_path / "out"), "formats": ["png"]},
-            "runtime": {"log_level": "WARNING"},
-        }
-    )
-
-    histogram = to_histogram_request(request)
-
-    assert histogram.inputs == [numbers.resolve(strict=False)]
-    assert histogram.columns == [0, 1]
-    assert histogram.histogram_bins == 12
-    assert histogram.formats == ["png"]
 
 
 def test_manifest_builder_pairwise_schema_v3_has_no_top_level_query_subject() -> None:

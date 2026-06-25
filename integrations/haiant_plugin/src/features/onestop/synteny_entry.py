@@ -1,10 +1,9 @@
 """Lightweight HAIant feature entry for the integrated ``analyze workflow synteny`` flow.
 
-This entry does **not** write a ``genomelens_request.json``.  Instead it dynamically
-builds a ``jcvi.config.json`` from the HAIant ``params.json`` and directly invokes the
-external GenomeLens executable with:
+This entry builds a V3 ``WorkflowRequest`` JSON from the HAIant ``params.json`` and
+invokes the external GenomeLens executable with:
 
-    <genomelens_exe> analyze workflow synteny <input_dir> <output_dir> --jcvi-config <jcvi.config.json>
+    <genomelens_exe> analyze run <output_dir>/workflow_request.json
 
 The ``synteny`` one-stop workflow auto-routes to pairwise / multi-species /
 reference-vs-targets based on species count and target genes.
@@ -20,8 +19,7 @@ if __package__ in {None, ""}:
 
 from genomelens_haiant_plugin._core import (
     PluginError,
-    build_auto_jcvi_config,
-    build_mcscan_jcvi_command,
+    build_workflow_runtime_command,
     close_adapter_logging,
     compress_output_intermediates,
     load_params,
@@ -34,7 +32,7 @@ LOGGER_NAME = "gljcvi_synteny"
 
 
 def build_runtime_command(params_path: str | Path) -> list[str]:
-    """Build the ``analyze workflow synteny`` command from HAIant params."""
+    """Build the ``analyze run workflow_request.json`` command from HAIant params."""
 
     params, base = load_params(params_path)
     output_dir = Path(resolve_param_path(base, params.get("output_dir") or "output"))
@@ -43,19 +41,11 @@ def build_runtime_command(params_path: str | Path) -> list[str]:
 
     try:
         genomelens_exe = resolve_genomelens_exe(params, base)
-        input_dir = resolve_param_path(
-            base, params.get("input_dir"), required=True, must_exist=True
-        )
         output_dir = resolve_param_path(base, params.get("output_dir") or "output")
         Path(output_dir).mkdir(parents=True, exist_ok=True)
 
-        jcvi_config_path = build_auto_jcvi_config(params, base, output_dir)
-        argv = build_mcscan_jcvi_command(
-            genomelens_exe,
-            input_dir,
-            output_dir,
-            jcvi_config_path,
-            workflow_id="synteny",
+        argv = build_workflow_runtime_command(
+            genomelens_exe, params, base, output_dir
         )
         logger.info("Dispatching GenomeLens: %s", argv)
         return argv

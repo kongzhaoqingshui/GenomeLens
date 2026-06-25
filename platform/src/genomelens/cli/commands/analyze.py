@@ -6,11 +6,13 @@ from __future__ import annotations
 import argparse
 import json
 
-from genomelens.analysis.dispatcher import AnalysisDispatcher
-from genomelens.analysis.requests.loader import load_analysis_request
-from genomelens.analysis.requests.models import WorkflowRequest
+from genomelens.analysis.dispatchers.task_dispatcher import TaskDispatcher
+from genomelens.analysis.requests.models import WorkflowOutput, WorkflowRequest, WorkflowRuntime
 from genomelens.analysis.requests.normalizer import mcscan_auto_request_from_cli, mcscan_template_request
 from genomelens.analysis.requests.schema import analysis_request_json_schema
+from genomelens.analysis.requests.submodule_models import SubmoduleRequest, submodule_template_request
+from genomelens.analysis.requests.submodule_schema import SUBMODULE_REQUEST_JSON_SCHEMA
+from genomelens.analysis.requests.task_loader import load_task_request
 from genomelens.analysis.workflows.onestop import get_onestop_registry
 from genomelens.analysis.workflows.registry import (
     list_one_stop_workflows,
@@ -35,16 +37,32 @@ def register(subparsers: argparse._SubParsersAction) -> None:
     parser = subparsers.add_parser("analyze", help="运行 GenomeLens 分析")
     nested = parser.add_subparsers(dest="analysis_command", required=True, parser_class=StyledArgumentParser)
 
-    run_parser = nested.add_parser("run", help="运行 WorkflowRequest JSON 文件")
-    run_parser.add_argument("request_json", help="WorkflowRequest JSON 文件路径")
+    run_parser = nested.add_parser("run", help="运行任务请求 JSON 文件（workflow 或 submodule）")
+    run_parser.add_argument("request_json", help="WorkflowRequest 或 SubmoduleRequest JSON 文件路径")
     run_parser.add_argument("-j", "--json", action="store_true", help="输出原始 JSON 摘要")
     run_parser.set_defaults(func=_run_request_json)
 
-    template_parser = nested.add_parser("template", help="输出 WorkflowRequest 模板")
-    template_parser.add_argument("workflow", choices=["synteny"], nargs="?", default="synteny", help="工作流 ID")
+    template_parser = nested.add_parser("template", help="输出任务请求模板")
+    template_parser.add_argument(
+        "kind",
+        choices=["workflow", "submodule"],
+        help="模板类型",
+    )
+    template_parser.add_argument(
+        "id",
+        nargs="?",
+        default="synteny",
+        help="工作流 ID 或子模块 ID",
+    )
     template_parser.set_defaults(func=_print_template)
 
-    schema_parser = nested.add_parser("schema", help="输出 WorkflowRequest JSON Schema")
+    schema_parser = nested.add_parser("schema", help="输出任务请求 JSON Schema")
+    schema_parser.add_argument(
+        "--kind",
+        choices=["workflow", "submodule", "union"],
+        default="union",
+        help="schema 类型",
+    )
     schema_parser.add_argument(
         "--with-capabilities",
         action="store_true",
@@ -139,7 +157,6 @@ def _register_submodule_command(nested: argparse._SubParsersAction) -> None:
     runtime_group = submodule_parser.add_argument_group("运行时与输出")
     runtime_group.add_argument("--formats", default="", help="输出图片格式，例如 svg 或 svg,pdf")
     runtime_group.add_argument("--threads", type=int, default=None, help="工作线程数")
-    runtime_group.add_argument("--min-block-size", type=int, default=None, help="最小区块基因数")
     runtime_group.add_argument("--params", default="{}", help="额外方法参数的 JSON 对象")
     runtime_group.add_argument("--force", action="store_true", help="复用已有输出目录")
     runtime_group.add_argument("-j", "--json", action="store_true", help="输出原始 JSON 摘要")
@@ -160,45 +177,70 @@ def _print_summary(summary: RunSummary | dict[str, object], json_output: bool = 
     return 0 if run_summary.status == "SUCCEEDED" else 7
 
 
-def _dispatch_request(request: WorkflowRequest, *, json_output: bool) -> RunSummary:
+def _dispatch_request(request: WorkflowRequest | SubmoduleRequest, *, json_output: bool) -> RunSummary:
     """Dispatch a request and attach the compact progress renderer when needed."""
 
     signal_bus = SignalBus()
     reporter: CliProgressReporter | None = None
 
-    if not json_output:
+    if not json_output and isinstance(request, WorkflowRequest):
         reporter = CliProgressReporter(request)
         reporter.attach(signal_bus)
 
     try:
-        return AnalysisDispatcher().dispatch(request, signal_bus=signal_bus)
+        return TaskDispatcher().dispatch(request, signal_bus=signal_bus)
     finally:
         if reporter is not None:
             reporter.finish()
 
 
 def _run_request_json(args: argparse.Namespace) -> int:
-    """Run an analysis from a WorkflowRequest JSON file."""
+    """Run an analysis from a task request JSON file."""
 
-    request = load_analysis_request(args.request_json)
+    request = load_task_request(args.request_json)
     summary = _dispatch_request(request, json_output=bool(args.json))
     return _print_summary(summary, json_output=bool(args.json))
 
 
 def _print_template(args: argparse.Namespace) -> int:
-    """Print the template request for the selected method."""
+    """Print the template request for the selected kind and id."""
 
-    if args.workflow == "synteny":
+    if args.kind == "workflow":
+        if args.id != "synteny":
+            raise InputValidationError(f"Unsupported workflow: {args.id}")
         _CONSOLE.print_json(mcscan_template_request().to_json())
         return 0
 
-    raise ValueError(f"Unsupported workflow: {args.workflow}")
+    if args.kind == "submodule":
+        _CONSOLE.print_json(submodule_template_request(args.id).to_json())
+        return 0
+
+    raise ValueError(f"Unsupported template kind: {args.kind}")
 
 
 def _print_schema(args: argparse.Namespace) -> int:
-    """Print the WorkflowRequest JSON schema."""
+    """Print the requested JSON schema."""
 
-    schema = analysis_request_json_schema()
+    kind = getattr(args, "kind", "union")
+    if kind == "workflow":
+        schema = analysis_request_json_schema()
+    elif kind == "submodule":
+        schema = SUBMODULE_REQUEST_JSON_SCHEMA
+    else:
+        schema = {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "type": "object",
+            "schema_version": 3,
+            "oneOf": [
+                {"$ref": "#/$defs/workflow_request"},
+                {"$ref": "#/$defs/submodule_request"},
+            ],
+            "$defs": {
+                "workflow_request": analysis_request_json_schema(),
+                "submodule_request": SUBMODULE_REQUEST_JSON_SCHEMA,
+            },
+        }
+
     if getattr(args, "with_capabilities", False):
         payload: dict[str, object] = {
             "analysis_request_schema": schema,
@@ -320,23 +362,28 @@ def _build_synteny_one_stop_request(args: argparse.Namespace, params: dict[str, 
     request = mcscan_auto_request_from_cli(ns)
     if not params:
         return request
+
     data = request.to_json()
-    raw_parameters = data.get("parameters")
-    parameters: dict[str, object] = dict(raw_parameters) if isinstance(raw_parameters, dict) else {}
-    raw_extras = parameters.get("extras")
-    extras: dict[str, object] = dict(raw_extras) if isinstance(raw_extras, dict) else {}
-    extras.update(params)
-    parameters["extras"] = extras
+    parameters: dict[str, object] = dict(data.get("parameters") or {})
+    for key, value in params.items():
+        if key in {"align_soft", "dbtype", "cscore", "dist", "iter", "min_block_size", "allow_simplified_fallback"}:
+            synteny: dict[str, object] = dict(parameters.get("synteny") or {})
+            synteny[key] = value
+            parameters["synteny"] = synteny
+        elif key in {"up", "down", "split_targets", "label_targets", "use_native_renderer"}:
+            local: dict[str, object] = dict(parameters.get("local_synteny") or {})
+            local[key] = value
+            parameters["local_synteny"] = local
+        elif key in {"glyphstyle", "glyphcolor", "shadestyle", "figsize", "dpi", "auto_optimization"}:
+            plot: dict[str, object] = dict(parameters.get("plot") or {})
+            plot[key] = value
+            parameters["plot"] = plot
+        else:
+            extras: dict[str, object] = dict(parameters.get("extras") or {})
+            extras[key] = value
+            parameters["extras"] = extras
     data["parameters"] = parameters
     return WorkflowRequest.from_json(data)
-
-
-def _submodule_input_mode(engine_workflow: str) -> str:
-    """根据子模块底层 workflow 选择输入模式"""
-
-    if engine_workflow in {"mcscan_pairwise", "graphics_heatmap"}:
-        return "auto_directory"
-    return "method_specific"
 
 
 def _run_submodule(args: argparse.Namespace) -> int:
@@ -355,45 +402,26 @@ def _run_submodule(args: argparse.Namespace) -> int:
         raise InputValidationError("--input-ports 必须是一个 JSON 对象")
 
     params = _parse_params(args.params)
-    workflow_id = (
-        spec.engine_workflow if spec.engine_workflow in {"graphics_histogram", "graphics_heatmap"} else "synteny"
-    )
-    parameters: dict[str, object] = {"extras": {**dict(params), "engine_workflow": spec.engine_workflow}}
-    input_directory = args.input_dir
-    species_pair = ports.get("species_pair")
-    if isinstance(species_pair, str) and species_pair.strip():
-        input_directory = species_pair
 
-    if spec.engine_workflow == "graphics_histogram":
-        numeric_files = ports.get("numeric_files")
-        inputs = numeric_files if isinstance(numeric_files, list) else [numeric_files] if numeric_files else []
-        parameters["histogram"] = {"inputs": [str(item) for item in inputs], "columns": [0]}
-    elif spec.engine_workflow == "graphics_heatmap":
-        matrix = ports.get("matrix_csv") or ports.get("matrix")
-        parameters["heatmap"] = {"matrix": str(matrix or "")}
-
-    request = WorkflowRequest.from_json(
-        {
-            "schema_version": 2,
-            "kind": "workflow_request",
-            "workflow_id": workflow_id,
-            "species": [],
-            "reference_index": 0,
-            "inputs": {"directory": input_directory, "ports": ports},
-            "parameters": parameters,
-            "output": {
-                "directory": args.output_dir,
-                "force": bool(args.force),
-                "formats": _resolve_formats(args.formats, args.config),
-            },
-            "runtime": {
-                "project_config": args.config,
-                "engine_config": args.jcvi_config,
-                "jcvi_engine": args.jcvi_engine,
-                "threads": args.threads,
-                "min_block_size": args.min_block_size,
-            },
-        }
+    request = SubmoduleRequest(
+        module_id=args.module_id,
+        inputs=ports,
+        parameters=params,
+        output=WorkflowOutput(
+            directory=args.output_dir,
+            force=bool(args.force),
+            formats=_resolve_formats(args.formats, args.config),
+        ),
+        runtime=WorkflowRuntime(
+            project_config=args.config,
+            engine_config=args.jcvi_config,
+            jcvi_engine=args.jcvi_engine,
+            blastn=getattr(args, "blastn", "") or "",
+            makeblastdb=getattr(args, "makeblastdb", "") or "",
+            threads=args.threads,
+            log_level=getattr(args, "log_level", "") or "INFO",
+            verbose=False,
+        ),
     )
 
     json_output = bool(args.json)

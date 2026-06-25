@@ -3,9 +3,17 @@
 # region import
 from __future__ import annotations
 
+import warnings
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
+from genomelens.data.config.jcvi_profile import (
+    AutoOptimizationDefaults,
+    JcviProfileModel,
+    LocalSyntenyProfileDefaults,
+    PlotProfileDefaults,
+    SyntenyProfileDefaults,
+)
 from genomelens.utils.json import _bool, _dict, _float, _int, _str, _str_list
 
 # endregion
@@ -18,8 +26,8 @@ class WorkspaceConfig:
     # fmt: off
     workspace_root: str         # 工作区根目录
     temp_root: str              # 临时文件根目录
-    default_output_root: str    # 默认输出根目录
-    jcvi_config_path: str = ""  # 可选的 JCVI 子配置文件路径
+    default_output_root: str      # 默认输出根目录
+    engine_profile_path: str = ""  # 可选的 JCVI engine profile 路径
     # fmt: on
 
 
@@ -43,139 +51,55 @@ class RuntimeDefaults:
 
     # fmt: off
     default_threads: int = 4  # 默认并行线程数
-    default_formats: list[str] = field(default_factory=lambda: ["svg"])  # 默认输出图件格式
-    log_level: str = "INFO"  # 默认日志级别
-    # fmt: on
-
-
-@dataclass
-class McscanDefaults:
-    """McscanDefaults(MCscan 默认参数)：共线性分析核心参数"""
-
-    # fmt: off
-    workflow: str = "graphics_synteny"  # 默认 JCVI workflow
-    min_block_size: int = 5    # 默认最小 block 基因数
-    align_soft: str = "blast"  # 默认同源搜索后端
-    dbtype: str = "nucl"       # 默认序列类型
-    cscore: float = 0.7        # 默认 cscore 阈值
-    dist: int = 20             # 默认锚点距离
-    iter: int = 1              # 默认 block 过滤迭代次数
-    reference: str = ""        # 默认参考物种
-    # fmt: on
-
-
-@dataclass
-class AutoOptimizationDefaults:
-    """AutoOptimizationDefaults(出图自动优化开关)：本工具添加的非原生选项"""
-
-    # fmt: off
-    optimize_figsize: bool = False           # 自动推导 synteny 图件尺寸
-    rewrite_layout_links: bool = False       # 改写跨轨道 layout 连线为邻接轨道链
-    optimize_karyotype_labels: bool = False  # 自动优化核型图轨道标签位置
-    # fmt: on
-
-
-@dataclass
-class LocalSyntenyDefaults:
-    """LocalSyntenyDefaults(目标基因局部共线性默认参数)"""
-
-    # fmt: off
-    target_gene_ids: list[str] = field(default_factory=list)  # 默认目标基因 ID 列表
-    up: int = 20    # 默认上游窗口大小
-    down: int = 20  # 默认下游窗口大小
-    split_targets: bool = False  # 每个目标基因是否单独出图
-    label_targets: bool = False  # 是否标注目标基因名称
-    glyphstyle: str = ""         # 基因形状
-    glyphcolor: str = ""         # 基因着色策略
-    shadestyle: str = ""         # 连线样式
-    figsize: str = ""            # 画布尺寸
-    dpi: int = 300               # 图件分辨率
-    auto_optimization: AutoOptimizationDefaults = field(default_factory=AutoOptimizationDefaults)  # 自动优化开关
-    use_native_local_synteny_renderer: bool = False  # 是否使用原生 matplotlib 渲染器
+    default_formats: list[str] = field(default_factory=lambda: ["svg"])  # 默认输出图件格式列表
+    log_level: str = "INFO"   # 默认日志级别
     # fmt: on
 
 
 @dataclass
 class ConfigModel:
-    """ConfigModel(总配置)：持久化 JSON schema(JSON 结构) 第 2 版
+    """ConfigModel(总配置)：V3 兼容聚合对象
 
-    第 2 版 JCVI 子配置按用途分组：toolchain、runtime、mcscan、local_synteny。
+    V3 在模型层拆分为 PlatformConfigModel（平台级）与 JcviProfileModel（引擎默认值）。
+    ConfigModel 继续作为内部兼容入口，把 workspace/toolchain/runtime 与 profile 聚合在一起，
+    方便 CLI 与请求组装器一次性读取。
     """
 
     # fmt: off
-    workspace: WorkspaceConfig  # 工作区路径配置
-    toolchain: ToolchainConfig = field(default_factory=ToolchainConfig)  # 工具链路径配置
-    runtime: RuntimeDefaults = field(default_factory=RuntimeDefaults)    # 运行默认参数
-    mcscan: McscanDefaults = field(default_factory=McscanDefaults)       # MCscan 默认参数
-    local_synteny: LocalSyntenyDefaults = field(default_factory=LocalSyntenyDefaults)  # 局部共线性默认参数
-    schema_version: int = 2  # 配置 JSON schema 版本
+    workspace: WorkspaceConfig
+    toolchain: ToolchainConfig = field(default_factory=ToolchainConfig)
+    runtime: RuntimeDefaults = field(default_factory=RuntimeDefaults)
+    profile: JcviProfileModel = field(default_factory=JcviProfileModel)
+    schema_version: int = 3  # 配置 JSON schema 版本
     # fmt: on
 
     def to_project_json_dict(self) -> dict[str, object]:
-        """序列化为工具本身配置文件"""
+        """序列化为工具主配置文件"""
 
-        # 主配置只保留 shell 自己要直接读取的稳定入口字段。
         return {
             "schema_version": self.schema_version,
             "workspace_root": self.workspace.workspace_root,
             "temp_root": self.workspace.temp_root,
             "default_output_root": self.workspace.default_output_root,
             "log_level": self.runtime.log_level,
-            "jcvi_config_path": self.workspace.jcvi_config_path,
+            "engine_profile_path": self.workspace.engine_profile_path,
         }
 
     def to_jcvi_json_dict(self) -> dict[str, object]:
-        """序列化为 JCVI 子工具配置文件（分组结构）"""
+        """序列化为 JCVI engine profile 配置文件"""
 
-        # 写盘结构尽量与内存 dataclass 分组一致，降低配置漂移风险。
-        return {
-            "schema_version": self.schema_version,
-            "toolchain": {
-                "jcvi_engine_path": self.toolchain.jcvi_engine_path,
-                "blastn_path": self.toolchain.blastn_path,
-                "makeblastdb_path": self.toolchain.makeblastdb_path,
-                "lastal_path": self.toolchain.lastal_path,
-                "lastdb_path": self.toolchain.lastdb_path,
-                "magick_path": self.toolchain.magick_path,
-            },
-            "runtime": {
-                "threads": self.runtime.default_threads,
-                "formats": self.runtime.default_formats,
-            },
-            "mcscan": {
-                "workflow": self.mcscan.workflow,
-                "min_block_size": self.mcscan.min_block_size,
-                "align_soft": self.mcscan.align_soft,
-                "dbtype": self.mcscan.dbtype,
-                "cscore": self.mcscan.cscore,
-                "dist": self.mcscan.dist,
-                "iter": self.mcscan.iter,
-                "reference": self.mcscan.reference,
-            },
-            "local_synteny": {
-                "target_gene_ids": list(self.local_synteny.target_gene_ids),
-                "up": self.local_synteny.up,
-                "down": self.local_synteny.down,
-                "split_targets": self.local_synteny.split_targets,
-                "label_targets": self.local_synteny.label_targets,
-                "glyphstyle": self.local_synteny.glyphstyle,
-                "glyphcolor": self.local_synteny.glyphcolor,
-                "shadestyle": self.local_synteny.shadestyle,
-                "figsize": self.local_synteny.figsize,
-                "dpi": self.local_synteny.dpi,
-                "auto_optimization": {
-                    "optimize_figsize": self.local_synteny.auto_optimization.optimize_figsize,
-                    "rewrite_layout_links": self.local_synteny.auto_optimization.rewrite_layout_links,
-                    "optimize_karyotype_labels": self.local_synteny.auto_optimization.optimize_karyotype_labels,
-                },
-                "use_native_local_synteny_renderer": self.local_synteny.use_native_local_synteny_renderer,
-            },
-        }
+        return self.profile.to_json_dict()
 
     @classmethod
-    def from_json_dict(cls, data: dict[str, object]) -> ConfigModel:
-        """从当前配置 JSON 协议反序列化（仅第 2 版分组结构）"""
+    def from_json_dict(cls, data: dict[str, object], *, profile: JcviProfileModel | None = None) -> ConfigModel:
+        """从当前配置 JSON 协议反序列化
 
+        - schema_version 2：旧版单文件，按字段映射拆分为 platform + profile，并发出迁移警告。
+        - schema_version 3：主配置 JSON，profile 需通过外部 engine profile 文件提供；
+          若 data 中带有 "profile" 字段则直接解析（测试场景）。
+        """
+
+        version = _int(data.get("schema_version"), default=3)
         workspace_root = _str(data.get("workspace_root"), default=default_workspace_root())
         workspace = WorkspaceConfig(
             workspace_root=normalize_path_string(workspace_root),
@@ -183,7 +107,9 @@ class ConfigModel:
             default_output_root=normalize_path_string(
                 _str(data.get("default_output_root"), default=str(Path(workspace_root) / "results"))
             ),
-            jcvi_config_path=normalize_optional_path(data.get("jcvi_config_path")),
+            engine_profile_path=normalize_optional_path(
+                data.get("engine_profile_path") or data.get("jcvi_config_path")
+            ),
         )
 
         toolchain_raw = _dict(data.get("toolchain"))
@@ -198,54 +124,86 @@ class ConfigModel:
 
         runtime_raw = _dict(data.get("runtime"))
         runtime = RuntimeDefaults(
-            # log_level 仍属于 shell 运行时，所以继续保留在主配置平面
             default_threads=_int(runtime_raw.get("threads"), default=4),
             default_formats=_str_list(runtime_raw.get("formats"), default=["svg"]),
             log_level=_str(data.get("log_level"), default="INFO"),
         )
 
+        parsed_profile = profile if profile is not None else cls._profile_from_json_dict(data, version)
+
+        return cls(
+            workspace=workspace,
+            toolchain=toolchain,
+            runtime=runtime,
+            profile=parsed_profile,
+            schema_version=version,
+        )
+
+    @classmethod
+    def _profile_from_json_dict(cls, data: dict[str, object], version: int) -> JcviProfileModel:
+        """从 data 解析 profile；schema_version 2 时做字段迁移"""
+
+        if version < 3:
+            warnings.warn(
+                "schema_version 2 的配置文件已弃用，建议迁移到 V3 平台配置 + engine profile",
+                DeprecationWarning,
+                stacklevel=3,
+            )
+            return cls._migrate_v2_profile(data)
+
+        embedded_profile = _dict(data.get("profile"))
+        if embedded_profile:
+            return JcviProfileModel.from_json_dict(embedded_profile)
+
+        # 主配置中仅含平台字段，profile 由调用方通过 engine_profile_path 额外读取后设置
+        return JcviProfileModel()
+
+    @classmethod
+    def _migrate_v2_profile(cls, data: dict[str, object]) -> JcviProfileModel:
+        """把 schema_version 2 的 mcscan / local_synteny 分组迁移到 JcviProfileModel"""
+
         mcscan_raw = _dict(data.get("mcscan"))
-        mcscan = McscanDefaults(
-            workflow=_str(mcscan_raw.get("workflow"), default="graphics_synteny"),
-            min_block_size=_int(mcscan_raw.get("min_block_size"), default=5),
+        local_raw = _dict(data.get("local_synteny"))
+        auto_opt_raw = _dict(local_raw.get("auto_optimization"))
+
+        synteny = SyntenyProfileDefaults(
             align_soft=_str(mcscan_raw.get("align_soft"), default="blast"),
             dbtype=_str(mcscan_raw.get("dbtype"), default="nucl"),
             cscore=_float(mcscan_raw.get("cscore"), default=0.7),
             dist=_int(mcscan_raw.get("dist"), default=20),
             iter=_int(mcscan_raw.get("iter"), default=1),
-            reference=_str(mcscan_raw.get("reference")),
+            min_block_size=_int(mcscan_raw.get("min_block_size"), default=5),
         )
 
-        local_raw = _dict(data.get("local_synteny"))
-        auto_opt_raw = _dict(local_raw.get("auto_optimization"))
+        local_synteny = LocalSyntenyProfileDefaults(
+            up=_int(local_raw.get("up"), default=20),
+            down=_int(local_raw.get("down"), default=20),
+            split_targets=_bool(local_raw.get("split_targets"), default=False),
+            label_targets=_bool(local_raw.get("label_targets"), default=False),
+            use_native_local_synteny_renderer=_bool(
+                local_raw.get("use_native_local_synteny_renderer"), default=False
+            ),
+        )
+
         auto_optimization = AutoOptimizationDefaults(
             optimize_figsize=_bool(auto_opt_raw.get("optimize_figsize"), default=False),
             rewrite_layout_links=_bool(auto_opt_raw.get("rewrite_layout_links"), default=False),
             optimize_karyotype_labels=_bool(auto_opt_raw.get("optimize_karyotype_labels"), default=False),
         )
-        local_synteny = LocalSyntenyDefaults(
-            # 目标基因必须保持 list 语义，避免字符串被拆成字符列表
-            target_gene_ids=_str_list(local_raw.get("target_gene_ids")),
-            up=_int(local_raw.get("up"), default=20),
-            down=_int(local_raw.get("down"), default=20),
-            split_targets=_bool(local_raw.get("split_targets"), default=False),
-            label_targets=_bool(local_raw.get("label_targets"), default=False),
+        plot = PlotProfileDefaults(
             glyphstyle=_str(local_raw.get("glyphstyle")),
             glyphcolor=_str(local_raw.get("glyphcolor")),
             shadestyle=_str(local_raw.get("shadestyle")),
             figsize=_str(local_raw.get("figsize")),
             dpi=_int(local_raw.get("dpi"), default=300),
             auto_optimization=auto_optimization,
-            use_native_local_synteny_renderer=_bool(local_raw.get("use_native_local_synteny_renderer"), default=False),
         )
 
-        return cls(
-            workspace=workspace,
-            toolchain=toolchain,
-            runtime=runtime,
-            mcscan=mcscan,
+        return JcviProfileModel(
+            schema_version=3,
+            synteny=synteny,
             local_synteny=local_synteny,
-            schema_version=_int(data.get("schema_version"), default=2),
+            plot=plot,
         )
 
     def as_nested_dict(self) -> dict[str, object]:
@@ -274,3 +232,14 @@ def normalize_optional_path(value: object) -> str:
 
     # 只有真正配置了路径时才做绝对化，空串语义要原样保留。
     return normalize_path_string(str(value))
+
+
+__all__ = [
+    "ConfigModel",
+    "RuntimeDefaults",
+    "ToolchainConfig",
+    "WorkspaceConfig",
+    "default_workspace_root",
+    "normalize_optional_path",
+    "normalize_path_string",
+]

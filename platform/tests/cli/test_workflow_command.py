@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 
 from genomelens.analysis.requests.models import WorkflowRequest
+from genomelens.analysis.requests.submodule_models import SubmoduleRequest
 from genomelens.cli.main import main
 from genomelens.contracts.summaries import RunSummary, ScoringBlock, UiBlock
 
@@ -123,16 +124,33 @@ def test_workflow_validate_submodule_missing_required(capsys) -> None:
 
 def test_workflow_validate_workflow_request(tmp_path) -> None:
     request_path = tmp_path / "request.json"
+    (tmp_path / "a.bed").write_text("chr1\t1\t100\tg1\n", encoding="utf-8")
+    (tmp_path / "a.cds").write_text(">g1\nATGC\n", encoding="utf-8")
+    (tmp_path / "b.bed").write_text("chr1\t1\t100\tg1\n", encoding="utf-8")
+    (tmp_path / "b.cds").write_text(">g1\nATGC\n", encoding="utf-8")
     request_path.write_text(
         json.dumps(
             {
-                "schema_version": 2,
+                "schema_version": 3,
                 "kind": "workflow_request",
-                "workflow_id": "graphics_histogram",
-                "species": [],
+                "workflow_id": "synteny",
+                "species": [
+                    {
+                        "name": "a",
+                        "input_mode": "bed_cds",
+                        "bed": str(tmp_path / "a.bed"),
+                        "cds": str(tmp_path / "a.cds"),
+                    },
+                    {
+                        "name": "b",
+                        "input_mode": "bed_cds",
+                        "bed": str(tmp_path / "b.bed"),
+                        "cds": str(tmp_path / "b.cds"),
+                    },
+                ],
                 "reference_index": 0,
                 "inputs": {},
-                "parameters": {"histogram": {"inputs": ["data.txt"]}},
+                "parameters": {},
                 "output": {"directory": str(tmp_path / "out")},
                 "runtime": {},
             }
@@ -150,11 +168,16 @@ def test_analyze_schema_with_capabilities(capsys) -> None:
     assert "one_stop_workflows" in payload
 
 
-def test_analyze_schema_default_still_raw_schema(capsys) -> None:
+def test_analyze_schema_default_is_union_schema(capsys) -> None:
     assert main(["analyze", "schema"]) == 0
     payload = json.loads(capsys.readouterr().out)
     assert payload["$schema"] == "https://json-schema.org/draft/2020-12/schema"
-    assert "properties" in payload
+    assert "workflow_request" in payload["$defs"]
+    assert "submodule_request" in payload["$defs"]
+    assert payload["oneOf"] == [
+        {"$ref": "#/$defs/workflow_request"},
+        {"$ref": "#/$defs/submodule_request"},
+    ]
 
 
 def test_analyze_workflow_unknown_returns_error(capsys) -> None:
@@ -182,7 +205,7 @@ def test_analyze_submodule_missing_required_port_returns_error(capsys) -> None:
         ]
     )
     assert code == 3
-    assert "histogram" in capsys.readouterr().err
+    assert "numeric_files" in capsys.readouterr().err
 
 
 def test_analyze_workflow_synteny_routes_to_workflow_request(monkeypatch, tmp_path) -> None:
@@ -192,7 +215,7 @@ def test_analyze_workflow_synteny_routes_to_workflow_request(monkeypatch, tmp_pa
         captured["request"] = request
         return _dummy_summary()
 
-    monkeypatch.setattr("genomelens.analysis.dispatcher.AnalysisDispatcher.dispatch", fake_dispatch)
+    monkeypatch.setattr("genomelens.analysis.dispatchers.task_dispatcher.TaskDispatcher.dispatch", fake_dispatch)
 
     (tmp_path / "a.bed").write_text("", encoding="utf-8")
     (tmp_path / "a.cds").write_text("", encoding="utf-8")
@@ -203,18 +226,19 @@ def test_analyze_workflow_synteny_routes_to_workflow_request(monkeypatch, tmp_pa
 
     assert code == 0
     request = captured["request"]
+    assert isinstance(request, WorkflowRequest)
     assert request.workflow_id == "synteny"
     assert [item.name for item in request.species] == ["a", "b"]
 
 
-def test_analyze_submodule_heatmap_routes_to_workflow_request(monkeypatch, tmp_path) -> None:
-    captured: dict[str, WorkflowRequest] = {}
+def test_analyze_submodule_heatmap_routes_to_submodule_request(monkeypatch, tmp_path) -> None:
+    captured: dict[str, SubmoduleRequest] = {}
 
     def fake_dispatch(self, request, signal_bus=None):
         captured["request"] = request
         return _dummy_summary()
 
-    monkeypatch.setattr("genomelens.analysis.dispatcher.AnalysisDispatcher.dispatch", fake_dispatch)
+    monkeypatch.setattr("genomelens.analysis.dispatchers.task_dispatcher.TaskDispatcher.dispatch", fake_dispatch)
 
     matrix = tmp_path / "matrix.csv"
     matrix.write_text("g,s1,s2\na,1,2\n", encoding="utf-8")
@@ -234,6 +258,6 @@ def test_analyze_submodule_heatmap_routes_to_workflow_request(monkeypatch, tmp_p
 
     assert code == 0
     request = captured["request"]
-    assert request.workflow_id == "graphics_heatmap"
-    assert request.parameters.heatmap.matrix == str(matrix)
-    assert request.inputs["ports"]["matrix_csv"] == str(matrix)
+    assert isinstance(request, SubmoduleRequest)
+    assert request.module_id == "jcvi.graphics_heatmap"
+    assert request.inputs["matrix_csv"] == str(matrix)

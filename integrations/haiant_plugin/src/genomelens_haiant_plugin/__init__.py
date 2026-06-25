@@ -6,7 +6,11 @@ from ._core import (
     GENOMELENS_EXE_ENV,
     LOGGER_NAME,
     PluginError,
-    build_analyze_submodule_command,
+    build_run_command,
+    build_submodule_request,
+    build_submodule_runtime_command,
+    build_workflow_request,
+    build_workflow_runtime_command,
     close_adapter_logging,
     close_logging,
     coerce_submodule_params,
@@ -15,13 +19,18 @@ from ._core import (
     resolve_param_path,
     run_process,
     setup_adapter_logging,
+    write_request_json,
 )
 
 __all__ = [
     "GENOMELENS_EXE_ENV",
     "LOGGER_NAME",
     "PluginError",
-    "build_analyze_submodule_command",
+    "build_run_command",
+    "build_submodule_request",
+    "build_submodule_runtime_command",
+    "build_workflow_request",
+    "build_workflow_runtime_command",
     "close_adapter_logging",
     "close_logging",
     "coerce_submodule_params",
@@ -30,4 +39,5 @@ __all__ = [
     "resolve_param_path",
     "run_process",
     "setup_adapter_logging",
+    "write_request_json",
 ]

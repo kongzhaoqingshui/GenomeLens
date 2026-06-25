@@ -4,11 +4,8 @@
 from __future__ import annotations
 
 from genomelens.analysis.execution.executor import PlanExecutor
-from genomelens.analysis.execution.request_mapping import (
-    to_histogram_request,
-    to_mcscan_request,
-)
-from genomelens.analysis.planning.models import HistogramExecutionRequest, SyntenyExecutionRequest
+from genomelens.analysis.execution.workflow_mapping import to_mcscan_request
+from genomelens.analysis.planning.models import SyntenyExecutionRequest
 from genomelens.analysis.planning.planner import WorkflowPlanner
 from genomelens.analysis.requests.models import WorkflowRequest
 from genomelens.analysis.workflows.onestop import get_onestop_registry
@@ -104,9 +101,3 @@ def _to_mcscan_request(request: WorkflowRequest) -> SyntenyExecutionRequest:
     """把 WorkflowRequest 转成 SyntenyExecutionRequest（provider 内部使用的便利函数）"""
 
     return to_mcscan_request(request)
-
-
-def _to_histogram_request(request: WorkflowRequest) -> HistogramExecutionRequest:
-    """把 WorkflowRequest 转成 HistogramExecutionRequest（provider 内部使用的便利函数）"""
-
-    return to_histogram_request(request)

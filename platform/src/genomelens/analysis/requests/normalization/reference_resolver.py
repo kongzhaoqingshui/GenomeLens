@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import argparse
-from pathlib import Path
 
 from genomelens.analysis.requests.models import WorkflowSpeciesInput
 from genomelens.analysis.requests.normalization.input_resolver import _path
@@ -39,24 +38,20 @@ def _resolve_reference_index(reference: str, species: list[WorkflowSpeciesInput]
 
 
 def _reference(args: argparse.Namespace, config: ConfigModel | None) -> str:
-    """CLI `--reference` 优先，否则读取 config.mcscan.reference"""
+    """CLI `--reference` 是唯一合法来源；V3 profile 不再承载参考物种"""
 
     value = str(getattr(args, "reference", "") or "").strip()
-    if value:
-        return value
-    if config:
-        return str(config.mcscan.reference or "")
-    return ""
+    return value
 
 
 def _resolve_jcvi_config(args: argparse.Namespace) -> str:
-    """解析 `analyze mcscan` 的 JCVI 配置文件路径
+    """解析 engine profile 路径
 
     优先级：
     1. CLI 显式 `--jcvi-config`
     2. 位置参数 `jcvi_config_positional`
-    3. 输入目录下的 `jcvi.config.json`
-    4. 当前工作目录下的 `jcvi.config.json`
+
+    V3 不再自动扫描输入目录或当前工作目录下的 jcvi.config.json。
     """
 
     explicit = str(args.jcvi_config or "").strip()
@@ -67,12 +62,4 @@ def _resolve_jcvi_config(args: argparse.Namespace) -> str:
     if positional:
         return str(_path(positional))
 
-    input_dir = Path(str(args.input_dir or ".")).expanduser().resolve(strict=False)
-    candidate = input_dir / "jcvi.config.json"
-    if candidate.is_file():
-        return str(candidate)
-
-    cwd_candidate = Path.cwd() / "jcvi.config.json"
-    if cwd_candidate.is_file():
-        return str(cwd_candidate)
     return ""

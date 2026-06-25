@@ -1,12 +1,34 @@
 import json
 from pathlib import Path
 
+import pytest
+
+from genomelens.data.config.config_models import WorkspaceConfig
 from genomelens.data.config.config_store import (
     default_config,
     default_jcvi_config_path,
     read_config,
+    read_engine_profile,
+    read_platform_config,
+    write_engine_profile,
+    write_platform_config,
     write_split_config,
 )
+from genomelens.data.config.jcvi_profile import (
+    JcviProfileModel,
+    LocalSyntenyProfileDefaults,
+    SyntenyProfileDefaults,
+)
+from genomelens.data.config.platform_config import PlatformConfigModel, RuntimeDefaults
+
+
+def test_default_config_has_schema_version_three() -> None:
+    config = default_config("/tmp/work")
+
+    assert config.schema_version == 3
+    assert config.profile.synteny.min_block_size == 5
+    assert config.profile.local_synteny.up == 20
+    assert config.profile.plot.dpi == 300
 
 
 def test_split_config_roundtrip(tmp_path: Path) -> None:
@@ -19,52 +41,36 @@ def test_split_config_roundtrip(tmp_path: Path) -> None:
 
     assert written_main == main_path.resolve(strict=False)
     assert written_jcvi == jcvi_path.resolve(strict=False)
-    assert loaded.workspace.jcvi_config_path == str(written_jcvi)
-    assert loaded.schema_version == 2
+    assert loaded.workspace.engine_profile_path == str(written_jcvi)
+    assert loaded.schema_version == 3
 
     # runtime 仅保留通用运行级字段
     assert loaded.runtime.default_threads == 4
     assert loaded.runtime.default_formats == ["svg"]
     assert loaded.runtime.log_level == "INFO"
 
-    # mcscan 分组
-    assert loaded.mcscan.workflow == "graphics_synteny"
-    assert loaded.mcscan.min_block_size == 5
-    assert loaded.mcscan.align_soft == "blast"
-    assert loaded.mcscan.dbtype == "nucl"
-    assert loaded.mcscan.cscore == 0.7
-    assert loaded.mcscan.dist == 20
-    assert loaded.mcscan.iter == 1
-    assert loaded.mcscan.reference == ""
-
-    # local_synteny 分组
-    assert loaded.local_synteny.target_gene_ids == []
-    assert loaded.local_synteny.up == 20
-    assert loaded.local_synteny.down == 20
-    assert loaded.local_synteny.split_targets is False
-    assert loaded.local_synteny.label_targets is False
-    assert loaded.local_synteny.dpi == 300
-    assert loaded.local_synteny.auto_optimization.optimize_figsize is False
-    assert loaded.local_synteny.auto_optimization.rewrite_layout_links is False
-    assert loaded.local_synteny.auto_optimization.optimize_karyotype_labels is False
+    # profile 分组
+    assert loaded.profile.synteny.min_block_size == 5
+    assert loaded.profile.synteny.align_soft == "blast"
+    assert loaded.profile.local_synteny.up == 20
+    assert loaded.profile.local_synteny.down == 20
+    assert loaded.profile.plot.dpi == 300
+    assert loaded.profile.plot.auto_optimization.optimize_figsize is False
 
     assert loaded.toolchain.lastal_path == ""
     assert loaded.toolchain.lastdb_path == ""
 
-    # 断言 jcvi.config.json 为分组结构
+    # engine profile 文件为 V3 结构
     jcvi_text = jcvi_path.read_text(encoding="utf-8")
-    assert '"toolchain"' in jcvi_text
-    assert '"mcscan"' in jcvi_text
+    assert '"schema_version": 3' in jcvi_text
+    assert '"synteny"' in jcvi_text
     assert '"local_synteny"' in jcvi_text
-    assert '"cscore"' in jcvi_text
-    assert '"reference"' in jcvi_text
-    assert '"dpi"' in jcvi_text
+    assert '"plot"' in jcvi_text
+    assert '"min_block_size"' in jcvi_text
     assert '"auto_optimization"' in jcvi_text
-    assert '"optimize_figsize"' in jcvi_text
-    assert '"optimize_karyotype_labels"' in jcvi_text
 
 
-def test_jcvi_config_reads_v2_grouped_keys(tmp_path: Path) -> None:
+def test_v2_config_migrates_to_v3_profile(tmp_path: Path) -> None:
     jcvi_path = tmp_path / "jcvi.config.json"
     jcvi_path.write_text(
         json.dumps(
@@ -77,9 +83,7 @@ def test_jcvi_config_reads_v2_grouped_keys(tmp_path: Path) -> None:
                     "threads": 8,
                 },
                 "mcscan": {
-                    "workflow": "graphics_dotplot",
                     "cscore": 0.9,
-                    "reference": "subject",
                 },
                 "local_synteny": {
                     "up": 15,
@@ -106,14 +110,49 @@ def test_jcvi_config_reads_v2_grouped_keys(tmp_path: Path) -> None:
         ),
         encoding="utf-8",
     )
-    loaded = read_config(main_path)
+    with pytest.warns(DeprecationWarning, match="schema_version 2"):
+        loaded = read_config(main_path)
     assert loaded.toolchain.blastn_path == str(Path("C:\\Tools\\blast\\bin\\blastn.exe").resolve())
     assert loaded.runtime.default_threads == 8
-    assert loaded.mcscan.workflow == "graphics_dotplot"
-    assert loaded.mcscan.cscore == 0.9
-    assert loaded.mcscan.reference == "subject"
-    assert loaded.local_synteny.up == 15
-    assert loaded.local_synteny.dpi == 200
-    assert loaded.local_synteny.auto_optimization.optimize_figsize is True
-    assert loaded.local_synteny.auto_optimization.rewrite_layout_links is True
-    assert loaded.local_synteny.auto_optimization.optimize_karyotype_labels is True
+    assert loaded.profile.synteny.cscore == 0.9
+    assert loaded.profile.local_synteny.up == 15
+    assert loaded.profile.plot.dpi == 200
+    assert loaded.profile.plot.auto_optimization.optimize_figsize is True
+    assert loaded.profile.plot.auto_optimization.rewrite_layout_links is True
+    assert loaded.profile.plot.auto_optimization.optimize_karyotype_labels is True
+
+
+def test_platform_config_roundtrip(tmp_path: Path) -> None:
+    platform = PlatformConfigModel(
+        workspace=WorkspaceConfig(
+            workspace_root=str(tmp_path / "work"),
+            temp_root=str(tmp_path / "work" / "temp"),
+            default_output_root=str(tmp_path / "work" / "results"),
+            engine_profile_path=str(tmp_path / "profile.json"),
+        ),
+        runtime=RuntimeDefaults(default_threads=8, default_formats=["png"], log_level="DEBUG"),
+    )
+    path = tmp_path / "platform.json"
+    write_platform_config(platform, path)
+
+    loaded = read_platform_config(path)
+
+    assert loaded.workspace.engine_profile_path == str(tmp_path / "profile.json")
+    assert loaded.runtime.default_threads == 8
+    assert loaded.runtime.default_formats == ["png"]
+
+
+def test_engine_profile_roundtrip(tmp_path: Path) -> None:
+    profile = JcviProfileModel(
+        synteny=SyntenyProfileDefaults(min_block_size=12, cscore=0.8),
+        local_synteny=LocalSyntenyProfileDefaults(up=10),
+    )
+    path = tmp_path / "profile.json"
+    write_engine_profile(profile, path)
+
+    loaded = read_engine_profile(path)
+
+    assert loaded.synteny.min_block_size == 12
+    assert loaded.synteny.cscore == 0.8
+    assert loaded.local_synteny.up == 10
+    assert loaded.local_synteny.down == 20

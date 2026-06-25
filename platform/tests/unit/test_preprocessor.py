@@ -420,7 +420,7 @@ def test_mcscan_auto_request_from_cli_includes_local_synteny_options(tmp_path: P
     assert request.output.formats == ["png", "pdf"]
 
 
-def test_mcscan_auto_request_discovers_jcvi_config_in_input_dir(tmp_path: Path) -> None:
+def test_mcscan_auto_request_uses_explicit_jcvi_config(tmp_path: Path) -> None:
     input_dir = tmp_path / "input"
     input_dir.mkdir()
     (input_dir / "A.bed").write_text("chr1\t0\t3\tg1\t0\t+\n", encoding="utf-8")
@@ -436,6 +436,69 @@ def test_mcscan_auto_request_discovers_jcvi_config_in_input_dir(tmp_path: Path) 
                     "align_soft": "last",
                     "dbtype": "nucl",
                     "cscore": 0.9,
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    ns = argparse.Namespace(
+        input_dir=str(input_dir),
+        output_dir=str(tmp_path / "out"),
+        config="",
+        jcvi_config=str(jcvi_path),
+        jcvi_config_positional="",
+        reference="",
+        preset="auto",
+        threads=None,
+        min_block_size=None,
+        formats="",
+        force=True,
+        jcvi_engine="",
+        blastn="",
+        makeblastdb="",
+        jcvi_workflow="",
+        jcvi_layout="",
+        jcvi_seqids="",
+        allow_simplified_fallback=False,
+        align_soft="",
+        dbtype="",
+        cscore=None,
+        dist=None,
+        iter=None,
+        target_genes="",
+        up=None,
+        down=None,
+        split_targets=False,
+        label_targets=False,
+        glyphstyle="",
+        glyphcolor="",
+        shadestyle="",
+        figsize="",
+        dpi=None,
+    )
+    request = mcscan_auto_request_from_cli(ns)
+    assert request.runtime.engine_config == str(jcvi_path)
+    assert request.parameters.synteny.align_soft == "last"
+    assert request.parameters.synteny.dbtype == "nucl"
+    assert request.parameters.synteny.cscore == 0.9
+
+
+def test_mcscan_auto_request_does_not_auto_discover_jcvi_config(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    input_dir = tmp_path / "input"
+    input_dir.mkdir()
+    (input_dir / "A.bed").write_text("chr1\t0\t3\tg1\t0\t+\n", encoding="utf-8")
+    (input_dir / "A.cds").write_text(">g1\nATG\n", encoding="utf-8")
+    (input_dir / "B.bed").write_text("chr1\t0\t3\tg1\t0\t+\n", encoding="utf-8")
+    (input_dir / "B.cds").write_text(">g1\nATG\n", encoding="utf-8")
+    jcvi_path = tmp_path / "jcvi.config.json"
+    jcvi_path.write_text(
+        json.dumps(
+            {
+                "schema_version": 2,
+                "local_synteny": {
+                    "dpi": 600,
                 },
             }
         ),
@@ -478,13 +541,12 @@ def test_mcscan_auto_request_discovers_jcvi_config_in_input_dir(tmp_path: Path) 
         dpi=None,
     )
     request = mcscan_auto_request_from_cli(ns)
-    assert request.runtime.engine_config == str(jcvi_path)
-    assert request.parameters.synteny.align_soft == "last"
-    assert request.parameters.synteny.dbtype == "nucl"
-    assert request.parameters.synteny.cscore == 0.9
+    assert request.runtime.engine_config == ""
+    assert request.parameters.plot.dpi == 300
+    assert request.parameters.local_synteny.up == 20
 
 
-def test_mcscan_auto_request_falls_back_to_cwd_jcvi_config(tmp_path: Path, monkeypatch) -> None:
+def test_mcscan_auto_request_explicit_jcvi_config_overrides_defaults(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
     input_dir = tmp_path / "input"
     input_dir.mkdir()
@@ -509,7 +571,7 @@ def test_mcscan_auto_request_falls_back_to_cwd_jcvi_config(tmp_path: Path, monke
         input_dir=str(input_dir),
         output_dir=str(tmp_path / "out"),
         config="",
-        jcvi_config="",
+        jcvi_config=str(jcvi_path),
         jcvi_config_positional="",
         reference="",
         preset="auto",

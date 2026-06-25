@@ -26,7 +26,7 @@ def load_analysis_request(path: str | Path) -> WorkflowRequest:
         raise InputValidationError(str(exc)) from exc
     if request.kind != "workflow_request":
         raise InputValidationError(f"不支持的 request kind(请求类型)：{request.kind}")
-    if request.schema_version != 2:
+    if request.schema_version != 3:
         raise InputValidationError(f"不支持的 workflow request schema version：{request.schema_version}")
     return request
 

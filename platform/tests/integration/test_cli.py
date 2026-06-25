@@ -40,7 +40,7 @@ def _blast_executable(root: Path, name: str) -> Path:
 
 def _workflow_request_payload(sample: Path, outdir: Path) -> dict[str, object]:
     return {
-        "schema_version": 2,
+        "schema_version": 3,
         "kind": "workflow_request",
         "workflow_id": "synteny",
         "species": [
@@ -109,11 +109,11 @@ def test_cli_help_for_analyze_run(capsys) -> None:
 
 
 def test_analyze_template_synteny(capsys) -> None:
-    assert main(["analyze", "template", "synteny"]) == 0
+    assert main(["analyze", "template", "workflow", "synteny"]) == 0
     payload = json.loads(capsys.readouterr().out)
     assert payload["kind"] == "workflow_request"
     assert payload["workflow_id"] == "synteny"
-    assert payload["schema_version"] == 2
+    assert payload["schema_version"] == 3
 
 
 def test_analyze_schema(capsys) -> None:
@@ -121,13 +121,10 @@ def test_analyze_schema(capsys) -> None:
     payload = json.loads(capsys.readouterr().out)
 
     assert payload["$schema"] == "https://json-schema.org/draft/2020-12/schema"
-    assert payload["properties"]["kind"]["const"] == "workflow_request"
-    assert payload["properties"]["workflow_id"]["enum"] == [
-        "synteny",
-        "local_synteny",
-        "graphics_histogram",
-        "graphics_heatmap",
-    ]
+    workflow_schema = payload["$defs"]["workflow_request"]
+    assert workflow_schema["properties"]["kind"]["const"] == "workflow_request"
+    assert workflow_schema["properties"]["workflow_id"]["enum"] == ["synteny"]
+    assert payload["$defs"]["submodule_request"]["properties"]["kind"]["const"] == "submodule_request"
 
 
 def test_check_json_short_option() -> None:
@@ -169,7 +166,7 @@ def test_analyze_workflow_force_before_positionals_reuses_output_dir(tmp_path: P
             scoring=ScoringBlock(),
         )
 
-    monkeypatch.setattr("genomelens.analysis.dispatcher.AnalysisDispatcher.dispatch", fake_dispatch)
+    monkeypatch.setattr("genomelens.analysis.dispatchers.task_dispatcher.TaskDispatcher.dispatch", fake_dispatch)
 
     code = main(
         [
@@ -214,7 +211,7 @@ def test_analyze_workflow_reuses_existing_execution_path(tmp_path: Path, monkeyp
             scoring=ScoringBlock(),
         )
 
-    monkeypatch.setattr("genomelens.analysis.dispatcher.AnalysisDispatcher.dispatch", fake_dispatch)
+    monkeypatch.setattr("genomelens.analysis.dispatchers.task_dispatcher.TaskDispatcher.dispatch", fake_dispatch)
 
     code = main(["analyze", "workflow", "synteny", str(input_dir), str(outdir), "--force"])
 
@@ -250,7 +247,7 @@ def test_analyze_workflow_log_level_overrides_verbose(tmp_path: Path, monkeypatc
             scoring=ScoringBlock(),
         )
 
-    monkeypatch.setattr("genomelens.analysis.dispatcher.AnalysisDispatcher.dispatch", fake_dispatch)
+    monkeypatch.setattr("genomelens.analysis.dispatchers.task_dispatcher.TaskDispatcher.dispatch", fake_dispatch)
 
     code = main(
         [
@@ -311,7 +308,7 @@ def test_analyze_workflow_uses_configured_log_level(tmp_path: Path, monkeypatch)
             scoring=ScoringBlock(),
         )
 
-    monkeypatch.setattr("genomelens.analysis.dispatcher.AnalysisDispatcher.dispatch", fake_dispatch)
+    monkeypatch.setattr("genomelens.analysis.dispatchers.task_dispatcher.TaskDispatcher.dispatch", fake_dispatch)
 
     code = main(
         [
@@ -358,7 +355,7 @@ def test_analyze_workflow_default_cli_uses_progress_reporter(tmp_path: Path, mon
             scoring=ScoringBlock(),
         )
 
-    monkeypatch.setattr("genomelens.analysis.dispatcher.AnalysisDispatcher.dispatch", fake_dispatch)
+    monkeypatch.setattr("genomelens.analysis.dispatchers.task_dispatcher.TaskDispatcher.dispatch", fake_dispatch)
 
     code = main(["analyze", "workflow", "synteny", str(input_dir), str(outdir), "--force"])
     captured = capsys.readouterr()
@@ -392,7 +389,7 @@ def test_analyze_run_json_suppresses_progress_reporter(tmp_path: Path, monkeypat
             scoring=ScoringBlock(),
         )
 
-    monkeypatch.setattr("genomelens.analysis.dispatcher.AnalysisDispatcher.dispatch", fake_dispatch)
+    monkeypatch.setattr("genomelens.analysis.dispatchers.task_dispatcher.TaskDispatcher.dispatch", fake_dispatch)
 
     code = main(["analyze", "run", str(request_path), "--json"])
     captured = capsys.readouterr()
@@ -427,7 +424,7 @@ def test_analyze_run_dispatches_request_json(tmp_path: Path, monkeypatch) -> Non
             scoring=ScoringBlock(),
         )
 
-    monkeypatch.setattr("genomelens.analysis.dispatcher.AnalysisDispatcher.dispatch", fake_dispatch)
+    monkeypatch.setattr("genomelens.analysis.dispatchers.task_dispatcher.TaskDispatcher.dispatch", fake_dispatch)
 
     code = main(["analyze", "run", str(request_path)])
 
@@ -460,7 +457,7 @@ def test_analyze_run_request_json(tmp_path: Path, monkeypatch) -> None:
             scoring=ScoringBlock(),
         )
 
-    monkeypatch.setattr("genomelens.analysis.dispatcher.AnalysisDispatcher.dispatch", fake_dispatch)
+    monkeypatch.setattr("genomelens.analysis.dispatchers.task_dispatcher.TaskDispatcher.dispatch", fake_dispatch)
 
     code = main(["analyze", "run", str(request_path)])
 
@@ -675,6 +672,8 @@ def test_analyze_workflow_synteny_pairwise_with_explicit_jcvi_config(tmp_path: P
             *_auto_args(input_dir, outdir),
             "--jcvi-config",
             str(jcvi_config_path),
+            "--threads",
+            "1",
             "--force",
         ]
     )
@@ -970,21 +969,19 @@ def test_analyze_mcscan_config_defaults_exposed_in_init(tmp_path: Path) -> None:
     code = main(["config", "init", "--workspace", str(tmp_path / "work"), "--force"])
     assert code == 0
     jcvi_config = json.loads((tmp_path / "work" / "jcvi.config.json").read_text(encoding="utf-8"))
-    assert jcvi_config["toolchain"]["lastal_path"] == ""
-    assert jcvi_config["toolchain"]["lastdb_path"] == ""
-    assert jcvi_config["runtime"]["threads"] == 4
-    assert jcvi_config["runtime"]["formats"] == ["svg"]
-    assert jcvi_config["mcscan"]["align_soft"] == "blast"
-    assert jcvi_config["mcscan"]["dbtype"] == "nucl"
-    assert jcvi_config["mcscan"]["cscore"] == 0.7
-    assert jcvi_config["mcscan"]["dist"] == 20
-    assert jcvi_config["mcscan"]["iter"] == 1
+    assert jcvi_config["schema_version"] == 3
+    assert jcvi_config["synteny"]["align_soft"] == "blast"
+    assert jcvi_config["synteny"]["dbtype"] == "nucl"
+    assert jcvi_config["synteny"]["cscore"] == 0.7
+    assert jcvi_config["synteny"]["dist"] == 20
+    assert jcvi_config["synteny"]["iter"] == 1
+    assert jcvi_config["synteny"]["min_block_size"] == 5
     assert jcvi_config["local_synteny"]["up"] == 20
     assert jcvi_config["local_synteny"]["down"] == 20
-    assert jcvi_config["local_synteny"]["dpi"] == 300
-    assert jcvi_config["local_synteny"]["auto_optimization"]["optimize_karyotype_labels"] is False
-    assert jcvi_config["local_synteny"]["auto_optimization"]["optimize_figsize"] is False
-    assert jcvi_config["local_synteny"]["auto_optimization"]["rewrite_layout_links"] is False
+    assert jcvi_config["plot"]["dpi"] == 300
+    assert jcvi_config["plot"]["auto_optimization"]["optimize_karyotype_labels"] is False
+    assert jcvi_config["plot"]["auto_optimization"]["optimize_figsize"] is False
+    assert jcvi_config["plot"]["auto_optimization"]["rewrite_layout_links"] is False
 
 
 def test_analyze_workflow_synteny_pairwise_end_to_end(tmp_path: Path) -> None:
@@ -1013,7 +1010,7 @@ def test_analyze_workflow_synteny_pairwise_end_to_end(tmp_path: Path) -> None:
 
     request_snapshot = json.loads((outdir / "inputs" / "workflow_request.json").read_text(encoding="utf-8"))
     assert request_snapshot["kind"] == "workflow_request"
-    assert request_snapshot["schema_version"] == 2
+    assert request_snapshot["schema_version"] == 3
     assert request_snapshot["workflow_id"] == "synteny"
 
 
@@ -1033,8 +1030,8 @@ def test_analyze_submodule_mcscan_pairwise_end_to_end(tmp_path: Path) -> None:
             json.dumps({"species_pair": str(input_dir)}),
             "--output-dir",
             str(outdir),
-            "--min-block-size",
-            "1",
+            "--params",
+            json.dumps({"min_block_size": 1}),
             "--force",
         ]
     )
@@ -1043,10 +1040,10 @@ def test_analyze_submodule_mcscan_pairwise_end_to_end(tmp_path: Path) -> None:
     assert summary["status"] == "SUCCEEDED"
     assert summary["task"]["task_type"] == "pairwise_synteny"
 
-    request_snapshot = json.loads((outdir / "inputs" / "workflow_request.json").read_text(encoding="utf-8"))
-    assert request_snapshot["kind"] == "workflow_request"
-    assert request_snapshot["workflow_id"] == "synteny"
-    assert request_snapshot["inputs"]["ports"]["species_pair"] == str(input_dir)
+    request_snapshot = json.loads((outdir / "inputs" / "submodule_request.json").read_text(encoding="utf-8"))
+    assert request_snapshot["kind"] == "submodule_request"
+    assert request_snapshot["module_id"] == "jcvi.mcscan_pairwise"
+    assert request_snapshot["inputs"]["species_pair"] == str(input_dir)
 
 
 def test_analyze_submodule_graphics_dotplot_reuses_pairwise_artifacts(tmp_path: Path) -> None:
@@ -1065,8 +1062,8 @@ def test_analyze_submodule_graphics_dotplot_reuses_pairwise_artifacts(tmp_path: 
             json.dumps({"species_pair": str(input_dir)}),
             "--output-dir",
             str(pairwise_out),
-            "--min-block-size",
-            "1",
+            "--params",
+            json.dumps({"min_block_size": 1}),
             "--force",
         ]
     )
@@ -1120,7 +1117,7 @@ def test_analyze_submodule_graphics_histogram_end_to_end(tmp_path: Path) -> None
     assert summary["status"] == "SUCCEEDED"
     assert summary["task"]["task_type"] == "plot_histogram"
 
-    request_snapshot = json.loads((outdir / "inputs" / "workflow_request.json").read_text(encoding="utf-8"))
-    assert request_snapshot["kind"] == "workflow_request"
-    assert request_snapshot["workflow_id"] == "graphics_histogram"
-    assert request_snapshot["inputs"]["ports"]["numeric_files"] == [str(numbers)]
+    request_snapshot = json.loads((outdir / "inputs" / "submodule_request.json").read_text(encoding="utf-8"))
+    assert request_snapshot["kind"] == "submodule_request"
+    assert request_snapshot["module_id"] == "jcvi.graphics_histogram"
+    assert request_snapshot["inputs"]["numeric_files"] == [str(numbers)]

@@ -1,4 +1,4 @@
-"""option_merger(选项合并器)：CLI、配置与默认值的三方合并"""
+"""option_merger(选项合并器)：CLI、engine profile 与默认值的三方合并"""
 
 # region import
 from __future__ import annotations
@@ -36,7 +36,7 @@ def _min_block_size(args: argparse.Namespace, config: ConfigModel | None) -> int
     if args.min_block_size is not None:
         return int(args.min_block_size)
     if config:
-        return int(config.mcscan.min_block_size)
+        return int(config.profile.synteny.min_block_size)
     return None
 
 
@@ -51,21 +51,11 @@ def _log_level(args: argparse.Namespace, config: ConfigModel | None) -> str:
     return "INFO"
 
 
-def _workflow(args: argparse.Namespace, config: ConfigModel | None) -> str:
-    if str(args.jcvi_workflow).strip():
-        return str(args.jcvi_workflow)
-
-    # workflow 默认值属于 mcscan 方法语义，不从 runtime 通用配置读取
-    if config:
-        return config.mcscan.workflow
-    return "graphics_synteny"
-
-
 def _align_soft(args: argparse.Namespace, config: ConfigModel | None) -> str:
     if str(args.align_soft).strip():
         return str(args.align_soft)
     if config:
-        return config.mcscan.align_soft
+        return config.profile.synteny.align_soft
     return "blast"
 
 
@@ -73,7 +63,7 @@ def _dbtype(args: argparse.Namespace, config: ConfigModel | None) -> str:
     if str(args.dbtype).strip():
         return str(args.dbtype)
     if config:
-        return config.mcscan.dbtype
+        return config.profile.synteny.dbtype
     return "nucl"
 
 
@@ -81,7 +71,7 @@ def _cscore(args: argparse.Namespace, config: ConfigModel | None) -> float:
     if args.cscore is not None:
         return float(args.cscore)
     if config:
-        return float(config.mcscan.cscore)
+        return float(config.profile.synteny.cscore)
     return 0.7
 
 
@@ -89,7 +79,7 @@ def _dist(args: argparse.Namespace, config: ConfigModel | None) -> int:
     if args.dist is not None:
         return int(args.dist)
     if config:
-        return int(config.mcscan.dist)
+        return int(config.profile.synteny.dist)
     return 20
 
 
@@ -97,7 +87,7 @@ def _iter(args: argparse.Namespace, config: ConfigModel | None) -> int:
     if args.iter is not None:
         return int(args.iter)
     if config:
-        return int(config.mcscan.iter)
+        return int(config.profile.synteny.iter)
     return 1
 
 
@@ -106,7 +96,7 @@ def _up(args: argparse.Namespace, config: ConfigModel | None) -> int:
         return int(args.up)
 
     if config:
-        return int(config.local_synteny.up)
+        return int(config.profile.local_synteny.up)
     return 20
 
 
@@ -115,7 +105,7 @@ def _down(args: argparse.Namespace, config: ConfigModel | None) -> int:
         return int(args.down)
 
     if config:
-        return int(config.local_synteny.down)
+        return int(config.profile.local_synteny.down)
     return 20
 
 
@@ -124,17 +114,17 @@ def _dpi(args: argparse.Namespace, config: ConfigModel | None) -> int:
         return int(args.dpi)
 
     if config:
-        return int(config.local_synteny.dpi)
+        return int(config.profile.plot.dpi)
     return 300
 
 
 def _target_gene_ids(args: argparse.Namespace, config: ConfigModel | None) -> list[str]:
+    """目标基因只能从 CLI 显式传入；V3 profile 不再承载任务身份"""
+
     text = str(args.target_genes).strip()
     if text:
-        # CLI 入口使用逗号分隔字符串，配置文件则已经是规范化后的 list[str]
+        # CLI 入口使用逗号分隔字符串
         return [item.strip() for item in text.split(",") if item.strip()]
-    if config:
-        return list(config.local_synteny.target_gene_ids)
     return []
 
 
@@ -142,7 +132,7 @@ def _split_targets(args: argparse.Namespace, config: ConfigModel | None) -> bool
     if args.split_targets:
         return True
     if config:
-        return bool(config.local_synteny.split_targets)
+        return bool(config.profile.local_synteny.split_targets)
     return False
 
 
@@ -150,7 +140,7 @@ def _label_targets(args: argparse.Namespace, config: ConfigModel | None) -> bool
     if args.label_targets:
         return True
     if config:
-        return bool(config.local_synteny.label_targets)
+        return bool(config.profile.local_synteny.label_targets)
     return False
 
 
@@ -158,7 +148,7 @@ def _auto_optimization_flag(args: argparse.Namespace, config: ConfigModel | None
     if bool(getattr(args, name, False)):
         return True
     if config:
-        return bool(getattr(config.local_synteny.auto_optimization, name, False))
+        return bool(getattr(config.profile.plot.auto_optimization, name, False))
     return False
 
 
@@ -174,7 +164,7 @@ def _use_native_local_synteny_renderer(args: argparse.Namespace, config: ConfigM
     if bool(getattr(args, "use_native_local_synteny_renderer", False)):
         return True
     if config:
-        return bool(getattr(config.local_synteny, "use_native_local_synteny_renderer", False))
+        return bool(getattr(config.profile.local_synteny, "use_native_local_synteny_renderer", False))
     return False
 
 
@@ -183,9 +173,9 @@ def _style_arg(args: argparse.Namespace, config: ConfigModel | None, name: str) 
     if value:
         return value
 
-    # 样式参数暂时统一复用 local_synteny 配置组，避免在多处复制默认值来源
+    # V3 样式参数统一归入 plot profile
     if config:
-        return str(getattr(config.local_synteny, name, "") or "")
+        return str(getattr(config.profile.plot, name, "") or "")
     return ""
 
 

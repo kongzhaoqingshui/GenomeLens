@@ -7,7 +7,8 @@ import json
 from typing import Any, cast
 
 from genomelens.analysis.planning.planner import WorkflowPlanner
-from genomelens.analysis.requests.loader import load_analysis_request
+from genomelens.analysis.requests.models import WorkflowRequest
+from genomelens.analysis.requests.task_loader import load_task_request
 from genomelens.analysis.workflows.input_bindings import PortSystem
 from genomelens.analysis.workflows.onestop import OneStopWorkflowSpec, get_onestop_registry
 from genomelens.analysis.workflows.registry import list_one_stop_workflows
@@ -133,7 +134,15 @@ def _validate(args: argparse.Namespace) -> int:
 
     if args.request:
         try:
-            WorkflowPlanner().build(load_analysis_request(args.request))
+            request = load_task_request(args.request)
+            if isinstance(request, WorkflowRequest):
+                WorkflowPlanner().build(request)
+            else:
+                spec = get_submodule_registry().get(request.module_id)
+                if spec is None:
+                    errors.append(f"Unknown submodule: {request.module_id}")
+                else:
+                    errors.extend(PortSystem.validate_bindings(spec.inputs, request.inputs))
         except Exception as exc:  # noqa: BLE001 - validation command reports all errors as text
             errors.append(str(exc))
 

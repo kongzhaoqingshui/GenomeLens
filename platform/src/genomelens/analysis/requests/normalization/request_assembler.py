@@ -37,7 +37,6 @@ from genomelens.analysis.requests.normalization.option_merger import (
     _threads,
     _up,
     _use_native_local_synteny_renderer,
-    _workflow,
 )
 from genomelens.analysis.requests.normalization.reference_resolver import (
     _reference,
@@ -93,6 +92,7 @@ def _build_parameters(args: argparse.Namespace, config: ConfigModel | None) -> W
             cscore=_cscore(args, config),
             dist=_dist(args, config),
             iter=_iter(args, config),
+            min_block_size=_min_block_size(args, config) or 5,
             allow_simplified_fallback=bool(getattr(args, "allow_simplified_fallback", False)),
         ),
         local_synteny=LocalSyntenyParameters(
@@ -134,18 +134,6 @@ def _build_parameters(args: argparse.Namespace, config: ConfigModel | None) -> W
     )
 
 
-def _workflow_id_from_engine_workflow(engine_workflow: str) -> str:
-    """把底层 JCVI workflow 映射到公开 workflow_id"""
-
-    if engine_workflow == "graphics_histogram":
-        return "graphics_histogram"
-    if engine_workflow == "graphics_heatmap":
-        return "graphics_heatmap"
-    if engine_workflow == "local_synteny":
-        return "local_synteny"
-    return "synteny"
-
-
 def mcscan_auto_request_from_cli(args: argparse.Namespace) -> WorkflowRequest:
     """把 MCscan 相关 CLI 参数转成 WorkflowRequest(工作流请求)"""
 
@@ -156,19 +144,13 @@ def mcscan_auto_request_from_cli(args: argparse.Namespace) -> WorkflowRequest:
     )
     config = read_request_config(WorkflowRequest(workflow_id="synteny", runtime=runtime_probe))
     parameters = _build_parameters(args, config)
-    engine_workflow = _workflow(args, config)
-    workflow_id = _workflow_id_from_engine_workflow(engine_workflow)
 
-    if workflow_id in {"graphics_histogram", "graphics_heatmap"}:
-        species = []
-        reference_index = 0
-    else:
-        input_dir = _path_text(args.input_dir)
-        species = discover_species_from_directory(input_dir)
-        reference_index = _resolve_reference_index(_reference(args, config), species)
+    input_dir = _path_text(args.input_dir)
+    species = discover_species_from_directory(input_dir)
+    reference_index = _resolve_reference_index(_reference(args, config), species)
 
     return WorkflowRequest(
-        workflow_id=workflow_id,
+        workflow_id="synteny",
         species=species,
         reference_index=reference_index,
         inputs={},
@@ -184,7 +166,6 @@ def mcscan_auto_request_from_cli(args: argparse.Namespace) -> WorkflowRequest:
             blastn=str(getattr(args, "blastn", "") or ""),
             makeblastdb=str(getattr(args, "makeblastdb", "") or ""),
             threads=_threads(args, config),
-            min_block_size=_min_block_size(args, config),
             log_level=_log_level(args, config),
             verbose=bool(getattr(args, "verbose", False)),
             console_log=False,

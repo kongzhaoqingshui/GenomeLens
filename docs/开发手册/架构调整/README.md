@@ -6,7 +6,7 @@
 
 | 文档 | 内容 |
 |---|---|
-| [最终架构目标](最终架构目标.md) | GenomeLens 长期平台架构、分层边界和 V2 协议定位 |
+| [最终架构目标](最终架构目标.md) | GenomeLens 长期平台架构、分层边界和 V3 协议定位 |
 | [多平台兼容方案](多平台兼容方案.md) | Windows-first 到多平台运行时的演进策略 |
 | [Platform + JCVI Engine 分包重构 V2](platform-engine-package-refactor-v2.md) | 当前 platform 与 JCVI engine 分包结果 |
 | [工作流与注册表当前结构](工作流与注册表.md) | workflow registry、submodule、port binding、planner/executor 的当前代码位置 |

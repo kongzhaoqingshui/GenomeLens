@@ -1,6 +1,6 @@
 # GenomeLens 开发手册
 
-本目录只保留当前仍对外部贡献者有用的开发文档。已被 `WorkflowRequest v2`、`ExecutionPlan`、manifest v3 或新分包结构取代的早期草案已移入 `docs/历史/开发手册/`。
+本目录只保留当前仍对外部贡献者有用的开发文档。已被 `WorkflowRequest V3`、`SubmoduleRequest V3`、`ExecutionPlan`、manifest v3 或新分包结构取代的早期草案已移入 `docs/历史/开发手册/`。
 
 ## 当前必读
 
@@ -9,7 +9,7 @@
 | [开发规范](开发规范.md) | 代码风格、注释、类型、测试、发布和 PR 规范 |
 | [协作开发方案](协作开发方案.md) | 分支、提交、PR 和多人协作约定 |
 | [能力接入规则](能力接入规则.md) | 新增 workflow/submodule/engine 能力的联动清单 |
-| [架构调整/最终架构目标](架构调整/最终架构目标.md) | 长期平台架构和当前 V2 协议边界 |
+| [架构调整/最终架构目标](架构调整/最终架构目标.md) | 长期平台架构和当前 V3 协议边界 |
 | [架构调整/platform-engine-package-refactor-v2](架构调整/platform-engine-package-refactor-v2.md) | 本轮分包重构的目标结构与验收命令 |
 | [架构调整/多平台兼容方案](架构调整/多平台兼容方案.md) | 跨平台边界、工具链和运行时策略 |
 
