@@ -21,6 +21,11 @@ jobs:
       - run: python -m genomelens.cli.main --help
       - run: python -m genomelens.cli.main check --json --install-missing
       - run: python -m jcvi_genomelens.cli probe --json
+      - name: Compile Cython extensions (engine)
+        shell: pwsh
+        run: |
+          cd engines/jcvi
+          python setup.py build_ext --inplace
       - name: Build engine
         shell: pwsh
         run: ./engines/jcvi/packaging/scripts/build_engine.ps1

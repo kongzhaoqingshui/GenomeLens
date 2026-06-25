@@ -49,6 +49,11 @@ from ..graphics.dotplot import dotplot
 from ..utils.cbook import gene_name
 from .allmaps import make_movie
 
+try:
+    from .chic import score_evaluate_M, score_evaluate_P, score_evaluate_Q
+except ImportError:  # pragma: no cover - core mode without compiled extension
+    from .chic_fallback import score_evaluate_M, score_evaluate_P, score_evaluate_Q  # type: ignore[assignment]
+
 # Map orientations to ints
 FF = {"+": 1, "-": -1, "?": 1}
 RR = {"+": -1, "-": 1, "?": -1}
@@ -281,16 +286,12 @@ class CLMFile:
 
     def evaluate_tour_M(self, tour):
         """Use Cythonized version to evaluate the score of a current tour"""
-        from .chic import score_evaluate_M
-
         return score_evaluate_M(tour, self.active_sizes, self.M)
 
     def evaluate_tour_P(self, tour):
         """Use Cythonized version to evaluate the score of a current tour,
         with better precision on the distance of the contigs.
         """
-        from .chic import score_evaluate_P
-
         return score_evaluate_P(tour, self.active_sizes, self.P)
 
     def evaluate_tour_Q(self, tour):
@@ -298,8 +299,6 @@ class CLMFile:
         taking orientation into consideration. This may be the most accurate
         evaluation under the right condition.
         """
-        from .chic import score_evaluate_Q
-
         return score_evaluate_Q(tour, self.active_sizes, self.Q)
 
     def flip_log(self, method, score, score_flipped, tag):
@@ -542,8 +541,6 @@ def golden_array(a, phi=1.61803398875, lb=LB, ub=UB):
 
 def prune_tour_worker(arg):
     """Worker thread for CLMFile.prune_tour()"""
-    from .chic import score_evaluate_M
-
     t, stour, tour_score, active_sizes, M = arg
     (stour_score,) = score_evaluate_M(stour, active_sizes, M)
     delta_score = tour_score - stour_score
@@ -1327,8 +1324,6 @@ def optimize_ordering(fwtour, clm, phase, cpus):
     """
     Optimize the ordering of contigs by Genetic Algorithm (GA).
     """
-    from .chic import score_evaluate_M
-
     # Prepare input files
     tour_contigs = clm.active_contigs
     tour_sizes = clm.active_sizes
@@ -1609,8 +1604,6 @@ def score(args):
         print_tour(fwtour, tour, "INIT", contig_names, oo)
 
         # Faster Cython version for evaluation
-        from .chic import score_evaluate_M
-
         callbacki = partial(callback, oo=oo)
         toolbox = GA_setup(tour)
         toolbox.register(

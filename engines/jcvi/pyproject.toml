@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=68", "wheel"]
+requires = ["setuptools>=68", "wheel", "cython>=3"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -30,6 +30,7 @@ dev = [
   "pytest>=8",
   "pyinstaller>=6",
   "ruff>=0.6",
+  "cython>=3",
 ]
 # 未来 JCVI 能力扩展所需的额外依赖。
 # 注意：部分包在 Windows 上没有预构建 wheel，当前环境无法直接安装。
