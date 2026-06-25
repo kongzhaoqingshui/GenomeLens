@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "jcvi-genomelens"
-version = "0.1.0"
+version = "1.0.0-preview-1"
 description = "Standalone GenomeLens engine carrying vendored JCVI"
 readme = "README.md"
 license = "MIT"
