@@ -53,7 +53,7 @@ $env:GENOMELENS_EXE = "C:\GenomeLens\GenomeLens.exe"
 <GenomeLens_Path> analyze run output/workflow_request.json
 ```
 
-未填写 `target_gene_ids` 时走全局共线性路径；填写 `target_gene_ids` 时走目标基因局部共线性路径；3 个及以上物种时平台自动拆分为 all-vs-all pairwise 并聚合全局核型总图与多物种局部总图。该插件不再生成 `jcvi.config.json`，也不提供 workflow 选择器。
+未填写 `target_gene_ids` 时走全局共线性路径；填写 `target_gene_ids` 时走目标基因局部共线性路径，并同步生成 global karyotype 总图；3 个及以上物种时平台自动拆分为 all-vs-all pairwise 并聚合全局核型总图与多物种局部总图。该插件不再生成 `jcvi.config.json`，也不提供 workflow 选择器。
 
 ### 2.3 可编排子模块插件
 

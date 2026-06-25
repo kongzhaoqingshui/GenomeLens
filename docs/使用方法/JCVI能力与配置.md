@@ -210,7 +210,7 @@ GenomeLens.exe analyze workflow synteny input output `
 
 ## 能力边界
 
-平台入口已经支持 2 到 n 个物种的 `species[]` 输入，并会把 3 个以上物种自动拆成 all-vs-all pairwise 子任务。所有 pairwise 子任务完成后，会把成功对的共线性边自动聚合成一张全局核型总图（`graphics_karyotype_global`），随 `run_summary.json` 的扩展信息一并输出。
+平台入口已经支持 2 到 n 个物种的 `species[]` 输入。3 个以上物种会自动拆成 all-vs-all pairwise 子任务；提供 `target_gene_ids` 的 reference-vs-targets 运行会生成 reference 与每个 target 的 pairwise 子任务。所有 pairwise 子任务完成后，平台都会把成功对的共线性边自动聚合成一张全局核型总图（`graphics_karyotype_global`），输出 `global_figures` 与 `intermediate/global_karyotype/global_manifest.json`，并随 `run_summary.json` 的扩展信息一并输出。
 
 engine 当前仍以 pairwise worker 作为真实 JCVI 调用粒度，但公开 manifest 已升级为 `schema_version=3`：pairwise 输入通过 `inputs.species[0:2]` 表达，`query/subject` 只允许作为 engine 内部局部变量或运行时对象名存在。多物种顶层编排由平台 `WorkflowPlanner` / `PlanExecutor` 汇总。
 

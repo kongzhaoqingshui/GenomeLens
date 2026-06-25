@@ -182,7 +182,7 @@ V3 不再把 `local_synteny`、`graphics_histogram`、`graphics_heatmap` 作为 
 
 - 2 个物种且无目标基因：单个 pairwise synteny step。
 - 3 个及以上物种且无目标基因：all-vs-all pairwise steps + global karyotype aggregate step。
-- 有目标基因：reference-vs-targets pairwise steps + multi local synteny aggregate step。
+- 有目标基因：reference-vs-targets pairwise steps + global karyotype aggregate step + multi local synteny aggregate step。
 
 ## 输出摘要
 
@@ -191,5 +191,7 @@ V3 不再把 `local_synteny`、`graphics_histogram`、`graphics_heatmap` 作为 
 - `inputs/workflow_request.json`：归一化后的请求快照。
 - `inputs/input_manifest.json`：平台执行计划或单步引擎 manifest 的用户可见副本。
 - `report/run_summary.json`：`RunSummary` schema v3。
+- `results/figures/global_figures/`（多物种或 reference-vs-targets）：全局核型总图。
+- `intermediate/global_karyotype/global_manifest.json`（多物种或 reference-vs-targets）：全局核型总图 manifest。
 
 `RunSummary` 的扩展数据进入 `extensions`，复合任务子运行记录进入 `child_runs`，图件与中间产物索引进入 `artifact_index`。
