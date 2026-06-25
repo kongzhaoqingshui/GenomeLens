@@ -75,14 +75,24 @@ def register(subparsers: argparse._SubParsersAction) -> None:
 
 
 def _register_workflow_command(nested: argparse._SubParsersAction) -> None:
-    """注册 `analyze workflow` 一站式工作流命令"""
+    """注册 `analyze workflow` 一站式工作流命令及其子命令"""
 
-    workflow_parser = nested.add_parser("workflow", help="运行 synteny 一站式共线性分析工作流")
-    workflow_parser.add_argument("workflow_id", help="一站式工作流 ID，例如 synteny")
-    workflow_parser.add_argument("input", help="输入目录或主文件")
-    workflow_parser.add_argument("output_dir", help="输出目录")
+    workflow_parser = nested.add_parser("workflow", help="运行一站式分析工作流")
+    workflow_nested = workflow_parser.add_subparsers(
+        dest="workflow_command",
+        required=True,
+        parser_class=StyledArgumentParser,
+        help="可用的一站式工作流",
+    )
 
-    species_group = workflow_parser.add_argument_group("物种与局部共线性")
+    synteny_parser = workflow_nested.add_parser(
+        "synteny",
+        help="运行 synteny 一站式共线性分析工作流",
+    )
+    synteny_parser.add_argument("input", help="输入目录或主文件")
+    synteny_parser.add_argument("output_dir", help="输出目录")
+
+    species_group = synteny_parser.add_argument_group("物种与局部共线性")
     species_group.add_argument("--reference", default="", help="参考物种名称或 1-based 索引")
     species_group.add_argument("--target-genes", default="", help="局部共线性工作流的目标基因 ID")
     species_group.add_argument("--up", type=int, default=None, help="局部共线性上游窗口大小")
@@ -90,7 +100,7 @@ def _register_workflow_command(nested: argparse._SubParsersAction) -> None:
     species_group.add_argument("--split-targets", action="store_true", help="每个目标基因单独出图")
     species_group.add_argument("--label-targets", action="store_true", help="在图中标注目标基因名称")
 
-    mcscan_group = workflow_parser.add_argument_group("MCscan 算法参数")
+    mcscan_group = synteny_parser.add_argument_group("MCscan 算法参数")
     mcscan_group.add_argument("--align-soft", default="", help="比对后端：blast、last、diamond_blastp")
     mcscan_group.add_argument("--dbtype", default="", help="序列类型：nucl 或 prot")
     mcscan_group.add_argument("--cscore", type=float, default=None, help="同源匹配 cscore 过滤阈值")
@@ -98,7 +108,7 @@ def _register_workflow_command(nested: argparse._SubParsersAction) -> None:
     mcscan_group.add_argument("--iter", type=int, default=None, help="区块过滤迭代次数")
     mcscan_group.add_argument("--min-block-size", type=int, default=None, help="最小区块基因数")
 
-    figure_group = workflow_parser.add_argument_group("图件样式与自动优化")
+    figure_group = synteny_parser.add_argument_group("图件样式与自动优化")
     figure_group.add_argument("--glyphstyle", choices=["box", "arrow"], default="", help="基因形状")
     figure_group.add_argument("--glyphcolor", choices=["orientation", "orthogroup"], default="", help="基因着色")
     figure_group.add_argument("--shadestyle", choices=["curve", "line"], default="", help="连线样式")
@@ -118,14 +128,14 @@ def _register_workflow_command(nested: argparse._SubParsersAction) -> None:
         help="使用原生 matplotlib 局部共线性渲染器",
     )
 
-    toolchain_group = workflow_parser.add_argument_group("工具链与配置")
+    toolchain_group = synteny_parser.add_argument_group("工具链与配置")
     toolchain_group.add_argument("-c", "--config", default="", help="GenomeLens 项目配置 JSON 路径")
     toolchain_group.add_argument("--jcvi-config", default="", help="JCVI 方法配置 JSON 路径")
     toolchain_group.add_argument("--jcvi-engine", default="", help="显式指定 jcvi-genomelens 可执行文件")
     toolchain_group.add_argument("--blastn", default="", help="显式指定 blastn 可执行文件")
     toolchain_group.add_argument("--makeblastdb", default="", help="显式指定 makeblastdb 可执行文件")
 
-    runtime_group = workflow_parser.add_argument_group("运行时与输出")
+    runtime_group = synteny_parser.add_argument_group("运行时与输出")
     runtime_group.add_argument("--formats", default="", help="输出图片格式，例如 svg 或 svg,pdf")
     runtime_group.add_argument("--threads", type=int, default=None, help="工作线程数")
     runtime_group.add_argument("--params", default="{}", help="额外方法参数的 JSON 对象")
@@ -133,7 +143,7 @@ def _register_workflow_command(nested: argparse._SubParsersAction) -> None:
     runtime_group.add_argument("--verbose", action="store_true", help="开启引擎详细日志")
     runtime_group.add_argument("--log-level", default="", help="设置日志级别（DEBUG/INFO/WARNING/ERROR）")
     runtime_group.add_argument("-j", "--json", action="store_true", help="输出原始 JSON 摘要")
-    workflow_parser.set_defaults(func=_run_one_stop_workflow)
+    synteny_parser.set_defaults(func=_run_one_stop_workflow)
 
 
 def _register_submodule_command(nested: argparse._SubParsersAction) -> None:
@@ -338,10 +348,11 @@ def _base_mcscan_namespace(args: argparse.Namespace, *, jcvi_workflow: str) -> a
 def _run_one_stop_workflow(args: argparse.Namespace) -> int:
     """执行单一集成一站式工作流"""
 
+    workflow_id = getattr(args, "workflow_command", "synteny")
     registry = get_onestop_registry()
-    spec = registry.get(args.workflow_id)
+    spec = registry.get(workflow_id)
     if spec is None:
-        raise InputValidationError(f"未知的一站式工作流：{args.workflow_id}")
+        raise InputValidationError(f"未知的一站式工作流：{workflow_id}")
 
     params = _parse_params(args.params)
     request = _build_synteny_one_stop_request(args, params)

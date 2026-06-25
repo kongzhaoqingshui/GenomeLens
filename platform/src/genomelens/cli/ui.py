@@ -726,12 +726,19 @@ def print_parser_help(parser: argparse.ArgumentParser, file: TextIO | None = Non
     parser._print_message(parser.format_help(), file or sys.stdout)  # noqa: SLF001 - argparse 只公开 print_help 包装
 
 
+class SpaciousHelpFormatter(argparse.HelpFormatter):
+    """加大 help 文本与选项名之间的间距，提升长参数名可读性"""
+
+    _max_help_position = 40
+
+
 class StyledArgumentParser(argparse.ArgumentParser):
     """StyledArgumentParser(带样式参数解析器)：只处理 CLI 帮助信息 展示"""
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         """初始化参数解析器，并把默认 help 文案换成中文"""
 
+        kwargs.setdefault("formatter_class", SpaciousHelpFormatter)
         add_help = bool(kwargs.pop("add_help", True))
         super().__init__(*args, add_help=False, **kwargs)
 

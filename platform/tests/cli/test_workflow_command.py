@@ -192,9 +192,10 @@ def test_analyze_schema_default_is_union_schema(capsys) -> None:
 
 
 def test_analyze_workflow_unknown_returns_error(capsys) -> None:
-    """analyze workflow 传入未知 workflow_id 时应返回错误码 3"""
+    """analyze workflow 传入未知子命令时 argparse 应报 usage 错误"""
+
     code = main(["analyze", "workflow", "not_found", "in", "out"])
-    assert code == 3
+    assert code == 2
     assert "not_found" in capsys.readouterr().err
 
 

@@ -76,7 +76,7 @@ def test_cli_help() -> None:
 
 
 def test_cli_help_for_workflow(capsys) -> None:
-    """验证 workflow 子命令 help 与直接 --help 输出一致，并包含关键参数"""
+    """验证 workflow 子命令 help 与直接 --help 输出一致，并列出可用工作流子命令"""
     assert main(["help", "analyze", "workflow"]) == 0
     help_command_output = capsys.readouterr().out
 
@@ -84,8 +84,19 @@ def test_cli_help_for_workflow(capsys) -> None:
     direct_help_output = capsys.readouterr().out
 
     assert help_command_output == direct_help_output
-    assert "workflow_id" in help_command_output
-    assert "--jcvi-config" in help_command_output
+    assert "synteny" in help_command_output
+    # workflow 父级 help 只展示子命令，具体参数应收束在 synteny 子命令 help 中
+    assert "--jcvi-config" not in help_command_output
+
+
+def test_cli_help_for_workflow_synteny(capsys) -> None:
+    """验证 analyze workflow synteny help 包含具体运行参数"""
+    assert main(["help", "analyze", "workflow", "synteny"]) == 0
+    output = capsys.readouterr().out
+
+    assert "--jcvi-config" in output
+    assert "input" in output
+    assert "output_dir" in output
 
 
 def test_cli_help_for_submodule(capsys) -> None:
@@ -106,7 +117,7 @@ def test_cli_help_for_command_uses_color_when_enabled(capsys, monkeypatch) -> No
     output = capsys.readouterr().out
 
     assert "\033[" in output
-    assert "workflow_id" in output
+    assert "synteny" in output
 
 
 def test_cli_help_for_analyze_run(capsys) -> None:
