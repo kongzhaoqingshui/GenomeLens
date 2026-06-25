@@ -6,7 +6,7 @@ PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 cd "${PROJECT_ROOT}"
 
 # Compile optional Cython extensions in-place so PyInstaller bundles them.
-python setup.py build_ext --inplace
+python packaging/scripts/build_cython_extensions.py
 
 # Build frozen executable.
 python -m PyInstaller packaging/pyinstaller/jcvi_genomelens.spec --clean --noconfirm

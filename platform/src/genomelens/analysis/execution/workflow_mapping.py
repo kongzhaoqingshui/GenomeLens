@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import TypedDict
 
 from genomelens.analysis.planning.models import (
     PairwiseArtifactInputs,
@@ -98,7 +99,17 @@ def species_to_genome_input(species: WorkflowSpeciesInput) -> GenomeInputSpec:
     raise ValueError(f"不支持的物种输入模式：{species.input_mode}")
 
 
-def _toolchain_paths(request: WorkflowRequest) -> dict[str, str]:
+class _ToolchainPaths(TypedDict):
+    """实际通过 **toolchain 注入 SyntenyExecutionRequest 的工具链路径字段"""
+
+    engine_path: str
+    blastn_path: str
+    makeblastdb_path: str
+    lastal_path: str
+    lastdb_path: str
+
+
+def _toolchain_paths(request: WorkflowRequest) -> _ToolchainPaths:
     """合并显式 runtime 与配置文件中的工具链路径(toolchain paths)"""
 
     config = read_request_config(request)
@@ -167,6 +178,7 @@ def build_synteny_request(
         use_native_local_synteny_renderer=params.local_synteny.use_native_renderer,
         layout_path=str(_optional_path(ports.get("layout") or ports.get("karyotype_layout")) or ""),
         seqids_path=str(_optional_path(ports.get("karyotype_seqids")) or ""),
+        emit_ortholog=False,
         **toolchain,
     )
 

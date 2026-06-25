@@ -34,8 +34,7 @@ def ensure_pairwise_artifacts(
     if precomputed is None or not _has_required_artifacts(precomputed, required_fields):
         missing = _missing_fields(precomputed, required_fields)
         raise MissingPairwiseArtifactsError(
-            "缺少必需的上游 pairwise 产物："
-            f"{', '.join(missing)}；请先运行 jcvi.pairwise 并将对应端口接入渲染模块。"
+            f"缺少必需的上游 pairwise 产物：{', '.join(missing)}；请先运行 jcvi.pairwise 并将对应端口接入渲染模块。"
         )
 
     commands: list[CommandAudit] = []
@@ -68,7 +67,6 @@ def _missing_fields(artifacts: PairwiseArtifacts | None, required_fields: tuple[
         if path is None or not path.is_file() or path.stat().st_size == 0:
             missing.append(field_name)
     return missing
-
 
 
 def _artifacts_to_dict(artifacts: PairwiseArtifacts) -> dict[str, object]:

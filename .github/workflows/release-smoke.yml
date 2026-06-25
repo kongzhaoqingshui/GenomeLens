@@ -25,7 +25,7 @@ jobs:
         shell: pwsh
         run: |
           cd engines/jcvi
-          python setup.py build_ext --inplace
+          python packaging/scripts/build_cython_extensions.py
       - name: Build engine
         shell: pwsh
         run: ./engines/jcvi/packaging/scripts/build_engine.ps1
