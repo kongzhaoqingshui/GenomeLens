@@ -1,8 +1,14 @@
 # -*- mode: python ; coding: utf-8 -*-
 
-from PyInstaller.utils.hooks import collect_all
+from PyInstaller.utils.hooks import collect_all, collect_submodules
 
 ortools_datas, ortools_binaries, ortools_hiddenimports = collect_all("ortools")
+
+# 工作流分发器（workflows/dispatcher.py）通过 import_module(字符串) 从 _WORKFLOW_REGISTRY
+# 动态加载各 runner（workflows.graphics.* / workflows.pairwise.* / workflows.local_synteny.*）。
+# PyInstaller 静态分析看不到这些动态导入，必须显式收集整个包的全部子模块，
+# 否则打包产物会缺失这些工作流模块（ModuleNotFoundError: jcvi_genomelens.workflows.graphics）。
+jcvi_genomelens_hiddenimports = collect_submodules("jcvi_genomelens")
 
 matplotlib_backends = [
     # Vector formats
@@ -26,7 +32,7 @@ a = Analysis(
     pathex=["../../src"],
     binaries=ortools_binaries,
     datas=[("../../src/jcvi", "jcvi"), *ortools_datas],
-    hiddenimports=[*ortools_hiddenimports, *matplotlib_backends],
+    hiddenimports=[*ortools_hiddenimports, *matplotlib_backends, *jcvi_genomelens_hiddenimports],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
