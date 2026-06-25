@@ -141,6 +141,15 @@ class PlanExecutor:
                         error={"type": exc.__class__.__name__, "message": str(exc)},
                     )
                 )
+                signal_bus.emit(
+                    "pair_finished",
+                    pair_id=step.step_id,
+                    index=index,
+                    total=len(pair_steps),
+                    query=request.reference.name,
+                    subject=request.target.name,
+                    status="FAILED",
+                )
                 continue
 
             copied = copy_pairwise_figures(step.step_id, list(pair_summary.final_figures), layout.figures)
@@ -162,6 +171,15 @@ class PlanExecutor:
                     subject_bed=str(pair_summary.extensions.get("subject_bed", "")),
                     final_figures=copied,
                 )
+            )
+            signal_bus.emit(
+                "pair_finished",
+                pair_id=step.step_id,
+                index=index,
+                total=len(pair_steps),
+                query=request.reference.name,
+                subject=request.target.name,
+                status=pair_summary.status,
             )
 
         set_state(WorkflowState.FINALIZING)
