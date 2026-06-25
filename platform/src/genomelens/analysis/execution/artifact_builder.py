@@ -73,7 +73,7 @@ def artifact_index(
 
 
 def copy_pairwise_figures(pair_id: str, figures: list[str], target_dir: Path) -> list[str]:
-    """把 pairwise 图件复制到顶层 figures 目录"""
+    """把 pairwise 图件移动到顶层 figures 目录"""
 
     target_dir.mkdir(parents=True, exist_ok=True)
     copied: list[str] = []
@@ -82,7 +82,7 @@ def copy_pairwise_figures(pair_id: str, figures: list[str], target_dir: Path) ->
         source = Path(figure)
         if source.is_file():
             target = target_dir / f"{pair_id}.{source.name}"
-            shutil.copy2(source, target)
+            shutil.move(str(source), str(target))
             copied.append(str(target))
 
     return copied

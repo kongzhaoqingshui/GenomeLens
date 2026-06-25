@@ -270,6 +270,9 @@ def run(manifest: EngineRunManifest, outdir: str | Path) -> tuple[list[CommandAu
     # 局部图单独落到 sibling `local/` 目录，避免与全局 pairwise 产物混在一起
     local_dir = root.parent / "local"
     local_dir.mkdir(parents=True, exist_ok=True)
+    # 所有 target/window 共享同一份 merged BED，避免每个 target 复制一份相同文件
+    shared_local_bed = local_dir / "all.local.bed"
+    shutil.copy2(merged_bed, shared_local_bed)
     local_figures: list[str] = []
     local_artifacts: list[dict[str, object]] = []
 
@@ -286,11 +289,10 @@ def run(manifest: EngineRunManifest, outdir: str | Path) -> tuple[list[CommandAu
     for key, lines in local_blocks_map.items():
         local_blocks = local_dir / f"{key}.local.blocks"
         local_layout = local_dir / f"{key}.local.layout"
-        local_bed = local_dir / f"{key}.local.bed"
+        local_bed = shared_local_bed
 
-        # 每个 target/window 都生成自己的 blocks/layout/bed，方便后续单独复检
+        # 每个 target/window 都生成自己的 blocks/layout，方便后续单独复检
         local_blocks.write_text("\n".join(lines) + ("\n" if lines else ""), encoding="utf-8")
-        shutil.copy2(merged_bed, local_bed)
         _write_local_layout(local_layout, manifest.query.name, manifest.subject.name)
         plot_inputs = prepare_synteny_plot_inputs(
             blocks=local_blocks,

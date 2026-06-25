@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import shutil
 from collections.abc import Callable
 from dataclasses import replace
@@ -422,7 +423,13 @@ def _run_pairwise_mcscan(
             lastdb_path=lastdb_path,
         )
         adapter.write_manifest(manifest, layout.manifest)
-        shutil.copy2(layout.manifest, layout.inputs / "input_manifest.json")
+        # inputs/ 下留一份 input_manifest.json 供测试与快照回查；与 canonical manifest 硬链接
+        # 避免双份占用，跨卷/不支持时回退到复制
+        input_manifest_path = layout.inputs / "input_manifest.json"
+        try:
+            os.link(layout.manifest, input_manifest_path)
+        except OSError:
+            shutil.copy2(layout.manifest, input_manifest_path)
 
     set_state(WorkflowState.RUNNING_ENGINE)
     with task_scope(

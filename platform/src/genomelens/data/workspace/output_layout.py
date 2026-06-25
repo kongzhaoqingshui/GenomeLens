@@ -81,16 +81,13 @@ def create_output_layout(outdir: str | Path, *, force: bool = False) -> OutputLa
     for directory in [
         layout.inputs,
         layout.prepared,
-        layout.blast,
-        layout.cache,
         layout.jcvi,
-        layout.ortholog,
-        layout.mcscan,
-        layout.local,
         layout.logs,
         layout.report,
         layout.figures,
     ]:
         # 只创建稳定目录；具体产物文件由对应阶段按需写入
         directory.mkdir(parents=True, exist_ok=True)
+    # blast/cache/jcvi 子目录（ortholog/mcscan/local/blast/cache）按需创建，
+    # 避免空目录 clutter
     return layout

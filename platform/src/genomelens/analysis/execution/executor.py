@@ -153,7 +153,36 @@ class PlanExecutor:
                 continue
 
             copied = copy_pairwise_figures(step.step_id, list(pair_summary.final_figures), layout.figures)
+            # 图件已移动到顶层 results/figures，同步子任务 run_summary 中的路径以保持有效
+            old_to_new = {
+                old: str(layout.figures / f"{step.step_id}.{Path(old).name}")
+                for old in pair_summary.final_figures
+                if str(layout.figures / f"{step.step_id}.{Path(old).name}") in copied
+            }
+            child_summary_path = request.outdir / "report" / "run_summary.json"
+            if old_to_new and child_summary_path.is_file():
+                try:
+                    child_payload = json.loads(child_summary_path.read_text(encoding="utf-8"))
+                    child_payload["final_figures"] = [
+                        old_to_new.get(path, path) for path in child_payload.get("final_figures", [])
+                    ]
+                    for record in child_payload.get("artifact_index", []):
+                        if record.get("artifact_type") == "figure":
+                            record["path"] = old_to_new.get(record.get("path"), record.get("path"))
+                    child_summary_path.write_text(
+                        json.dumps(child_payload, ensure_ascii=False, indent=2) + "\n",
+                        encoding="utf-8",
+                    )
+                except Exception:  # noqa: BLE001
+                    logger.warning("Failed to sync child run_summary figure paths", exc_info=True)
             final_figures.extend(copied)
+            # 子任务图件已移动到顶层，清理空的 inner results/figures 目录
+            inner_figures_dir = request.outdir / "results" / "figures"
+            if inner_figures_dir.is_dir() and not any(inner_figures_dir.iterdir()):
+                inner_figures_dir.rmdir()
+                inner_results_dir = request.outdir / "results"
+                if inner_results_dir.is_dir() and not any(inner_results_dir.iterdir()):
+                    inner_results_dir.rmdir()
             pairwise_jobs.append(
                 ChildRunRecord(
                     pair_id=step.step_id,
