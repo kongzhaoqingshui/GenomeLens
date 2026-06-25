@@ -17,6 +17,7 @@ from jcvi_genomelens.graphics.local_synteny.public import (
     _read_blocks,
     _ribbon_endpoint_pairs,
     _scaled_gene_tick_linewidth,
+    _segment_y,
     _species_label_anchor_x,
     _strip_highlight_prefix,
     render_local_synteny,
@@ -622,6 +623,27 @@ def test_chromosome_label_positions_follow_segment_count_rules(fixture_dir: Path
     three_segment_track = layout.tracks[0]
     three_positions = _label_positions_for_segments(three_segment_track, set())
     assert all(position[1] > three_segment_track.y for position in three_positions.values())
+
+
+def test_multi_segment_labels_stay_above_track(tmp_path: Path) -> None:
+    """多片段轨道中任何染色体标签都不应落到条形高度，应统一置于轨道上方
+
+    复现紧凑小片段（如 Iin_Iin3）被夹在邻居之间时，上方候选全部碰撞后
+    回退到条形高度的缺陷
+    """
+    bed = tmp_path / "all.bed"
+    bed_lines = [f"qchr\t{i * 10}\t{i * 10 + 5}\tq{i}\t0\t+" for i in range(24)]
+    bed_lines.extend(f"schr{i}\t0\t10\ts{i}\t0\t+" for i in range(24))
+    bed.write_text("\n".join(bed_lines) + "\n", encoding="utf-8")
+    blocks = tmp_path / "blocks.txt"
+    blocks.write_text("\n".join(f"q{i}\ts{i}" for i in range(24)) + "\n", encoding="utf-8")
+    layout = _compute_layout(blocks, bed, ["Ref", "Sub"], [])
+    subject = layout.tracks[1]
+    assert len(subject.segments) >= 5
+    positions = _label_positions_for_segments(subject, set())
+    for original_index, (_label_x, label_y) in positions.items():
+        segment_y = _segment_y(subject, subject.segments[original_index])
+        assert label_y > segment_y
 
 
 def test_ribbon_endpoint_pairs_reverse_inversions() -> None:

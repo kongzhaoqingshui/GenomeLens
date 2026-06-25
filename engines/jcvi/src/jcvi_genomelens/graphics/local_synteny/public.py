@@ -1587,12 +1587,12 @@ def _chromosome_label_candidates(
             (center - width / 2.0, y - 0.038),
         ]
 
+    # 多片段轨道：所有染色体复用同一"轨道上方"格式与间距，兜底也保持在上方
+    # 贴条形左右侧(条形高度 y)是 2 片段专用逻辑，多片段下不再使用
     return [
         (center - width / 2.0, y + 0.034),
         (segment.visual_start - width * 0.30, y + 0.034),
         (segment.visual_end - width * 0.70, y + 0.034),
-        (segment.visual_start - width - 0.008, y),
-        (segment.visual_end + 0.008, y),
     ]
 
 
