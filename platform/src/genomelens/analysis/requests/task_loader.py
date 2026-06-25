@@ -26,16 +26,12 @@ def load_task_request(path: str | Path) -> WorkflowRequest | SubmoduleRequest:
         if kind == "workflow_request":
             request: WorkflowRequest | SubmoduleRequest = WorkflowRequest.from_json(data)
             if request.schema_version != 3:
-                raise InputValidationError(
-                    f"不支持的 WorkflowRequest schema version：{request.schema_version}"
-                )
+                raise InputValidationError(f"不支持的 WorkflowRequest schema version：{request.schema_version}")
             return request
         if kind == "submodule_request":
             request = SubmoduleRequest.from_json(data)
             if request.schema_version != 3:
-                raise InputValidationError(
-                    f"不支持的 SubmoduleRequest schema version：{request.schema_version}"
-                )
+                raise InputValidationError(f"不支持的 SubmoduleRequest schema version：{request.schema_version}")
             return request
     except ValueError as exc:
         raise InputValidationError(str(exc)) from exc

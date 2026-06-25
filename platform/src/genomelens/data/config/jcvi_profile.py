@@ -187,9 +187,7 @@ class JcviProfileModel:
             down=_int(local_raw.get("down"), default=20),
             split_targets=_bool(local_raw.get("split_targets"), default=False),
             label_targets=_bool(local_raw.get("label_targets"), default=False),
-            use_native_local_synteny_renderer=_bool(
-                local_raw.get("use_native_local_synteny_renderer"), default=False
-            ),
+            use_native_local_synteny_renderer=_bool(local_raw.get("use_native_local_synteny_renderer"), default=False),
         )
 
         plot_raw = _dict(data.get("plot"))

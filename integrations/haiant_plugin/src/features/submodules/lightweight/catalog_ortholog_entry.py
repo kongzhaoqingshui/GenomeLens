@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
+from typing import cast
 
 if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
@@ -56,7 +57,7 @@ def build_runtime_command(params_path: str | Path) -> list[str]:
             parameters=coerce_submodule_params(params, base, DECLARED_PARAMS),
             output_dir=output_dir,
             formats=_parse_formats(formats_value),
-            threads=params.get("threads"),
+            threads=cast(int | None, params.get("threads")),
             force=True,
         )
         logger.info("Dispatching GenomeLens: %s", argv)

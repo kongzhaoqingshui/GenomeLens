@@ -27,7 +27,11 @@ class PlatformConfigModel:
 
     # fmt: off
     schema_version: int = 3
-    workspace: WorkspaceConfig = field(default_factory=lambda: WorkspaceConfig(workspace_root=""))
+    workspace: WorkspaceConfig = field(
+        default_factory=lambda: WorkspaceConfig(
+            workspace_root="", temp_root="", default_output_root=""
+        )
+    )
     toolchain: ToolchainConfig = field(default_factory=ToolchainConfig)
     runtime: RuntimeDefaults = field(default_factory=RuntimeDefaults)
     # fmt: on

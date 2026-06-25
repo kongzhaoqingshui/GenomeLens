@@ -44,9 +44,7 @@ def build_runtime_command(params_path: str | Path) -> list[str]:
         output_dir = resolve_param_path(base, params.get("output_dir") or "output")
         Path(output_dir).mkdir(parents=True, exist_ok=True)
 
-        argv = build_workflow_runtime_command(
-            genomelens_exe, params, base, output_dir
-        )
+        argv = build_workflow_runtime_command(genomelens_exe, params, base, output_dir)
         logger.info("Dispatching GenomeLens: %s", argv)
         return argv
     finally:

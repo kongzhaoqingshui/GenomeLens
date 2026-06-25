@@ -111,7 +111,9 @@ def test_build_workflow_request_includes_species_and_parameters(tmp_path: Path) 
     assert request["parameters"]["local_synteny"]["target_gene_ids"] == ["qgene1"]
     assert request["output"]["formats"] == ["png"]
     assert request["runtime"]["threads"] == 4
-    assert request["parameters"]["plot"]["auto_optimization"]["optimize_figsize"] is True
+    assert (
+        request["parameters"]["plot"]["auto_optimization"]["optimize_figsize"] is True
+    )
 
 
 def test_build_submodule_request_assembles_ports_and_parameters() -> None:
@@ -148,7 +150,10 @@ def test_build_submodule_runtime_command_writes_request_and_returns_argv(
     assert argv[1:3] == ["analyze", "run"]
     request_path = Path(argv[3])
     assert request_path.name == "submodule_request.json"
-    assert json.loads(request_path.read_text(encoding="utf-8"))["module_id"] == "jcvi.graphics_histogram"
+    assert (
+        json.loads(request_path.read_text(encoding="utf-8"))["module_id"]
+        == "jcvi.graphics_histogram"
+    )
 
 
 def test_build_workflow_runtime_command_writes_request_and_returns_argv(
@@ -170,7 +175,9 @@ def test_build_workflow_runtime_command_writes_request_and_returns_argv(
     assert argv[1:3] == ["analyze", "run"]
     request_path = Path(argv[3])
     assert request_path.name == "workflow_request.json"
-    assert json.loads(request_path.read_text(encoding="utf-8"))["workflow_id"] == "synteny"
+    assert (
+        json.loads(request_path.read_text(encoding="utf-8"))["workflow_id"] == "synteny"
+    )
 
 
 def test_coerce_submodule_params_coerces_declared_types(tmp_path: Path) -> None:

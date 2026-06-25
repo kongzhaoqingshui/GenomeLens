@@ -351,6 +351,15 @@ def _run_one_stop_workflow(args: argparse.Namespace) -> int:
     return _print_summary(summary, json_output=json_output)
 
 
+def _ensure_param_group(parameters: dict[str, object], name: str) -> dict[str, object]:
+    """从 parameters 中安全取出指定分组，若不存在或类型不对则返回空 dict"""
+
+    raw = parameters.get(name)
+    if isinstance(raw, dict):
+        return {str(k): v for k, v in raw.items()}
+    return {}
+
+
 def _build_synteny_one_stop_request(args: argparse.Namespace, params: dict[str, object]) -> WorkflowRequest:
     """为 synteny 一站式工作流构造 WorkflowRequest
 
@@ -364,22 +373,25 @@ def _build_synteny_one_stop_request(args: argparse.Namespace, params: dict[str, 
         return request
 
     data = request.to_json()
-    parameters: dict[str, object] = dict(data.get("parameters") or {})
+    parameters: dict[str, object] = {}
+    raw_parameters = data.get("parameters")
+    if isinstance(raw_parameters, dict):
+        parameters = {str(k): v for k, v in raw_parameters.items()}
     for key, value in params.items():
         if key in {"align_soft", "dbtype", "cscore", "dist", "iter", "min_block_size", "allow_simplified_fallback"}:
-            synteny: dict[str, object] = dict(parameters.get("synteny") or {})
+            synteny = _ensure_param_group(parameters, "synteny")
             synteny[key] = value
             parameters["synteny"] = synteny
         elif key in {"up", "down", "split_targets", "label_targets", "use_native_renderer"}:
-            local: dict[str, object] = dict(parameters.get("local_synteny") or {})
+            local = _ensure_param_group(parameters, "local_synteny")
             local[key] = value
             parameters["local_synteny"] = local
         elif key in {"glyphstyle", "glyphcolor", "shadestyle", "figsize", "dpi", "auto_optimization"}:
-            plot: dict[str, object] = dict(parameters.get("plot") or {})
+            plot = _ensure_param_group(parameters, "plot")
             plot[key] = value
             parameters["plot"] = plot
         else:
-            extras: dict[str, object] = dict(parameters.get("extras") or {})
+            extras = _ensure_param_group(parameters, "extras")
             extras[key] = value
             parameters["extras"] = extras
     data["parameters"] = parameters

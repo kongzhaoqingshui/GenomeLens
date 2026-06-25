@@ -7,7 +7,7 @@ import json
 import shutil
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from genomelens.analysis.execution.artifact_builder import artifact_record
 from genomelens.analysis.execution.executor import PlanExecutor
@@ -25,12 +25,13 @@ from genomelens.analysis.execution.summary_builder import (
 from genomelens.analysis.planning.models import (
     ExecutionPlan,
     ExecutionStep,
+    StepKind,
     StepOutputRef,
 )
 from genomelens.analysis.requests.submodule_models import SubmoduleRequest
 from genomelens.analysis.requests.task_loader import write_task_request
 from genomelens.analysis.workflows.input_bindings import PortSystem
-from genomelens.analysis.workflows.submodules import SubModuleRegistry, get_submodule_registry
+from genomelens.analysis.workflows.submodules import SubModuleSpec, get_submodule_registry
 from genomelens.app.controller.state_machine import WorkflowState
 from genomelens.app.errors.exceptions import InputValidationError
 from genomelens.app.events.signal_bus import SignalBus
@@ -72,7 +73,7 @@ class SubmoduleDispatcher:
     def _dispatch_by_kind(
         self,
         request: SubmoduleRequest,
-        spec: SubModuleRegistry,
+        spec: SubModuleSpec,
         set_state: Callable[[WorkflowState], None],
     ) -> RunSummary:
         """根据子模块类型选择执行路径"""
@@ -91,7 +92,7 @@ class SubmoduleDispatcher:
         raise InputValidationError(f"暂不支持的子模块：{request.module_id}")
 
     @staticmethod
-    def _run_lightweight(request: SubmoduleRequest, payload: object, step_kind: str) -> RunSummary:
+    def _run_lightweight(request: SubmoduleRequest, payload: object, step_kind: StepKind) -> RunSummary:
         """通过单步 ExecutionPlan 复用 PlanExecutor 执行轻量子模块"""
 
         plan = ExecutionPlan(
@@ -156,7 +157,7 @@ class SubmoduleDispatcher:
             makeblastdb_path=request.runtime.makeblastdb,
             formats=request.output.formats,
             figsize=str(parameters.get("figsize") or ""),
-            dpi=int(parameters.get("dpi") or 300),
+            dpi=int(cast(int, parameters.get("dpi")) or 300),
             auto_optimization={
                 "optimize_figsize": bool(parameters.get("optimize_figsize")),
                 "rewrite_layout_links": bool(parameters.get("rewrite_layout_links")),
@@ -172,7 +173,7 @@ class SubmoduleDispatcher:
             engine_result = adapter.run_manifest(layout.manifest, layout.jcvi)
 
         set_state(WorkflowState.FINALIZING)
-        figures = [str(item) for item in engine_result.artifacts.get("figures") or []]
+        figures = [str(item) for item in cast(list[object], engine_result.artifacts.get("figures")) or []]
         final_figures = archive_figures(figures, layout.figures)
         status = "SUCCEEDED" if engine_result.status == "ok" else "FAILED"
 
@@ -255,7 +256,7 @@ class SubmoduleDispatcher:
             glyphcolor=str(parameters.get("glyphcolor") or ""),
             shadestyle=str(parameters.get("shadestyle") or ""),
             figsize=str(parameters.get("figsize") or ""),
-            dpi=int(parameters.get("dpi") or 300),
+            dpi=int(cast(int, parameters.get("dpi")) or 300),
             auto_optimization={
                 "optimize_figsize": bool(parameters.get("optimize_figsize")),
                 "rewrite_layout_links": bool(parameters.get("rewrite_layout_links")),
@@ -271,7 +272,7 @@ class SubmoduleDispatcher:
             engine_result = adapter.run_manifest(layout.manifest, layout.jcvi)
 
         set_state(WorkflowState.FINALIZING)
-        figures = [str(item) for item in engine_result.artifacts.get("figures") or []]
+        figures = [str(item) for item in cast(list[object], engine_result.artifacts.get("figures")) or []]
         final_figures = archive_figures(figures, layout.figures)
         status = "SUCCEEDED" if engine_result.status == "ok" else "FAILED"
 

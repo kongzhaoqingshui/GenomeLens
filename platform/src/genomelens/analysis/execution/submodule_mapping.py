@@ -189,19 +189,6 @@ def _species_from_dict(data: object) -> GenomeInputSpec | None:
     return None
 
 
-def _runtime_toolchain(request: SubmoduleRequest) -> dict[str, str]:
-    """从 SubmoduleRequest runtime 提取工具链路径"""
-
-    runtime = request.runtime
-    return {
-        "engine_path": runtime.jcvi_engine,
-        "blastn_path": runtime.blastn,
-        "makeblastdb_path": runtime.makeblastdb,
-        "lastal_path": runtime.lastal,
-        "lastdb_path": runtime.lastdb,
-    }
-
-
 def _auto_optimization(parameters: dict[str, object]) -> dict[str, bool]:
     """读取自动优化参数"""
 
@@ -311,7 +298,6 @@ def to_synteny_like_request(request: SubmoduleRequest, engine_workflow: str) -> 
     outdir = _path(request.output.directory)
     precomputed_artifacts = _pairwise_artifacts_from_ports(ports)
     target_gene_ids = _target_gene_ids(ports, parameters)
-    toolchain = _runtime_toolchain(request)
 
     return SyntenyExecutionRequest(
         reference=reference,
@@ -347,7 +333,11 @@ def to_synteny_like_request(request: SubmoduleRequest, engine_workflow: str) -> 
         use_native_local_synteny_renderer=_bool_param(parameters, "use_native_local_synteny_renderer", False),
         layout_path=str(_optional_path(ports.get("layout") or ports.get("karyotype_layout")) or ""),
         seqids_path=str(_optional_path(ports.get("karyotype_seqids")) or ""),
-        **toolchain,
+        engine_path=request.runtime.jcvi_engine,
+        blastn_path=request.runtime.blastn,
+        makeblastdb_path=request.runtime.makeblastdb,
+        lastal_path=request.runtime.lastal,
+        lastdb_path=request.runtime.lastdb,
     )
 
 

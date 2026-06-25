@@ -532,9 +532,7 @@ class WorkflowRequest:
         species = [_nested(WorkflowSpeciesInput, item) for item in _list(data.get("species"))]
         workflow_id = _str(data.get("workflow_id"))
         if workflow_id != "synteny":
-            raise ValueError(
-                f"WorkflowRequest V3 workflow_id 只能是 'synteny'，收到：{workflow_id!r}"
-            )
+            raise ValueError(f"WorkflowRequest V3 workflow_id 只能是 'synteny'，收到：{workflow_id!r}")
         return cls(
             schema_version=_int(data.get("schema_version"), default=3),
             kind=_str(data.get("kind"), default="workflow_request"),
