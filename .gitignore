@@ -30,6 +30,10 @@ app/*/
 !app/.gitkeep
 !app/README.md
 
+# Cython generated sources (compiled from .pyx during build)
+engines/jcvi/src/jcvi/formats/cblast.c
+engines/jcvi/src/jcvi/assembly/chic.c
+
 # 本地docs
 docs/施工计划/**
 docs/开发手册/新增/

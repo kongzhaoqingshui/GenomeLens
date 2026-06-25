@@ -48,8 +48,8 @@ def _normalize_simple_name(generated_simple: Path, expected_simple: Path) -> Pat
     """JCVI 写出 `<prefix>.simple`；GenomeLens 发布 `<prefix>.anchors.simple`"""
 
     if generated_simple.is_file() and generated_simple != expected_simple:
-        # JCVI 默认文件名与 GenomeLens 对外发布名不同，这里补一份稳定别名
-        shutil.copy2(generated_simple, expected_simple)
+        # JCVI 默认文件名与 GenomeLens 对外发布名不同，重命名为稳定发布名
+        shutil.move(str(generated_simple), str(expected_simple))
     if expected_simple.is_file():
         return expected_simple
     return generated_simple
@@ -249,6 +249,13 @@ def _run_with_blast(manifest: EngineRunManifest, root: Path) -> tuple[list[Comma
     commands: list[CommandAudit] = []
     commands.append(_run_makeblastdb(manifest, root, db_prefix))
     commands.append(_run_blastn(manifest, root, db_prefix, blast_table))
+    # BLAST db 文件是临时产物，归档前清理以减少输出 clutter
+    for suffix in (".nhr", ".nin", ".nsq"):
+        scratch = db_prefix.with_suffix(suffix)
+        if scratch.is_file():
+            scratch.unlink()
+    if db_prefix.is_file():
+        db_prefix.unlink()
     commands.append(_run_scan(manifest, root, blast_table, anchors))
     commands.append(_run_simple(manifest, root, anchors, generated_simple, simple))
     commands.append(_run_mcscan(manifest, root, anchors, blocks))

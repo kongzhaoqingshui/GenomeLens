@@ -62,44 +62,52 @@ def run(manifest: EngineRunManifest, outdir: str | Path) -> tuple[list[CommandAu
     cscore = manifest.options.cscore if manifest.options.cscore is not None else 0.7
     dist = manifest.options.dist if manifest.options.dist is not None else 20
 
-    with _blast_path_injected(manifest):
-        command = run_python_step(
-            "jcvi.compara.catalog.ortholog",
-            jcvi_catalog.ortholog,
-            [
-                query,
-                subject,
-                f"--dbtype={dbtype}",
-                f"--align_soft={align_soft}",
-                "--full",
-                "--no_strip_names",
-                f"--cscore={cscore}",
-                f"--dist={dist}",
-                f"--min_size={max(1, manifest.options.min_block_size)}",
-                f"--cpus={max(1, manifest.options.threads)}",
-                "--no_dotplot",
-            ],
-            cwd=root,
-        )
-    _assert_ok(command)
+    try:
+        with _blast_path_injected(manifest):
+            command = run_python_step(
+                "jcvi.compara.catalog.ortholog",
+                jcvi_catalog.ortholog,
+                [
+                    query,
+                    subject,
+                    f"--dbtype={dbtype}",
+                    f"--align_soft={align_soft}",
+                    "--full",
+                    "--no_strip_names",
+                    f"--cscore={cscore}",
+                    f"--dist={dist}",
+                    f"--min_size={max(1, manifest.options.min_block_size)}",
+                    f"--cpus={max(1, manifest.options.threads)}",
+                    "--no_dotplot",
+                ],
+                cwd=root,
+            )
+        _assert_ok(command)
 
-    prefix = f"{query}.{subject}"
-    reverse_prefix = f"{subject}.{query}"
-    artifacts = {
-        "blast_table": str(root / f"{prefix}.last"),
-        "anchors": str(root / f"{prefix}.anchors"),
-        "lifted_anchors": str(root / f"{prefix}.1x1.lifted.anchors"),
-        "blocks": str(root / f"{prefix}.1x1.blocks"),
-        "reverse_blocks": str(root / f"{reverse_prefix}.1x1.blocks"),
-        "ortholog": str(root / f"{prefix}.ortholog"),
-        "reverse_ortholog": str(root / f"{reverse_prefix}.ortholog"),
-        "figures": [],
-        "simplified_fallback": False,
-        "backend": "jcvi.catalog.ortholog",
-    }
-    required = ["blast_table", "ortholog", "reverse_ortholog"]
-    for key in required:
-        path = Path(str(artifacts[key]))
-        if not path.is_file() or path.stat().st_size == 0:
-            raise RuntimeError(f"JCVI catalog artifact was not created: {path}")
-    return [command], artifacts
+        prefix = f"{query}.{subject}"
+        reverse_prefix = f"{subject}.{query}"
+        artifacts = {
+            "blast_table": str(root / f"{prefix}.last"),
+            "anchors": str(root / f"{prefix}.anchors"),
+            "lifted_anchors": str(root / f"{prefix}.1x1.lifted.anchors"),
+            "blocks": str(root / f"{prefix}.1x1.blocks"),
+            "reverse_blocks": str(root / f"{reverse_prefix}.1x1.blocks"),
+            "ortholog": str(root / f"{prefix}.ortholog"),
+            "reverse_ortholog": str(root / f"{reverse_prefix}.ortholog"),
+            "figures": [],
+            "simplified_fallback": False,
+            "backend": "jcvi.catalog.ortholog",
+        }
+        required = ["blast_table", "ortholog", "reverse_ortholog"]
+        for key in required:
+            path = Path(str(artifacts[key]))
+            if not path.is_file() or path.stat().st_size == 0:
+                raise RuntimeError(f"JCVI catalog artifact was not created: {path}")
+        return [command], artifacts
+    finally:
+        # JCVI 要求 cwd 中存在物种名命名的 .bed/.cds；运行结束后清理这些临时拷贝
+        for name in (query, subject):
+            for suffix in (".bed", ".cds"):
+                copied = root / f"{name}{suffix}"
+                if copied.is_file():
+                    copied.unlink()
