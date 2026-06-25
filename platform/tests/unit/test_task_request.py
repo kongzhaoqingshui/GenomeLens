@@ -93,7 +93,7 @@ def test_submodule_request_roundtrip(tmp_path: Path) -> None:
     request = SubmoduleRequest(
         module_id="jcvi.graphics_histogram",
         inputs={"numeric_files": ["values.txt"]},
-        parameters={"columns": [0], "bins": 20},
+        parameters={"histogram_columns": [0], "histogram_bins": 20},
         output=WorkflowOutput(directory="out", formats=["png"]),
         runtime=WorkflowRuntime(threads=2),
     )

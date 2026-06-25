@@ -122,7 +122,7 @@ def _pairwise_artifacts_from_ports(ports: dict[str, object]) -> PairwiseArtifact
         simple=_optional_path(ports.get("simple")),
         blocks=_optional_path(ports.get("blocks")),
         merged_bed=_optional_path(ports.get("merged_bed")),
-        layout=_optional_path(ports.get("layout") or ports.get("karyotype_layout")),
+        layout=_optional_path(ports.get("layout")),
     )
     return artifacts if artifacts.has_any else None
 
@@ -215,27 +215,10 @@ def to_histogram_request(request: SubmoduleRequest) -> HistogramExecutionRequest
     if not inputs:
         raise InputValidationError("graphics_histogram 需要 numeric_files 输入端口")
 
-    # 兼容 SubmoduleRequest 中不带 histogram_ 前缀的键(key)
-    prefix_keys = {
-        "histogram_columns": "columns",
-        "histogram_skip": "skip",
-        "histogram_bins": "bins",
-        "histogram_vmin": "vmin",
-        "histogram_vmax": "vmax",
-        "histogram_xlabel": "xlabel",
-        "histogram_title": "title",
-        "histogram_base": "base",
-        "histogram_facet": "facet",
-        "histogram_fill": "fill",
-    }
-    normalized: dict[str, object] = dict(parameters)
-    for prefixed, plain in prefix_keys.items():
-        if prefixed in normalized and plain not in normalized:
-            normalized[plain] = normalized[prefixed]
-
-    columns = _int_list_param(normalized, "columns", [0])
-    vmin_raw = normalized.get("vmin")
-    vmax_raw = normalized.get("vmax")
+    # 子模块契约统一以 histogram_ 前缀声明直方图参数，直接按声明名读取，不再做无前缀兜底
+    columns = _int_list_param(parameters, "histogram_columns", [0])
+    vmin_raw = parameters.get("histogram_vmin")
+    vmax_raw = parameters.get("histogram_vmax")
 
     return HistogramExecutionRequest(
         inputs=inputs,
@@ -244,16 +227,16 @@ def to_histogram_request(request: SubmoduleRequest) -> HistogramExecutionRequest
         formats=request.output.formats,
         engine_path=request.runtime.jcvi_engine,
         force=request.output.force,
-        histogram_skip=_int_param(normalized, "skip", 0),
-        histogram_bins=_int_param(normalized, "bins", 20),
-        histogram_vmin=_float_param(normalized, "vmin", 0.0) if vmin_raw is not None else None,
-        histogram_vmax=_float_param(normalized, "vmax", 0.0) if vmax_raw is not None else None,
-        histogram_xlabel=_str_param(normalized, "xlabel", "value"),
-        histogram_title=_str_param(normalized, "title", ""),
-        histogram_base=_int_param(normalized, "base", 0),
-        histogram_facet=_bool_param(normalized, "facet", False),
-        histogram_fill=_str_param(normalized, "fill", "white"),
-        dpi=_int_param(normalized, "dpi", 300),
+        histogram_skip=_int_param(parameters, "histogram_skip", 0),
+        histogram_bins=_int_param(parameters, "histogram_bins", 20),
+        histogram_vmin=_float_param(parameters, "histogram_vmin", 0.0) if vmin_raw is not None else None,
+        histogram_vmax=_float_param(parameters, "histogram_vmax", 0.0) if vmax_raw is not None else None,
+        histogram_xlabel=_str_param(parameters, "histogram_xlabel", "value"),
+        histogram_title=_str_param(parameters, "histogram_title", ""),
+        histogram_base=_int_param(parameters, "histogram_base", 0),
+        histogram_facet=_bool_param(parameters, "histogram_facet", False),
+        histogram_fill=_str_param(parameters, "histogram_fill", "white"),
+        dpi=_int_param(parameters, "dpi", 300),
         log_level=str(request.runtime.log_level or "INFO").upper(),
         verbose=request.runtime.verbose,
         console_log=request.runtime.console_log,
@@ -332,7 +315,7 @@ def to_synteny_like_request(request: SubmoduleRequest, engine_workflow: str) -> 
         dpi=_int_param(parameters, "dpi", 300),
         auto_optimization=_auto_optimization(parameters),
         use_native_local_synteny_renderer=_bool_param(parameters, "use_native_local_synteny_renderer", False),
-        layout_path=str(_optional_path(ports.get("layout") or ports.get("karyotype_layout")) or ""),
+        layout_path=str(_optional_path(ports.get("layout")) or ""),
         seqids_path=str(_optional_path(ports.get("karyotype_seqids")) or ""),
         engine_path=request.runtime.jcvi_engine,
         blastn_path=request.runtime.blastn,
