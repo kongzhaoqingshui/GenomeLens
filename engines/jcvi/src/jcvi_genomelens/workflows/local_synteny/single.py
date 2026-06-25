@@ -130,14 +130,23 @@ def _extract_local_blocks(
         )
 
     if not split_targets:
-        # 合并同一条参考序列上的窗口（这里简化为全局合并）
-        min_start = min(start for _, start, _ in windows)
-        max_end = max(end for _, _, end in windows)
-        target_key = windows[0][0] if len(windows) == 1 else "merged"
-        windows = [(target_key, min_start, max_end)]
+        # 取各目标窗口的“并集”而非“包络”：仅合并真正重叠/相邻的窗口，
+        # 彼此相距很远的目标各自保留独立窗口，避免它们之间数百个无关基因
+        # 被一并纳入（旧实现用 [min_start, max_end] 包络，远距离目标会撑出
+        # 上千行 block）。所有子窗口共用同一个 key，仍输出为一张合并图。
+        merged_key = windows[0][0] if len(windows) == 1 else "merged"
+        intervals = sorted((start, end) for _, start, end in windows)
+        union: list[tuple[int, int]] = []
+        for start, end in intervals:
+            if union and start <= union[-1][1] + 1:
+                union[-1] = (union[-1][0], max(union[-1][1], end))
+            else:
+                union.append((start, end))
+        windows = [(merged_key, start, end) for start, end in union]
         covered_genes = set()
-        for i in range(min_start, max_end + 1):
-            covered_genes.add(query_order[i])
+        for _, start, end in windows:
+            for i in range(start, end + 1):
+                covered_genes.add(query_order[i])
 
     local_blocks: dict[str, list[str]] = {key: [] for key, _, _ in windows}
     if not blocks_path.is_file():
