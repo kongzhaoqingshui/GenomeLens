@@ -8,6 +8,7 @@
 |---|---|
 | [项目介绍](项目介绍.md) | 了解 GenomeLens 的定位、能力边界和当前架构 |
 | [用户手册](用户手册.md) | 从安装、输入准备到运行分析和查看结果的完整说明 |
+| [进度汇报](进度汇报.md) | 按 JCVI 引擎、平台、GUI、插件四块汇总的当前进度 |
 | [WorkflowRequest JSON](使用方法/WorkflowRequest%20JSON.md) | 一站式 `synteny` 请求格式：`schema_version=3` |
 | [SubmoduleRequest JSON](使用方法/SubmoduleRequest%20JSON.md) | 可编排子模块请求格式：`schema_version=3` |
 | [JCVI 能力与配置](使用方法/JCVI能力与配置.md) | JCVI workflow、工具链、参数和多物种说明 |
