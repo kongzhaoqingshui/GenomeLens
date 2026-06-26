@@ -71,15 +71,15 @@ export function getWorkflowSchema(): Promise<JsonObject> {
 }
 
 export function getSubmoduleSchema(): Promise<JsonObject> {
-  return invoke<JsonObject>("get_workflow_schema", { kind: "submodule" });
+  return invoke<JsonObject>("get_workflow_schema", { input: { kind: "submodule" } });
 }
 
 export function getUnionSchema(): Promise<JsonObject> {
-  return invoke<JsonObject>("get_workflow_schema", { kind: "union" });
+  return invoke<JsonObject>("get_workflow_schema", { input: { kind: "union" } });
 }
 
 export function readRequestPreview(input: ReadRequestPreviewInput): Promise<RequestPreview> {
-  return invoke<RequestPreview>("read_request_preview", input);
+  return invoke<RequestPreview>("read_request_preview", { input });
 }
 
 export function getCachedTemplateDraft(kind = "workflow", id = "synteny"): WorkflowRequestDraft | null {

@@ -1,5 +1,16 @@
+import {
+  AlertCircle,
+  Clock,
+  FolderOpen,
+  Layers,
+  Plus,
+  RefreshCw,
+  Rocket,
+  Search,
+} from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 
+import { Badge, Card, EmptyState, SectionHeader, StatCard } from "../components/ui";
 import { useLanguage } from "../i18n/useLanguage";
 import type { ProjectSummary } from "../models";
 import type { AppRoute } from "../routes/routes";
@@ -37,17 +48,65 @@ function dedupeProjects(projects: ProjectSummary[]): ProjectSummary[] {
   });
 }
 
-function queryTone(queryState: QueryState) {
-  switch (queryState) {
+function stateTone(state: QueryState): NonNullable<React.ComponentProps<typeof Badge>["tone"]> {
+  switch (state) {
     case "ready":
-      return "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-200";
+      return "success";
     case "error":
-      return "bg-rose-50 text-rose-700 dark:bg-rose-950/30 dark:text-rose-200";
+      return "error";
     case "loading":
-      return "bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-200";
+      return "warning";
     default:
-      return "bg-surface text-text-secondary";
+      return "default";
   }
+}
+
+function ProjectCard({
+  project,
+  isZh,
+}: {
+  project: ProjectSummary;
+  isZh: boolean;
+}) {
+  return (
+    <Card className="group relative overflow-hidden p-0">
+      <div className="flex items-start gap-4 p-5">
+        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-ice-50 text-ice-600 transition group-hover:scale-105 dark:bg-ice-900/30 dark:text-ice-200"
+        >
+          <Layers className="h-5 w-5" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-base font-semibold text-text-primary">{project.name}</p>
+          <p className="mt-1 break-all text-xs leading-5 text-text-tertiary">{project.path}</p>
+          <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+            <div className="rounded-lg border border-border bg-surface p-2">
+              <p className="text-text-tertiary">{isZh ? "更新" : "Updated"}</p>
+              <p className="mt-0.5 font-medium text-text-primary">{formatTimestamp(project.updatedAt, isZh)}</p>
+            </div>
+            <div className="rounded-lg border border-border bg-surface p-2">
+              <p className="text-text-tertiary">{isZh ? "创建" : "Created"}</p>
+              <p className="mt-0.5 font-medium text-text-primary">{formatTimestamp(project.createdAt, isZh)}</p>
+            </div>          </div>
+        </div>
+      </div>
+      <div className="border-t border-border/90 bg-surface px-5 py-3">
+        <div className="flex items-center justify-between gap-3 text-xs">
+          <div className="min-w-0">
+            <p className="truncate text-text-tertiary">
+              {isZh ? "配置" : "Config"}: {project.configPath ?? (isZh ? "不可用" : "Unavailable")}
+            </p>
+            <p className="mt-0.5 truncate text-text-tertiary">
+              JCVI: {project.jcviConfigPath ?? (isZh ? "不可用" : "Unavailable")}
+            </p>
+          </div>
+          <div className="shrink-0 text-right">
+            <p className="text-text-tertiary">{isZh ? "上次运行" : "Last run"}</p>
+            <p className="mt-0.5 font-medium text-text-primary">{formatTimestamp(project.lastRunAt, isZh)}</p>
+          </div>
+        </div>
+      </div>
+    </Card>
+  );
 }
 
 export default function ProjectsPage({ route, onNavigate }: ProjectsPageProps) {
@@ -126,159 +185,166 @@ export default function ProjectsPage({ route, onNavigate }: ProjectsPageProps) {
   }, [isZh, projects.length, queryState, trimmedWorkspace]);
 
   return (
-    <section className="ui-page-enter grid w-full gap-0 overflow-hidden border border-border bg-surface-raised xl:grid-cols-[17rem_minmax(0,1fr)]">
-      <aside className="ui-shell-sidebar border-r">
-        <div className="border-b border-border/90 px-5 py-5">
-          <p className="text-xs font-medium uppercase tracking-[0.16em] text-text-tertiary">{route.label}</p>
+    <section className="ui-page-enter grid h-screen w-full gap-0 overflow-hidden border border-border bg-surface-raised xl:grid-cols-[18rem_minmax(0,1fr)]">
+      <aside className="ui-shell-sidebar flex min-h-0 flex-col border-r px-4 py-4">
+        <div className="border-b border-border/90 px-2 pb-4">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-text-tertiary">{route.label}</p>
           <h1 className="mt-2 text-lg font-semibold text-text-primary">{isZh ? "工作区项目" : "Workspace projects"}</h1>
           <p className="mt-2 text-sm leading-6 text-text-secondary">{route.description}</p>
         </div>
 
-        <div className="px-5 py-4">
-          <label className="text-xs font-medium uppercase tracking-[0.16em] text-text-tertiary" htmlFor="projects-workspace">
+        <div className="mt-4 px-2">
+          <label className="text-xs font-semibold uppercase tracking-[0.14em] text-text-tertiary" htmlFor="projects-workspace">
             {isZh ? "工作区路径" : "Workspace path"}
           </label>
-          <input
-            id="projects-workspace"
-            type="text"
-            value={workspace}
-            placeholder={isZh ? "输入工作区目录" : "Enter a workspace directory"}
-            className="mt-3 w-full rounded-lg border border-border bg-surface-raised px-3 py-2 text-sm text-text-primary outline-none transition placeholder:text-text-tertiary focus:border-ice-400 focus:ring-2 focus:ring-ice-100 dark:focus:ring-ice-900/50"
-            onChange={(event) => setWorkspace(event.target.value)}
-          />
+          <div className="relative mt-2">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-tertiary" />
+            <input
+              id="projects-workspace"
+              type="text"
+              value={workspace}
+              placeholder={isZh ? "输入工作区目录" : "Enter a workspace directory"}
+              className="w-full rounded-xl border border-border bg-surface-raised py-2 pl-9 pr-3 text-sm text-text-primary outline-none transition placeholder:text-text-tertiary focus:border-ice-400 focus:ring-2 focus:ring-ice-100 dark:focus:ring-ice-900/50"
+              onChange={(event) => setWorkspace(event.target.value)}
+            />
+          </div>
           <div className="mt-3 grid gap-2">
             <button
               type="button"
-              className="ui-pressable rounded-lg bg-ice-500 px-3 py-2 text-sm font-semibold text-white transition hover:bg-ice-400 disabled:cursor-not-allowed disabled:opacity-50"
+              className="ui-pressable inline-flex items-center justify-center gap-2 rounded-xl bg-ice-500 px-3 py-2 text-sm font-semibold text-white transition hover:bg-ice-400 disabled:cursor-not-allowed disabled:opacity-50"
               disabled={queryState === "loading"}
               onClick={() => void refreshProjects()}
             >
+              <RefreshCw className={`h-4 w-4 ${queryState === "loading" ? "animate-spin" : ""}`} />
               {queryState === "loading" ? (isZh ? "刷新中..." : "Refreshing...") : isZh ? "刷新项目" : "Refresh projects"}
             </button>
             <button
               type="button"
-              className="ui-pressable rounded-lg border border-border bg-surface px-3 py-2 text-sm font-medium text-text-secondary transition hover:bg-surface-raised hover:text-text-primary"
+              className="ui-pressable inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-surface px-3 py-2 text-sm font-medium text-text-secondary transition hover:bg-surface-raised hover:text-text-primary"
               onClick={() => onNavigate("/analysis/new")}
             >
+              <Rocket className="h-4 w-4" />
               {isZh ? "打开工作台" : "Open workbench"}
             </button>
           </div>
         </div>
 
-        <div className="border-t border-border/90 px-5 py-4">
-          <div className="text-[11px] font-medium uppercase tracking-[0.16em] text-text-tertiary">{isZh ? "状态" : "State"}</div>
-          <div className="mt-3 divide-y divide-border/90 border-y border-border/90">
-            <div className="flex items-center justify-between py-3 text-sm">
-              <span className="text-text-tertiary">{isZh ? "查询" : "Query"}</span>
-              <span className={`rounded-full px-3 py-1 text-[11px] font-semibold uppercase ${queryTone(queryState)}`}>{queryState}</span>
-            </div>
-            <div className="flex items-center justify-between py-3 text-sm">
-              <span className="text-text-tertiary">{isZh ? "项目" : "Projects"}</span>
-              <span className="font-medium text-text-primary">{projects.length}</span>
-            </div>
+        <div className="mt-auto border-t border-border/90 px-2 pt-4">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-text-tertiary">{isZh ? "概览" : "Overview"}</p>
+          <div className="mt-3 grid gap-3">
+            <StatCard label={isZh ? "查询" : "Query"} value={queryState} tone={stateTone(queryState)} icon={RefreshCw} />
+            <StatCard label={isZh ? "项目" : "Projects"} value={projects.length} tone="info" icon={Layers} />
+            <StatCard label={isZh ? "工作区" : "Workspace"} value={trimmedWorkspace ? basename(trimmedWorkspace) : (isZh ? "未设置" : "Not set")} tone="default" icon={FolderOpen} />
           </div>
         </div>
       </aside>
 
-      <div className="ui-surface-enter min-w-0 bg-surface-raised">
-        <div className="border-b border-border/90 px-6 py-5">
+      <div className="ui-surface-enter min-h-0 overflow-auto bg-surface-raised px-6 py-6">
+        <div className="mx-auto max-w-5xl">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <p className="text-xs font-medium uppercase tracking-[0.16em] text-text-tertiary">{isZh ? "项目" : "Projects"}</p>
-              <h2 className="mt-1 text-lg font-semibold text-text-primary">{isZh ? "项目列表与创建" : "Project list and creation"}</h2>
-              <p className="mt-2 text-sm leading-6 text-text-secondary">{helperText}</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-text-tertiary">{isZh ? "项目" : "Projects"}</p>
+              <h2 className="mt-1 text-2xl font-semibold tracking-tight text-text-primary">{isZh ? "项目列表与创建" : "Project list and creation"}</h2>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-text-secondary">{helperText}</p>
             </div>
-            <span className={`rounded-full px-3 py-1 text-[11px] font-semibold uppercase ${queryTone(queryState)}`}>{queryState}</span>
-          </div>
-        </div>
-
-        <section>
-          <div className="px-6 py-4">
-            <h3 className="text-sm font-semibold text-text-primary">{isZh ? "创建项目" : "Create project"}</h3>
-            <p className="mt-1 text-sm text-text-secondary">
-              {isZh ? "使用当前工作区路径和项目名称创建新的元数据。" : "Use the current workspace path and a project name to create new metadata."}
-            </p>
+            <Badge tone={stateTone(queryState)} dot pulse={queryState === "loading"}>
+              {queryState === "loading" ? (isZh ? "加载中" : "Loading") : queryState === "ready" ? (isZh ? "就绪" : "Ready") : isZh ? "等待" : "Idle"}
+            </Badge>
           </div>
 
-          <div className="grid gap-3 border-y border-border/90 px-6 py-4 lg:grid-cols-[minmax(0,1fr)_auto]">
-            <input
-              type="text"
-              value={projectName}
-              placeholder={isZh ? "输入项目名称" : "Enter a project name"}
-              className="w-full rounded-lg border border-border bg-surface-raised px-3 py-2 text-sm text-text-primary outline-none transition placeholder:text-text-tertiary focus:border-ice-400 focus:ring-2 focus:ring-ice-100 dark:focus:ring-ice-900/50"
-              onChange={(event) => setProjectName(event.target.value)}
-            />
-            <button
-              type="button"
-              className="ui-pressable rounded-lg border border-border bg-surface px-4 py-2 text-sm font-medium text-text-secondary transition hover:bg-surface-raised hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-45"
-              disabled={!trimmedWorkspace || !trimmedProjectName || createState === "loading"}
-              onClick={() => void handleCreateProject()}
+          {queryError ? (
+            <div className="mt-5 flex items-start gap-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:border-rose-900/40 dark:bg-rose-950/20 dark:text-rose-200"
             >
-              {createState === "loading" ? (isZh ? "创建中..." : "Creating...") : isZh ? "创建项目" : "Create project"}
-            </button>
-          </div>
-
-          {createError ? <div className="border-b border-border/90 bg-rose-50 px-6 py-4 text-sm text-rose-700 dark:bg-rose-950/30 dark:text-rose-200">{createError}</div> : null}
-        </section>
-
-        <section>
-          <div className="px-6 py-4">
-            <h3 className="text-sm font-semibold text-text-primary">{isZh ? "可用项目" : "Available projects"}</h3>
-            <p className="mt-1 text-sm text-text-secondary">
-              {isZh ? "扫描所选工作区中的 `.genomelens/project.json` 元数据。" : "Scan the selected workspace for `.genomelens/project.json` metadata."}
-            </p>
-          </div>
-
-          {queryError ? <div className="border-y border-border/90 bg-rose-50 px-6 py-4 text-sm text-rose-700 dark:bg-rose-950/30 dark:text-rose-200">{queryError}</div> : null}
-
-          {!trimmedWorkspace && queryState === "idle" ? (
-            <div className="border-y border-border/90 px-6 py-10 text-sm text-text-secondary">
-              {isZh ? "先在左侧输入工作区路径，再刷新读取项目元数据。" : "Enter a workspace path on the left, then refresh to query project metadata."}
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+              {queryError}
+            </div>
+          ) : null}
+          {createError ? (
+            <div className="mt-5 flex items-start gap-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:border-rose-900/40 dark:bg-rose-950/20 dark:text-rose-200"
+            >
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+              {createError}
             </div>
           ) : null}
 
-          {trimmedWorkspace && queryState === "loading" ? (
-            <div className="border-y border-border/90 px-6 py-10 text-sm text-text-secondary">{isZh ? "正在加载项目..." : "Loading projects..."}</div>
-          ) : null}
-
-          {trimmedWorkspace && queryState !== "loading" && projects.length === 0 && !queryError ? (
-            <div className="border-y border-border/90 px-6 py-10 text-sm text-text-secondary">
-              {isZh ? "当前工作区暂未返回任何项目。" : "No projects were returned for this workspace yet."}
+          <Card className="mt-6">
+            <SectionHeader title={isZh ? "创建项目" : "Create project"} subtitle={isZh ? "使用当前工作区路径和项目名称创建新的元数据。" : "Use the current workspace path and a project name to create new metadata."} />
+            <div className="mt-4 grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto]">
+              <div className="relative">
+                <Plus className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-tertiary" />
+                <input
+                  type="text"
+                  value={projectName}
+                  placeholder={isZh ? "输入项目名称" : "Enter a project name"}
+                  className="w-full rounded-xl border border-border bg-surface-raised py-2 pl-9 pr-3 text-sm text-text-primary outline-none transition placeholder:text-text-tertiary focus:border-ice-400 focus:ring-2 focus:ring-ice-100 dark:focus:ring-ice-900/50"
+                  onChange={(event) => setProjectName(event.target.value)}
+                />
+              </div>
+              <button
+                type="button"
+                className="ui-pressable inline-flex items-center justify-center gap-2 rounded-xl bg-ice-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-ice-400 disabled:cursor-not-allowed disabled:opacity-45"
+                disabled={!trimmedWorkspace || !trimmedProjectName || createState === "loading"}
+                onClick={() => void handleCreateProject()}
+              >
+                <Plus className="h-4 w-4" />
+                {createState === "loading" ? (isZh ? "创建中..." : "Creating...") : isZh ? "创建项目" : "Create project"}
+              </button>
             </div>
-          ) : null}
+          </Card>
 
-          {projects.length > 0 ? (
-            <div className="divide-y divide-border/90 border-y border-border/90">
-              {projects.map((project) => (
-                <article key={`${project.path}-${project.name}`} className="ui-row-item grid gap-4 px-6 py-4 lg:grid-cols-[minmax(0,1fr)_13rem]">
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-text-primary">{project.name}</p>
-                    <p className="mt-1 break-all text-sm text-text-secondary">{project.path}</p>
-                    <div className="mt-3 grid gap-2 text-xs text-text-tertiary">
-                      <p>{isZh ? "配置" : "Config"}: {project.configPath ?? (isZh ? "不可用" : "Unavailable")}</p>
-                      <p>JCVI config: {project.jcviConfigPath ?? (isZh ? "不可用" : "Unavailable")}</p>
-                    </div>
-                  </div>
-                  <div className="grid gap-2 text-sm text-text-secondary">
-                    <div className="flex items-center justify-between gap-4">
-                      <span className="text-text-tertiary">{isZh ? "更新" : "Updated"}</span>
-                      <span className="text-right text-text-primary">{formatTimestamp(project.updatedAt, isZh)}</span>
-                    </div>
-                    <div className="flex items-center justify-between gap-4">
-                      <span className="text-text-tertiary">{isZh ? "创建" : "Created"}</span>
-                      <span className="text-right text-text-primary">{formatTimestamp(project.createdAt, isZh)}</span>
-                    </div>
-                    <div className="flex items-center justify-between gap-4">
-                      <span className="text-text-tertiary">{isZh ? "上次运行" : "Last run"}</span>
-                      <span className="text-right text-text-primary">{formatTimestamp(project.lastRunAt, isZh)}</span>
-                    </div>
-                  </div>
-                </article>
-              ))}
+          <Card className="mt-6">
+            <SectionHeader
+              title={isZh ? "可用项目" : "Available projects"}
+              subtitle={isZh ? "扫描所选工作区中的 `.genomelens/project.json` 元数据。" : "Scan the selected workspace for `.genomelens/project.json` metadata."}
+              action={
+                <Badge tone="default">
+                  <Clock className="mr-1 h-3 w-3" />
+                  {projects.length}
+                </Badge>
+              }
+            />
+
+            <div className="mt-4">
+              {!trimmedWorkspace && queryState === "idle" ? (
+                <EmptyState
+                  icon={FolderOpen}
+                  title={isZh ? "输入工作区路径" : "Enter a workspace path"}
+                  description={isZh ? "先在左侧输入工作区路径，再刷新读取项目元数据。" : "Enter a workspace path on the left, then refresh to query project metadata."}
+                />
+              ) : null}
+
+              {trimmedWorkspace && queryState === "loading" ? (
+                <EmptyState
+                  icon={RefreshCw}
+                  title={isZh ? "正在加载项目..." : "Loading projects..."}
+                  description={isZh ? "请稍候，正在读取项目元数据。" : "Please wait while project metadata is being read."}
+                />
+              ) : null}
+
+              {trimmedWorkspace && queryState !== "loading" && projects.length === 0 && !queryError ? (
+                <EmptyState
+                  icon={Search}
+                  title={isZh ? "当前工作区暂未返回任何项目。" : "No projects were returned for this workspace yet."}
+                  description={isZh ? "尝试创建一个新项目，或检查路径是否正确。" : "Try creating a new project, or check that the path is correct."}
+                />
+              ) : null}
+
+              {projects.length > 0 ? (
+                <div className="ui-stagger-list grid gap-4 sm:grid-cols-2">
+                  {projects.map((project) => (
+                    <ProjectCard key={`${project.path}-${project.name}`} project={project} isZh={isZh} />
+                  ))}
+                </div>
+              ) : null}
             </div>
-          ) : null}
-        </section>
+          </Card>
+        </div>
       </div>
     </section>
   );
+}
+
+function basename(path: string): string {
+  const parts = path.split(/[\\/]/);
+  return parts.length > 0 ? parts[parts.length - 1] : path;
 }

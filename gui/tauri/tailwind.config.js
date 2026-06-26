@@ -36,20 +36,37 @@ export default {
       boxShadow: {
         card: "0 1px 3px rgba(15, 23, 42, 0.05)",
         "card-hover": "0 8px 24px rgba(14, 165, 233, 0.12)",
+        glow: "0 0 24px rgba(14, 165, 233, 0.18)",
+        "glow-strong": "0 0 40px rgba(14, 165, 233, 0.28)",
       },
       keyframes: {
         "fade-up": {
           "0%": { opacity: "0", transform: "translateY(8px)" },
           "100%": { opacity: "1", transform: "translateY(0)" },
         },
+        "fade-in": {
+          "0%": { opacity: "0" },
+          "100%": { opacity: "1" },
+        },
         shimmer: {
           "0%": { transform: "translateX(-100%)" },
           "100%": { transform: "translateX(100%)" },
         },
+        "pulse-glow": {
+          "0%, 100%": { boxShadow: "0 0 16px rgba(14, 165, 233, 0.16)" },
+          "50%": { boxShadow: "0 0 28px rgba(14, 165, 233, 0.28)" },
+        },
+        "scale-in": {
+          "0%": { opacity: "0", transform: "scale(0.96)" },
+          "100%": { opacity: "1", transform: "scale(1)" },
+        },
       },
       animation: {
-        "fade-up": "fade-up 300ms cubic-bezier(0.4, 0, 0.2, 1)",
+        "fade-up": "fade-up 300ms cubic-bezier(0.4, 0, 0.2, 1) both",
+        "fade-in": "fade-in 200ms cubic-bezier(0.4, 0, 0.2, 1) both",
         shimmer: "shimmer 1.5s infinite",
+        "pulse-glow": "pulse-glow 2.4s ease-in-out infinite",
+        "scale-in": "scale-in 220ms cubic-bezier(0.22, 1, 0.36, 1) both",
       },
     },
   },

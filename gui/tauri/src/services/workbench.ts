@@ -26,27 +26,27 @@ export function checkEnvironment(): Promise<CheckReport> {
 }
 
 export function listProjects(input: ListProjectsInput): Promise<ProjectSummary[]> {
-  return invoke<ProjectSummary[]>("list_projects", input);
+  return invoke<ProjectSummary[]>("list_projects", { input });
 }
 
 export function createProject(input: CreateProjectInput): Promise<ProjectSummary> {
-  return invoke<ProjectSummary>("create_project", input);
+  return invoke<ProjectSummary>("create_project", { input });
 }
 
 export function listArtifacts(input: ListArtifactsInput): Promise<ArtifactSummary[]> {
-  return invoke<ArtifactSummary[]>("list_artifacts", input);
+  return invoke<ArtifactSummary[]>("list_artifacts", { input });
 }
 
 export function runAnalysis(input: RunAnalysisInput): Promise<RunHandle> {
-  return invoke<RunHandle>("run_analysis", input);
+  return invoke<RunHandle>("run_analysis", { input });
 }
 
 export function cancelRun(input: CancelRunInput): Promise<CancelRunResult> {
-  return invoke<CancelRunResult>("cancel_run", input);
+  return invoke<CancelRunResult>("cancel_run", { input });
 }
 
 export function readSummary(input: ReadSummaryInput): Promise<RunSummary> {
-  return invoke<RunSummary>("read_summary", input);
+  return invoke<RunSummary>("read_summary", { input });
 }
 
 export async function readSummaryView(input: ReadSummaryInput): Promise<RunSummaryViewModel> {
@@ -54,15 +54,15 @@ export async function readSummaryView(input: ReadSummaryInput): Promise<RunSumma
 }
 
 export function readRunLog(input: ReadRunLogInput): Promise<RunLogSnapshot> {
-  return invoke<RunLogSnapshot>("read_run_log", input);
+  return invoke<RunLogSnapshot>("read_run_log", { input });
 }
 
 export function readRunSnapshot(input: ReadRunSnapshotInput): Promise<RunSnapshot> {
-  return invoke<RunSnapshot>("read_run_snapshot", input);
+  return invoke<RunSnapshot>("read_run_snapshot", { input });
 }
 
 export function openPath(input: OpenPathInput): Promise<void> {
-  return invoke<void>("open_path", input);
+  return invoke<void>("open_path", { input });
 }
 
 export async function listenToWorkflowEvent<Name extends WorkflowEventName>(

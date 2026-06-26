@@ -1,6 +1,17 @@
+import {
+  Cog,
+  FlaskConical,
+  LayoutGrid,
+  RefreshCw,
+  Rocket,
+  Sparkles,
+} from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
+import { CapabilityList } from "../components/CapabilityList";
+import { CollapsibleSection } from "../components/CollapsibleSection";
 import { GameIcon, type GameIconName } from "../components/GameIcon";
+import { Badge, Card, EmptyState } from "../components/ui";
 import { JcviMeowIcon } from "../components/JcviMeowIcon";
 import { useLanguage } from "../i18n/useLanguage";
 import {
@@ -74,6 +85,19 @@ function statusLabel(entry: CapabilityEntry, isZh: boolean): string {
   }
 }
 
+function statusTone(entry: CapabilityEntry): NonNullable<React.ComponentProps<typeof Badge>["tone"]> {
+  switch (entry.status) {
+    case "connected":
+      return "success";
+    case "available":
+      return "info";
+    case "reserved":
+      return "default";
+    default:
+      return "default";
+  }
+}
+
 function kindLabel(entry: CapabilityEntry, isZh: boolean): string {
   if (entry.kind === "one_stop") {
     return isZh ? "一站式工作流" : "One-stop workflow";
@@ -106,46 +130,6 @@ function createFallbackCapabilities(): CapabilityEntry[] {
   ];
 }
 
-interface CapabilityGroup {
-  key: string;
-  title: string;
-  items: CapabilityEntry[];
-}
-
-function groupCapabilities(entries: CapabilityEntry[], isZh: boolean): CapabilityGroup[] {
-  const oneStop = entries.filter((entry) => entry.kind === "one_stop");
-  const lightweight = entries.filter(
-    (entry) => entry.kind === "sub_module" && entry.module_kind === "lightweight",
-  );
-  const aggregate = entries.filter(
-    (entry) => entry.kind === "sub_module" && entry.module_kind === "aggregate",
-  );
-
-  const groups: CapabilityGroup[] = [];
-  if (oneStop.length > 0) {
-    groups.push({
-      key: "one-stop",
-      title: isZh ? "一站式工作流" : "One-stop workflows",
-      items: oneStop,
-    });
-  }
-  if (lightweight.length > 0) {
-    groups.push({
-      key: "lightweight",
-      title: isZh ? "轻量型子模块" : "Lightweight submodules",
-      items: lightweight,
-    });
-  }
-  if (aggregate.length > 0) {
-    groups.push({
-      key: "aggregate",
-      title: isZh ? "聚合型子模块" : "Aggregate submodules",
-      items: aggregate,
-    });
-  }
-  return groups;
-}
-
 export default function Home({ onNavigate }: HomeProps) {
   const { language } = useLanguage();
   const isZh = language === "zh-CN";
@@ -153,6 +137,7 @@ export default function Home({ onNavigate }: HomeProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [filter, setFilter] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -191,6 +176,22 @@ export default function Home({ onNavigate }: HomeProps) {
     };
   }, []);
 
+  const filteredCapabilities = useMemo(() => {
+    if (!capabilities) {
+      return [];
+    }
+    const query = filter.trim().toLowerCase();
+    if (!query) {
+      return capabilities;
+    }
+    return capabilities.filter(
+      (entry) =>
+        entry.id.toLowerCase().includes(query) ||
+        getCapabilitySubtitle(entry, isZh).toLowerCase().includes(query) ||
+        getCapabilityDescription(entry, isZh).toLowerCase().includes(query),
+    );
+  }, [capabilities, filter, isZh]);
+
   const selected = useMemo(() => {
     if (!capabilities) {
       return undefined;
@@ -201,11 +202,6 @@ export default function Home({ onNavigate }: HomeProps) {
       capabilities[0]
     );
   }, [capabilities, selectedId]);
-
-  const groups = useMemo(
-    () => (capabilities ? groupCapabilities(capabilities, isZh) : []),
-    [capabilities, isZh],
-  );
 
   function handleRetry() {
     clearCapabilityCache();
@@ -242,17 +238,16 @@ export default function Home({ onNavigate }: HomeProps) {
       return;
     }
 
-    // Keep the existing synteny run flow intact by mapping the one-stop
-    // workflow back to the legacy query parameter that the workbench already
-    // understands. Submodule ids flow through as-is and will be handled by the
-    // workbench once dual-protocol support lands.
     const targetCapabilityId = entry.id === "synteny" ? "pairwise-synteny" : entry.id;
     onNavigate(`/analysis/new?capability=${encodeURIComponent(targetCapabilityId)}`);
   }
 
   if (loading) {
     return (
-      <div className="ui-page-enter ui-app-frame grid h-screen w-full content-center justify-center gap-3 text-center">
+      <div className="ui-page-enter ui-app-frame grid h-screen w-full content-center justify-center gap-4 text-center">
+        <div className="ui-floating ui-breathing mx-auto flex h-20 w-20 items-center justify-center rounded-[1.25rem] bg-surface">
+          <JcviMeowIcon className="h-12 w-12" />
+        </div>
         <p className="text-xs font-semibold uppercase tracking-[0.16em] text-text-tertiary">
           JCVI meow · {isZh ? "首页" : "Home"}
         </p>
@@ -263,304 +258,171 @@ export default function Home({ onNavigate }: HomeProps) {
 
   if (!selected) {
     return (
-      <div className="ui-page-enter ui-app-frame grid h-screen w-full content-center justify-center gap-3 text-center">
-        <p className="text-base font-semibold text-text-primary">
-          {isZh ? "暂无可用能力" : "No capabilities available"}
-        </p>
-        {error ? <p className="max-w-md text-sm text-text-secondary">{error}</p> : null}
-      </div>
-    );
-  }
-
-  return (
-    <div className="ui-page-enter ui-app-frame grid h-screen w-full grid-cols-[18rem_minmax(0,1fr)_17rem] overflow-hidden">
-      <aside className="ui-shell-sidebar flex min-h-0 flex-col border-r px-3 py-3">
-        <div className="flex items-center gap-2.5 rounded-xl px-2.5 py-2">
-          <JcviMeowIcon className="h-8 w-8" />
-          <span className="min-w-0">
-            <span className="jcvi-brand-title block truncate text-sm font-semibold text-text-primary">
-              JCVI meow
-            </span>
-            <span className="block text-xs text-text-secondary">
-              {isZh ? "桌面工作台" : "Desktop workbench"}
-            </span>
-          </span>
-        </div>
-
-        <button
-          type="button"
-          className="ui-pressable mt-3 rounded-lg bg-ice-500 px-3 py-2 text-left text-sm font-semibold text-white transition hover:bg-ice-400"
-          onClick={() => handleOpenCapability(selected)}
-        >
-          {actionLabel(selected, isZh)}
-        </button>
-
-        <div className="mt-5 min-h-0 flex-1 overflow-y-auto overflow-x-hidden pr-1">
-          {groups.map((group) => (
-            <div key={group.key} className="mb-4">
-              <div className="px-2.5 py-1.5 text-[11px] font-medium uppercase tracking-[0.16em] text-text-tertiary">
-                {group.title}
-              </div>
-              <div className="mt-1">
-                {group.items.map((entry) => {
-                  const active = entry.id === selected.id;
-                  return (
-                    <button
-                      key={entry.id}
-                      type="button"
-                      className={
-                        active
-                          ? "ui-list-item mb-1 flex w-full items-center gap-2.5 rounded-lg border border-border bg-surface-raised px-2.5 py-2 text-left shadow-card"
-                          : "ui-list-item mb-1 flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-text-secondary transition hover:bg-surface-raised/75 hover:text-text-primary"
-                      }
-                      onClick={() => setSelectedId(entry.id)}
-                      title={getCapabilityDescription(entry, isZh)}
-                    >
-                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-surface text-text-secondary">
-                        <GameIcon name={iconForCapability(entry.id)} className="h-4 w-4" />
-                      </span>
-                      <span className="min-w-0">
-                        <span className="block truncate text-[13px] font-medium text-text-primary">
-                          {getCapabilitySubtitle(entry, isZh)}
-                        </span>
-                        <span className="block truncate text-xs text-text-tertiary">
-                          {statusLabel(entry, isZh)}
-                        </span>
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {error ? (
-          <div className="mb-2 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-2 text-xs text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-200">
-            <p className="font-medium">{isZh ? "能力列表加载失败" : "Failed to load capabilities"}</p>
-            <p className="mt-1 line-clamp-2">{error}</p>
+      <div className="ui-page-enter ui-app-frame grid h-screen w-full content-center justify-center gap-4 p-6 text-center">
+        <EmptyState
+          icon={FlaskConical}
+          title={isZh ? "暂无可用能力" : "No capabilities available"}
+          description={error ?? undefined}
+          action={
             <button
               type="button"
-              className="mt-1.5 font-medium underline hover:no-underline"
+              className="ui-icon-button border-ice-500 bg-ice-500 text-white hover:bg-ice-400 hover:border-ice-400"
               onClick={handleRetry}
             >
               {isZh ? "重试" : "Retry"}
             </button>
-          </div>
-        ) : null}
+          }
+        />
+      </div>
+    );
+  }
 
-        <div className="border-t border-border/90 pt-3">
+  const tips = isZh
+    ? [
+        "输出目录建议选择空目录，避免旧文件被覆盖。",
+        "运行前先打开环境诊断确认工具链完整。",
+        "子模块适合作为自定义 pipeline 的构建块。",
+      ]
+    : [
+        "Pick an empty output directory to avoid overwriting old files.",
+        "Open Diagnostics before running to verify the toolchain.",
+        "Submodules work well as building blocks for custom pipelines.",
+      ];
+
+  return (
+    <div className="ui-page-enter ui-app-frame flex h-screen w-full flex-col overflow-hidden">
+      <header className="flex h-16 shrink-0 items-center justify-between border-b border-border/90 px-6">
+        <div className="flex items-center gap-3">
+          <JcviMeowIcon className="h-8 w-8" />
+          <h1 className="text-sm font-semibold text-text-primary">JCVI meow</h1>
+        </div>
+        <div className="flex items-center gap-2">
           <button
             type="button"
-            className="ui-list-item flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left text-sm text-text-secondary transition hover:bg-surface-raised/75 hover:text-text-primary"
-            onClick={() => onNavigate("/settings")}
+            className="ui-icon-button"
+            onClick={handleRetry}
+            title={isZh ? "重新加载能力列表" : "Reload capability list"}
           >
-            <GameIcon name="environment" className="h-4 w-4" />
-            {isZh ? "设置与诊断" : "Settings and diagnostics"}
+            <RefreshCw className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            className="ui-icon-button"
+            onClick={() => onNavigate("/settings")}
+            title={isZh ? "设置" : "Settings"}
+          >
+            <Cog className="h-4 w-4" />
           </button>
         </div>
-      </aside>
+      </header>
 
-      <main className="flex min-w-0 flex-col bg-surface-raised">
-        <header className="flex h-14 items-center justify-between border-b border-border/90 px-7">
-          <div>
-            <p className="text-xs font-medium uppercase tracking-[0.16em] text-text-tertiary">
-              {isZh ? "首页" : "Home"}
-            </p>
-            <h1 className="mt-1 text-base font-semibold text-text-primary">
-              {getCapabilitySubtitle(selected, isZh)}
-            </h1>
+      <main className="grid min-h-0 flex-1 grid-cols-[20rem_minmax(0,1fr)_20rem] overflow-hidden">
+        {/* Left sidebar */}
+        <aside className="flex flex-col border-r border-border/90 bg-surface">
+          <div className="flex items-center gap-2 border-b border-border/90 px-4 py-3">
+            <LayoutGrid className="h-4 w-4 text-text-tertiary" />
+            <input
+              type="text"
+              className="min-w-0 flex-1 bg-transparent text-sm text-text-primary outline-none placeholder:text-text-tertiary"
+              placeholder={isZh ? "搜索能力..." : "Search capabilities..."}
+              value={filter}
+              onChange={(event) => setFilter(event.target.value)}
+            />
           </div>
-          <span
-            className={
-              isActionableCapability(selected)
-                ? "rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-200"
-                : "rounded-full bg-surface px-3 py-1 text-xs font-semibold text-text-secondary"
-            }
-          >
-            {statusLabel(selected, isZh)}
-          </span>
-        </header>
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            <CapabilityList
+              capabilities={filteredCapabilities}
+              selectedId={selectedId}
+              isZh={isZh}
+              onSelect={setSelectedId}
+              onOpen={handleOpenCapability}
+            />
+          </div>
+        </aside>
 
-        <div className="min-h-0 flex-1 overflow-auto px-8 py-6">
-          <div className="ui-surface-enter mx-auto max-w-[68rem]">
-            <div className="flex items-start gap-4">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-border bg-surface">
-                <GameIcon name={iconForCapability(selected.id)} className="h-5 w-5" />
-              </div>
-              <div className="min-w-0">
-                <h2 className="text-[1.4rem] font-semibold tracking-tight text-text-primary">
-                  {getCapabilitySubtitle(selected, isZh)}
-                </h2>
-                <p className="mt-2 max-w-3xl text-sm leading-6 text-text-secondary">
+        {/* Center */}
+        <section className="min-h-0 overflow-y-auto px-6 py-8">
+          <div className="mx-auto flex max-w-2xl flex-col gap-5">
+            <div className="flex items-center justify-end gap-3">
+              <Badge tone={statusTone(selected)} dot pulse={selected.status === "connected"}>
+                {statusLabel(selected, isZh)}
+              </Badge>
+            </div>
+
+            <Card className="relative overflow-hidden">
+              <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-ice-400/10 blur-3xl" />
+              <div className="relative flex flex-col gap-5 p-6">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex items-center gap-4">
+                    <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-border bg-surface shadow-card">
+                      <GameIcon name={iconForCapability(selected.id)} className="h-7 w-7" />
+                    </span>
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-text-tertiary">
+                        {kindLabel(selected, isZh)}
+                      </p>
+                      <h1 className="mt-0.5 text-2xl font-semibold tracking-tight text-text-primary">
+                        {getCapabilitySubtitle(selected, isZh)}
+                      </h1>
+                    </div>
+                  </div>
+                </div>
+
+                <p className="max-w-2xl text-sm leading-7 text-text-secondary">
                   {getCapabilityDescription(selected, isZh)}
                 </p>
+
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    className="ui-pressable inline-flex items-center gap-2 rounded-full bg-ice-500 px-5 py-2.5 text-sm font-semibold text-white shadow-glow transition hover:bg-ice-400"
+                    onClick={() => handleOpenCapability(selected)}
+                  >
+                    <Rocket className="h-4 w-4" />
+                    {actionLabel(selected, isZh)}
+                  </button>
+                  {selected.route !== "/settings" ? (
+                    <button
+                      type="button"
+                      className="ui-pressable inline-flex items-center gap-2 rounded-full border border-border bg-surface px-4 py-2.5 text-sm font-medium text-text-secondary transition hover:bg-surface-raised hover:text-text-primary"
+                      onClick={() => onNavigate("/settings")}
+                    >
+                      <Cog className="h-4 w-4" />
+                      {isZh ? "环境诊断" : "Diagnostics"}
+                    </button>
+                  ) : null}
+                </div>
               </div>
-            </div>
+            </Card>
 
-            <div className="mt-6 grid gap-5 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
-              <section>
-                <div className="border-b border-border/90 pb-3">
-                  <h3 className="text-sm font-semibold text-text-primary">
-                    {isZh ? "当前入口" : "Current surface"}
-                  </h3>
-                  <p className="mt-1 text-sm leading-6 text-text-secondary">
-                    {isZh
-                      ? "这里展示当前能力会进入哪个工作台入口。"
-                      : "This is where the selected capability opens inside the workbench."}
-                  </p>
-                </div>
-                <div className="divide-y divide-border/90 border-b border-border/90">
-                  <div className="grid grid-cols-[8.5rem_minmax(0,1fr)] gap-4 py-3 text-sm">
-                    <span className="text-text-tertiary">{isZh ? "路由" : "Route"}</span>
-                    <span className="font-medium text-text-primary">{selected.route}</span>
-                  </div>
-                  <div className="grid grid-cols-[8.5rem_minmax(0,1fr)] gap-4 py-3 text-sm">
-                    <span className="text-text-tertiary">{isZh ? "能力类型" : "Capability kind"}</span>
-                    <span className="font-medium text-text-primary">{kindLabel(selected, isZh)}</span>
-                  </div>
-                  <div className="grid grid-cols-[8.5rem_minmax(0,1fr)] gap-4 py-3 text-sm">
-                    <span className="text-text-tertiary">{isZh ? "主操作" : "Primary action"}</span>
-                    <span className="font-medium text-text-primary">{actionLabel(selected, isZh)}</span>
-                  </div>
-                </div>
-              </section>
-
-              <section>
-                <div className="border-b border-border/90 pb-3">
-                  <h3 className="text-sm font-semibold text-text-primary">
-                    {isZh ? "使用预期" : "What to expect"}
-                  </h3>
-                  <p className="mt-1 text-sm leading-6 text-text-secondary">
-                    {isZh
-                      ? "保持 run flow 清晰可预测: 配置、运行、查看日志、读取摘要。"
-                      : "Keep the run flow predictable: configure, run, inspect logs, read summary."}
-                  </p>
-                </div>
-                <div className="divide-y divide-border/90 border-b border-border/90">
-                  {(isZh
-                    ? [
-                        "一站式工作流会自动编排多个子模块，适合端到端分析。",
-                        "子模块可独立运行，也可作为自定义 pipeline 的构建块。",
-                        "当本地工具链阻塞执行时，随时打开环境诊断。",
-                      ]
-                    : [
-                        "One-stop workflows orchestrate multiple submodules for end-to-end analysis.",
-                        "Submodules can run independently or serve as building blocks for custom pipelines.",
-                        "Open diagnostics whenever a local toolchain issue blocks execution.",
-                      ]
-                  ).map((detail) => (
-                    <div key={detail} className="py-3 text-sm leading-6 text-text-secondary">
-                      {detail}
-                    </div>
-                  ))}
-                </div>
-              </section>
-            </div>
-          </div>
-        </div>
-
-        <div className="border-t border-border/90 bg-surface-raised px-8 py-4">
-          <div className="ui-soft-panel mx-auto flex max-w-[68rem] items-center gap-3 rounded-xl border px-4 py-3">
-            <button
-              type="button"
-              className="ui-pressable rounded-lg border border-border bg-surface px-3 py-2 text-xs font-medium text-text-secondary transition hover:bg-surface-raised hover:text-text-primary"
-              onClick={() => onNavigate("/settings")}
+            <CollapsibleSection
+              title={isZh ? "提示" : "Hints"}
+              subtitle={isZh ? "让分析更顺畅的小建议。" : "Small tips to keep analysis smooth."}
+              defaultOpen={false}
             >
-              {isZh ? "设置" : "Settings"}
-            </button>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-[13px] text-text-secondary">
-                {getCapabilitySubtitle(selected, isZh)} - {statusLabel(selected, isZh)} -{" "}
-                {selected.route === "/analysis/new"
-                  ? isZh
-                    ? "可进入工作台"
-                    : "Ready for the workbench"
-                  : isZh
-                    ? "打开诊断"
-                    : "Opens diagnostics"}
-              </p>
-            </div>
-            <button
-              type="button"
-              className={
-                isActionableCapability(selected)
-                  ? "ui-pressable rounded-full bg-ice-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-ice-400"
-                  : "rounded-full bg-surface px-4 py-2 text-sm font-semibold text-text-tertiary"
-              }
-              disabled={!isActionableCapability(selected)}
-              onClick={() => handleOpenCapability(selected)}
-            >
-              {actionLabel(selected, isZh)}
-            </button>
+              <ul className="grid gap-3 sm:grid-cols-2">
+                {tips.map((tip) => (
+                  <li key={tip} className="flex items-start gap-2">
+                    <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
+                    <span className="text-sm leading-6 text-text-secondary">{tip}</span>
+                  </li>
+                ))}
+              </ul>
+            </CollapsibleSection>
           </div>
-        </div>
+        </section>
+
+        {/* Right sidebar */}
+        <aside className="flex flex-col border-l border-border/90 bg-surface">
+          <div className="flex flex-1 items-center justify-center p-6">
+            <EmptyState
+              icon={LayoutGrid}
+              title={isZh ? "扩展面板" : "Extension panel"}
+              description={isZh ? "右侧区域预留，后续可放置快捷操作、最近运行或数据预览。" : "Reserved for future quick actions, recent runs, or data previews."}
+            />
+          </div>
+        </aside>
       </main>
-
-      <aside className="min-h-0 overflow-y-auto overflow-x-hidden border-l border-border/90 bg-surface-raised px-4 py-5">
-        <section>
-          <h2 className="text-sm font-semibold text-text-primary">
-            {isZh ? "能力分组" : "Capability groups"}
-          </h2>
-          <div className="mt-3 grid gap-2">
-            {groups.map((group) => (
-              <button
-                key={group.key}
-                type="button"
-                className="ui-list-item flex items-center justify-between rounded-lg px-2 py-2 text-left text-[13px] text-text-secondary transition hover:bg-surface hover:text-text-primary"
-                onClick={() => {
-                  const first = group.items.find((item) => isActionableCapability(item)) ?? group.items[0];
-                  if (first) {
-                    setSelectedId(first.id);
-                  }
-                }}
-              >
-                <span className="truncate">{group.title}</span>
-                <span className="shrink-0 rounded-full bg-surface px-2 py-0.5 text-[10px] font-medium text-text-tertiary">
-                  {group.items.length}
-                </span>
-              </button>
-            ))}
-          </div>
-        </section>
-
-        <section className="mt-6 border-t border-border/90 pt-6">
-          <h2 className="text-sm font-semibold text-text-primary">{isZh ? "已接入" : "Connected"}</h2>
-          <div className="mt-3 grid gap-2">
-            {capabilities
-              ?.filter((entry) => entry.status === "connected")
-              .map((entry) => (
-                <button
-                  key={entry.id}
-                  type="button"
-                  className="ui-list-item flex items-center gap-2.5 rounded-lg px-2 py-2 text-left text-[13px] text-text-secondary transition hover:bg-surface hover:text-text-primary"
-                  onClick={() => setSelectedId(entry.id)}
-                >
-                  <GameIcon name={iconForCapability(entry.id)} className="h-4 w-4" />
-                  <span className="truncate">{getCapabilitySubtitle(entry, isZh)}</span>
-                </button>
-              ))}
-          </div>
-        </section>
-
-        <section className="mt-6 border-t border-border/90 pt-6">
-          <h2 className="text-sm font-semibold text-text-primary">{isZh ? "动作" : "Action"}</h2>
-          <div className="mt-3 grid gap-2 text-sm text-text-secondary">
-            <div className="grid grid-cols-[5.2rem_minmax(0,1fr)] gap-3">
-              <span className="text-text-tertiary">{isZh ? "路由" : "Route"}</span>
-              <span className="truncate text-text-primary">{selected.route}</span>
-            </div>
-            <div className="grid grid-cols-[5.2rem_minmax(0,1fr)] gap-3">
-              <span className="text-text-tertiary">{isZh ? "类型" : "Kind"}</span>
-              <span className="truncate text-text-primary">{kindLabel(selected, isZh)}</span>
-            </div>
-            <div className="grid grid-cols-[5.2rem_minmax(0,1fr)] gap-3">
-              <span className="text-text-tertiary">{isZh ? "状态" : "Status"}</span>
-              <span className="truncate text-text-primary">{statusLabel(selected, isZh)}</span>
-            </div>
-          </div>
-        </section>
-      </aside>
     </div>
   );
 }

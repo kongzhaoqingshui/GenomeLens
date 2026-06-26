@@ -1,3 +1,5 @@
+import { Loader2, RefreshCw, Settings2 } from "lucide-react";
+
 import { useLanguage } from "../i18n/useLanguage";
 import { JcviMeowIcon } from "./JcviMeowIcon";
 
@@ -38,51 +40,70 @@ export function LaunchScreen({
         closing ? "pointer-events-none opacity-0" : "opacity-100",
       ].join(" ")}
     >
-      <div className="ui-surface-enter w-full max-w-lg overflow-hidden rounded-[1.35rem] border border-border bg-surface-raised shadow-[0_18px_45px_rgba(15,23,42,0.08)] dark:shadow-[0_18px_45px_rgba(2,6,23,0.45)]">
-        <div className="border-b border-border/90 px-8 py-8 text-center">
-          <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-[1.25rem] bg-surface">
+      <div className="ui-gradient-hero ui-surface-enter ui-scale-in w-full max-w-lg overflow-hidden rounded-[1.35rem] border border-border shadow-[0_18px_45px_rgba(15,23,42,0.08)] dark:shadow-[0_18px_45px_rgba(2,6,23,0.45)]">
+        <div className="relative border-b border-border/90 px-8 py-10 text-center">
+          <div className="mx-auto flex h-28 w-28 items-center justify-center rounded-[1.5rem] bg-surface shadow-card">
+            <div className="ui-launch-ring absolute h-28 w-28 rounded-[1.5rem]" />
             <div className="ui-floating ui-breathing flex h-16 w-16 items-center justify-center">
               <JcviMeowIcon className="h-16 w-16" />
             </div>
           </div>
-          <h1 className="jcvi-brand-title mt-5 text-[1.85rem] font-semibold tracking-tight text-text-primary">JCVI meow</h1>
-          <div className="mt-3 min-h-[1.75rem]">
-            <p key={message} className="ui-message-enter text-sm font-medium text-text-secondary">
-              {message}
-            </p>
+
+          <h1 className="jcvi-brand-title mt-6 text-[1.95rem] font-semibold tracking-tight text-text-primary">JCVI meow</h1>
+          <p className="mt-1 text-xs font-semibold uppercase tracking-[0.16em] text-text-tertiary">GenomeLens Workbench</p>
+
+          <div className="mt-5 min-h-[1.75rem]">
+            <p key={message} className="ui-message-enter text-sm font-medium text-text-secondary">{message}</p>
           </div>
-          <div className="mt-5 h-1.5 overflow-hidden rounded-full bg-surface">
+
+          <div className="mt-6 h-2 overflow-hidden rounded-full bg-surface shadow-inner">
             <div
-              className="ui-running-progress h-full rounded-full bg-ice-500 transition-[width] duration-500 ease-out"
+              className="ui-running-progress h-full rounded-full bg-gradient-to-r from-ice-400 to-ice-600 transition-[width] duration-500 ease-out"
               style={{ width: `${progressPercent}%` }}
             />
+          </div>
+
+          <div className="mt-3 flex items-center justify-center gap-2 text-xs text-text-tertiary">
+            {!isError ? (
+              <>
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                <span>{progressPercent}%</span>
+              </>
+            ) : null}
           </div>
         </div>
 
         <div className="min-h-[8.75rem] px-8 py-6">
           {isError ? (
-            <div className="ui-message-enter rounded-xl border border-rose-200 bg-rose-50 px-4 py-4 text-left text-sm text-rose-700 dark:border-rose-900/40 dark:bg-rose-950/20 dark:text-rose-200">
-              <p className="font-semibold">{isZh ? "启动预热失败" : "Startup warmup failed"}</p>
+            <div className="ui-message-enter rounded-xl border border-rose-200 bg-rose-50 px-4 py-4 text-left text-sm text-rose-700 dark:border-rose-900/40 dark:bg-rose-950/20 dark:text-rose-200"
+            >
+              <p className="flex items-center gap-2 font-semibold">
+                <span className="h-2 w-2 rounded-full bg-rose-500" />
+                {isZh ? "启动预热失败" : "Startup warmup failed"}
+              </p>
               <p className="mt-2 max-h-24 overflow-auto leading-6">{error}</p>
               <div className="mt-4 flex flex-wrap gap-3">
                 <button
                   type="button"
-                  className="ui-pressable rounded-lg bg-ice-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-ice-400"
+                  className="ui-pressable inline-flex items-center gap-2 rounded-lg bg-ice-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-ice-400"
                   onClick={onRetry}
                 >
+                  <RefreshCw className="h-4 w-4" />
                   {isZh ? "重试" : "Retry"}
                 </button>
                 <button
                   type="button"
-                  className="ui-pressable rounded-lg border border-border bg-surface px-4 py-2 text-sm font-semibold text-text-secondary transition hover:bg-surface-raised hover:text-text-primary"
+                  className="ui-pressable inline-flex items-center gap-2 rounded-lg border border-border bg-surface px-4 py-2 text-sm font-semibold text-text-secondary transition hover:bg-surface-raised hover:text-text-primary"
                   onClick={onOpenDiagnostics}
                 >
+                  <Settings2 className="h-4 w-4" />
                   {isZh ? "打开诊断" : "Open diagnostics"}
                 </button>
               </div>
             </div>
           ) : slow ? (
-            <div className="ui-message-enter ui-muted-strip flex items-center justify-between gap-4 rounded-xl border px-4 py-3 text-left">
+            <div className="ui-message-enter ui-muted-strip flex items-center justify-between gap-4 rounded-xl border px-4 py-3 text-left"
+            >
               <div>
                 <p className="text-sm font-medium text-text-primary">{isZh ? "启动时间比平时更久一些。" : "Warmup is taking longer than usual."}</p>
                 <p className="mt-1 text-xs leading-5 text-text-secondary">
@@ -91,17 +112,24 @@ export function LaunchScreen({
               </div>
               <button
                 type="button"
-                className="ui-pressable shrink-0 rounded-lg border border-border bg-surface-raised px-4 py-2 text-sm font-medium text-text-secondary transition hover:bg-surface hover:text-text-primary"
+                className="ui-pressable shrink-0 inline-flex items-center gap-2 rounded-lg border border-border bg-surface-raised px-4 py-2 text-sm font-medium text-text-secondary transition hover:bg-surface hover:text-text-primary"
                 onClick={onOpenDiagnostics}
               >
+                <Settings2 className="h-4 w-4" />
                 {isZh ? "诊断" : "Diagnostics"}
               </button>
             </div>
           ) : (
-            <div className="ui-message-enter text-sm text-text-secondary">
-              {isZh ? "正在加载工作台界面与环境上下文。" : "Loading the workbench surface and environment context."}
+            <div className="ui-message-enter flex items-center gap-3 text-sm text-text-secondary"
+            >
+              <Loader2 className="h-4 w-4 animate-spin text-ice-500" />
+              <span>{isZh ? "正在加载工作台界面与环境上下文。" : "Loading the workbench surface and environment context."}</span>
             </div>
           )}
+        </div>
+
+        <div className="border-t border-border/90 bg-surface px-8 py-3 text-center text-[11px] text-text-tertiary">
+          {isZh ? "如果遇到启动问题，可在右下角主题切换旁进入诊断。" : "If startup hangs, use diagnostics from the theme toggle in the lower right."}
         </div>
       </div>
     </div>

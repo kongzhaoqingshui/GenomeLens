@@ -12,13 +12,14 @@ import threading
 import time
 import unicodedata
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Protocol, TextIO, cast
 
 from genomelens._version import __version__
 from genomelens.analysis.requests.models import WorkflowRequest
 from genomelens.analysis.workflows.registry import list_workflow_plugins
+from genomelens.analysis.workflows.submodules import SubModuleSpec, get_submodule_registry
 from genomelens.app.events.signal_bus import Event, SignalBus
 from genomelens.contracts.checks import CheckReport
 from genomelens.contracts.summaries import RunSummary
@@ -628,6 +629,510 @@ def render_command_error(code: int, *, color: bool | None = None) -> str:
 # endregion
 
 
+# region 分页帮助
+@dataclass(frozen=True)
+class _HelpSection:
+    """帮助文本中的一个 section（如"位置参数"、"图件样式与自动优化"）"""
+
+    title: str
+    lines: list[str] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class _HelpArgumentItem:
+    """帮助文本中的一个参数项（含可能折行的说明）"""
+
+    section: str
+    lines: list[str] = field(default_factory=list)
+
+
+def _strip_ansi(text: str) -> str:
+    """移除 ANSI 颜色转义序列，用于在彩色 help 中做结构判断"""
+
+    return re.sub(r"\033\[[0-9;]*m", "", text)
+
+
+def _is_section_header(line: str) -> bool:
+    """判断一行是否为 section header（去颜色后无缩进且以冒号结尾）"""
+
+    plain = _strip_ansi(line)
+    stripped = plain.strip()
+    return bool(stripped) and stripped.endswith(":") and not plain.startswith(" ")
+
+
+def _leading_spaces(line: str) -> int:
+    """计算去色后的前导空格数"""
+
+    plain = _strip_ansi(line)
+    return len(plain) - len(plain.lstrip())
+
+
+def _reformat_usage_lines(lines: list[str], *, enabled: bool = False) -> list[str]:
+    """把 argparse 折行的 usage 重整为简洁、带语法高亮的多行格式"""
+
+    # 先在纯文本上判断结构，再对结果重新着色
+    plain_usage = _strip_ansi(" ".join(line.strip() for line in lines if line.strip()))
+    if not plain_usage:
+        return lines
+
+    # 剥离前缀
+    for prefix in ("用法:", "usage:"):
+        if plain_usage.startswith(prefix):
+            plain_usage = plain_usage[len(prefix) :].strip()
+            break
+
+    # 分离 prog 与参数；prog 是第一段非选项 token
+    parts = plain_usage.split()
+    prog_parts: list[str] = []
+    args_parts: list[str] = []
+    in_args = False
+    for part in parts:
+        if in_args:
+            args_parts.append(part)
+        elif part.startswith("[") or part.startswith("-"):
+            in_args = True
+            args_parts.append(part)
+        else:
+            prog_parts.append(part)
+
+    prog = " ".join(prog_parts) if prog_parts else ""
+    args = " ".join(args_parts)
+
+    if not prog:
+        return lines
+
+    result = [_paint("命令格式", PALETTE.bold + PALETTE.blue, enabled=enabled)]
+    result.append("  " + _paint(prog, PALETTE.cyan, enabled=enabled))
+
+    if args:
+        # 把选项与其占位符合并成一个逻辑单元，例如 [--jcvi-config JCVI_CONFIG]
+        raw_tokens = args.split()
+        tokens: list[str] = []
+        for token in raw_tokens:
+            if tokens and not tokens[-1].endswith("]"):
+                tokens[-1] = tokens[-1] + " " + token
+            else:
+                tokens.append(token)
+
+        max_width = 72
+        indent = "    "
+        current = indent
+        for token in tokens:
+            # 可选参数/标志用灰色，必填位置参数用默认白色加粗
+            if token.startswith("[") or token.startswith("-"):
+                colored_token = _paint(token, PALETTE.gray, enabled=enabled)
+            else:
+                colored_token = _paint(token, PALETTE.bold, enabled=enabled)
+            candidate = current + " " + colored_token if current != indent else current + colored_token
+            if _visible_width(candidate) > max_width and current != indent:
+                result.append(current)
+                current = indent + colored_token
+            else:
+                current = candidate
+        if current != indent:
+            result.append(current)
+
+    return result
+
+
+def _parse_help_sections(text: str, *, enabled: bool = False) -> tuple[list[str], list[_HelpSection]]:
+    """把 argparse help 文本解析为 (header_lines, sections)；用法 section 会被重整"""
+
+    lines = text.splitlines()
+    header_lines: list[str] = []
+    sections: list[_HelpSection] = []
+
+    current_title = ""
+    current_lines: list[str] = []
+    i = 0
+    n = len(lines)
+
+    def flush() -> None:
+        nonlocal current_title, current_lines
+        if current_title or current_lines:
+            sections.append(_HelpSection(title=current_title, lines=current_lines))
+            current_title = ""
+            current_lines = []
+
+    while i < n:
+        line = lines[i]
+        plain = _strip_ansi(line)
+
+        # argparse 把 "用法: prog ..." 放在同一行，后续缩进行是 continuation
+        if plain.lstrip().startswith(("用法:", "usage:")):
+            flush()
+            colon_idx = line.find(":")
+            usage_content = [line[colon_idx + 1 :].strip() if colon_idx >= 0 else line]
+            i += 1
+            while i < n:
+                next_line = lines[i]
+                next_plain = _strip_ansi(next_line)
+                if not next_plain.strip():
+                    i += 1
+                    continue
+                # 下一个 section header 或非缩进行表示 usage 结束
+                if not next_plain.startswith(" ") or _is_section_header(next_line):
+                    break
+                usage_content.append(next_line)
+                i += 1
+            header_lines.extend(_reformat_usage_lines(usage_content, enabled=enabled))
+            continue
+
+        if _is_section_header(line):
+            flush()
+            current_title = _strip_ansi(line).strip().rstrip(":")
+            current_lines = []
+        elif not current_title and not sections:
+            header_lines.append(line)
+        else:
+            current_lines.append(line)
+
+        i += 1
+
+    flush()
+    return header_lines, sections
+
+
+def _extract_argument_items(sections: list[_HelpSection]) -> list[_HelpArgumentItem]:
+    """从 section 中提取独立参数项，识别被折行的说明"""
+
+    items: list[_HelpArgumentItem] = []
+    for section in sections:
+        if section.title == "用法":
+            continue
+        current: _HelpArgumentItem | None = None
+        for line in section.lines:
+            if not line.strip():
+                if current is not None:
+                    items.append(current)
+                    current = None
+                continue
+
+            if _leading_spaces(line) <= 4:
+                if current is not None:
+                    items.append(current)
+                current = _HelpArgumentItem(section=section.title, lines=[line])
+            elif current is not None:
+                current = _HelpArgumentItem(section=current.section, lines=[*current.lines, line])
+
+        if current is not None:
+            items.append(current)
+
+    return items
+
+
+def _paginate_argument_items(
+    items: list[_HelpArgumentItem], page: int, page_size: int
+) -> tuple[list[_HelpArgumentItem], int, int]:
+    """对参数项列表做分页，返回 (当前页项, 实际页码, 总页数)"""
+
+    total_pages = max(1, (len(items) + page_size - 1) // page_size)
+    page = max(1, min(page, total_pages))
+    start = (page - 1) * page_size
+    end = min(start + page_size, len(items))
+    return items[start:end], page, total_pages
+
+
+def _render_help_header(prog: str, enabled: bool) -> list[str]:
+    """渲染顶部帮助标题：复用工作台的圆角边框风格"""
+
+    title = _paint("✦ GenomeLens 帮助", PALETTE.bold + PALETTE.blue, enabled=enabled)
+    cmd = _paint(prog, PALETTE.cyan, enabled=enabled)
+    return ["", *_boxed([title, cmd], enabled=enabled, min_width=76), ""]
+
+
+def _render_help_footer(nav_text: str, enabled: bool) -> list[str]:
+    """渲染底部导航：同样使用圆角边框风格"""
+
+    return ["", *_boxed([nav_text], enabled=enabled, min_width=76), ""]
+
+
+def _indent_help_lines(lines: list[str], prefix: str = "  ") -> list[str]:
+    """给 help 内容统一加缩进，空行保持空行"""
+
+    return [prefix + line if line.strip() else line for line in lines]
+
+
+def _render_section_index(
+    header_lines: list[str],
+    sections: list[_HelpSection],
+    *,
+    prog: str = "",
+    enabled: bool = False,
+) -> str:
+    """当 --section 不带值时，渲染参数类型索引"""
+
+    lines: list[str] = []
+    if prog:
+        lines.extend(_render_help_header(prog, enabled))
+    lines.extend(header_lines)
+
+    lines.append(_paint("参数类型索引", PALETTE.bold + PALETTE.blue, enabled=enabled))
+    sep = _paint("  " + "─" * 78, PALETTE.gray, enabled=enabled)
+    lines.append(sep)
+
+    num_col_w = 6
+    name_col_w = 38
+    count_col_w = 8
+    header_num = _paint("编号", PALETTE.bold, enabled=enabled)
+    header_name = _paint("参数组", PALETTE.bold, enabled=enabled)
+    header_count = _paint("参数数", PALETTE.bold, enabled=enabled)
+    lines.append(
+        "  "
+        + header_num
+        + " " * (num_col_w - _visible_width(header_num))
+        + header_name
+        + " " * (name_col_w - _visible_width(header_name))
+        + header_count
+        + " " * (count_col_w - _visible_width(header_count))
+    )
+    lines.append(sep)
+
+    argument_sections = [
+        s
+        for s in sections
+        if _strip_ansi(s.title) not in {"用法", "位置参数", "可选参数"} and s.title.strip()
+    ]
+
+    for i, section in enumerate(argument_sections, 1):
+        title = _strip_ansi(section.title)
+        # 统计该 section 下的一级参数项数量
+        count = sum(1 for line in section.lines if _leading_spaces(line) <= 4 and line.strip())
+        num = _paint(str(i), PALETTE.cyan, enabled=enabled)
+        name = _paint(title, PALETTE.yellow, enabled=enabled)
+        count_text = _paint(str(count), PALETTE.green, enabled=enabled)
+        lines.append(
+            "  "
+            + num
+            + " " * (num_col_w - _visible_width(num))
+            + name
+            + " " * (name_col_w - _visible_width(name))
+            + count_text
+            + " 项"
+        )
+
+    lines.append(sep)
+    section_hint = _paint("--section <编号或名称>", PALETTE.cyan, enabled=enabled)
+    page_hint = _paint("--page N", PALETTE.cyan, enabled=enabled)
+    nav = (
+        _paint("查看某一组：", PALETTE.gray, enabled=enabled)
+        + section_hint
+        + _paint("  ·  ", PALETTE.gray, enabled=enabled)
+        + _paint("翻页查看全部：", PALETTE.gray, enabled=enabled)
+        + page_hint
+    )
+    lines.extend(_render_help_footer(nav, enabled=enabled))
+
+    return "\n".join(_indent_help_lines(lines))
+
+
+def _render_help_page(
+    header_lines: list[str],
+    sections: list[_HelpSection],
+    page_items: list[_HelpArgumentItem],
+    page: int,
+    total_pages: int,
+    *,
+    prog: str = "",
+    enabled: bool = False,
+) -> str:
+    """渲染某一页的 help 内容，按原始 section 分组，带视觉分隔"""
+
+    lines: list[str] = []
+    if prog:
+        lines.extend(_render_help_header(prog, enabled))
+    lines.extend(header_lines)
+
+    by_section: dict[str, list[_HelpArgumentItem]] = {}
+    for item in page_items:
+        by_section.setdefault(item.section, []).append(item)
+
+    for section_title in by_section:
+        lines.append(_paint(section_title, PALETTE.bold + PALETTE.blue, enabled=enabled))
+        for item in by_section[section_title]:
+            lines.extend(item.lines)
+        lines.append("")
+
+    # 底部导航
+    page_hint = _paint("--page N", PALETTE.cyan, enabled=enabled)
+    section_hint = _paint("--section <类型>", PALETTE.cyan, enabled=enabled)
+    nav = f"页码 {page}/{total_pages}  ·  {page_hint} 翻页  ·  {section_hint} 按组查看"
+    lines.extend(_render_help_footer(nav, enabled=enabled))
+
+    return "\n".join(_indent_help_lines(lines))
+
+
+# 常用 section 英文/拼音别名到中文关键词的映射，方便用户按类型查看帮助
+_HELP_SECTION_ALIASES: dict[str, list[str]] = {
+    "figure": ["图件", "figure"],
+    "mcscan": ["mcscan"],
+    "species": ["物种", "局部共线性"],
+    "toolchain": ["工具链"],
+    "runtime": ["运行时", "输出"],
+}
+
+
+def _resolve_section_by_query(sections: list[_HelpSection], section_query: str) -> list[_HelpSection]:
+    """根据查询字符串匹配 section；支持编号、中文标题、英文别名"""
+
+    query = section_query.lower().strip()
+
+    # 先尝试按编号匹配
+    argument_sections = [
+        s
+        for s in sections
+        if _strip_ansi(s.title) not in {"用法", "位置参数", "可选参数"} and s.title.strip()
+    ]
+    if query.isdigit():
+        idx = int(query) - 1
+        if 0 <= idx < len(argument_sections):
+            return [argument_sections[idx]]
+        return []
+
+    keywords = [q.lower() for q in _HELP_SECTION_ALIASES.get(query, [section_query])]
+
+    def _matches(section: _HelpSection) -> bool:
+        plain_title = _strip_ansi(section.title).lower()
+        for kw in keywords:
+            if kw in plain_title:
+                return True
+        for line in section.lines:
+            plain = _strip_ansi(line).lower()
+            for kw in keywords:
+                if kw in plain:
+                    return True
+        return False
+
+    return [s for s in sections if _matches(s)]
+
+
+def _render_help_section(
+    header_lines: list[str],
+    sections: list[_HelpSection],
+    section_query: str,
+    *,
+    prog: str = "",
+    enabled: bool = False,
+) -> str:
+    """渲染匹配的参数组；支持编号、英文别名与参数名子串匹配"""
+
+    matched = _resolve_section_by_query(sections, section_query)
+    if not matched:
+        available = "、".join(
+            _strip_ansi(s.title) for s in sections if _strip_ansi(s.title) not in {"用法"}
+        )
+        return f"未找到参数组 '{section_query}'。可用参数组：{available}"
+
+    lines: list[str] = []
+    if prog:
+        lines.extend(_render_help_header(prog, enabled))
+    lines.extend(header_lines)
+
+    for section in matched:
+        lines.append(_paint(section.title, PALETTE.bold + PALETTE.blue, enabled=enabled))
+        lines.extend(section.lines)
+        lines.append("")
+
+    section_hint = _paint("--section <类型>", PALETTE.cyan, enabled=enabled)
+    page_hint = _paint("--page N", PALETTE.cyan, enabled=enabled)
+    nav = f"{section_hint} 切换参数组  ·  {page_hint} 在同一组内翻页"
+    lines.extend(_render_help_footer(nav, enabled=enabled))
+
+    return "\n".join(_indent_help_lines(lines))
+
+
+def paginate_help(
+    text: str,
+    *,
+    page: int | None = None,
+    section: str | None = None,
+    page_size: int = 10,
+    color: bool | None = None,
+    prog: str = "",
+) -> str:
+    """对 argparse help 文本应用分页：按页、按参数组或显示参数组索引"""
+
+    enabled = _supports_color() if color is None else color
+    header_lines, sections = _parse_help_sections(text, enabled=enabled)
+
+    if section is not None:
+        if not section.strip():
+            return _render_section_index(header_lines, sections, prog=prog, enabled=enabled)
+        return _render_help_section(header_lines, sections, section, prog=prog, enabled=enabled)
+
+    items = _extract_argument_items(sections)
+    page_items, actual_page, total_pages = _paginate_argument_items(items, page or 1, page_size)
+    return _render_help_page(
+        header_lines,
+        sections,
+        page_items,
+        actual_page,
+        total_pages,
+        prog=prog,
+        enabled=enabled,
+    )
+
+
+def render_submodule_discovery(*, page: int = 1, page_size: int = 10, color: bool | None = None) -> str:
+    """渲染子模块发现列表，按 category 分组并支持分页"""
+
+    enabled = _supports_color() if color is None else color
+    registry = get_submodule_registry()
+    specs = registry.list_all()
+
+    order = ["计算", "渲染", "混合", "其他"]
+    by_category: dict[str, list[SubModuleSpec]] = {}
+    for spec in specs:
+        by_category.setdefault(spec.category, []).append(spec)
+
+    flat_items: list[tuple[str, SubModuleSpec]] = []
+    for category in order:
+        flat_items.extend((category, spec) for spec in by_category.get(category, []))
+
+    total_pages = max(1, (len(flat_items) + page_size - 1) // page_size)
+    page = max(1, min(page, total_pages))
+    start = (page - 1) * page_size
+    page_items = flat_items[start : start + page_size]
+
+    lines: list[str] = [
+        "",
+        _paint("可用子模块 (按 category 分组)", PALETTE.bold + PALETTE.blue, enabled=enabled),
+        _paint("使用 'analyze submodule <module_id> -h' 查看具体运行参数", PALETTE.gray, enabled=enabled),
+        "",
+    ]
+
+    current_category = ""
+    for category, spec in page_items:
+        if category != current_category:
+            lines.append(_paint(category, PALETTE.bold + PALETTE.cyan, enabled=enabled))
+            current_category = category
+
+        id_text = _paint(spec.module_id, PALETTE.cyan, enabled=enabled)
+        name_text = _paint(spec.name[:22], PALETTE.yellow, enabled=enabled)
+        domain_text = _paint(f"[{spec.domain}]", PALETTE.gray, enabled=enabled)
+        kind_text = _paint(spec.module_kind, PALETTE.gray, enabled=enabled)
+        desc_text = _paint(spec.description, PALETTE.gray, enabled=enabled)
+
+        # 所有字段都着色且颜色序列长度固定，f-string 宽度 ≈ 可见宽度
+        lines.append(f"  {id_text:<46} {name_text:<24} {domain_text} {kind_text:<12} {desc_text}")
+
+    lines.extend([
+        "",
+        _paint(f"页码 {page}/{total_pages}  (使用 --page N 翻页)", PALETTE.gray, enabled=enabled),
+        _paint(
+            "提示：使用 'genomelens workflow describe <module_id>' 查看完整 JSON 元数据",
+            PALETTE.gray,
+            enabled=enabled,
+        ),
+        "",
+    ])
+
+    return "\n".join(lines)
+
+
+# endregion
+
+
 # region 帮助文本本地化与着色
 def _localize_help(text: str) -> str:
     """把 argparse 默认英文 help 标题替换为中文"""
@@ -662,24 +1167,21 @@ def _color_help(text: str, *, enabled: bool) -> str:
     # 匹配被折行的说明文字（缩进 ≥20 空格）
     wrapped_description_line = re.compile(r"^(\s{20,})(\S.*)$")
 
-    expects_wrapped_description = False
-
     for line in text.splitlines():
         stripped = line.strip()
 
         # 标题行：用法 / 选项 / 位置参数 / 子命令名
         if stripped in {"用法:", "选项:", "位置参数:"} or stripped.endswith(":"):
             lines.append(_paint(line, PALETTE.bold + PALETTE.blue, enabled=True))
-            expects_wrapped_description = False
             continue
 
-        # 上一行是只有参数名的行，这行应该是被折行的说明
-        wrapped = wrapped_description_line.match(line) if expects_wrapped_description else None
+        # 被折行的说明文字（缩进 ≥20 空格）：大间距下说明可能折到很右侧，
+        # 必须优先识别，避免被 argument_only_line 误当成参数名。
+        wrapped = wrapped_description_line.match(line)
 
         if wrapped:
             prefix, description = wrapped.groups()
             lines.append(prefix + _paint(description, PALETTE.gray, enabled=True))
-            expects_wrapped_description = True
             continue
 
         # 标准参数行：缩进 + 参数 + 间隙 + 说明
@@ -697,7 +1199,6 @@ def _color_help(text: str, *, enabled: bool) -> str:
                 + gap
                 + _paint(description, PALETTE.gray, enabled=True)
             )
-            expects_wrapped_description = False
             continue
 
         # 只有参数名、说明在下一行的参数行
@@ -707,10 +1208,8 @@ def _color_help(text: str, *, enabled: bool) -> str:
             prefix, argument = match.groups()
             argument_color = PALETTE.blue if argument.startswith("{") else PALETTE.cyan
             lines.append(prefix + _paint(argument, argument_color, enabled=True))
-            expects_wrapped_description = True
         else:
             lines.append(line)
-            expects_wrapped_description = False
 
     return "\n".join(lines) + ("\n" if text.endswith("\n") else "")
 
@@ -729,7 +1228,22 @@ def print_parser_help(parser: argparse.ArgumentParser, file: TextIO | None = Non
 class SpaciousHelpFormatter(argparse.HelpFormatter):
     """加大 help 文本与选项名之间的间距，提升长参数名可读性"""
 
-    _max_help_position = 40
+    # argparse 默认 _max_help_position=24；提升到 32 后，短参数名与说明之间
+    # 有足够空白，长参数名也能保持清晰对齐，同时不会拉得过宽。
+    _max_help_position = 32
+
+    def __init__(self, prog: str = "") -> None:
+        # 强制 help 文本从第 32 列开始：argparse 默认会取
+        # min(_action_max_length + 2, _max_help_position)，因此把
+        # _action_max_length 推到足够大，才能让 _max_help_position 生效。
+        # 同时保证总宽度 >= _max_help_position + 80，让说明列仍有充足空间。
+        try:
+            term_width = os.get_terminal_size().columns
+        except OSError:
+            term_width = 160
+        width = max(term_width, self._max_help_position + 80)
+        super().__init__(prog, max_help_position=self._max_help_position, width=width)
+        self._action_max_length = self._max_help_position - 2
 
 
 class StyledArgumentParser(argparse.ArgumentParser):

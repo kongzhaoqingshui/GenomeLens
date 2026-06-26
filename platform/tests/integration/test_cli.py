@@ -100,8 +100,19 @@ def test_cli_help_for_workflow_synteny(capsys) -> None:
 
 
 def test_cli_help_for_submodule(capsys) -> None:
-    """验证 submodule 子命令 help 包含关键参数"""
+    """验证 submodule 父级 help 展示子模块发现列表"""
     assert main(["help", "analyze", "submodule"]) == 0
+    output = capsys.readouterr().out
+
+    assert "可用子模块" in output
+    assert "jcvi.pairwise" in output
+    assert "计算" in output
+    assert "渲染" in output
+
+
+def test_cli_help_for_submodule_module_id(capsys) -> None:
+    """验证 analyze submodule <module_id> -h 仍展示运行参数"""
+    assert main(["help", "analyze", "submodule", "jcvi.pairwise"]) == 0
     output = capsys.readouterr().out
 
     assert "module_id" in output
@@ -109,15 +120,61 @@ def test_cli_help_for_submodule(capsys) -> None:
     assert "--output-dir" in output
 
 
-def test_cli_help_for_command_uses_color_when_enabled(capsys, monkeypatch) -> None:
-    """验证启用颜色后 help 输出包含 ANSI 转义序列"""
-    monkeypatch.setenv("GENOMELENS_FORCE_COLOR", "1")
+def test_cli_help_paginated_by_page(capsys) -> None:
+    """验证 --page 分页只展示部分参数"""
+    assert main(["help", "analyze", "workflow", "synteny", "--page", "1"]) == 0
+    page1 = capsys.readouterr().out
 
-    assert main(["help", "analyze", "workflow"]) == 0
+    assert main(["help", "analyze", "workflow", "synteny", "--page", "2"]) == 0
+    page2 = capsys.readouterr().out
+
+    # 两页都应包含页码提示
+    assert "页码 1/" in page1
+    assert "页码 2/" in page2
+    # 第二页不应与第一页完全相同（只要参数多于 10 个）
+    assert page1 != page2
+
+
+def test_cli_help_section_index(capsys) -> None:
+    """验证 --section 不带值时显示参数类型索引"""
+    assert main(["help", "analyze", "workflow", "synteny", "--section"]) == 0
     output = capsys.readouterr().out
 
-    assert "\033[" in output
-    assert "synteny" in output
+    assert "参数类型索引" in output
+    assert "MCscan 算法参数" in output
+    assert "图件样式与自动优化" in output
+
+
+def test_cli_help_section_by_number(capsys) -> None:
+    """验证 --section 支持用编号选择参数组"""
+    assert main(["help", "analyze", "workflow", "synteny", "--section", "4"]) == 0
+    output = capsys.readouterr().out
+
+    assert "图件样式与自动优化" in output
+    assert "--glyphstyle" in output
+    assert "MCscan 算法参数" not in output
+
+
+def test_cli_help_paginated_by_section(capsys) -> None:
+    """验证 --section 按参数组过滤帮助"""
+    assert main(["help", "analyze", "workflow", "synteny", "--section", "figure"]) == 0
+    output = capsys.readouterr().out
+
+    assert "图件样式与自动优化" in output
+    assert "--glyphstyle" in output
+    # 其它组标题不应出现
+    assert "MCscan 算法参数" not in output
+    assert "工具链与配置" not in output
+    assert "运行时与输出" not in output
+
+
+def test_cli_help_paginated_invalid_section(capsys) -> None:
+    """验证 --section 匹配不到时给出可用参数组列表"""
+    assert main(["help", "analyze", "workflow", "synteny", "--section", "notexist"]) == 0
+    output = capsys.readouterr().out
+
+    assert "未找到参数组" in output
+    assert "图件样式与自动优化" in output
 
 
 def test_cli_help_for_analyze_run(capsys) -> None:

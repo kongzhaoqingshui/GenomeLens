@@ -135,16 +135,18 @@ const { invokeMock, dialogOpenMock, mkdirMock, writeTextFileMock } = vi.hoisted(
       });
     }
     if (command === "run_analysis") {
+      const input = (payload?.input ?? payload) as Record<string, unknown> | undefined;
       return Promise.resolve({
         runId: "run-test",
-        requestPath: payload?.requestPath ?? "request.json",
-        outdir: payload?.outdir ?? "out",
+        requestPath: (input?.requestPath as string) ?? "request.json",
+        outdir: (input?.outdir as string) ?? "out",
         status: "PENDING",
       });
     }
     if (command === "cancel_run") {
+      const input = (payload?.input ?? payload) as Record<string, unknown> | undefined;
       return Promise.resolve({
-        runId: payload?.runId ?? "run-test",
+        runId: (input?.runId as string) ?? "run-test",
         status: "CANCEL_REQUESTED",
       });
     }
@@ -164,7 +166,8 @@ const { invokeMock, dialogOpenMock, mkdirMock, writeTextFileMock } = vi.hoisted(
       });
     }
     if (command === "read_run_snapshot") {
-      const outdir = String(payload?.outdir ?? "/runs/out");
+      const input = (payload?.input ?? payload) as Record<string, unknown> | undefined;
+      const outdir = String(input?.outdir ?? "/runs/out");
       return Promise.resolve({
         outdir,
         summaryPath: `${outdir}/report/run_summary.json`,
@@ -288,7 +291,7 @@ describe("App", () => {
 
     expect(screen.getAllByText("JCVI meow").length).toBeGreaterThan(0);
     expect(screen.getByRole("heading", { name: "JCVI meow" })).toBeInTheDocument();
-    expect(await screen.findByRole("button", { name: "一站式 synteny 共线性" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "打开工作台" })).toBeInTheDocument();
   });
 
   it("switches theme modes", async () => {
@@ -324,19 +327,13 @@ describe("App", () => {
     expect(screen.getAllByRole("button", { name: "运行" }).length).toBeGreaterThan(0);
     expect(screen.getByText("运行事件会显示在这里。")).toBeInTheDocument();
     expect(screen.getByText("Workflow schema")).toBeInTheDocument();
-    const leftResizeHandle = screen.getByTestId("workbench-left-resize-handle");
-    expect(leftResizeHandle).toHaveAttribute("role", "separator");
     expect(screen.getByTestId("workbench-right-resize-handle")).toHaveAttribute("role", "separator");
-    expect(leftResizeHandle).toHaveAttribute("aria-valuenow", "320");
-    fireEvent.keyDown(leftResizeHandle, { key: "ArrowRight" });
-    expect(leftResizeHandle).toHaveAttribute("aria-valuenow", "336");
     expect(screen.queryByText("Run events will appear here.")).not.toBeInTheDocument();
     expect(screen.queryByText("Schema not loaded.")).not.toBeInTheDocument();
   });
 
-  it("clamps restored workbench sidebar widths for narrow windows", async () => {
+  it("clamps restored workbench right sidebar width for narrow windows", async () => {
     Object.defineProperty(window, "innerWidth", { configurable: true, writable: true, value: 900 });
-    window.localStorage.setItem("genomelens.gui.workbench.leftWidth", "480");
     window.localStorage.setItem("genomelens.gui.workbench.rightWidth", "520");
 
     render(<App />);
@@ -344,12 +341,11 @@ describe("App", () => {
     const [primaryAction] = await screen.findAllByRole("button", { name: "打开工作台" });
     fireEvent.click(primaryAction);
 
-    const leftResizeHandle = await screen.findByTestId("workbench-left-resize-handle");
-    const rightResizeHandle = screen.getByTestId("workbench-right-resize-handle");
-    const leftWidth = Number(leftResizeHandle.getAttribute("aria-valuenow"));
+    const rightResizeHandle = await screen.findByTestId("workbench-right-resize-handle");
     const rightWidth = Number(rightResizeHandle.getAttribute("aria-valuenow"));
 
-    expect(leftWidth + rightWidth).toBeLessThanOrEqual(588);
+    expect(rightWidth).toBeLessThanOrEqual(588);
+    expect(rightWidth).toBeGreaterThanOrEqual(280);
   });
 
   it("renders the projects page with workspace controls and project rows", async () => {
@@ -401,7 +397,9 @@ describe("App", () => {
     expect(screen.getAllByRole("button", { name: "运行" }).length).toBeGreaterThan(0);
 
     const runButtons = screen.getAllByRole("button", { name: "运行" });
-    fireEvent.click(runButtons[runButtons.length - 1]!);
+    expect(runButtons.length).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getByTestId("bottom-run-action-button"));
     fireEvent.click(await screen.findByRole("button", { name: "确认运行" }));
 
     await waitFor(() => {
@@ -409,8 +407,10 @@ describe("App", () => {
       const runAnalysisPayload = runAnalysisCall?.[1];
 
       expect(runAnalysisPayload).toMatchObject({
-        requestPath: "/imports/request.json",
-        outdir: "/runs/out",
+        input: {
+          requestPath: "/imports/request.json",
+          outdir: "/runs/out",
+        },
       });
     });
     expect(writeTextFileMock).not.toHaveBeenCalled();
@@ -420,14 +420,14 @@ describe("App", () => {
     fireEvent.click(screen.getByTestId("restore-run-snapshot-button"));
     await waitFor(() => {
       const snapshotCall = invokeMock.mock.calls.find(([command]) => command === "read_run_snapshot");
-      expect(snapshotCall?.[1]).toMatchObject({ outdir: "/runs/out", tailLines: 120 });
+      expect(snapshotCall?.[1]).toMatchObject({ input: { outdir: "/runs/out", tailLines: 120 } });
     });
     expect(screen.getByTestId("bottom-run-action-button")).toHaveTextContent("取消运行");
 
     fireEvent.click(await screen.findByTestId("cancel-run-button"));
     await waitFor(() => {
       const cancelRunCall = invokeMock.mock.calls.find(([command]) => command === "cancel_run");
-      expect(cancelRunCall?.[1]).toMatchObject({ runId: "run-test" });
+      expect(cancelRunCall?.[1]).toMatchObject({ input: { runId: "run-test" } });
     });
   });
 
@@ -448,7 +448,9 @@ describe("App", () => {
     });
 
     const runButtons = screen.getAllByRole("button", { name: "运行" });
-    fireEvent.click(runButtons[runButtons.length - 1]!);
+    expect(runButtons.length).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getByTestId("bottom-run-action-button"));
 
     expect(await screen.findByText("输出目录不能为空")).toBeInTheDocument();
     expect(screen.queryByText("Choose an output directory before running an imported request.")).not.toBeInTheDocument();

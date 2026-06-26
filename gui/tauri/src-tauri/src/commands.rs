@@ -1590,7 +1590,11 @@ fn run_cli_output(tool: CliTool, args: &[&str]) -> Result<CommandOutputResult, S
         let command_text = render_command_text(&candidate.display, args);
         attempt_texts.push(command_text.clone());
 
-        match Command::new(&candidate.program).args(args).output() {
+        match Command::new(&candidate.program)
+            .env("PYTHONIOENCODING", "utf-8")
+            .args(args)
+            .output()
+        {
             Ok(output) => {
                 return Ok(CommandOutputResult {
                     command_text,
@@ -1620,6 +1624,7 @@ fn spawn_cli_process(tool: CliTool, args: &[&str]) -> Result<SpawnedCliProcess, 
 
         let mut command = Command::new(&candidate.program);
         command
+            .env("PYTHONIOENCODING", "utf-8")
             .args(args)
             .stdout(Stdio::null())
             .stderr(Stdio::null());

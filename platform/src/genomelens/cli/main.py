@@ -14,8 +14,10 @@ from genomelens.cli.ui import (
     ConsoleWriter,
     StyledArgumentParser,
     clear_screen,
+    paginate_help,
     prompt_text,
     render_command_error,
+    render_submodule_discovery,
     render_workbench_banner,
 )
 
@@ -56,6 +58,14 @@ def build_parser() -> argparse.ArgumentParser:
     help_parser = subparsers.add_parser("help", help="显示指定命令的参数说明")
     help_parser.add_argument("command_path", nargs="*", metavar="COMMAND", help="命令路径，例如 analyze workflow")
     help_parser.add_argument("-c", "--command", default="", help='命令路径字符串，例如 "analyze workflow"')
+    help_parser.add_argument("--page", type=int, default=None, help="帮助页码（默认 1）")
+    help_parser.add_argument(
+        "--section",
+        nargs="?",
+        const="",
+        default=None,
+        help="按参数组名过滤帮助；不带值时显示参数组索引",
+    )
     help_parser.set_defaults(func=run_help)
 
     # 进入交互式工作台
@@ -90,18 +100,90 @@ def _find_parser(root: argparse.ArgumentParser, command_path: list[str]) -> argp
 
 
 # region 帮助/运行工作台
+HELP_FLAGS = {"-h", "--help"}
+
+
+def _extract_help_page(argv: list[str]) -> tuple[list[str], int | None, str | None]:
+    """从 argv 中提取 --page/--section，返回 (清理后的路径, 页码, 参数组)
+
+    --section 不带值时返回空字符串，用于显示参数类型索引。
+    """
+
+    page: int | None = None
+    section: str | None = None
+    result: list[str] = []
+    i = 0
+    while i < len(argv):
+        arg = argv[i]
+        if arg == "--page":
+            if i + 1 < len(argv):
+                try:
+                    page = int(argv[i + 1])
+                except ValueError:
+                    result.extend([arg, argv[i + 1]])
+                i += 2
+                continue
+        elif arg.startswith("--page="):
+            try:
+                page = int(arg.split("=", 1)[1])
+            except ValueError:
+                result.append(arg)
+        elif arg == "--section":
+            # 不带值表示请求索引；带值则消费下一项
+            if i + 1 < len(argv) and not argv[i + 1].startswith("-"):
+                section = argv[i + 1]
+                i += 2
+            else:
+                section = ""
+                i += 1
+            continue
+        elif arg.startswith("--section="):
+            section = arg.split("=", 1)[1]
+        elif arg in HELP_FLAGS:
+            i += 1
+            continue
+        else:
+            result.append(arg)
+        i += 1
+
+    return result, page, section
+
+
+def _handle_help(root: argparse.ArgumentParser, argv: list[str]) -> int:
+    """统一处理 -h/--help 与 help 命令，支持分页与子模块发现"""
+
+    clean_argv, page, section = _extract_help_page(argv)
+
+    # analyze submodule -h（无 module_id）应展示子模块发现列表
+    if clean_argv == ["analyze", "submodule"]:
+        _CONSOLE.print_text(render_submodule_discovery(page=page or 1), file=sys.stdout)
+        return 0
+
+    parser = _find_parser(root, clean_argv) if clean_argv else root
+    if parser is None and clean_argv[:2] == ["analyze", "submodule"]:
+        # analyze submodule <module_id> -h 应展示该子命令的运行参数帮助
+        parser = _find_parser(root, ["analyze", "submodule"])
+    if parser is None:
+        _CONSOLE.print_error(f"未知命令：{' '.join(clean_argv)}")
+        return 2
+
+    text = parser.format_help()
+    output = paginate_help(text, page=page, section=section, prog=parser.prog)
+    _CONSOLE.print_text(output, file=sys.stdout)
+    return 0
+
+
 def run_help(args: argparse.Namespace) -> int:
     """显示指定命令的帮助文本"""
 
     root = build_parser()
-
     command_path = shlex.split(args.command) if args.command else list(args.command_path)
-    parser = _find_parser(root, command_path) if command_path else root
-    if parser is None:
-        _CONSOLE.print_error(f"未知命令：{' '.join(command_path)}")
-        return 2
-    parser.print_help()
-    return 0
+    argv = [*command_path, "--help"]
+    if getattr(args, "page", None) is not None:
+        argv.extend(["--page", str(args.page)])
+    if getattr(args, "section", None) is not None:
+        argv.extend(["--section", str(args.section)])
+    return _handle_help(root, argv)
 
 
 def run_workbench(_args: argparse.Namespace | None = None) -> int:
@@ -144,6 +226,11 @@ def main(argv: list[str] | None = None) -> int:
         return run_workbench()
 
     parser = build_parser()
+
+    # 帮助请求统一走分页壳，避免 argparse 默认 help action 直接退出
+    if any(flag in argv for flag in HELP_FLAGS):
+        return _handle_help(parser, argv)
+
     try:
         args = parser.parse_args(argv)
     except SystemExit as exc:
