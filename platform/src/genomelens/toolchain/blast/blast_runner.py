@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from genomelens.toolchain.runtime.path_utils import short_path
 from genomelens.toolchain.runtime.subprocess_runner import CommandResult, run_command
 
 # endregion
@@ -23,13 +24,13 @@ def run_blastn(
     # 统一通过 subprocess_runner 返回结构化结果，调用方不用直接摸 subprocess
     return run_command(
         [
-            blastn,
+            short_path(blastn),
             "-query",
-            query,
+            short_path(query),
             "-db",
-            db,
+            short_path(db),
             "-out",
-            out,
+            short_path(out),
             "-outfmt",
             "6",
             "-num_threads",

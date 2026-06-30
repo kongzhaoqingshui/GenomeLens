@@ -3,7 +3,9 @@
 # region import
 from __future__ import annotations
 
+import os
 import shutil
+import tempfile
 from pathlib import Path
 
 from jcvi.compara.synteny import mcscan as jcvi_mcscan
@@ -12,6 +14,7 @@ from jcvi.compara.synteny import simple as jcvi_simple
 from jcvi.formats.bed import merge as jcvi_bed_merge
 from jcvi_genomelens.manifest.models import EngineRunManifest
 from jcvi_genomelens.runtime.command_runner import CommandAudit, run_command, run_python_step
+from jcvi_genomelens.runtime.path_utils import short_path
 from jcvi_genomelens.workflows.common import _assert_ok
 from jcvi_genomelens.workflows.pairwise import catalog_ortholog
 
@@ -62,67 +65,116 @@ def _ensure_nonempty(path: Path, label: str) -> None:
         raise RuntimeError(f"{label} output is empty: {path}")
 
 
-def _run_makeblastdb(
+def _run_blast_pair(
     manifest: EngineRunManifest,
     root: Path,
-    db_prefix: Path,
-) -> CommandAudit:
-    """为 subject CDS 建立 BLAST nucleotide 数据库"""
-
-    if manifest.query is None or manifest.subject is None:
-        raise ValueError("makeblastdb step requires query and subject species")
-
-    # BLAST 路径在 manifest 阶段允许为空，这里到真正执行时再转成硬错误
-    makeblastdb = _required_tool(manifest.toolchain.makeblastdb, "makeblastdb")
-    cmd = run_command(
-        [
-            makeblastdb,
-            "-in",
-            str(manifest.subject.cds),
-            "-dbtype",
-            "nucl",
-            "-out",
-            str(db_prefix),
-        ],
-        cwd=root,
-    )
-    _assert_ok(cmd)
-    return cmd
-
-
-def _run_blastn(
-    manifest: EngineRunManifest,
-    root: Path,
-    db_prefix: Path,
     blast_table: Path,
-) -> CommandAudit:
-    """用 blastn 比对 query CDS 到 subject 数据库"""
+) -> tuple[CommandAudit, CommandAudit]:
+    """运行 makeblastdb + blastn。
+
+    Windows 上 BLAST+ 仍使用 ANSI argv，中文/特殊字符路径会被破坏。因此
+    在 Windows 下把输入 FASTA 拷到系统临时目录（路径通常为 ASCII），数据库和
+    中间表也在该目录生成，最后把 blast 表移回目标位置；非 Windows 系统直接
+    在目标目录运行，避免不必要的拷贝。
+    """
 
     if manifest.query is None or manifest.subject is None:
-        raise ValueError("blastn step requires query and subject species")
+        raise ValueError("blast step requires query and subject species")
 
-    blastn = _required_tool(manifest.toolchain.blastn, "blastn")
+    makeblastdb = short_path(_required_tool(manifest.toolchain.makeblastdb, "makeblastdb"))
+    blastn = short_path(_required_tool(manifest.toolchain.blastn, "blastn"))
     threads = max(1, manifest.options.threads)
-    cmd = run_command(
-        [
-            blastn,
-            "-query",
-            str(manifest.query.cds),
-            "-db",
-            str(db_prefix),
-            "-out",
-            str(blast_table),
-            "-outfmt",
-            "6",
-            "-num_threads",
-            str(threads),
-        ],
-        cwd=root,
-        timeout=3600,
-    )
-    _assert_ok(cmd)
-    _ensure_nonempty(blast_table, "BLAST")
-    return cmd
+
+    if os.name != "nt":
+        db_prefix = root / "blast_db"
+        makeblastdb_cmd = run_command(
+            [
+                makeblastdb,
+                "-in",
+                str(manifest.subject.cds),
+                "-dbtype",
+                "nucl",
+                "-out",
+                str(db_prefix),
+            ],
+            cwd=str(root),
+        )
+        _assert_ok(makeblastdb_cmd)
+
+        blastn_cmd = run_command(
+            [
+                blastn,
+                "-query",
+                str(manifest.query.cds),
+                "-db",
+                str(db_prefix),
+                "-out",
+                str(blast_table),
+                "-outfmt",
+                "6",
+                "-num_threads",
+                str(threads),
+            ],
+            cwd=str(root),
+            timeout=3600,
+        )
+        _assert_ok(blastn_cmd)
+        _ensure_nonempty(blast_table, "BLAST")
+        for suffix in (".nhr", ".nin", ".nsq"):
+            scratch = db_prefix.with_suffix(suffix)
+            if scratch.is_file():
+                scratch.unlink()
+        if db_prefix.is_file():
+            db_prefix.unlink()
+        return makeblastdb_cmd, blastn_cmd
+
+    with tempfile.TemporaryDirectory(prefix="glblast_") as tmp:
+        tmpdir = Path(tmp)
+        subject_cds = tmpdir / "subject.cds"
+        query_cds = tmpdir / "query.cds"
+        db_prefix = tmpdir / "db"
+        blast_out = tmpdir / "blast.tsv"
+
+        shutil.copy2(manifest.subject.cds, subject_cds)
+        shutil.copy2(manifest.query.cds, query_cds)
+
+        makeblastdb_cmd = run_command(
+            [
+                makeblastdb,
+                "-in",
+                str(subject_cds),
+                "-dbtype",
+                "nucl",
+                "-out",
+                str(db_prefix),
+            ],
+            cwd=str(tmpdir),
+        )
+        _assert_ok(makeblastdb_cmd)
+
+        blastn_cmd = run_command(
+            [
+                blastn,
+                "-query",
+                str(query_cds),
+                "-db",
+                str(db_prefix),
+                "-out",
+                str(blast_out),
+                "-outfmt",
+                "6",
+                "-num_threads",
+                str(threads),
+            ],
+            cwd=str(tmpdir),
+            timeout=3600,
+        )
+        _assert_ok(blastn_cmd)
+        _ensure_nonempty(blast_out, "BLAST")
+
+        blast_table.parent.mkdir(parents=True, exist_ok=True)
+        shutil.move(str(blast_out), str(blast_table))
+        return makeblastdb_cmd, blastn_cmd
 
 
 def _run_scan(
@@ -236,26 +288,17 @@ def _run_with_blast(manifest: EngineRunManifest, root: Path) -> tuple[list[Comma
     if manifest.query is None or manifest.subject is None:
         raise ValueError("blast pairwise workflow requires query and subject species")
 
-    prefix = f"{manifest.query.name}.{manifest.subject.name}"
-    db_prefix = root / f"{manifest.subject.name}.blastdb"
-    blast_table = root / f"{prefix}.blast.tsv"
-    anchors = root / f"{prefix}.anchors"
-    generated_simple = root / f"{prefix}.simple"
-    simple = root / f"{prefix}.anchors.simple"
-    blocks = root / f"{prefix}.blocks"
+    blast_table = root / "blast.tsv"
+    anchors = root / "anchors"
+    generated_simple = root / "anchors.simple"
+    simple = root / "anchors.simple"
+    blocks = root / "blocks"
     merged_bed = root / "all.bed"
 
     # BLAST 路径走原生命令，scan/simple/mcscan 走进程内 JCVI 函数，最后统一归档
     commands: list[CommandAudit] = []
-    commands.append(_run_makeblastdb(manifest, root, db_prefix))
-    commands.append(_run_blastn(manifest, root, db_prefix, blast_table))
-    # BLAST db 文件是临时产物，归档前清理以减少输出 clutter
-    for suffix in (".nhr", ".nin", ".nsq"):
-        scratch = db_prefix.with_suffix(suffix)
-        if scratch.is_file():
-            scratch.unlink()
-    if db_prefix.is_file():
-        db_prefix.unlink()
+    makeblastdb_cmd, blastn_cmd = _run_blast_pair(manifest, root, blast_table)
+    commands.extend([makeblastdb_cmd, blastn_cmd])
     commands.append(_run_scan(manifest, root, blast_table, anchors))
     commands.append(_run_simple(manifest, root, anchors, generated_simple, simple))
     commands.append(_run_mcscan(manifest, root, anchors, blocks))

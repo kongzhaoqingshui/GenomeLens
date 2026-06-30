@@ -90,6 +90,16 @@ def _run_pairwise_artifacts(tmp_path: Path, *, subdir: str = "pairwise") -> dict
     return summary["artifacts"]
 
 
+def test_engine_run_pairwise_chinese_path(tmp_path: Path) -> None:
+    """pairwise 计算工作流应能在含中文/特殊字符的输出目录下正常跑通 BLAST+ 链路。"""
+
+    artifacts = _run_pairwise_artifacts(tmp_path, subdir="插件测试")
+    assert Path(str(artifacts["blast_table"])).is_file()
+    assert Path(str(artifacts["anchors"])).is_file()
+    assert Path(str(artifacts["simple"])).is_file()
+    assert Path(str(artifacts["blocks"])).is_file()
+
+
 def _render_manifest(
     workflow: str,
     pairwise_artifacts: dict[str, object],

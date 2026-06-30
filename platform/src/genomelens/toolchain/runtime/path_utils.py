@@ -9,15 +9,6 @@ from pathlib import Path
 # endregion
 
 
-def ensure_dir(path: str | Path) -> Path:
-    """创建并返回目录路径"""
-
-    target = Path(path).expanduser().resolve(strict=False)
-    # engine workflow 常把 outdir/path 当作“存在即可”的契约，这里集中兜底
-    target.mkdir(parents=True, exist_ok=True)
-    return target
-
-
 def _windows_short_path(path: str) -> str | None:
     """调用 Windows GetShortPathNameW 获取 8.3 短路径；失败返回 None"""
 
@@ -57,7 +48,6 @@ def short_path(path: str | Path) -> str:
     if short:
         return short
 
-    # 目标尚未存在（如输出前缀）：向上找到最近存在的祖先，用其短路径拼接剩余部分。
     existing = target
     tail: list[str] = []
     while not existing.exists() and existing.parent != existing:
