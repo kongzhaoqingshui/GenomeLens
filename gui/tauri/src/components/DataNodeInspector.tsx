@@ -12,7 +12,6 @@ export interface DataNodeInspectorProps {
   isZh: boolean;
   onChange: (node: DataNode) => void;
   onPickFile: (setter: (path: string) => void) => void;
-  onPickDirectory?: (setter: (path: string) => void) => void;
 }
 
 function getSpeciesPairValue(value: unknown): { reference: SpeciesInputDraft; target: SpeciesInputDraft } {
@@ -247,7 +246,6 @@ export function DataNodeInspector({
   isZh,
   onChange,
   onPickFile,
-  onPickDirectory,
 }: DataNodeInspectorProps) {
   function patchLabel(label: string) {
     onChange({ ...node, label });

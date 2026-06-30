@@ -1,9 +1,6 @@
 import { useCallback, useMemo } from "react";
-import { Sliders, Play, LayoutList } from "lucide-react";
 import { CollapsibleSection } from "./CollapsibleSection";
-import { SectionHeader } from "./ui";
 import { PathField } from "./PathField";
-import type { CapabilityEntry } from "../models/capability";
 import type { WorkflowRequestDraft, SpeciesInputDraft, WorkflowRequestInputMode } from "../models/workflow-request-draft";
 
 const FIELD_CLASS =

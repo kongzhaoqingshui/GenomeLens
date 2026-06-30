@@ -1,4 +1,4 @@
-import { useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { useRef, type PointerEvent as ReactPointerEvent } from "react";
 import type { DataNode as DataNodeModel } from "../../models/workbench-graph";
 
 interface DataNodeProps {
@@ -6,7 +6,6 @@ interface DataNodeProps {
   active: boolean;
   onSelect: (nodeId: string) => void;
   onMove: (nodeId: string, x: number, y: number) => void;
-  onPortPointerUp: (nodeId: string, portId: string) => void;
 }
 
 function dataKindBadge(kind: DataNodeModel["dataKind"]): string {
@@ -44,8 +43,7 @@ function truncatePreview(value: unknown): string {
 
 const NODE_WIDTH = 176;
 
-export function DataNode({ node, active, onSelect, onMove, onPortPointerUp }: DataNodeProps) {
-  const [dragging, setDragging] = useState(false);
+export function DataNode({ node, active, onSelect, onMove }: DataNodeProps) {
   const dragRef = useRef<{ startX: number; startY: number; initialX: number; initialY: number } | null>(null);
 
   function handlePointerDown(event: ReactPointerEvent<HTMLDivElement>) {
@@ -59,7 +57,6 @@ export function DataNode({ node, active, onSelect, onMove, onPortPointerUp }: Da
       initialX: node.x,
       initialY: node.y,
     };
-    setDragging(true);
 
     const handleMove = (ev: PointerEvent) => {
       if (!dragRef.current) return;
@@ -69,7 +66,6 @@ export function DataNode({ node, active, onSelect, onMove, onPortPointerUp }: Da
     };
 
     const handleUp = () => {
-      setDragging(false);
       dragRef.current = null;
       window.removeEventListener("pointermove", handleMove);
       window.removeEventListener("pointerup", handleUp);

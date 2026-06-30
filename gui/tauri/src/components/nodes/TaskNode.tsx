@@ -1,4 +1,4 @@
-import { useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { useRef, type PointerEvent as ReactPointerEvent } from "react";
 import { X } from "lucide-react";
 import { GameIcon, type GameIconName } from "../GameIcon";
 import type { PortDeclaration, TaskNode as TaskNodeModel } from "../../models/workbench-graph";
@@ -45,25 +45,6 @@ function statusTone(status: NodeRunStatus): string {
       return "bg-amber-500";
     default:
       return "bg-text-tertiary";
-  }
-}
-
-function portTone(status: NodeRunStatus): string {
-  switch (status) {
-    case "finished":
-      return "fill-emerald-500 stroke-emerald-200 dark:stroke-emerald-900";
-    case "error":
-      return "fill-rose-500 stroke-rose-200 dark:stroke-rose-900";
-    case "running":
-    case "starting":
-      return "fill-sky-500 stroke-sky-200 dark:stroke-sky-900";
-    case "cancelling":
-    case "cancelled":
-      return "fill-slate-400 stroke-slate-200 dark:stroke-slate-700";
-    case "confirming":
-      return "fill-amber-500 stroke-amber-200 dark:stroke-amber-900";
-    default:
-      return "fill-text-tertiary stroke-border";
   }
 }
 
@@ -124,7 +105,6 @@ export function TaskNode({
   onPortPointerUp,
   canClose = true,
 }: TaskNodeProps) {
-  const [dragging, setDragging] = useState(false);
   const dragRef = useRef<{ startX: number; startY: number; initialX: number; initialY: number } | null>(null);
 
   function handlePointerDown(event: ReactPointerEvent<HTMLDivElement>) {
@@ -138,7 +118,6 @@ export function TaskNode({
       initialX: node.x,
       initialY: node.y,
     };
-    setDragging(true);
 
     const handleMove = (ev: PointerEvent) => {
       if (!dragRef.current) return;
@@ -148,7 +127,6 @@ export function TaskNode({
     };
 
     const handleUp = () => {
-      setDragging(false);
       dragRef.current = null;
       window.removeEventListener("pointermove", handleMove);
       window.removeEventListener("pointerup", handleUp);

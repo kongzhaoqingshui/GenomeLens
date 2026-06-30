@@ -11,7 +11,7 @@ import {
 import type { GameIconName } from "./GameIcon";
 import { TaskNode } from "./nodes/TaskNode";
 import { DataNode } from "./nodes/DataNode";
-import type { GraphEdge, WorkbenchGraph } from "../models/workbench-graph";
+import type { WorkbenchGraph } from "../models/workbench-graph";
 
 type RunPanelStatus = "idle" | "confirming" | "starting" | "running" | "cancelling" | "cancelled" | "finished" | "error";
 
@@ -73,17 +73,6 @@ export function NodeCanvas({
     for (const t of tasks) map.set(t.id, t);
     return map;
   }, [tasks]);
-
-  const registerPortRef = (nodeId: string, portId: string) => (el: HTMLSpanElement | null) => {
-    if (!el) return;
-    const list = portRefs.current;
-    const idx = list.findIndex((r) => r.nodeId === nodeId && r.portId === portId);
-    if (idx >= 0) {
-      list[idx].element = el;
-    } else {
-      list.push({ element: el, nodeId, portId });
-    }
-  };
 
   const recalculateEdges = useMemo(
     () => () => {
@@ -240,7 +229,6 @@ export function NodeCanvas({
             active={activeNodeId === node.nodeId}
             onSelect={onSelectNode}
             onMove={onMoveNode}
-            onPortPointerUp={onPortPointerUp}
           />
         );
       })}
