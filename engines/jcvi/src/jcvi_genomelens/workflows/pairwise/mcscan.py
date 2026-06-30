@@ -14,7 +14,6 @@ from jcvi.compara.synteny import simple as jcvi_simple
 from jcvi.formats.bed import merge as jcvi_bed_merge
 from jcvi_genomelens.manifest.models import EngineRunManifest
 from jcvi_genomelens.runtime.command_runner import CommandAudit, run_command, run_python_step
-from jcvi_genomelens.runtime.path_utils import short_path
 from jcvi_genomelens.workflows.common import _assert_ok
 from jcvi_genomelens.workflows.pairwise import catalog_ortholog
 
@@ -81,8 +80,8 @@ def _run_blast_pair(
     if manifest.query is None or manifest.subject is None:
         raise ValueError("blast step requires query and subject species")
 
-    makeblastdb = short_path(_required_tool(manifest.toolchain.makeblastdb, "makeblastdb"))
-    blastn = short_path(_required_tool(manifest.toolchain.blastn, "blastn"))
+    makeblastdb = _required_tool(manifest.toolchain.makeblastdb, "makeblastdb")
+    blastn = _required_tool(manifest.toolchain.blastn, "blastn")
     threads = max(1, manifest.options.threads)
 
     if os.name != "nt":
