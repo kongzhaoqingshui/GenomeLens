@@ -19,25 +19,22 @@ def ensure_dir(path: str | Path) -> Path:
 
 
 def _windows_short_path(path: str) -> str | None:
-    """调用 Windows GetShortPathNameW 获取 8.3 短路径；失败返回 None"""
+    """通过 cmd 的 %~sI 获取 8.3 短路径；失败返回 None"""
 
-    import ctypes
+    import subprocess
 
-    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
-    GetShortPathNameW = kernel32.GetShortPathNameW
-    GetShortPathNameW.argtypes = [ctypes.c_wchar_p, ctypes.c_wchar_p, ctypes.c_uint32]
-    GetShortPathNameW.restype = ctypes.c_uint32
-
-    buf = ctypes.create_unicode_buffer(512)
-    size = GetShortPathNameW(path, buf, len(buf))
-    if size == 0:
+    result = subprocess.run(
+        ["cmd", "/c", "for", "%I", "in", f'("{path}")', "do", "@echo", "%~sI"],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        shell=False,
+    )
+    if result.returncode != 0:
         return None
-    if size > len(buf):
-        buf = ctypes.create_unicode_buffer(size)
-        size = GetShortPathNameW(path, buf, size)
-        if size == 0:
-            return None
-    return buf.value
+    lines = [line.strip() for line in result.stdout.splitlines() if line.strip()]
+    return lines[0] if lines else None
 
 
 def short_path(path: str | Path) -> str:
