@@ -11,11 +11,15 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.8.0
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: pnpm
-          cache-dependency-path: gui/tauri/pnpm-lock.yaml
+      - name: Enable corepack
+        run: corepack enable
       - uses: dtolnay/rust-toolchain@stable
       - run: python -m pip install -e "platform[dev]" -e "engines/jcvi[dev]" pytest
       - run: python -m genomelens.cli.main --help
