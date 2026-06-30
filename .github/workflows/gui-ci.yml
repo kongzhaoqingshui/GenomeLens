@@ -29,11 +29,25 @@ jobs:
           version: 11.8.0
 
       - uses: actions/setup-node@v4
-        # 触发一次新运行以验证 setup-node 是否为偶发失败
         with:
           node-version: '20'
-          cache: pnpm
-          cache-dependency-path: gui/tauri/pnpm-lock.yaml
+          # setup-node 内置的 pnpm 缓存与 pnpm/action-setup 在 Windows 上偶发冲突，
+          # 改为手动缓存 pnpm store。
+
+      - name: Enable corepack
+        run: corepack enable
+
+      - name: Get pnpm store directory
+        shell: bash
+        run: echo "STORE_PATH=$(pnpm store path --silent)" >> "$GITHUB_ENV"
+
+      - uses: actions/cache@v4
+        name: Setup pnpm cache
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('gui/tauri/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
 
       - uses: dtolnay/rust-toolchain@stable
 
