@@ -100,10 +100,34 @@ jobs:
           '@ | python -
 
       - name: Run shell tests
-        run: python -m pytest platform/tests
+        shell: bash
+        run: python -m pytest platform/tests --tb=short -v > pytest-platform.log 2>&1
+
+      - name: Upload shell test logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-platform-log
+          path: pytest-platform.log
 
       - name: Run engine tests
-        run: python -m pytest engines/jcvi/tests
+        shell: bash
+        run: python -m pytest engines/jcvi/tests --tb=short -v > pytest-engine.log 2>&1
+
+      - name: Upload engine test logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-engine-log
+          path: pytest-engine.log
 
       - name: Run HAIant plugin tests
-        run: python -m pytest integrations/haiant_plugin/tests
+        shell: bash
+        run: python -m pytest integrations/haiant_plugin/tests --tb=short -v > pytest-plugin.log 2>&1
+
+      - name: Upload plugin test logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-plugin-log
+          path: pytest-plugin.log
