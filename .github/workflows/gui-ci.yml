@@ -29,6 +29,7 @@ jobs:
           version: 11.8.0
 
       - uses: actions/setup-node@v4
+        # 触发一次新运行以验证 setup-node 是否为偶发失败
         with:
           node-version: '20'
           cache: pnpm
