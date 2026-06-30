@@ -889,9 +889,7 @@ def _render_section_index(
     lines.append(sep)
 
     argument_sections = [
-        s
-        for s in sections
-        if _strip_ansi(s.title) not in {"用法", "位置参数", "可选参数"} and s.title.strip()
+        s for s in sections if _strip_ansi(s.title) not in {"用法", "位置参数", "可选参数"} and s.title.strip()
     ]
 
     for i, section in enumerate(argument_sections, 1):
@@ -979,9 +977,7 @@ def _resolve_section_by_query(sections: list[_HelpSection], section_query: str) 
 
     # 先尝试按编号匹配
     argument_sections = [
-        s
-        for s in sections
-        if _strip_ansi(s.title) not in {"用法", "位置参数", "可选参数"} and s.title.strip()
+        s for s in sections if _strip_ansi(s.title) not in {"用法", "位置参数", "可选参数"} and s.title.strip()
     ]
     if query.isdigit():
         idx = int(query) - 1
@@ -1018,9 +1014,7 @@ def _render_help_section(
 
     matched = _resolve_section_by_query(sections, section_query)
     if not matched:
-        available = "、".join(
-            _strip_ansi(s.title) for s in sections if _strip_ansi(s.title) not in {"用法"}
-        )
+        available = "、".join(_strip_ansi(s.title) for s in sections if _strip_ansi(s.title) not in {"用法"})
         return f"未找到参数组 '{section_query}'。可用参数组：{available}"
 
     lines: list[str] = []
@@ -1116,16 +1110,18 @@ def render_submodule_discovery(*, page: int = 1, page_size: int = 10, color: boo
         # 所有字段都着色且颜色序列长度固定，f-string 宽度 ≈ 可见宽度
         lines.append(f"  {id_text:<46} {name_text:<24} {domain_text} {kind_text:<12} {desc_text}")
 
-    lines.extend([
-        "",
-        _paint(f"页码 {page}/{total_pages}  (使用 --page N 翻页)", PALETTE.gray, enabled=enabled),
-        _paint(
-            "提示：使用 'genomelens workflow describe <module_id>' 查看完整 JSON 元数据",
-            PALETTE.gray,
-            enabled=enabled,
-        ),
-        "",
-    ])
+    lines.extend(
+        [
+            "",
+            _paint(f"页码 {page}/{total_pages}  (使用 --page N 翻页)", PALETTE.gray, enabled=enabled),
+            _paint(
+                "提示：使用 'genomelens workflow describe <module_id>' 查看完整 JSON 元数据",
+                PALETTE.gray,
+                enabled=enabled,
+            ),
+            "",
+        ]
+    )
 
     return "\n".join(lines)
 

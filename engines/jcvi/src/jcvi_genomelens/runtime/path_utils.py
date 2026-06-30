@@ -22,12 +22,11 @@ def _windows_short_path(path: str) -> str | None:
     """调用 Windows GetShortPathNameW 获取 8.3 短路径；失败返回 None"""
 
     import ctypes
-    from ctypes import wintypes
 
     kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
     GetShortPathNameW = kernel32.GetShortPathNameW
-    GetShortPathNameW.argtypes = [wintypes.LPCWSTR, wintypes.LPWSTR, wintypes.DWORD]
-    GetShortPathNameW.restype = wintypes.DWORD
+    GetShortPathNameW.argtypes = [ctypes.c_wchar_p, ctypes.c_wchar_p, ctypes.c_uint32]
+    GetShortPathNameW.restype = ctypes.c_uint32
 
     buf = ctypes.create_unicode_buffer(512)
     size = GetShortPathNameW(path, buf, len(buf))
